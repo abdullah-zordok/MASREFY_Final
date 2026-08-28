@@ -21,7 +21,7 @@ Every task MUST use:
 
 ## Phase 1: Baseline And Contract Review
 
-[Small review and setup tasks that confirm branch, ownership, current repository state, and required commands.]
+[Small review and setup tasks that confirm synchronized `main`, ownership, current repository state, and required commands.]
 
 ---
 
@@ -74,7 +74,7 @@ Every task MUST use:
 Do not mark a task complete or claim a verification result unless the named
 command/procedure was executed successfully and its evidence was retained.
 
-After all local pre-PR gates pass, include separate ordered tasks to commit and
-push the dedicated branch, open a Draft PR with pending remote gates listed,
-collect CI/image/SBOM/signature/provenance evidence, complete the Definition of
-Done, and only then mark the PR ready for review. Never auto-merge.
+After all local pre-push gates pass, include separate ordered tasks to commit and
+push directly to `main`, collect CI/image/SBOM/signature/provenance evidence,
+fix failures forward on `main`, and complete the Definition of Done only after
+all local and remote gates pass.

@@ -9,7 +9,12 @@ export function scopeViolations(paths: string[], source: string): string[] {
   const forbiddenTechnology = /\b(redis|bullmq|prisma)\b/i.test(source)
     ? ['forbidden-technology']
     : [];
-  return [...clientChanges, ...edgeFunctions, ...forbiddenTechnology];
+  const forbiddenIdentityOwnership = /\b(?:auth\.users|supabase auth users|create table\s+(?:public\.)?(?:sessions?|idempotency\w*|audit\w*|roles?|permissions?))\b/i.test(
+    source,
+  )
+    ? ['forbidden-identity-ownership']
+    : [];
+  return [...clientChanges, ...edgeFunctions, ...forbiddenTechnology, ...forbiddenIdentityOwnership];
 }
 
 describe('SPEC-BE-001 scope boundary', () => {
@@ -43,5 +48,18 @@ describe('SPEC-BE-001 scope boundary', () => {
       'forbidden-technology',
     ]);
     expect(scopeViolations(['.agents/plugins/example/plugin.json'], '')).toEqual([]);
+  });
+
+  it('rejects session, Supabase Auth, idempotency, audit, and authorization ownership', () => {
+    for (const source of [
+      'create table public.sessions (id uuid)',
+      'create table idempotency_keys (id uuid)',
+      'create table audit_events (id uuid)',
+      'create table roles (id uuid)',
+      'select * from auth.users',
+      'Supabase Auth users',
+    ]) {
+      expect(scopeViolations([], source)).toContain('forbidden-identity-ownership');
+    }
   });
 });

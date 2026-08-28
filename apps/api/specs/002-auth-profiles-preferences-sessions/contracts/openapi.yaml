@@ -1,0 +1,892 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Identity API
+  version: 1.0.0
+  description: >-
+    Approved SPEC-BE-002 contract fragment. It composes with the SPEC-BE-001
+    platform contract; Mobile/Admin production adapter cutover is SPEC-BE-014.
+servers:
+  - url: '/'
+    description: Deployment-relative API root
+tags:
+  - name: Identity
+  - name: Devices
+  - name: Clerk Webhooks
+paths:
+  /api/v1/me:
+    get:
+      operationId: getMyProfile
+      tags: [Identity]
+      summary: Return the active caller's masked profile
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Active owner profile.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      operationId: updateMyProfile
+      tags: [Identity]
+      summary: Update allowlisted owner profile fields
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Updated owner profile.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '409':
+          $ref: '#/components/responses/VersionConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/me/preferences:
+    get:
+      operationId: getMyPreferences
+      tags: [Identity]
+      summary: Return the active caller's preferences
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Complete preferences resource.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: replaceMyPreferences
+      tags: [Identity]
+      summary: Atomically replace the complete preferences resource
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferencesReplace'
+      responses:
+        '200':
+          description: Complete updated preferences resource.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '409':
+          $ref: '#/components/responses/VersionConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/me/onboarding:
+    get:
+      operationId: getMyOnboardingProgress
+      tags: [Identity]
+      summary: Return minimal cross-device onboarding progress
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Minimal onboarding projection.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingProgress'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: replaceMyOnboardingProgress
+      tags: [Identity]
+      summary: Replace minimal cross-device onboarding progress
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingReplace'
+      responses:
+        '200':
+          description: Updated onboarding projection.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingProgress'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '409':
+          $ref: '#/components/responses/VersionConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/me/devices:
+    get:
+      operationId: listMyDevices
+      tags: [Devices]
+      summary: List safe owner device projections
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor for `(lastSeenAt,id)`; clients must not parse it.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+            pattern: '^[A-Za-z0-9_-]+$'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Deterministically ordered bounded device page.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/me/devices/register:
+    post:
+      operationId: registerMyDevice
+      tags: [Devices]
+      summary: Create or refresh the current device registration
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistration'
+      responses:
+        '200':
+          description: Existing owner/fingerprint registration refreshed.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceRegistrationResult'
+        '201':
+          description: New device registration created.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceRegistrationResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ProfileInactive'
+        '409':
+          description: Push token belongs to a different owner or revoked session is reused.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/me/devices/{deviceId}:
+    delete:
+      operationId: revokeMyDevice
+      tags: [Devices]
+      summary: Revoke an owner device and its push capability
+      description: >-
+        Repeating an already-completed identical revoke returns 204. Revoking the
+        current device requires recent Clerk verification. Durable generic
+        request/response replay remains SPEC-BE-006.
+      security:
+        - ClerkBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Device is locally revoked; response has no body.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Profile is inactive or current-device verification is not recent.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeError'
+        '404':
+          description: No caller-owned device has this ID.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /webhooks/clerk:
+    post:
+      operationId: receiveClerkWebhook
+      tags: [Clerk Webhooks]
+      summary: Verify and durably receive a Clerk user webhook
+      description: >-
+        Public provider ingress. The exact raw bytes are verified before JSON is
+        trusted. An identical signed duplicate returns the same 202 and creates
+        no second effect. A valid unsupported event returns 204 without storage.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: svix-id
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - name: svix-timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 32
+        - name: svix-signature
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 2048
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClerkWebhookEvent'
+      responses:
+        '202':
+          description: New delivery is durable or an identical delivery is already durable.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAccepted'
+        '204':
+          description: Signature is valid but the event type is unsupported.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: Raw body, timestamp, or signature is not trusted.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeError'
+        '409':
+          description: The signed delivery ID already exists with a different payload hash.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeError'
+        '413':
+          description: Raw body exceeds the configured bound.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    ClerkBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Asymmetric Clerk session token verified by the official backend SDK.
+  parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: Optional bounded caller correlation ID; invalid values are replaced.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Bounded mutation identifier. SPEC-BE-002 validates it and supplies only
+        documented natural repeatability; durable replay is SPEC-BE-006.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+  headers:
+    RequestId:
+      description: Bounded request correlation ID generated or propagated by the API.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+  schemas:
+    Profile:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, primaryEmailMasked, phoneMasked, locale, timezone, status, version]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        primaryEmailMasked:
+          type: [string, 'null']
+          minLength: 3
+          maxLength: 320
+        phoneMasked:
+          type: [string, 'null']
+          minLength: 3
+          maxLength: 32
+        locale:
+          type: string
+          enum: [ar, en]
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        status:
+          type: string
+          const: active
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      minProperties: 2
+      properties:
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        locale:
+          type: string
+          enum: [ar, en]
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    PrivacySettings:
+      type: object
+      additionalProperties: false
+      maxProperties: 5
+      properties:
+        hideBalances:
+          type: boolean
+        reducedMotion:
+          type: boolean
+        trackingPersonalization:
+          type: boolean
+        assistantPersonalization:
+          type: boolean
+        analyticsEnabled:
+          type: boolean
+    Preferences:
+      type: object
+      additionalProperties: false
+      required: [defaultCurrency, language, theme, calendar, weekStart, privacySettings, version]
+      properties:
+        defaultCurrency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        language:
+          type: string
+          enum: [ar, en]
+        theme:
+          type: string
+          enum: [light, dark, system]
+        calendar:
+          type: string
+          enum: [gregorian, hijri]
+        weekStart:
+          type: integer
+          minimum: 0
+          maximum: 6
+        privacySettings:
+          $ref: '#/components/schemas/PrivacySettings'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    PreferencesReplace:
+      type: object
+      additionalProperties: false
+      required: [defaultCurrency, language, theme, calendar, weekStart, privacySettings, expectedVersion]
+      properties:
+        defaultCurrency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        language:
+          type: string
+          enum: [ar, en]
+        theme:
+          type: string
+          enum: [light, dark, system]
+        calendar:
+          type: string
+          enum: [gregorian, hijri]
+        weekStart:
+          type: integer
+          minimum: 0
+          maximum: 6
+        privacySettings:
+          $ref: '#/components/schemas/PrivacySettings'
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    OnboardingStep:
+      type: string
+      enum:
+        - welcome
+        - tracking_intro
+        - permission_education
+        - permission_request
+        - keywords
+        - preference
+        - demo
+        - platform_explanation
+        - capture_options
+        - optional_automation
+        - manual_voice_demo
+        - complete
+    OnboardingProgress:
+      type: object
+      additionalProperties: false
+      required: [step, completedSteps, completedAt, version]
+      properties:
+        step:
+          $ref: '#/components/schemas/OnboardingStep'
+        completedSteps:
+          type: array
+          maxItems: 12
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OnboardingStep'
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    OnboardingReplace:
+      type: object
+      additionalProperties: false
+      required: [step, completedSteps, complete, expectedVersion]
+      properties:
+        step:
+          $ref: '#/components/schemas/OnboardingStep'
+        completedSteps:
+          type: array
+          maxItems: 12
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OnboardingStep'
+        complete:
+          type: boolean
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    Device:
+      type: object
+      additionalProperties: false
+      required: [id, platform, appVersion, deviceName, trusted, lastSeenAt, current, revokedAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [ios, android, web]
+        appVersion:
+          type: string
+          minLength: 1
+          maxLength: 32
+        deviceName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 80
+        trusted:
+          type: boolean
+        lastSeenAt:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+        revokedAt:
+          type: [string, 'null']
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    DevicePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Device'
+        nextCursor:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 512
+    DeviceRegistration:
+      type: object
+      additionalProperties: false
+      required: [deviceFingerprint, platform, appVersion]
+      dependentRequired:
+        pushToken: [pushProvider]
+        pushProvider: [pushToken]
+      properties:
+        deviceFingerprint:
+          type: string
+          minLength: 16
+          maxLength: 512
+        platform:
+          type: string
+          enum: [ios, android, web]
+        appVersion:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: '^[A-Za-z0-9._+-]+$'
+        deviceName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        pushToken:
+          type: string
+          minLength: 16
+          maxLength: 4096
+        pushProvider:
+          type: string
+          enum: [expo, apns, fcm]
+    DeviceRegistrationResult:
+      type: object
+      additionalProperties: false
+      required: [deviceId, registeredAt, version]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        registeredAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    ClerkWebhookEvent:
+      type: object
+      additionalProperties: false
+      required: [object, timestamp, type, data]
+      properties:
+        object:
+          type: string
+          const: event
+        timestamp:
+          type: integer
+          format: int64
+          minimum: 0
+        type:
+          type: string
+          minLength: 1
+          maxLength: 128
+        event_attributes:
+          type: [object, 'null']
+          additionalProperties: true
+        data:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              minLength: 1
+              maxLength: 128
+          additionalProperties: true
+    WebhookAccepted:
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
+          const: true
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 128
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 256
+    SafeError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 256
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        fieldErrors:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/FieldError'
+  responses:
+    ValidationError:
+      description: Request fields, content type, cursor, or bounded header are invalid.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SafeError'
+    Unauthorized:
+      description: Missing, malformed, expired, pending, or unverifiable Clerk session.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SafeError'
+    ProfileInactive:
+      description: Authenticated profile is missing, suspended, deletion-pending, or deleted.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SafeError'
+    VersionConflict:
+      description: "expectedVersion does not match the current resource version."
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SafeError'
+    RateLimited:
+      description: Bounded request rate exceeded.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Retry-After:
+          description: Seconds until the caller may retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SafeError'
+    Unavailable:
+      description: Clerk, profile synchronization, or database capability is unavailable.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SafeError'

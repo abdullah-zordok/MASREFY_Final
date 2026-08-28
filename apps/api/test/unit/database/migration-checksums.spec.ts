@@ -26,6 +26,15 @@ describe('migration checksums', () => {
     expect(manifest.indexOf('first.sql')).toBeLessThan(manifest.indexOf('second.sql'));
   });
 
+  it('uses the same checksum for LF and CRLF migrations', () => {
+    const lf = fixture();
+    const crlf = fixture();
+    writeFileSync(join(crlf.migrations, '20260827000100_first.sql'), 'select 1;\r\n');
+    writeFileSync(join(crlf.migrations, '20260827000200_second.sql'), 'select 2;\r\n');
+
+    expect(buildMigrationManifest(crlf.migrations)).toBe(buildMigrationManifest(lf.migrations));
+  });
+
   it('accepts an exact manifest and rejects changed, missing, or extra SQL', () => {
     const { migrations, manifest } = fixture();
     writeFileSync(manifest, buildMigrationManifest(migrations));

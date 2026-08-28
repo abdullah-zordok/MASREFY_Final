@@ -1,45 +1,51 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.1.0
+- Version change: 1.1.0 -> 2.0.0
 - Modified principles:
-  - VIII. Evidence-Based Completion and Operational Safety: separates Draft PR
-    evidence collection from completion and merge approval.
+  - I. One Backend Spec, One Branch, One Owner -> Main-First Backend Delivery,
+    One Spec Owner.
+  - II. Spec Kit Artifacts Before Implementation: replaces the dedicated-branch
+    prerequisite with a synchronized main baseline.
+  - VIII. Evidence-Based Completion and Operational Safety: replaces Draft PR
+    and merge gates with push-to-main remote evidence and fix-forward handling.
 - Modified sections:
-  - Spec Workflow and Quality Gates: permits commit/push and Draft PR after all
-    local pre-PR gates pass so remote-only CI evidence can run.
-  - Governance: adds Draft PR and final completion compliance gates.
+  - Backend Architecture and Change Safety: forbids Backend feature worktrees,
+    force-push, and destructive history rewrites under the main-first workflow.
+  - Spec Workflow and Quality Gates: makes main the only Backend working branch.
+  - Governance: replaces PR/merge gates with local pre-push, pushed-main remote
+    evidence, and final completion gates.
 - Added sections: none
 - Removed sections: none
 - Dependent artifacts:
   - Updated: apps/api/.specify/templates/spec-template.md
   - Updated: apps/api/.specify/templates/tasks-template.md
-  - Reviewed: apps/api/.specify/templates/plan-template.md; no change required
-  - Updated: apps/api/specs/001-backend-foundation/spec.md
-  - Updated: apps/api/specs/001-backend-foundation/tasks.md
-  - Reviewed: docs/Back end/BACKEND_MASTER_PLAN.md; no architecture change required
-- Follow-up: none
+  - Updated: apps/api/.specify/templates/plan-template.md
+  - Updated: apps/api/specs/002-auth-profiles-preferences-sessions/spec.md
+  - Updated: apps/api/specs/002-auth-profiles-preferences-sessions/plan.md
+  - Updated: apps/api/specs/002-auth-profiles-preferences-sessions/tasks.md
+  - Updated: apps/api/specs/002-auth-profiles-preferences-sessions/quickstart.md
+  - Updated: apps/api/specs/002-auth-profiles-preferences-sessions/research.md
+  - Updated: docs/Back end/BACKEND_MASTER_PLAN.md
+- Follow-up: integrate the pending SPEC-BE-002 artifacts into `main`, then resume
+  implementation with the updated main-first task ledger.
 -->
 
 # Masarifi Backend Development Constitution
 
 ## Core Principles
 
-### I. One Backend Spec, One Branch, One Owner
+### I. Main-First Backend Delivery, One Spec Owner
 
-Every Backend Spec MUST be implemented on one dedicated Git branch created for
-that Spec and no other Backend Spec. The canonical branch format is:
+Every Backend Spec MUST be specified, planned, implemented, verified, committed,
+and pushed directly on `main`. Backend feature branches and linked Backend
+worktrees MUST NOT be created or used. Before starting or resuming Backend work,
+the existing checkout MUST be on `main`, synchronized safely with `origin/main`,
+and checked for unrelated user changes that must be preserved.
 
-```text
-SPEC-BE-001 -> codex/backend-spec-be-001
-SPEC-BE-002 -> codex/backend-spec-be-002
-...
-SPEC-BE-014 -> codex/backend-spec-be-014
-```
-
-A Backend Spec branch MUST contain only the active Spec's owned implementation,
-migrations, tests, documentation, and directly required integration work. Two or
-more Backend Specs MUST NOT be implemented on the same feature branch. A branch
-MUST NOT be reused for a later Spec after it is merged or closed.
+Only one Backend Spec may have active implementation changes at a time. Its
+artifacts, commits, verification evidence, and owned paths MUST identify the Spec
+explicitly so scope, rollback, and delivery remain attributable without a feature
+branch.
 
 Every table, view, API, RPC, function, trigger, queue, job, event, cache, and
 business rule MUST have exactly one owning Spec as defined by
@@ -48,13 +54,13 @@ contract but MUST NOT duplicate, move, or mutate the other Spec's owned resource
 Ownership changes require an approved Master Plan and Constitution compliance
 review before implementation.
 
-Rationale: dedicated branches and exclusive ownership keep review, rollback,
-security evidence, and delivery status attributable to one bounded change.
+Rationale: a linear main-first workflow removes integration overhead while Spec
+ownership, bounded diffs, commits, and evidence retain accountability.
 
 ### II. Spec Kit Artifacts Before Implementation
 
-No Backend Spec implementation may begin until its dedicated branch exists and
-its Spec Kit package exists under `apps/api/specs/<number-name>/`.
+No Backend Spec implementation may begin until the checkout is synchronized on
+`main` and its Spec Kit package exists under `apps/api/specs/<number-name>/`.
 
 Every Spec MUST complete this sequence:
 
@@ -244,11 +250,10 @@ A Spec is not complete because code, migrations, or endpoints exist. It is
 complete only when every required artifact and acceptance gate has current,
 reviewable evidence.
 
-A Draft pull request is an evidence-collection state, not completion. It MAY be
-opened only after all locally executable pre-PR gates pass, no known local
-Critical/High finding remains, and pending remote-only gates are listed in the PR.
-Opening or updating a Draft PR MUST NOT mark the Spec complete, waive a blocker,
-or authorize production release or merge.
+A push to `main` is an evidence-collection state, not completion. It MAY occur
+only after all locally executable pre-push gates pass and no known local
+Critical/High finding remains. Pushing MUST NOT mark the Spec complete, waive a
+blocker, or authorize production release.
 
 Completion requires all applicable items to pass:
 
@@ -302,6 +307,10 @@ are forbidden unless the user explicitly authorizes the exact destructive action
 after the affected paths and commits are identified. A Spec MUST work with
 concurrent relevant changes and leave unrelated files untouched.
 
+Backend work MUST remain in the existing checkout on `main`; new Backend
+worktrees are forbidden. Force-push and history rewrites are forbidden. A failed
+remote gate MUST be corrected by a new forward-fix commit on `main`.
+
 Caching MUST have an owner, key, user/permission scope, TTL, invalidation rule,
 staleness tolerance, fallback, metrics, and security analysis. User financial
 cache entries MUST never cross users. PostgreSQL remains durable truth; a cache
@@ -314,15 +323,16 @@ and alerting MUST exist before production traffic, not after an incident.
 
 ## Spec Workflow and Quality Gates
 
-Before work begins, the active Spec MUST record its exact number, dedicated
-branch, base revision, dependencies, owned resources, excluded resources, client
-contract inventory, and required evidence. The branch MUST be based on the latest
-approved backend integration base and MUST NOT contain another unmerged Backend
-Spec's implementation.
+Before work begins, the active Spec MUST record its exact number, `main` base
+revision, dependencies, owned resources, excluded resources, client contract
+inventory, and required evidence. The checkout MUST be on `main`, synchronized
+with the latest verified `origin/main`, and contain no active implementation diff
+for another Backend Spec.
 
 Every `plan.md` Constitution Check MUST confirm:
 
-- the branch is dedicated to exactly one Backend Spec;
+- the checkout is on synchronized `main` and the active diff belongs to exactly
+  one Backend Spec;
 - `spec.md`, `plan.md`, and `tasks.md` are complete and mutually consistent;
 - every proposed resource is documented and owned by the active Spec;
 - current repository and Mobile/Admin contracts were reviewed;
@@ -342,23 +352,18 @@ A failed Constitution Check blocks planning or implementation. A deviation canno
 be hidden in Complexity Tracking; it requires explicit user approval and a prior
 Constitution or Master Plan amendment when it changes a non-negotiable rule.
 
-After all locally executable pre-PR acceptance gates pass, the Spec MUST be
-committed with a clear message and pushed on its dedicated branch to:
+After all locally executable pre-push acceptance gates pass, the Spec MUST be
+committed with a clear Spec-identifying message and pushed directly to `main` at:
 
 ```text
 https://github.com/abdullah-zordok/MASREFY_Final
 ```
 
-The branch MAY also be pushed to an explicitly user-approved mirror. A Draft PR
-MAY then be opened to run remote-only CI, image scanning, SBOM, signature, and
-provenance gates. The Draft PR description MUST identify every pending gate.
-
-The PR MUST remain Draft and the Spec MUST remain incomplete until every required
-local and remote acceptance criterion, release-blocking security gate, and
-Definition of Done item has passing evidence. Only then MAY the PR be marked ready
-for review. The agent MUST NOT auto-merge. Merge occurs only after review and
-explicit approval. Review feedback remains on the same dedicated Spec branch,
-and fresh verification is required after material changes before approval.
+The push starts remote-only CI, image scanning, SBOM, signature, and provenance
+gates; it does not mark the Spec complete. The Spec remains incomplete until every
+required local and remote acceptance criterion, release-blocking security gate,
+and Definition of Done item has passing evidence. Remote failures MUST be fixed
+forward on `main` and materially changed work MUST receive fresh verification.
 
 ## Governance
 
@@ -368,10 +373,10 @@ govern Admin-only or Mobile-only implementation outside an explicitly owned
 Backend cutover.
 
 Compliance is reviewed at six gates: specification approval, plan approval, task
-approval, local pre-PR verification, Draft PR remote evidence, and final pull-
-request completion. Reviewers MUST cite concrete files, owned resources,
-acceptance criteria, and executed evidence. Any Constitution violation is
-critical and blocks implementation, ready-for-review transition, or merge.
+approval, local pre-push verification, pushed-main remote evidence, and final
+completion. Reviewers MUST cite concrete files, owned resources, acceptance
+criteria, and executed evidence. Any Constitution violation is critical and
+blocks implementation, push, or completion.
 
 Amendments require explicit approval, written rationale, an updated Sync Impact
 Report, review against the full Backend Master Plan and current contracts,
@@ -385,4 +390,4 @@ The original ratification date is immutable. `Last Amended` changes only when
 the Constitution content changes. Master Plan ownership or architecture changes
 MUST update the Master Plan before affected Spec artifacts or code proceed.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-27 | **Last Amended**: 2026-08-27
+**Version**: 2.0.0 | **Ratified**: 2026-08-27 | **Last Amended**: 2026-08-28

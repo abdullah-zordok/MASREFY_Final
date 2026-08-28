@@ -1,7 +1,7 @@
 # Masarifi Backend Master Plan
 
 Status: Planning and documentation only
-Target branch: `codex/backend`
+Target branch: `main`
 Canonical implementation sequence: 14 backend Specs
 Backend state at publication: `apps/api` is an uninitialized NestJS placeholder
 

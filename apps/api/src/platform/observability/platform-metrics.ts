@@ -22,9 +22,19 @@ export const OUTBOX_METRICS = {
   published: 'masarifi_outbox_published_total',
 } as const;
 
+export const IDENTITY_METRICS = {
+  auth: 'masarifi_identity_auth_total',
+  webhookReceipt: 'masarifi_clerk_webhook_receipt_total',
+  webhookProcess: 'masarifi_clerk_webhook_process_total',
+  reconciliation: 'masarifi_clerk_reconciliation_count',
+  redaction: 'masarifi_clerk_webhook_redaction_count',
+  deviceSessionRetry: 'masarifi_device_session_retry_total',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
-  | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS];
+  | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
+  | (typeof IDENTITY_METRICS)[keyof typeof IDENTITY_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -34,6 +44,8 @@ const allowedLabels = new Set([
   'status_class',
   'dependency',
   'outcome',
+  'operation',
+  'reason',
 ]);
 const safeLabelValue = /^[A-Za-z0-9_./:-]{1,128}$/;
 const counterNames = new Set<MetricName>([
@@ -42,6 +54,10 @@ const counterNames = new Set<MetricName>([
   OUTBOX_METRICS.retry,
   OUTBOX_METRICS.deliveryFailed,
   OUTBOX_METRICS.published,
+  IDENTITY_METRICS.auth,
+  IDENTITY_METRICS.webhookReceipt,
+  IDENTITY_METRICS.webhookProcess,
+  IDENTITY_METRICS.deviceSessionRetry,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

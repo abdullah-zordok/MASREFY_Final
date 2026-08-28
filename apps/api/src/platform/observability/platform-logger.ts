@@ -18,8 +18,8 @@ const levels: Record<LogLevel, number> = {
   warn: 30,
   error: 40,
 };
-const sensitiveKey = /authorization|cookie|credential|database.?url|password|secret|token/i;
-const sensitiveValue = /(?:bearer\s+\S+|postgres(?:ql)?:\/\/[^\s:@]+:[^\s@]+@)/gi;
+const sensitiveKey = /authorization|cookie|credential|database.?url|password|secret|token|email|phone|session|subject|fingerprint|payload|cipher|otp|jwt/i;
+const sensitiveValue = /(?:bearer\s+\S+|postgres(?:ql)?:\/\/[^\s:@]+:[^\s@]+@|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\+[1-9][0-9]{7,14}|(?:sk|whsec)_(?:test|live)?_?[A-Za-z0-9_-]+)/gi;
 
 export function redactSensitive(value: unknown, key = ''): unknown {
   if (sensitiveKey.test(key)) return '[REDACTED]';

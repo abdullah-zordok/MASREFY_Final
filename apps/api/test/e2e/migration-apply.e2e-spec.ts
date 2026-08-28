@@ -9,7 +9,7 @@ describeLiveDatabase('migration application', () => {
   });
   afterAll(async () => pool.onModuleDestroy());
 
-  it('is idempotent and creates only the registered foundation inventory', async () => {
+  it('is idempotent and creates only the registered application inventory', async () => {
     const liveTestFlag = process.env.MASARIFI_LIVE_DATABASE_TESTS;
     delete process.env.MASARIFI_LIVE_DATABASE_TESTS;
     try {
@@ -28,7 +28,10 @@ describeLiveDatabase('migration application', () => {
     const tables = await pool.query<{ name: string }>(
       "select schemaname || '.' || tablename as name from pg_tables where schemaname in ('private', 'audit') order by name",
     );
-    expect(tables.rows.map((row) => row.name)).toEqual(['private.outbox_events']);
+    expect(tables.rows.map((row) => row.name)).toEqual([
+      'private.clerk_webhook_events',
+      'private.outbox_events',
+    ]);
 
     const functions = await pool.query<{ name: string }>(
       `select proname as name
@@ -37,8 +40,10 @@ describeLiveDatabase('migration application', () => {
        order by name`,
     );
     expect(functions.rows.map((row) => row.name)).toEqual([
+      'assert_active_profile',
       'claim_outbox_batch',
       'enqueue_outbox_event',
+      'protect_clerk_webhook_receipt',
       'set_updated_at_and_version',
     ]);
 

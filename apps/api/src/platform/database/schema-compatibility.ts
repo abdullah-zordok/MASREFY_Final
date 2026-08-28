@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PoolService } from './pool.service';
 
-export const FOUNDATION_SCHEMA_VERSION = '20260827000400';
+export const REQUIRED_SCHEMA_VERSION = '20260827001300';
 
 @Injectable()
 export class SchemaCompatibilityService {
@@ -14,7 +14,7 @@ export class SchemaCompatibilityService {
       [],
       timeoutMs,
     );
-    if (result.rows[0]?.version !== FOUNDATION_SCHEMA_VERSION) {
+    if (result.rows[0]?.version !== REQUIRED_SCHEMA_VERSION) {
       throw new Error('SCHEMA_INCOMPATIBLE');
     }
   }

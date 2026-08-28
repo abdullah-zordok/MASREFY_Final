@@ -29,7 +29,7 @@ export async function bootstrapApi(): Promise<INestApplication> {
   const shutdown = new GracefulShutdown(config.get('MASARIFI_SHUTDOWN_TIMEOUT_MS'));
   app.useLogger(logger);
   configureRequestDrain(app, shutdown);
-  configureValidation(app, config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'));
+  configureValidation(app, config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'), ['/webhooks/clerk']);
   configureHttpSecurity(app, config);
   app.useGlobalFilters(new SafeExceptionFilter());
   app.useGlobalInterceptors(

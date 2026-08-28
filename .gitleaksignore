@@ -1,0 +1,3 @@
+# Known non-secret detector fixtures in Mobile quality-boundary tests.
+93c3ad80343e71e46d1471eeb444f1fe0c4e4fc8:apps/mobile/scripts/check-frontend-quality-boundaries.test.mjs:stripe-access-token:22
+93c3ad80343e71e46d1471eeb444f1fe0c4e4fc8:apps/mobile/scripts/check-frontend-quality-secrets.test.mjs:generic-api-key:10

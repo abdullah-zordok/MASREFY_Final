@@ -1,7 +1,7 @@
 # Implementation Plan: [FEATURE]
 
 **Phase / Spec**: [Phase NN / SPEC-BE-NNN]  
-**Branch**: [dedicated branch]  
+**Branch**: `main`
 **Base Revision**: [commit]  
 **Date**: [DATE]  
 **Spec**: [link to `specs/[###-feature-name]/spec.md`]  
@@ -28,7 +28,7 @@
 
 *GATE: Every item MUST pass before Phase 0 and again after Phase 1.*
 
-- [ ] The branch is dedicated to exactly one Backend Spec.
+- [ ] The checkout is on synchronized `main`; the active diff belongs to exactly one Backend Spec.
 - [ ] `spec.md` is complete; `plan.md` and later `tasks.md` remain mutually consistent.
 - [ ] Every table, view, API, RPC, function, trigger, queue, job, event, cache, and business rule is documented and owned by this Spec.
 - [ ] Current repository code and relevant Mobile/Admin contracts were reviewed.

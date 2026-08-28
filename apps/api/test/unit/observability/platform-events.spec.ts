@@ -1,6 +1,7 @@
 import { platformEvent } from '../../../src/platform/observability/platform-events';
 import {
   assertMetricLabels,
+  IDENTITY_METRICS,
   OUTBOX_METRICS,
   PLATFORM_METRICS,
   recordPlatformMetric,
@@ -65,6 +66,20 @@ describe('platform operational contracts', () => {
     expect(sink).toHaveBeenCalledTimes(Object.keys(OUTBOX_METRICS).length);
     expect(() => {
       recordPlatformMetric(OUTBOX_METRICS.depth, 1, { payload: 'secret' }, sink);
+    }).toThrow('METRIC_LABEL_INVALID');
+  });
+
+  it('keeps identity metrics bounded and rejects identity labels', () => {
+    const sink = jest.fn();
+    for (const name of Object.values(IDENTITY_METRICS)) {
+      recordPlatformMetric(name, 1, { outcome: 'success' }, sink);
+    }
+    expect(sink).toHaveBeenCalledTimes(Object.keys(IDENTITY_METRICS).length);
+    expect(() => {
+      assertMetricLabels({ subject: 'user_fixture_a' });
+    }).toThrow('METRIC_LABEL_INVALID');
+    expect(() => {
+      assertMetricLabels({ session_id: 'session_fixture_a' });
     }).toThrow('METRIC_LABEL_INVALID');
   });
 });

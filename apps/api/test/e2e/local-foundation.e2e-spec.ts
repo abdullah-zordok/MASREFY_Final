@@ -64,16 +64,20 @@ function startProcess(
 
 async function waitForResponse(url: string, expectedStatus: number): Promise<Response> {
   const deadline = Date.now() + 20_000;
+  let lastStatus: number | 'unreachable' = 'unreachable';
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url);
+      lastStatus = response.status;
       if (response.status === expectedStatus) return response;
     } catch {
       // Process startup is expected to refuse connections briefly.
     }
     await new Promise((resolveWait) => setTimeout(resolveWait, 100));
   }
-  throw new Error(`FOUNDATION_RESPONSE_TIMEOUT:${String(expectedStatus)}`);
+  throw new Error(
+    `FOUNDATION_RESPONSE_TIMEOUT:${String(expectedStatus)}:LAST_${String(lastStatus)}`,
+  );
 }
 
 async function stopProcess(child: ChildProcess): Promise<void> {

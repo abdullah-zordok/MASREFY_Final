@@ -39,6 +39,28 @@ const errors: Record<number, { code: string; message: string }> = {
   },
 };
 
+const domainErrors: Record<string, { status: number; message: string }> = {
+  AUTH_TOKEN_INVALID: { status: 401, message: 'Authentication token is invalid' },
+  PROFILE_INACTIVE: { status: 403, message: 'Profile is inactive' },
+  PROFILE_SYNC_UNAVAILABLE: {
+    status: 503,
+    message: 'Profile synchronization is unavailable',
+  },
+  VERSION_CONFLICT: { status: 409, message: 'Resource version conflict' },
+  INVALID_CURSOR: { status: 400, message: 'Cursor is invalid' },
+  RECENT_AUTH_REQUIRED: { status: 403, message: 'Recent authentication is required' },
+  DEVICE_NOT_FOUND: { status: 404, message: 'Device not found' },
+  PUSH_TOKEN_CONFLICT: { status: 409, message: 'Push token is already registered' },
+  PROVIDER_UNAVAILABLE: { status: 503, message: 'Provider is unavailable' },
+  INVALID_WEBHOOK: { status: 400, message: 'Webhook payload is invalid' },
+  WEBHOOK_SIGNATURE_INVALID: { status: 401, message: 'Webhook signature is invalid' },
+  WEBHOOK_EVENT_CONFLICT: {
+    status: 409,
+    message: 'Webhook event conflicts with an existing delivery',
+  },
+  INBOX_UNAVAILABLE: { status: 503, message: 'Webhook inbox is unavailable' },
+};
+
 type FieldError = { field: string; code: string; message: string };
 type SafeError = {
   code: string;
@@ -67,15 +89,27 @@ function exceptionStatus(exception: unknown): number {
   return 500;
 }
 
+function exceptionDomainCode(exception: unknown, status: number): string | undefined {
+  if (!(exception instanceof HttpException)) return undefined;
+  const response = exception.getResponse();
+  if (typeof response !== 'object' || !('code' in response)) return undefined;
+  const code = (response as { code?: unknown }).code;
+  return typeof code === 'string' && domainErrors[code]?.status === status ? code : undefined;
+}
+
 export function safeError(
   status: number,
   requestId?: string,
   fieldErrors: FieldError[] = [],
+  domainCode?: string,
 ): SafeError {
-  const mapped = errors[status] ?? {
-    code: 'INTERNAL_ERROR',
-    message: 'Internal server error',
-  };
+  const domain = domainCode === undefined ? undefined : domainErrors[domainCode];
+  const mapped = domainCode !== undefined && domain !== undefined
+    ? { code: domainCode, message: domain.message }
+    : (errors[status] ?? {
+        code: 'INTERNAL_ERROR',
+        message: 'Internal server error',
+      });
   const bounded = fieldErrors.slice(0, 50).map(sanitizeFieldError);
   return {
     ...mapped,
@@ -91,6 +125,8 @@ export class SafeExceptionFilter implements ExceptionFilter {
     const request = http.getRequest<Request & { requestId?: string }>();
     const response = http.getResponse<Response>();
     const status = exceptionStatus(exception);
-    response.status(status).json(safeError(status, request.requestId));
+    response
+      .status(status)
+      .json(safeError(status, request.requestId, [], exceptionDomainCode(exception, status)));
   }
 }

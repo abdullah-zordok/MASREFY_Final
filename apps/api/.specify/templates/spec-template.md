@@ -1,7 +1,7 @@
 # Backend Feature Specification: [FEATURE NAME]
 
 **Phase / Spec**: [Phase NN / SPEC-BE-NNN of 014]  
-**Feature Branch**: `[branch]`  
+**Working Branch**: `main`
 **Feature Directory**: `[apps/api/specs/NNN-name]`  
 **Base Revision**: `[commit]`  
 **Created**: [DATE]  
@@ -126,10 +126,10 @@ container, migration, recovery, and scan evidence required by the Spec.]
 
 - [ ] All owned scope, tests, security, performance, observability, migration,
       rollback, recovery, and acceptance evidence required by this Spec passes.
-- [ ] A Draft PR may collect remote-only evidence after local pre-PR gates pass,
-      but remains Draft until all remote release blockers pass.
-- [ ] The PR is marked ready only after complete local and remote evidence; merge
-      requires review and explicit approval and is never automatic.
+- [ ] After local pre-push gates pass, the verified Spec is committed and pushed
+      directly to `main` so remote-only evidence can run.
+- [ ] The Spec is complete only after all local and remote release blockers pass;
+      remote failures are corrected by forward-fix commits on `main`.
 
 Verification listed in this document is required evidence, not a claim that it
 has already been executed.

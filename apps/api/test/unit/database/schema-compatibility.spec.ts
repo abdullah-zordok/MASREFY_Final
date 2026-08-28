@@ -1,9 +1,9 @@
 import { SchemaCompatibilityService } from '../../../src/platform/database/schema-compatibility';
 
 describe('SchemaCompatibilityService', () => {
-  it('accepts the exact foundation migration range', async () => {
+  it('accepts the exact application migration range', async () => {
     const database = {
-      query: jest.fn().mockResolvedValue({ rows: [{ version: '20260827000400' }] }),
+      query: jest.fn().mockResolvedValue({ rows: [{ version: '20260827001300' }] }),
     };
     const service = new SchemaCompatibilityService(database as never);
 

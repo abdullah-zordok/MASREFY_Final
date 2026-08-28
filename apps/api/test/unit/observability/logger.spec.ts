@@ -30,6 +30,9 @@ describe('PlatformLogger', () => {
       password: sentinel,
       nested: { authorization: `Bearer ${sentinel}` },
       database: `postgresql://user:${sentinel}@localhost/db`,
+      email: 'owner@example.test',
+      phone: '+966500000012',
+      sessionId: 'session_fixture_a',
     });
     const encoded = JSON.stringify(value);
 

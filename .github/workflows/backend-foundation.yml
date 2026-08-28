@@ -1,6 +1,13 @@
 name: Backend Foundation
 
 on:
+  workflow_dispatch:
+    inputs:
+      run_k6:
+        description: Run k6 performance and stress gates
+        required: true
+        default: false
+        type: boolean
   pull_request:
     paths: ["apps/api/**", "supabase/**", "docker/**", ".github/workflows/backend-foundation.yml"]
   push:
@@ -90,7 +97,8 @@ jobs:
           node-version-file: apps/api/.nvmrc
           cache: npm
           cache-dependency-path: apps/api/package-lock.json
-      - uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065
         with:
           k6-version: "1.8.0"
       - run: npm ci --ignore-scripts
@@ -109,15 +117,21 @@ jobs:
       - run: npm run test:foundation:e2e
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
-      - run: npm run test:performance:platform
-      - run: npm run perf:seed:outbox
-      - shell: bash
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:performance:platform
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run perf:seed:outbox
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        shell: bash
         run: |
           set -o pipefail
           npm run perf:explain:outbox | tee test/performance/artifacts/outbox-explain.txt
-      - run: npm run test:outbox:performance
-      - run: npm run perf:seed:outbox
-      - run: npm run test:stress
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:outbox:performance
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run perf:seed:outbox
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:stress
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -144,7 +158,7 @@ jobs:
           MASARIFI_IMAGE_UNDER_TEST: masarifi-backend:${{ github.sha }}
       - run: test "$(docker image inspect masarifi-backend:${{ github.sha }} --format '{{.Config.User}}')" = "65532:65532"
       - run: docker image inspect masarifi-backend:${{ github.sha }} --format '{{.Id}}' > backend-image-digest.txt
-      - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           image-ref: masarifi-backend:${{ github.sha }}
           severity: CRITICAL,HIGH

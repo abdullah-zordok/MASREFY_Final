@@ -23,6 +23,41 @@ const owned = {
   ]),
 };
 
+const identityOwned = {
+  tables: new Set([
+    'public.profiles',
+    'public.user_preferences',
+    'public.onboarding_progress',
+    'public.user_devices',
+    'public.push_tokens',
+    'private.clerk_webhook_events',
+  ]),
+  functions: new Set([
+    'public.current_clerk_user_id',
+    'private.assert_active_profile',
+  ]),
+  endpoints: new Set([
+    'GET /api/v1/me',
+    'PATCH /api/v1/me',
+    'GET /api/v1/me/preferences',
+    'PUT /api/v1/me/preferences',
+    'GET /api/v1/me/onboarding',
+    'PUT /api/v1/me/onboarding',
+    'GET /api/v1/me/devices',
+    'POST /api/v1/me/devices/register',
+    'DELETE /api/v1/me/devices/{deviceId}',
+    'POST /webhooks/clerk',
+  ]),
+  jobs: new Set(['clerk.webhook.process']),
+  events: new Set([
+    'profile.created',
+    'profile.updated',
+    'profile.deletion_requested',
+    'device.registered',
+    'device.revoked',
+  ]),
+};
+
 function findUnowned(kind: keyof typeof owned, values: string[]): string[] {
   return values.filter((value) => !owned[kind].has(value));
 }
@@ -142,5 +177,58 @@ describe('SPEC-BE-001 ownership boundary', () => {
     for (const kind of Object.keys(owned) as (keyof typeof owned)[]) {
       expect(findUnowned(kind, ['unowned.fixture'])).toEqual(['unowned.fixture']);
     }
+  });
+});
+
+describe('SPEC-BE-002 ownership boundary', () => {
+  const root = resolve(__dirname, '../../../..');
+
+  it('owns exactly the approved identity endpoints', () => {
+    const contract = load(
+      readFileSync(
+        resolve(
+          root,
+          'apps/api/specs/002-auth-profiles-preferences-sessions/contracts/openapi.yaml',
+        ),
+        'utf8',
+      ),
+    ) as { paths: Record<string, Record<string, unknown>> };
+    const endpoints = Object.entries(contract.paths).flatMap(([path, methods]) =>
+      Object.keys(methods)
+        .filter((method) => ['get', 'post', 'put', 'patch', 'delete'].includes(method))
+        .map((method) => `${method.toUpperCase()} ${path}`),
+    );
+
+    expect(new Set(endpoints)).toEqual(identityOwned.endpoints);
+  });
+
+  it('owns only the six tables, two functions, one job, and five events in the register', () => {
+    expect(identityOwned.tables).toEqual(
+      new Set([
+        'public.profiles',
+        'public.user_preferences',
+        'public.onboarding_progress',
+        'public.user_devices',
+        'public.push_tokens',
+        'private.clerk_webhook_events',
+      ]),
+    );
+    expect(identityOwned.functions).toEqual(
+      new Set(['public.current_clerk_user_id', 'private.assert_active_profile']),
+    );
+    expect(identityOwned.jobs).toEqual(new Set(['clerk.webhook.process']));
+    expect(identityOwned.events).toEqual(
+      new Set([
+        'profile.created',
+        'profile.updated',
+        'profile.deletion_requested',
+        'device.registered',
+        'device.revoked',
+      ]),
+    );
+    const ownedNames = Object.values(identityOwned).flatMap((values) => [...values]);
+    expect(ownedNames.join('\n')).not.toMatch(
+      /auth\.users|session_table|idempotency|audit|permission|admin_role/i,
+    );
   });
 });

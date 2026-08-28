@@ -14,7 +14,7 @@ export function buildMigrationManifest(migrationsDirectory: string): string {
   return `${files
     .map((name) => {
       const digest = createHash('sha256')
-        .update(readFileSync(join(migrationsDirectory, name)))
+        .update(readFileSync(join(migrationsDirectory, name), 'utf8').replaceAll('\r\n', '\n'))
         .digest('hex');
       return `${digest}  migrations/${name}`;
     })

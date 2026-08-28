@@ -1,10 +1,18 @@
 import { UnsupportedMediaTypeException, ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
+import { raw } from 'express';
 
 const bodyMethods = new Set(['POST', 'PUT', 'PATCH']);
 
-export function configureValidation(app: NestExpressApplication, bodyLimitBytes: number): void {
+export function configureValidation(
+  app: NestExpressApplication,
+  bodyLimitBytes: number,
+  rawJsonPaths: readonly string[] = [],
+): void {
+  for (const path of rawJsonPaths) {
+    app.use(path, raw({ inflate: true, limit: bodyLimitBytes, type: 'application/json' }));
+  }
   app.useBodyParser('json', {
     inflate: true,
     limit: bodyLimitBytes,
