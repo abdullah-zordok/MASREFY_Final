@@ -6,7 +6,7 @@
 | --- | --- |
 | FR-001, FR-002, FR-003, FR-004, FR-005 | `admin-auth.guard.ts`, repository transaction/evaluator, pgTAP 010, exact-permission unit/security/performance suites |
 | FR-006, FR-007, FR-008, FR-009, FR-010, FR-011 | permission manifest/seeds, system-role/continuity migrations, Admin governance repository/service, DTO/integration/E2E tests |
-| FR-012, FR-013 | forced-RLS/grant migrations 62203–74500, pgTAP 009–015, live RLS integration matrix |
+| FR-012, FR-013 | forced-RLS/grant migrations 62203–75000, pgTAP 009–015, live RLS integration matrix |
 | FR-014, FR-015 | owner event keyset query, owner-column grant migration, pgTAP 011/014, customer event contract/E2E/performance tests |
 | FR-016, FR-017, FR-018, FR-019 | transaction audit append/hashes, immutable triggers/grants, bounded redacted audit/security/incident queries and tests |
 | FR-020, FR-021, FR-022, FR-023, FR-024, FR-025 | support request/grant functions, operation-scoped RLS, registered workspace projection, worker expiry, pgTAP/integration/E2E/runbook |
@@ -24,7 +24,7 @@
 
 | ID | Evidence |
 | --- | --- |
-| AC-001 | ownership inventory, data model, migrations 62150–74500, clean migration/pgTAP CI |
+| AC-001 | ownership inventory, data model, migrations 62150–75000, clean migration/pgTAP CI |
 | AC-002 | US1 guard, database permission, negative and performance evidence |
 | AC-003 | seven roles / 151 permissions manifest, seed and contract tests |
 | AC-004 | mock-authority and exact-permission negative suites |

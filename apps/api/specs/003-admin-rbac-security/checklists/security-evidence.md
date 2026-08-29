@@ -8,8 +8,8 @@
 | Negative and workflow security | 13 suites / 67 tests pass |
 | Scope/ownership | 2 suites / 9 tests pass; Admin/Mobile source diff empty |
 | Secret/log/provider boundaries | environment, logger, exception, Clerk, Storage, ZIP, abuse, and workflow-pin suites pass |
-| Codex Security diff review | final-snapshot scan `c10471fd-62af-45da-9874-69fcc23b2326`; 40/40 review items, complete coverage, 0 findings |
-| Database grants/RLS/immutability | pgTAP 009–015 passed on clean local database before the host WSL failure; clean Linux rerun is a release CI gate |
-| Image vulnerability/secret/non-root | clean Linux image build, container contract, and Trivy Critical/High scan are required in remote release evidence |
+| Codex Security review | final-snapshot scan `c10471fd-62af-45da-9874-69fcc23b2326`: 40/40 items, 0 findings; follow-up production/migration scan `9109768b-1be1-41de-807a-cb192f3d066d`: 2/2 items, 0 findings |
+| Database grants/RLS/immutability | clean Linux reset/lint plus all 15 pgTAP files (394 assertions) passed in run `33247615323` |
+| Image vulnerability/secret/non-root | clean Linux image/container contract, non-root UID/GID `65532:65532`, Trivy Critical/High gate, and artifact publication passed in run `33247615323` |
 
 No credential, canary value, raw invitation token, raw network address, signed URL, or Storage object key is retained in this evidence.
