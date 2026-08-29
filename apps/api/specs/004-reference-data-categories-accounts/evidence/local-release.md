@@ -53,3 +53,11 @@ Recorded 2026-08-29 for SPEC-BE-004.
 - Contract tests passed for the 12 Mobile currencies, 19 system category keys,
   seven account types, stable client field mapping, exact Admin permissions,
   error envelopes, ETags, and route inventory without client-source edits.
+
+## Commit evidence
+
+- `adc2f70` contains only the explicitly approved API formatting-baseline
+  correction.
+- `8c01450` contains SPEC-BE-004 and its required dependency corrections across
+  75 files. `git diff --cached --check` passed, the staged inventory contained no
+  Mobile/Admin/later-Spec path, and `.agents/plugins/` remained untracked.
