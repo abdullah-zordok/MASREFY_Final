@@ -3,7 +3,7 @@ import { SchemaCompatibilityService } from '../../../src/platform/database/schem
 describe('SchemaCompatibilityService', () => {
   it('accepts the exact application migration range', async () => {
     const database = {
-      query: jest.fn().mockResolvedValue({ rows: [{ version: '20260829074500' }] }),
+      query: jest.fn().mockResolvedValue({ rows: [{ version: '20260829075000' }] }),
     };
     const service = new SchemaCompatibilityService(database as never);
 

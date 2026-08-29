@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 grant authenticated, masarifi_api, masarifi_worker, masarifi_migration to current_user with inherit true, set true;
 grant usage on schema extensions to masarifi_api;
@@ -38,6 +38,7 @@ select throws_ok($$select private.assert_admin_permission('audit.logs.read')$$,'
 select is((select count(*)::integer from public.profiles where id='rbac_backup'),1,'governance reader sees another Admin profile');
 select is((select count(*)::integer from public.profiles where id='rbac_customer'),0,'governance reader cannot enumerate a customer profile');
 select throws_ok($$update public.roles set name='Changed system role' where key='super-admin'$$,'42501','SYSTEM_ROLE_PROTECTED','runtime cannot mutate a system role');
+select throws_ok($$update public.permissions set action='write' where key='audit.read'$$,'42501','PERMISSION_DEFINITION_PROTECTED','runtime cannot mutate a permission definition');
 select throws_ok($$delete from public.role_permissions where (role_id,permission_id)=(select rp.role_id,rp.permission_id from public.role_permissions rp join public.roles r on r.id=rp.role_id where r.key='super-admin' limit 1)$$,'42501','SYSTEM_ROLE_PROTECTED','runtime cannot mutate system role permissions');
 reset role;
 select set_config('request.jwt.claims','{"role":"authenticated","sub":"rbac_invitee","sid":"sess"}',true);
