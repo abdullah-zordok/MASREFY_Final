@@ -65,6 +65,8 @@ describeLiveDatabase('migration application', () => {
       'protect_clerk_webhook_receipt',
       'protect_last_super_admin',
       'protect_security_definition',
+      'protect_system_role_permissions',
+      'read_support_workspace',
       'reject_immutable_change',
       'set_updated_at_and_version',
       'validate_support_grant_invariant',
