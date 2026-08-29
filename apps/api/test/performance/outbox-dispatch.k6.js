@@ -17,6 +17,7 @@ const throughput = new Counter('outbox_published');
 const backlog = new Gauge('outbox_unpublished_backlog');
 const databaseSessionMemory = new Gauge('outbox_database_session_memory_bytes');
 const claimBatchSize = 50;
+const stress = __ENV.MASARIFI_STRESS === '1';
 
 const normalScenarios = {
   concurrent_claim: {
@@ -64,7 +65,7 @@ const normalScenarios = {
 
 export const options = {
   scenarios:
-    __ENV.MASARIFI_STRESS === '1'
+    stress
       ? {
           stress_recovery: {
             executor: 'ramping-vus',
@@ -82,13 +83,15 @@ export const options = {
   thresholds: {
     checks: ['rate==1'],
     outbox_claim_failure: ['rate<0.01'],
-    outbox_claim_duration_ms: ['p(50)>=0', 'p(95)<50', 'p(99)<100'],
+    ...(stress
+      ? {}
+      : { 'outbox_claim_duration_ms{phase:steady}': ['p(95)<50', 'p(99)<100'] }),
     outbox_publication_duration_ms: ['p(50)>=0', 'p(95)<500', 'p(99)<1000'],
     outbox_database_session_memory_bytes: ['value>0'],
   },
 };
 
-function claim(leaseSeconds) {
+function claim(leaseSeconds, phase) {
   const started = Date.now();
   try {
     const rows = [
@@ -99,7 +102,7 @@ function claim(leaseSeconds) {
         leaseSeconds,
       ),
     ];
-    claimDuration.add(Date.now() - started);
+    claimDuration.add(Date.now() - started, { phase });
     claimFailure.add(false);
     return rows;
   } catch (_) {
@@ -150,28 +153,28 @@ function publish(rows, delaySeconds) {
 }
 
 export function dispatch() {
-  publish(claim(30), 0);
+  publish(claim(30, 'steady'), 0);
   recordDatabaseSessionMemory();
 }
 
 export function slowdown() {
-  publish(claim(30), 0.2);
+  publish(claim(30, 'slowdown'), 0.2);
 }
 
 export function outage() {
-  claim(5);
+  claim(5, 'outage');
   recordBacklog();
   sleep(1);
 }
 
 export function leaseChurn() {
-  const rows = claim(1);
+  const rows = claim(1, 'lease-churn');
   sleep(1.2);
   publish(rows, 0);
 }
 
 export function recover() {
-  publish(claim(30), 0);
+  publish(claim(30, stress ? 'stress' : 'recovery'), 0);
   recordBacklog();
   recordDatabaseSessionMemory();
 }

@@ -41,6 +41,8 @@ describe('outbox k6 runner', () => {
     expect(script).toContain('max_open_conns: 1');
     expect(script).toContain('const claimBatchSize = 50;');
     expect(script).toContain('claimBatchSize,');
+    expect(script).toContain("'outbox_claim_duration_ms{phase:steady}'");
+    expect(script).toContain("claimDuration.add(Date.now() - started, { phase });");
     expect(script).toContain("{ duration: '1m', target: 75 }");
     expect(script.match(/if \(__VU !== 1 \|\| __ITER % 20 !== 0\) return;/g)).toHaveLength(2);
 
