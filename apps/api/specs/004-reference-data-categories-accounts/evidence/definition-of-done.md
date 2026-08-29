@@ -40,15 +40,27 @@ absent and fails safely.
   diff. `git diff --check`, typecheck, lint, build, dependency audit, scoped
   formatting, tests, database, performance, and container gates pass.
 
+## Remote evidence
+
+- Pushed-main workflow run
+  [33266979702](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33266979702)
+  passed application, database, sentinel-redaction, secrets, image, container,
+  dependency, performance, and Trivy gates for
+  `9660d039172ded5095d2167b96a2659a17157145`.
+- The exact image ID and GitHub artifact IDs/digests are retained in `remote.md`.
+
 ## Remaining external evidence
 
 - Upstream external-only SPEC-BE-002 evidence remains incomplete for Apple Team
   ID, protected Phone OTP identities, hosted schema/provider rehearsals, and
   tag-only signed release evidence. These do not invalidate Phase 04 local
   behavior, but they prevent claiming the aggregate dependency release complete.
-- Phase 04 remote CI/image/SBOM/signature/provenance evidence remains pending
-  until the verified commits are pushed.
+- Phase 04 SBOM/signature/provenance evidence remains pending because the
+  workflow's signed-release job is intentionally tag-only. Creating the required
+  `backend-v*` release tag is an external publishing action requiring owner
+  approval; no tag or release claim was inferred.
 
-The Spec implementation and every locally executable Definition-of-Done gate are
-complete. Final completion waits only for pushed-main evidence and the explicitly
-external upstream dependency evidence.
+The Spec implementation, pushed-main evidence, and every locally executable
+Definition-of-Done gate are complete. Aggregate completion waits only for the
+explicitly external upstream dependency evidence and owner approval for a signed
+release tag.
