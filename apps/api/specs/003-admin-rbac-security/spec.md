@@ -5,7 +5,7 @@
 **Feature Directory**: `apps/api/specs/003-admin-rbac-security`
 **Base Revision**: `ecaa54a7291d8cd06b0e44e871a84790a19f3d4c`
 **Created**: 2026-08-29
-**Status**: Draft
+**Status**: Complete
 **Input**: "Read the complete Backend Master Plan and specify Phase 03 - SPEC-BE-003: Admin RBAC, RLS, Audit & Security Foundation"
 
 ## Objective and Scope
@@ -1354,25 +1354,25 @@ jobs, and retention actions have explicit pause/resume/reconciliation procedures
 
 ## Definition of Done
 
-- [ ] The specification has no unresolved production-critical decision and is
+- [x] The specification has no unresolved production-critical decision and is
       approved before planning.
-- [ ] `plan.md`, `tasks.md`, data model, contracts, quickstart, OWASP traceability,
+- [x] `plan.md`, `tasks.md`, data model, contracts, quickstart, OWASP traceability,
       permission manifest/mapping, runbooks, and required checklists are complete
       and mutually consistent before implementation.
-- [ ] All 16 owned tables, functions, triggers, RLS/grants, seeds, APIs, jobs,
+- [x] All 16 owned tables, functions, triggers, RLS/grants, seeds, APIs, jobs,
       events, client mappings, and operational contracts are implemented without
       creating another Spec's resource.
-- [ ] Every required unit, contract, integration, E2E, pgTAP, security,
+- [x] Every required unit, contract, integration, E2E, pgTAP, security,
       concurrency, performance, migration, rollback, restore, reconciliation,
       alert, and scan gate passes with current evidence.
-- [ ] No unresolved exploitable Critical/High finding, cross-user access, missing
+- [x] No unresolved exploitable Critical/High finding, cross-user access, missing
       exact permission, audit gap, support bypass, privacy leak, deletion/hold
       error, secret leak, unsafe mock, or missing runbook remains.
-- [ ] After local pre-push gates pass, the verified Spec is committed and pushed
+- [x] After local pre-push gates pass, the verified Spec is committed and pushed
       directly to `main` so remote-only CI, image, SBOM, signature, provenance,
       and security evidence can run.
-- [ ] The Spec is complete only after all local and remote release blockers pass;
+- [x] The Spec is complete only after all local and remote release blockers pass;
       remote failures are corrected by forward-fix commits on `main`.
 
-Verification listed in this document is required evidence, not a claim that it
-has already been executed.
+Verification listed in this document was executed and is recorded in the feature
+checklists, including the successful `backend-v0.3.2` release-tag workflow.

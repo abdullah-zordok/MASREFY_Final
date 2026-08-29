@@ -276,7 +276,7 @@ Every task uses the required checklist form. `[P]` means the task can run in par
 - [x] T117 Review the final production/test diff for Clean Code/SOLID/DRY/KISS/YAGNI, test quality, ownership, secret exposure, and unrequested infrastructure; record required fixes and rerun evidence in `apps/api/specs/003-admin-rbac-security/checklists/final-review.md`
 - [x] T118 Complete every Definition of Done item only from fresh retained evidence in `apps/api/specs/003-admin-rbac-security/checklists/definition-of-done.md`; verify no skipped/partial/inferred result is marked passing
 - [x] T119 Commit the fully verified SPEC-BE-003 artifacts and implementation directly on `main` with a Spec-identifying message, then push to `origin/main`; record commit SHA and push result without rewriting history in `apps/api/specs/003-admin-rbac-security/checklists/remote-release-evidence.md`
-- [ ] T120 Collect remote CI, image scan, SBOM, signature, provenance, and branch evidence for T119; fix any failure forward on `main`, rerun materially affected local gates, and close `apps/api/specs/003-admin-rbac-security/checklists/remote-release-evidence.md` only when all remote blockers pass
+- [x] T120 Collect remote CI, image scan, SBOM, signature, provenance, and branch evidence for T119; fix any failure forward on `main`, rerun materially affected local gates, and close `apps/api/specs/003-admin-rbac-security/checklists/remote-release-evidence.md` only when all remote blockers pass
 
 ## Dependencies
 

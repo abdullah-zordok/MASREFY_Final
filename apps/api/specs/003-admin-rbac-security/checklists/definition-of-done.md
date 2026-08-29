@@ -15,7 +15,7 @@
 - [x] Official Codex Security diff scan completed 40/40 items with zero findings.
 - [x] Clean Linux migration/lint/pgTAP/live integration/E2E/performance gates pass for the final commit.
 - [x] Final image builds non-root and passes container plus Critical/High vulnerability gates.
-- [ ] SBOM, provenance/attestations, and keyless signature evidence pass on a release tag.
-- [ ] Final commit/tag evidence is recorded and every task is checked only after its required proof exists.
+- [x] SBOM, provenance/attestations, and keyless signature evidence pass on release tag `backend-v0.3.2` in run `33252556673`.
+- [x] Final commit/tag evidence is recorded and every task is checked only after its required proof exists.
 
-The remaining release items are closed only after the immutable tag workflow publishes and verifies its evidence.
+All release items are closed from the verified immutable tag workflow and retained evidence.
