@@ -18,7 +18,7 @@ Recorded 2026-08-29 for SPEC-BE-004.
 | AC-010 performance | Pass | `performance.md` budgets and indexed plans |
 | AC-011 cache | Pass | canonical validator, bounded cache, invalidation/failure tests |
 | AC-012 complete gates | Pass | formatting baseline commit plus all named local gates |
-| AC-013 operations/evidence | Pass locally | metrics, alerts, security/performance/recovery/runbook evidence |
+| AC-013 operations/evidence | Pass | metrics, alerts, security/performance/recovery/runbook and signed release evidence |
 | AC-014 scope | Pass | no later-Spec/client/unrelated modification; `.agents/plugins/` preserved |
 
 SC-001 through SC-007 pass in executable unit, contract, pgTAP, live integration,
@@ -42,25 +42,22 @@ absent and fails safely.
 
 ## Remote evidence
 
-- Pushed-main workflow run
-  [33266979702](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33266979702)
-  passed application, database, sentinel-redaction, secrets, image, container,
-  dependency, performance, and Trivy gates for
-  `9660d039172ded5095d2167b96a2659a17157145`.
-- The exact image ID and GitHub artifact IDs/digests are retained in `remote.md`.
+- Release tag `backend-v0.4.0` at
+  `81b20ac1ad468cc64540a065667cba7a17f3693a` passed workflow run
+  [33268699691](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33268699691):
+  application, database, sentinel-redaction, secrets, image/container/Trivy,
+  CycloneDX SBOM, SLSA provenance, and all Cosign sign/attest/verify gates.
+- The exact image ID and all GitHub artifact IDs, digests, and retained file
+  hashes are recorded in `remote.md`.
 
 ## Remaining external evidence
 
 - Upstream external-only SPEC-BE-002 evidence remains incomplete for Apple Team
-  ID, protected Phone OTP identities, hosted schema/provider rehearsals, and
-  tag-only signed release evidence. These do not invalidate Phase 04 local
-  behavior, but they prevent claiming the aggregate dependency release complete.
-- Phase 04 SBOM/signature/provenance evidence remains pending because the
-  workflow's signed-release job is intentionally tag-only. Creating the required
-  `backend-v*` release tag is an external publishing action requiring owner
-  approval; no tag or release claim was inferred.
+  ID, two protected Phone OTP identities, and hosted schema-owner/non-owner plus
+  provider rotation/outage rehearsals. These verified external omissions do not
+  invalidate or block Phase 04 behavior; no unavailable upstream evidence is
+  represented as a pass.
 
-The Spec implementation, pushed-main evidence, and every locally executable
-Definition-of-Done gate are complete. Aggregate completion waits only for the
-explicitly external upstream dependency evidence and owner approval for a signed
-release tag.
+The Phase 04 specification, implementation, migrations, RLS/grants, audit/outbox
+flows, endpoints, tests, operational evidence, pushed release tag, and signed
+release artifacts satisfy its Definition of Done. No later Spec was implemented.

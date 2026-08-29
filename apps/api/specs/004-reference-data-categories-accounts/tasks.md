@@ -161,7 +161,7 @@ description: "Dependency-ordered implementation tasks for SPEC-BE-004"
 - [x] T057 Review changed production code with Clean Code/SOLID/DRY/KISS/YAGNI and changed tests with the test guard; apply only evidence-backed simplifications and record the review in `apps/api/specs/004-reference-data-categories-accounts/evidence/definition-of-done.md`
 - [x] T058 Prove every acceptance criterion, dependency gate, owned resource, migration, route, permission, event, test, and Definition of Done item is pass or explicitly blocked in `apps/api/specs/004-reference-data-categories-accounts/evidence/definition-of-done.md`; do not count database-backed skips
 - [x] T059 Confirm `git diff --check`, scope inventory, no later-Spec/client/unrelated modifications, and synchronized `main`; commit only Phase 04 plus required dependency corrections directly on `main`
-- [ ] T060 Push `main`, collect CI/image/dependency/secret/SBOM/signature/provenance evidence in `apps/api/specs/004-reference-data-categories-accounts/evidence/remote.md`, and fix any failures forward without rewriting history
+- [x] T060 Push `main`, collect CI/image/dependency/secret/SBOM/signature/provenance evidence in `apps/api/specs/004-reference-data-categories-accounts/evidence/remote.md`, and fix any failures forward without rewriting history
 
 ## Dependencies
 
