@@ -44,15 +44,37 @@ describe('onboarding DTO', () => {
 
   it.each([
     { step: 'unknown', completedSteps: [], complete: false, expectedVersion: 1 },
-    { step: 'welcome', completedSteps: ['welcome', 'welcome'], complete: false, expectedVersion: 1 },
+    {
+      step: 'welcome',
+      completedSteps: ['welcome', 'welcome'],
+      complete: false,
+      expectedVersion: 1,
+    },
     { step: 'welcome', completedSteps: ['unknown'], complete: false, expectedVersion: 1 },
     { step: 'welcome', completedSteps: [''], complete: false, expectedVersion: 1 },
-    { step: 'welcome', completedSteps: [...ONBOARDING_STEPS, 'welcome'], complete: false, expectedVersion: 1 },
+    {
+      step: 'welcome',
+      completedSteps: [...ONBOARDING_STEPS, 'welcome'],
+      complete: false,
+      expectedVersion: 1,
+    },
     { step: 'welcome', completedSteps: [], complete: false, expectedVersion: 0 },
-    { step: 'welcome', completedSteps: [], complete: false, expectedVersion: 1, permissionState: 'granted' },
+    {
+      step: 'welcome',
+      completedSteps: [],
+      complete: false,
+      expectedVersion: 1,
+      permissionState: 'granted',
+    },
     { step: 'welcome', completedSteps: [], complete: false, expectedVersion: 1, pin: '0000' },
     { step: 'welcome', completedSteps: [], complete: false, expectedVersion: 1, biometric: true },
-    { step: 'welcome', completedSteps: [], complete: false, expectedVersion: 1, navigationPath: '/home' },
+    {
+      step: 'welcome',
+      completedSteps: [],
+      complete: false,
+      expectedVersion: 1,
+      navigationPath: '/home',
+    },
   ])('rejects invalid or platform-only onboarding state', async (value) => {
     await expect(body(value)).rejects.toBeDefined();
   });
@@ -60,8 +82,18 @@ describe('onboarding DTO', () => {
   it.each([
     { step: 'complete', completedSteps: ['complete'], complete: false, expectedVersion: 1 },
     { step: 'complete', completedSteps: ['welcome'], complete: true, expectedVersion: 1 },
-    { step: 'tracking_intro', completedSteps: ['tracking_intro'], complete: false, expectedVersion: 1 },
-    { step: 'tracking_intro', completedSteps: ['welcome', 'complete'], complete: false, expectedVersion: 1 },
+    {
+      step: 'tracking_intro',
+      completedSteps: ['tracking_intro'],
+      complete: false,
+      expectedVersion: 1,
+    },
+    {
+      step: 'tracking_intro',
+      completedSteps: ['welcome', 'complete'],
+      complete: false,
+      expectedVersion: 1,
+    },
   ])('rejects inconsistent completion state', async (value) => {
     const dto = await body(value);
     expect(() => {

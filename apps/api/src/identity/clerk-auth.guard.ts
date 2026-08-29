@@ -1,9 +1,4 @@
-import {
-  type CanActivate,
-  type ExecutionContext,
-  HttpException,
-  Injectable,
-} from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, HttpException, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 
 import { PlatformConfigService } from '../platform/config/platform-config.service';
@@ -21,7 +16,10 @@ export interface ClerkPrincipalRequest extends Request {
   clerkPrincipal?: ClerkPrincipal;
 }
 
-function authError(code: 'AUTH_TOKEN_INVALID' | 'PROVIDER_UNAVAILABLE', status: 401 | 503): HttpException {
+function authError(
+  code: 'AUTH_TOKEN_INVALID' | 'PROVIDER_UNAVAILABLE',
+  status: 401 | 503,
+): HttpException {
   return new HttpException({ code }, status);
 }
 
@@ -84,12 +82,14 @@ export class ClerkAuthGuard implements CanActivate {
     return {
       userId: auth.userId,
       sessionId: auth.sessionId,
-      factorAgeSeconds: auth.factorVerificationAge?.[0] === undefined || auth.factorVerificationAge[0] < 0
-        ? null
-        : auth.factorVerificationAge[0] * 60,
-      mfaAgeSeconds: auth.factorVerificationAge?.[1] === undefined || auth.factorVerificationAge[1] < 0
-        ? null
-        : auth.factorVerificationAge[1] * 60,
+      factorAgeSeconds:
+        auth.factorVerificationAge?.[0] === undefined || auth.factorVerificationAge[0] < 0
+          ? null
+          : auth.factorVerificationAge[0] * 60,
+      mfaAgeSeconds:
+        auth.factorVerificationAge?.[1] === undefined || auth.factorVerificationAge[1] < 0
+          ? null
+          : auth.factorVerificationAge[1] * 60,
     };
   }
 }

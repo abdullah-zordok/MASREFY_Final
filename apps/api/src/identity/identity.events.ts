@@ -24,7 +24,10 @@ export function buildProfileCreatedPayload(
   if ((source === 'clerk_webhook') !== (sourceEventId !== null)) {
     throw new Error('PROFILE_EVENT_SOURCE_INVALID');
   }
-  if (sourceEventId !== null && (sourceEventId.trim() !== sourceEventId || sourceEventId.length > 128)) {
+  if (
+    sourceEventId !== null &&
+    (sourceEventId.trim() !== sourceEventId || sourceEventId.length > 128)
+  ) {
     throw new Error('PROFILE_EVENT_SOURCE_ID_INVALID');
   }
   return { payloadVersion: 1, profileId, profileVersion: 1, source, sourceEventId };

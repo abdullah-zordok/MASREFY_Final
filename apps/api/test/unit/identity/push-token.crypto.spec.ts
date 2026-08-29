@@ -10,7 +10,11 @@ describe('push token protection', () => {
     { id: 'active', key: activeKey },
     { id: 'old', key: oldKey },
   ]);
-  const aad = { provider: 'expo' as const, userId: 'user_fixture', deviceId: '0198f79d-98f3-7bb4-a820-f43bb4d0e17e' };
+  const aad = {
+    provider: 'expo' as const,
+    userId: 'user_fixture',
+    deviceId: '0198f79d-98f3-7bb4-a820-f43bb4d0e17e',
+  };
 
   it('uses domain-separated known-answer HMACs', () => {
     const fingerprintExpected = `h1:${createHmac('sha256', hashKey).update('fingerprint\0fixture').digest('hex')}`;
@@ -54,13 +58,22 @@ describe('push token protection', () => {
   });
 
   it('rejects invalid and duplicate key rings', () => {
-    expect(() => new PushTokenCrypto(Buffer.alloc(31), [{ id: 'active', key: activeKey }]))
-      .toThrow('PUSH_CRYPTO_CONFIG_INVALID');
-    expect(() => new PushTokenCrypto(hashKey, [
-      { id: 'active', key: activeKey }, { id: 'active', key: oldKey },
-    ])).toThrow('PUSH_CRYPTO_CONFIG_INVALID');
-    expect(() => new PushTokenCrypto(hashKey, [
-      { id: 'active', key: activeKey }, { id: 'same', key: activeKey },
-    ])).toThrow('PUSH_CRYPTO_CONFIG_INVALID');
+    expect(() => new PushTokenCrypto(Buffer.alloc(31), [{ id: 'active', key: activeKey }])).toThrow(
+      'PUSH_CRYPTO_CONFIG_INVALID',
+    );
+    expect(
+      () =>
+        new PushTokenCrypto(hashKey, [
+          { id: 'active', key: activeKey },
+          { id: 'active', key: oldKey },
+        ]),
+    ).toThrow('PUSH_CRYPTO_CONFIG_INVALID');
+    expect(
+      () =>
+        new PushTokenCrypto(hashKey, [
+          { id: 'active', key: activeKey },
+          { id: 'same', key: activeKey },
+        ]),
+    ).toThrow('PUSH_CRYPTO_CONFIG_INVALID');
   });
 });

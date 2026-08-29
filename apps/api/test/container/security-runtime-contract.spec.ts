@@ -7,17 +7,25 @@ describe('SPEC-BE-003 production image security contract', () => {
   it('ships compiled security workers without source or baked security secrets', () => {
     const config = (inspectImage().Config ?? {}) as { User?: string; Env?: string[] };
     expect(config.User).toBe('65532:65532');
-    expect(config.Env ?? []).not.toEqual(expect.arrayContaining([
-      expect.stringMatching(/MASARIFI_(?:SECURITY_IP_HASH_KEYS|ADMIN_INVITATION_REDIRECT_URL)=.+/),
-    ]));
-    expect(JSON.parse(runNode(`
+    expect(config.Env ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /MASARIFI_(?:SECURITY_IP_HASH_KEYS|ADMIN_INVITATION_REDIRECT_URL)=.+/,
+        ),
+      ]),
+    );
+    expect(
+      JSON.parse(
+        runNode(`
       const fs=require('node:fs');
       console.log(JSON.stringify({
         worker:fs.existsSync('/app/dist/src/security/security.worker.js'),
         guard:fs.existsSync('/app/dist/src/security/admin-auth.guard.js'),
         source:fs.existsSync('/app/src/security')
       }));
-    `))).toEqual({ worker: true, guard: true, source: false });
+    `),
+      ),
+    ).toEqual({ worker: true, guard: true, source: false });
   });
 
   it('keeps every Phase 03 secret/config placeholder value empty', () => {

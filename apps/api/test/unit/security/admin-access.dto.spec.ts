@@ -1,10 +1,16 @@
 import { SecurityService } from '../../../src/security/security.service';
 
 describe('admin access boundary DTOs', () => {
-  const principal = { userId: 'admin_1', sessionId: 'session_1', factorAgeSeconds: 0, mfaAgeSeconds: 0 };
+  const principal = {
+    userId: 'admin_1',
+    sessionId: 'session_1',
+    factorAgeSeconds: 0,
+    mfaAgeSeconds: 0,
+  };
 
   it('keeps invitation entropy process-local and returns only masked data', async () => {
-    const execute = jest.fn<Promise<unknown>, [{ body: Record<string, unknown> }]>()
+    const execute = jest
+      .fn<Promise<unknown>, [{ body: Record<string, unknown> }]>()
       .mockResolvedValue({ id: 'invitation-1', emailMasked: 'ad***@example.test' });
     const repository = {
       consumeRateLimit: jest.fn().mockResolvedValue(true),
@@ -19,9 +25,14 @@ describe('admin access boundary DTOs', () => {
     );
 
     const result = await service.execute({
-      operation: 'createAdminInvitation', permission: 'access.invites.write', principal,
-      body: { email: 'admin@example.test', roleId: 'role-1', expiresInHours: 24 }, query: {},
-      params: {}, requestId: 'request-1', idempotencyKey: 'invitation-request-1',
+      operation: 'createAdminInvitation',
+      permission: 'access.invites.write',
+      principal,
+      body: { email: 'admin@example.test', roleId: 'role-1', expiresInHours: 24 },
+      query: {},
+      params: {},
+      requestId: 'request-1',
+      idempotencyKey: 'invitation-request-1',
     });
 
     const persisted = execute.mock.calls[0]?.[0];
@@ -30,7 +41,8 @@ describe('admin access boundary DTOs', () => {
     expect(persisted.body.tokenHash).toMatch(/^h1:[0-9a-f]{64}$/);
     expect(persisted.body).not.toHaveProperty('deliveryToken');
     expect(clerk.deliverAdminInvitation).toHaveBeenCalledWith(
-      'admin@example.test', expect.stringMatching(/^[A-Za-z0-9_-]{32,}$/),
+      'admin@example.test',
+      expect.stringMatching(/^[A-Za-z0-9_-]{32,}$/),
     );
     expect(JSON.stringify(result)).not.toMatch(/admin@example\.test|token/i);
   });
@@ -43,11 +55,24 @@ describe('admin access boundary DTOs', () => {
       {} as never,
       {} as never,
     );
-    await expect(service.execute({
-      operation: 'createRole', permission: 'access.roles.write', principal,
-      body: { key: 'role', name: 'Role', permissionKeys: ['audit.read'], reason: 'Approved role creation', role: 'super-admin' },
-      query: {}, params: {}, requestId: 'request-1', idempotencyKey: 'role-request-1',
-    })).rejects.toMatchObject({ status: 400 });
+    await expect(
+      service.execute({
+        operation: 'createRole',
+        permission: 'access.roles.write',
+        principal,
+        body: {
+          key: 'role',
+          name: 'Role',
+          permissionKeys: ['audit.read'],
+          reason: 'Approved role creation',
+          role: 'super-admin',
+        },
+        query: {},
+        params: {},
+        requestId: 'request-1',
+        idempotencyKey: 'role-request-1',
+      }),
+    ).rejects.toMatchObject({ status: 400 });
     expect(repository.execute).not.toHaveBeenCalled();
   });
 });

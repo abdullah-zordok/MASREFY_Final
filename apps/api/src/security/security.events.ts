@@ -1,4 +1,9 @@
-import { SUPPORT_ACTIONS, SUPPORT_RESOURCES, type SupportAction, type SupportResource } from './privacy-handlers';
+import {
+  SUPPORT_ACTIONS,
+  SUPPORT_RESOURCES,
+  type SupportAction,
+  type SupportResource,
+} from './privacy-handlers';
 
 export const SECURITY_EVENT_TYPES = Object.freeze([
   'admin.role_assigned',
@@ -18,8 +23,22 @@ const fields: Record<SecurityEventType, readonly string[]> = {
   'admin.role_assigned': ['adminId', 'roleId', 'assignmentId', 'occurredAt', 'requestId'],
   'admin.role_revoked': ['adminId', 'roleId', 'assignmentId', 'occurredAt', 'requestId'],
   'support_access.requested': ['requestId', 'adminId', 'userId', 'scopeKeys', 'occurredAt'],
-  'support_access.granted': ['requestId', 'grantId', 'adminId', 'userId', 'scopeKeys', 'occurredAt'],
-  'support_access.revoked': ['requestId', 'grantId', 'adminId', 'userId', 'scopeKeys', 'occurredAt'],
+  'support_access.granted': [
+    'requestId',
+    'grantId',
+    'adminId',
+    'userId',
+    'scopeKeys',
+    'occurredAt',
+  ],
+  'support_access.revoked': [
+    'requestId',
+    'grantId',
+    'adminId',
+    'userId',
+    'scopeKeys',
+    'occurredAt',
+  ],
   'security.incident_opened': ['incidentId', 'severity', 'occurredAt', 'requestId'],
   'privacy.export_ready': ['requestId', 'userId', 'expiresAt', 'occurredAt'],
   'privacy.export_expired': ['requestId', 'userId', 'expiresAt', 'occurredAt'],
@@ -36,18 +55,33 @@ function validTimestamp(value: unknown): value is string {
 }
 
 function scopeKeys(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 18 || value.some((entry) => typeof entry !== 'string')) return undefined;
+  if (
+    !Array.isArray(value) ||
+    value.length < 1 ||
+    value.length > 18 ||
+    value.some((entry) => typeof entry !== 'string')
+  )
+    return undefined;
   const normalized = [...new Set(value as string[])].sort();
   for (const entry of normalized) {
     const [resource, action, extra] = entry.split(':');
-    if (extra !== undefined || !SUPPORT_RESOURCES.includes(resource as SupportResource) || !SUPPORT_ACTIONS.includes(action as SupportAction)) return undefined;
+    if (
+      extra !== undefined ||
+      !SUPPORT_RESOURCES.includes(resource as SupportResource) ||
+      !SUPPORT_ACTIONS.includes(action as SupportAction)
+    )
+      return undefined;
   }
   return normalized;
 }
 
-export function buildSecurityEventPayload(type: SecurityEventType, input: Readonly<Record<string, unknown>>): Record<string, unknown> {
+export function buildSecurityEventPayload(
+  type: SecurityEventType,
+  input: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
   const expected = fields[type];
-  if (JSON.stringify(Object.keys(input).sort()) !== JSON.stringify([...expected].sort())) throw new Error('SECURITY_EVENT_PAYLOAD_INVALID');
+  if (JSON.stringify(Object.keys(input).sort()) !== JSON.stringify([...expected].sort()))
+    throw new Error('SECURITY_EVENT_PAYLOAD_INVALID');
   const payload: Record<string, unknown> = { schemaVersion: 1, ...input };
   for (const [key, value] of Object.entries(input)) {
     if (key === 'scopeKeys') {
@@ -57,7 +91,8 @@ export function buildSecurityEventPayload(type: SecurityEventType, input: Readon
     } else if (key === 'occurredAt' || key === 'expiresAt') {
       if (!validTimestamp(value)) throw new Error('SECURITY_EVENT_PAYLOAD_INVALID');
     } else if (key === 'severity') {
-      if (typeof value !== 'string' || !severities.has(value)) throw new Error('SECURITY_EVENT_PAYLOAD_INVALID');
+      if (typeof value !== 'string' || !severities.has(value))
+        throw new Error('SECURITY_EVENT_PAYLOAD_INVALID');
     } else if (typeof value !== 'string' || !id.test(value)) {
       throw new Error('SECURITY_EVENT_PAYLOAD_INVALID');
     }

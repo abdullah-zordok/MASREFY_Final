@@ -30,17 +30,23 @@ describe('Clerk reconciliation', () => {
   it('resumes an immutable-subject absence scan and distinguishes not-found from outage', async () => {
     repository.listProfileSubjects.mockResolvedValue(['reconcile_b', 'reconcile_c']);
     clerk.getIdentityUser.mockResolvedValueOnce(null).mockResolvedValueOnce({
-      id: 'reconcile_c', primaryEmail: null, primaryPhone: null, displayName: null,
+      id: 'reconcile_c',
+      primaryEmail: null,
+      primaryPhone: null,
+      displayName: null,
     });
     const worker = new ClerkWebhookWorker(repository as never, clerk as never, config as never);
     await expect(worker.reconcileProfilePage('reconcile_a')).resolves.toMatchObject({
-      processed: 2, next: 'reconcile_c',
+      processed: 2,
+      next: 'reconcile_c',
     });
     expect(repository.synchronizeClerkIdentity).toHaveBeenNthCalledWith(1, null, 'reconcile_b');
 
     clerk.getIdentityUser.mockRejectedValueOnce(new Error('PROVIDER_UNAVAILABLE'));
     repository.listProfileSubjects.mockResolvedValueOnce(['reconcile_d']);
-    await expect(worker.reconcileProfilePage('reconcile_c')).rejects.toThrow('PROVIDER_UNAVAILABLE');
+    await expect(worker.reconcileProfilePage('reconcile_c')).rejects.toThrow(
+      'PROVIDER_UNAVAILABLE',
+    );
     expect(repository.synchronizeClerkIdentity).not.toHaveBeenCalledWith(null, 'reconcile_d');
   });
 });

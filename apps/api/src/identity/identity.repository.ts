@@ -73,8 +73,7 @@ export interface DeviceRegistrationRecord {
 }
 
 export type DeviceRevokeRecord =
-  | { status: 'not_found' }
-  | { status: 'revoked'; device: DeviceRecord; sessionId: string | null };
+  { status: 'not_found' } | { status: 'revoked'; device: DeviceRecord; sessionId: string | null };
 
 export interface ClerkWebhookReceipt {
   eventId: string;
@@ -305,7 +304,13 @@ export class IdentityRepository {
           await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [subject]);
           const current = await lookup(subject);
           if (current && current.id !== subject) throw new Error('CLERK_SUBJECT_MISMATCH');
-          await this.synchronizeProfile(client, subject, current, 'clerk_webhook', claimed.clerk_event_id);
+          await this.synchronizeProfile(
+            client,
+            subject,
+            current,
+            'clerk_webhook',
+            claimed.clerk_event_id,
+          );
           await client.query(
             `update private.clerk_webhook_events
              set status='processed', processed_at=now(), last_error_code=null
@@ -321,9 +326,10 @@ export class IdentityRepository {
       });
     } catch (error) {
       if (!claimed) throw error;
-      const code = error instanceof Error && error.message === 'INVALID_WEBHOOK'
-        ? 'INVALID_WEBHOOK'
-        : 'PROVIDER_UNAVAILABLE';
+      const code =
+        error instanceof Error && error.message === 'INVALID_WEBHOOK'
+          ? 'INVALID_WEBHOOK'
+          : 'PROVIDER_UNAVAILABLE';
       const attemptCount = await this.failClerkWebhook(claimed.id, maxAttempts, code);
       return { status: 'failed', eventId: claimed.clerk_event_id, attemptCount };
     }
@@ -437,7 +443,12 @@ export class IdentityRepository {
       throw new Error('INVALID_WEBHOOK');
     }
     const subject = (data as Record<string, unknown>).id;
-    if (typeof subject !== 'string' || subject.trim() !== subject || subject.length < 1 || subject.length > 128) {
+    if (
+      typeof subject !== 'string' ||
+      subject.trim() !== subject ||
+      subject.length < 1 ||
+      subject.length > 128
+    ) {
       throw new Error('INVALID_WEBHOOK');
     }
     return subject;
@@ -522,9 +533,17 @@ export class IdentityRepository {
         if (changedFields.length > 0) {
           await client.query(
             `select private.enqueue_outbox_event('profile.updated','profile',null,$1::jsonb)`,
-            [JSON.stringify(buildProfileUpdatedPayload(
-              subject, version(result.version), changedFields, source, sourceEventId,
-            ))],
+            [
+              JSON.stringify(
+                buildProfileUpdatedPayload(
+                  subject,
+                  version(result.version),
+                  changedFields,
+                  source,
+                  sourceEventId,
+                ),
+              ),
+            ],
           );
         }
       }
@@ -552,9 +571,17 @@ export class IdentityRepository {
     );
     await client.query(
       `select private.enqueue_outbox_event('profile.deletion_requested','profile',null,$1::jsonb)`,
-      [JSON.stringify(buildProfileDeletionRequestedPayload(
-        subject, version(deletion.version), source, sourceEventId, new Date(),
-      ))],
+      [
+        JSON.stringify(
+          buildProfileDeletionRequestedPayload(
+            subject,
+            version(deletion.version),
+            source,
+            sourceEventId,
+            new Date(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -612,11 +639,11 @@ export class IdentityRepository {
       if (!row) return null;
       await client.query(
         `select private.enqueue_outbox_event('profile.updated', 'profile', null, $1::jsonb)`,
-        [JSON.stringify(buildProfileUpdatedPayload(
-          principal.userId,
-          version(row.version),
-          changedFields,
-        ))],
+        [
+          JSON.stringify(
+            buildProfileUpdatedPayload(principal.userId, version(row.version), changedFields),
+          ),
+        ],
       );
       return profile(row);
     });
@@ -729,13 +756,7 @@ export class IdentityRepository {
            and (completed_at is not null) = $4::boolean
            and not exists (select 1 from changed)
          limit 1`,
-        [
-          principal.userId,
-          input.step,
-          input.completedSteps,
-          input.complete,
-          input.expectedVersion,
-        ],
+        [principal.userId, input.step, input.completedSteps, input.complete, input.expectedVersion],
       );
       return result.rows[0] ? onboarding(result.rows[0]) : null;
     });
@@ -768,7 +789,10 @@ export class IdentityRepository {
     const protection = this.requirePushCrypto();
     const fingerprint = protection.fingerprint(input.deviceFingerprint);
     return this.withCustomerTransaction(principal, async (client) => {
-      const existing = await client.query<{ revoked_at: Date | null; clerk_session_id: string | null }>(
+      const existing = await client.query<{
+        revoked_at: Date | null;
+        clerk_session_id: string | null;
+      }>(
         `select revoked_at, clerk_session_id from public.user_devices
          where user_id = $1 and device_fingerprint = $2 for update`,
         [principal.userId, fingerprint],
@@ -842,13 +866,18 @@ export class IdentityRepository {
 
       await client.query(
         `select private.enqueue_outbox_event('device.registered', 'device', $1::uuid, $2::jsonb)`,
-        [record.id, JSON.stringify(buildDeviceRegisteredPayload(
-          principal.userId,
+        [
           record.id,
-          record.platform,
-          record.version,
-          registrationResult,
-        ))],
+          JSON.stringify(
+            buildDeviceRegisteredPayload(
+              principal.userId,
+              record.id,
+              record.platform,
+              record.version,
+              registrationResult,
+            ),
+          ),
+        ],
       );
       return { device: record, created: row.created === true, registrationResult };
     });
@@ -896,13 +925,18 @@ export class IdentityRepository {
         );
         await client.query(
           `select private.enqueue_outbox_event('device.revoked', 'device', $1::uuid, $2::jsonb)`,
-          [deviceId, JSON.stringify(buildDeviceRevokedPayload(
-            principal.userId,
+          [
             deviceId,
-            record.version,
-            revokedAt,
-            record.clerkSessionId ? 'pending' : 'not_linked',
-          ))],
+            JSON.stringify(
+              buildDeviceRevokedPayload(
+                principal.userId,
+                deviceId,
+                record.version,
+                revokedAt,
+                record.clerkSessionId ? 'pending' : 'not_linked',
+              ),
+            ),
+          ],
         );
       }
       return { status: 'revoked', device: record, sessionId: record.clerkSessionId };

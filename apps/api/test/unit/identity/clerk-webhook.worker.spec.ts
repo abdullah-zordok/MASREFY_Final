@@ -14,11 +14,16 @@ describe('Clerk webhook worker orchestration', () => {
     listIdentityUsers: jest.fn(),
     revokeSession: jest.fn().mockResolvedValue('revoked'),
   };
-  const config = { get: jest.fn((key: string) => ({
-    MASARIFI_CLERK_WEBHOOK_POLL_MS: 100,
-    MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS: 3,
-    MASARIFI_CLERK_RECONCILE_PAGE_SIZE: 2,
-  })[key]) };
+  const config = {
+    get: jest.fn(
+      (key: string) =>
+        ({
+          MASARIFI_CLERK_WEBHOOK_POLL_MS: 100,
+          MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS: 3,
+          MASARIFI_CLERK_RECONCILE_PAGE_SIZE: 2,
+        })[key],
+    ),
+  };
 
   beforeEach(() => {
     repository.nextRevokedSession.mockResolvedValue(null);
@@ -51,7 +56,10 @@ describe('Clerk webhook worker orchestration', () => {
   it('resumes the local absence scan by immutable subject', async () => {
     repository.listProfileSubjects.mockResolvedValue(['user_b', 'user_c']);
     clerk.getIdentityUser.mockResolvedValueOnce(null).mockResolvedValueOnce({
-      id: 'user_c', primaryEmail: null, primaryPhone: null, displayName: null,
+      id: 'user_c',
+      primaryEmail: null,
+      primaryPhone: null,
+      displayName: null,
     });
     const worker = new ClerkWebhookWorker(repository as never, clerk as never, config as never);
     const evidence = await worker.reconcileProfilePage('user_a');
@@ -61,7 +69,10 @@ describe('Clerk webhook worker orchestration', () => {
   });
 
   it('clears a retained session link only after Clerk succeeds', async () => {
-    repository.nextRevokedSession.mockResolvedValue({ deviceId: 'device_a', sessionId: 'session_a' });
+    repository.nextRevokedSession.mockResolvedValue({
+      deviceId: 'device_a',
+      sessionId: 'session_a',
+    });
     const worker = new ClerkWebhookWorker(repository as never, clerk as never, config as never);
     await expect(worker.retryRevokedSession()).resolves.toBe(true);
     expect(clerk.revokeSession).toHaveBeenCalledWith('session_a');

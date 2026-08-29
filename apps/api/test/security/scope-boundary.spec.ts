@@ -9,12 +9,18 @@ export function scopeViolations(paths: string[], source: string): string[] {
   const forbiddenTechnology = /\b(redis|bullmq|prisma)\b/i.test(source)
     ? ['forbidden-technology']
     : [];
-  const forbiddenIdentityOwnership = /\b(?:auth\.users|supabase auth users|create table\s+(?:public\.)?(?:sessions?|idempotency\w*|audit\w*|roles?|permissions?))\b/i.test(
-    source,
-  )
-    ? ['forbidden-identity-ownership']
-    : [];
-  return [...clientChanges, ...edgeFunctions, ...forbiddenTechnology, ...forbiddenIdentityOwnership];
+  const forbiddenIdentityOwnership =
+    /\b(?:auth\.users|supabase auth users|create table\s+(?:public\.)?(?:sessions?|idempotency\w*|audit\w*|roles?|permissions?))\b/i.test(
+      source,
+    )
+      ? ['forbidden-identity-ownership']
+      : [];
+  return [
+    ...clientChanges,
+    ...edgeFunctions,
+    ...forbiddenTechnology,
+    ...forbiddenIdentityOwnership,
+  ];
 }
 
 describe('SPEC-BE-001 scope boundary', () => {

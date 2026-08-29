@@ -49,7 +49,8 @@ const testHarnessKeys = new Set(['MASARIFI_IMAGE_UNDER_TEST', 'MASARIFI_LIVE_DAT
 
 const base64UrlKey = /^[A-Za-z0-9_-]{43}$/;
 const safeKeyId = /^[A-Za-z0-9._-]{1,32}$/;
-const hostname = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const hostname =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 function decodedKey(value: string): Buffer | undefined {
   if (!base64UrlKey.test(value)) return undefined;
@@ -99,7 +100,8 @@ function parseKeyRing(value: string, helpers: Joi.CustomHelpers): unknown {
     const separator = entry.indexOf(':');
     const id = separator > 0 ? entry.slice(0, separator) : '';
     const material = separator > 0 ? decodedKey(entry.slice(separator + 1)) : undefined;
-    if (!safeKeyId.test(id) || ids.has(id) || !material) return helpers.error('string.pattern.base');
+    if (!safeKeyId.test(id) || ids.has(id) || !material)
+      return helpers.error('string.pattern.base');
     ids.add(id);
   }
   return value;
@@ -107,13 +109,17 @@ function parseKeyRing(value: string, helpers: Joi.CustomHelpers): unknown {
 
 function parseHandlerManifest(value: string, helpers: Joi.CustomHelpers): unknown {
   if (value.length > 6_400) return helpers.error('string.max');
-  const entries = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+  const entries = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
   if (
     entries.length < 1 ||
     entries.length > 100 ||
     new Set(entries).size !== entries.length ||
     entries.some((entry) => !/^[a-z][a-z0-9-]{0,63}@1$/.test(entry))
-  ) return helpers.error('string.pattern.base');
+  )
+    return helpers.error('string.pattern.base');
   return [...entries].sort();
 }
 
@@ -181,9 +187,18 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS: Joi.number().integer().min(1).max(100).default(10),
   MASARIFI_CLERK_RECONCILE_PAGE_SIZE: Joi.number().integer().min(1).max(100).default(100),
   MASARIFI_ADMIN_ROUTES_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
-  MASARIFI_ADMIN_INVITATION_REDIRECT_URL: Joi.string().uri({ scheme: ['http', 'https'] }).max(2_048).optional(),
-  MASARIFI_SECURITY_IP_HASH_KEYS: Joi.string().trim().custom(parseKeyRing, 'security IP hash key parser').optional(),
-  SUPABASE_URL: Joi.string().uri({ scheme: ['http', 'https'] }).max(2_048).optional(),
+  MASARIFI_ADMIN_INVITATION_REDIRECT_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .max(2_048)
+    .optional(),
+  MASARIFI_SECURITY_IP_HASH_KEYS: Joi.string()
+    .trim()
+    .custom(parseKeyRing, 'security IP hash key parser')
+    .optional(),
+  SUPABASE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .max(2_048)
+    .optional(),
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().trim().min(16).max(4_096).optional(),
   MASARIFI_EXPORT_MAX_BYTES: Joi.number().integer().min(1_048_576).max(1_073_741_824).optional(),
   MASARIFI_EXPORT_MAX_ENTRIES: Joi.number().integer().min(1).max(10_000).optional(),
@@ -192,7 +207,9 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_DELETION_COOLING_OFF_HOURS: Joi.number().integer().min(1).max(2_160).optional(),
   MASARIFI_SECURITY_WORKER_POLL_MS: Joi.number().integer().min(100).max(10_000).optional(),
   MASARIFI_SECURITY_JOB_BATCH_SIZE: Joi.number().integer().min(1).max(100).optional(),
-  MASARIFI_PRIVACY_HANDLER_MANIFEST: Joi.string().custom(parseHandlerManifest, 'privacy handler manifest parser').optional(),
+  MASARIFI_PRIVACY_HANDLER_MANIFEST: Joi.string()
+    .custom(parseHandlerManifest, 'privacy handler manifest parser')
+    .optional(),
 }).unknown(true);
 
 const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment)[]> = {
@@ -338,8 +355,16 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   const environment = value as PlatformEnvironment;
   if (environment.MASARIFI_ADMIN_INVITATION_REDIRECT_URL) {
     const redirect = new URL(environment.MASARIFI_ADMIN_INVITATION_REDIRECT_URL);
-    const localHttp = environment.NODE_ENV !== 'production' && redirect.protocol === 'http:' && /^(localhost|127\.0\.0\.1)$/.test(redirect.hostname);
-    if ((redirect.protocol !== 'https:' && !localHttp) || redirect.username || redirect.password || redirect.pathname === '/') {
+    const localHttp =
+      environment.NODE_ENV !== 'production' &&
+      redirect.protocol === 'http:' &&
+      /^(localhost|127\.0\.0\.1)$/.test(redirect.hostname);
+    if (
+      (redirect.protocol !== 'https:' && !localHttp) ||
+      redirect.username ||
+      redirect.password ||
+      redirect.pathname === '/'
+    ) {
       invalidEnvironment(['MASARIFI_ADMIN_INVITATION_REDIRECT_URL']);
     }
   }

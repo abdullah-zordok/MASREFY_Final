@@ -4,7 +4,11 @@ import { buildProfileUpdatedPayload } from '../../../src/identity/identity.event
 import { IdentityService, maskEmail, maskPhone } from '../../../src/identity/identity.service';
 
 describe('profile data exposure boundaries', () => {
-  const principal = { userId: 'user_fixture_a', sessionId: 'session_fixture_a', factorAgeSeconds: 30 };
+  const principal = {
+    userId: 'user_fixture_a',
+    sessionId: 'session_fixture_a',
+    factorAgeSeconds: 30,
+  };
 
   it('masks contact fields without returning the originals', () => {
     expect(maskEmail('owner@example.test')).toBe('o***@example.test');
@@ -33,7 +37,9 @@ describe('profile data exposure boundaries', () => {
 
   it('maps provider/database failures to one safe code', async () => {
     const repository = {
-      getProfile: jest.fn().mockRejectedValue(new Error('connection failed with credential and contact')),
+      getProfile: jest
+        .fn()
+        .mockRejectedValue(new Error('connection failed with credential and contact')),
     };
     const promise = new IdentityService(repository as never).getProfile(principal);
     await expect(promise).rejects.toBeInstanceOf(HttpException);
@@ -41,8 +47,13 @@ describe('profile data exposure boundaries', () => {
   });
 
   it('never puts contact values in profile event payloads', () => {
-    const payload = buildProfileUpdatedPayload(principal.userId, 2, ['primary_email', 'phone_e164']);
-    expect(payload).toEqual(expect.objectContaining({ changedFields: ['phone_e164', 'primary_email'] }));
+    const payload = buildProfileUpdatedPayload(principal.userId, 2, [
+      'primary_email',
+      'phone_e164',
+    ]);
+    expect(payload).toEqual(
+      expect.objectContaining({ changedFields: ['phone_e164', 'primary_email'] }),
+    );
     expect(JSON.stringify(payload)).not.toContain('@');
     expect(JSON.stringify(payload)).not.toContain('+966');
   });

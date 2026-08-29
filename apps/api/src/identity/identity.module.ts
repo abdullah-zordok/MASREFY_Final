@@ -25,8 +25,12 @@ import { PushTokenCrypto } from './push-token.crypto';
       provide: PushTokenCrypto,
       inject: [PlatformConfigService],
       useFactory: (config: PlatformConfigService): PushTokenCrypto => {
-        const hashKey = Buffer.from(config.getRequired('MASARIFI_PUSH_TOKEN_HASH_KEY'), 'base64url');
-        const keyRing = config.getRequired('MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS')
+        const hashKey = Buffer.from(
+          config.getRequired('MASARIFI_PUSH_TOKEN_HASH_KEY'),
+          'base64url',
+        );
+        const keyRing = config
+          .getRequired('MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS')
           .split(',')
           .map((entry) => {
             const separator = entry.indexOf(':');
@@ -41,7 +45,10 @@ import { PushTokenCrypto } from './push-token.crypto';
     {
       provide: META_TOKEN_VERIFIER,
       inject: [ClerkAuthGuard],
-      useFactory: (guard: ClerkAuthGuard): MetaTokenVerifier => (token) => guard.verifyToken(token),
+      useFactory:
+        (guard: ClerkAuthGuard): MetaTokenVerifier =>
+        (token) =>
+          guard.verifyToken(token),
     },
   ],
   exports: [ClerkClientService, ClerkAuthGuard, IdentityRepository, META_TOKEN_VERIFIER],

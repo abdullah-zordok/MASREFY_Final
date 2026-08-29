@@ -2,7 +2,8 @@ import { SecurityWorkerService } from '../../../src/security/security.worker';
 
 describe('SecurityWorkerService', () => {
   it('isolates each bounded job so one failure cannot starve the others', async () => {
-    const query = jest.fn()
+    const query = jest
+      .fn()
       .mockRejectedValueOnce(new Error('support expiry unavailable'))
       .mockResolvedValue({ rows: [] });
     const repository = {
@@ -15,8 +16,11 @@ describe('SecurityWorkerService', () => {
       getRequired: jest.fn(() => 25),
     };
     const identity = {
-      resourceType: 'identity', schemaVersion: 1,
-      export: jest.fn(), deleteAccount: jest.fn(), listRetentionCandidates: jest.fn(),
+      resourceType: 'identity',
+      schemaVersion: 1,
+      export: jest.fn(),
+      deleteAccount: jest.fn(),
+      listRetentionCandidates: jest.fn(),
       applyRetention: jest.fn(),
     };
     const worker = new SecurityWorkerService(

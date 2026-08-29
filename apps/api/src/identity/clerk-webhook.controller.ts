@@ -1,21 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { verifyWebhook } from '@clerk/backend/webhooks';
-import {
-  Controller,
-  Headers,
-  HttpCode,
-  HttpException,
-  Post,
-  Req,
-  Res,
-} from '@nestjs/common';
-import {
-  ApiHeader,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Controller, Headers, HttpCode, HttpException, Post, Req, Res } from '@nestjs/common';
+import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request as ExpressRequest, Response } from 'express';
 
 import { PlatformConfigService } from '../platform/config/platform-config.service';
@@ -55,7 +42,14 @@ export class ClerkWebhookController {
   @ApiHeader({ name: 'svix-id', required: true })
   @ApiHeader({ name: 'svix-timestamp', required: true })
   @ApiHeader({ name: 'svix-signature', required: true })
-  @ApiResponse({ status: 202, schema: { type: 'object', required: ['accepted'], properties: { accepted: { type: 'boolean', enum: [true] } } } })
+  @ApiResponse({
+    status: 202,
+    schema: {
+      type: 'object',
+      required: ['accepted'],
+      properties: { accepted: { type: 'boolean', enum: [true] } },
+    },
+  })
   @ApiResponse({ status: 204 })
   @ApiResponse({ status: 400, type: SafeErrorDto })
   @ApiResponse({ status: 401, type: SafeErrorDto })
@@ -89,7 +83,9 @@ export class ClerkWebhookController {
     try {
       verified = await verifyWebhook(
         new globalThis.Request('https://webhook.masarifi.invalid/webhooks/clerk', {
-          method: 'POST', headers, body: Uint8Array.from(raw),
+          method: 'POST',
+          headers,
+          body: Uint8Array.from(raw),
         }),
         { signingSecret: this.config.getRequired('CLERK_WEBHOOK_SIGNING_SECRET') },
       );
@@ -108,7 +104,9 @@ export class ClerkWebhookController {
       throw domainError('INVALID_WEBHOOK', 400);
     }
     if (
-      !object(payload) || payload.type !== verified.type || !object(payload.data) ||
+      !object(payload) ||
+      payload.type !== verified.type ||
+      !object(payload.data) ||
       !bounded(typeof payload.data.id === 'string' ? payload.data.id : undefined, 128)
     ) {
       throw domainError('INVALID_WEBHOOK', 400);

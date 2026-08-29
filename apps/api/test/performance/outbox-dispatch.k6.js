@@ -64,28 +64,25 @@ const normalScenarios = {
 };
 
 export const options = {
-  scenarios:
-    stress
-      ? {
-          stress_recovery: {
-            executor: 'ramping-vus',
-            startVUs: 10,
-            stages: [
-              { duration: '30s', target: 50 },
-              // ponytail: leaves connection headroom in the local Supabase stack; raise with a pooler.
-              { duration: '1m', target: 75 },
-              { duration: '30s', target: 0 },
-            ],
-            exec: 'recover',
-          },
-        }
-      : normalScenarios,
+  scenarios: stress
+    ? {
+        stress_recovery: {
+          executor: 'ramping-vus',
+          startVUs: 10,
+          stages: [
+            { duration: '30s', target: 50 },
+            // ponytail: leaves connection headroom in the local Supabase stack; raise with a pooler.
+            { duration: '1m', target: 75 },
+            { duration: '30s', target: 0 },
+          ],
+          exec: 'recover',
+        },
+      }
+    : normalScenarios,
   thresholds: {
     checks: ['rate==1'],
     outbox_claim_failure: ['rate<0.01'],
-    ...(stress
-      ? {}
-      : { 'outbox_claim_duration_ms{phase:steady}': ['p(95)<50', 'p(99)<100'] }),
+    ...(stress ? {} : { 'outbox_claim_duration_ms{phase:steady}': ['p(95)<50', 'p(99)<100'] }),
     outbox_publication_duration_ms: ['p(50)>=0', 'p(95)<500', 'p(99)<1000'],
     outbox_database_session_memory_bytes: ['value>0'],
   },

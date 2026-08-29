@@ -24,7 +24,10 @@ describe('Mobile onboarding mapping', () => {
     'requestedDestination',
   ])('keeps %s outside the backend onboarding DTO', (field) => {
     const dto = readFileSync(resolve(__dirname, '../../../src/identity/identity.dto.ts'), 'utf8');
-    const onboarding = dto.slice(dto.indexOf('export class OnboardingReplaceDto'), dto.indexOf('@ApiSchema({ name: \'OnboardingProgress\' })'));
+    const onboarding = dto.slice(
+      dto.indexOf('export class OnboardingReplaceDto'),
+      dto.indexOf("@ApiSchema({ name: 'OnboardingProgress' })"),
+    );
     expect(onboarding).not.toContain(field);
   });
 });

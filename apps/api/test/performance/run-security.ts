@@ -5,8 +5,10 @@ import { performance } from 'node:perf_hooks';
 import { Pool, type PoolClient } from 'pg';
 
 function percentile(values: number[], value: number): number {
-  return values.toSorted((left, right) => left - right)[Math.ceil(values.length * value) - 1]
-    ?? Number.POSITIVE_INFINITY;
+  return (
+    values.toSorted((left, right) => left - right)[Math.ceil(values.length * value) - 1] ??
+    Number.POSITIVE_INFINITY
+  );
 }
 
 async function samples(count: number, action: () => Promise<unknown>): Promise<number[]> {
@@ -19,7 +21,10 @@ async function samples(count: number, action: () => Promise<unknown>): Promise<n
   return values;
 }
 
-async function acceptanceSamples(count: number, action: (index: number) => Promise<unknown>): Promise<{
+async function acceptanceSamples(
+  count: number,
+  action: (index: number) => Promise<unknown>,
+): Promise<{
   p95Ms: number;
   p99Ms: number;
   payloadBytes: number;
@@ -40,8 +45,9 @@ async function acceptanceSamples(count: number, action: (index: number) => Promi
 }
 
 async function plan(client: PoolClient, sql: string): Promise<unknown> {
-  return (await client.query<{ 'QUERY PLAN': unknown }>(`explain (analyze,buffers,format json) ${sql}`))
-    .rows[0]?.['QUERY PLAN'];
+  return (
+    await client.query<{ 'QUERY PLAN': unknown }>(`explain (analyze,buffers,format json) ${sql}`)
+  ).rows[0]?.['QUERY PLAN'];
 }
 
 async function run(): Promise<void> {
@@ -53,8 +59,12 @@ async function run(): Promise<void> {
     await client.query('begin');
     await client.query('grant masarifi_migration to current_user with set true,inherit false');
     await client.query('set local role masarifi_migration');
-    await client.query("insert into public.profiles(id,status) values('performance_admin','active') on conflict(id) do update set status='active'");
-    await client.query("insert into public.admin_profiles(user_id,status) values('performance_admin','active') on conflict(user_id) do update set status='active'");
+    await client.query(
+      "insert into public.profiles(id,status) values('performance_admin','active') on conflict(id) do update set status='active'",
+    );
+    await client.query(
+      "insert into public.admin_profiles(user_id,status) values('performance_admin','active') on conflict(user_id) do update set status='active'",
+    );
     await client.query(`insert into public.admin_role_assignments(user_id,role_id,assigned_by,reason)
       select 'performance_admin',id,'performance_admin','Performance permission fixture' from public.roles where key='super-admin'
       on conflict(user_id,role_id) where revoked_at is null do nothing`);
@@ -64,27 +74,45 @@ async function run(): Promise<void> {
       from generate_series(1,1000000) sample`);
     await client.query('analyze public.security_events');
 
-    const permission = await samples(500, () => client.query(
-      "select private.admin_has_permission('performance_admin','audit.read',clock_timestamp())",
-    ));
-    const owner = await samples(100, () => client.query(`select id,event_type,severity,occurred_at,metadata
-      from public.security_events where user_id='performance_admin' order by occurred_at desc,id desc limit 100`));
-    const ownerPage = (await client.query(`select id,event_type,severity,occurred_at,metadata from public.security_events
-      where user_id='performance_admin' order by occurred_at desc,id desc limit 100`)).rows;
+    const permission = await samples(500, () =>
+      client.query(
+        "select private.admin_has_permission('performance_admin','audit.read',clock_timestamp())",
+      ),
+    );
+    const owner = await samples(100, () =>
+      client.query(`select id,event_type,severity,occurred_at,metadata
+      from public.security_events where user_id='performance_admin' order by occurred_at desc,id desc limit 100`),
+    );
+    const ownerPage = (
+      await client.query(`select id,event_type,severity,occurred_at,metadata from public.security_events
+      where user_id='performance_admin' order by occurred_at desc,id desc limit 100`)
+    ).rows;
     await client.query(`insert into public.profiles(id,status)
       select 'performance_customer_'||sample,'active' from generate_series(0,49) sample`);
-    const privacyAcceptance = await acceptanceSamples(25, async (index) => (await client.query(
-      `insert into private.privacy_export_requests(user_id,status,scope,verified_at)
+    const privacyAcceptance = await acceptanceSamples(
+      25,
+      async (index) =>
+        (
+          await client.query(
+            `insert into private.privacy_export_requests(user_id,status,scope,verified_at)
        values($1,'verified','["identity@1"]',clock_timestamp())
        returning id,status,scope,requested_at as "requestedAt",version::int`,
-      [`performance_customer_${String(index)}`],
-    )).rows[0] as unknown);
-    const deletionAcceptance = await acceptanceSamples(25, async (index) => (await client.query(
-      `insert into private.account_deletion_requests(user_id,status,verified_at,cooling_off_ends_at)
+            [`performance_customer_${String(index)}`],
+          )
+        ).rows[0] as unknown,
+    );
+    const deletionAcceptance = await acceptanceSamples(
+      25,
+      async (index) =>
+        (
+          await client.query(
+            `insert into private.account_deletion_requests(user_id,status,verified_at,cooling_off_ends_at)
        values($1,'verified',clock_timestamp(),clock_timestamp()+interval '72 hours')
        returning id,status,requested_at as "requestedAt",cooling_off_ends_at as "coolingOffEndsAt",version::int`,
-      [`performance_customer_${String(index+25)}`],
-    )).rows[0] as unknown);
+            [`performance_customer_${String(index + 25)}`],
+          )
+        ).rows[0] as unknown,
+    );
     const evidence = {
       dataset: {
         securityEventRows: 1_000_000,
@@ -106,27 +134,57 @@ async function run(): Promise<void> {
         thresholdPayloadBytes: 204_800,
       },
       acceptance: {
-        privacyExport: {...privacyAcceptance,thresholdP95Ms:300,thresholdP99Ms:600,thresholdPayloadBytes:51_200},
-        deletionRequest: {...deletionAcceptance,thresholdP95Ms:300,thresholdP99Ms:600,thresholdPayloadBytes:51_200},
+        privacyExport: {
+          ...privacyAcceptance,
+          thresholdP95Ms: 300,
+          thresholdP99Ms: 600,
+          thresholdPayloadBytes: 51_200,
+        },
+        deletionRequest: {
+          ...deletionAcceptance,
+          thresholdP95Ms: 300,
+          thresholdP99Ms: 600,
+          thresholdPayloadBytes: 51_200,
+        },
       },
       plans: {
-        permission: await plan(client, "select private.admin_has_permission('performance_admin','audit.read',clock_timestamp())"),
-        ownerEvents: await plan(client, `select id,event_type,severity,occurred_at,metadata from public.security_events
-          where user_id='performance_admin' order by occurred_at desc,id desc limit 100`),
-        retention: await plan(client, `select resource_type,retention_days from private.retention_policies
-          where enabled order by resource_type limit 25`),
-        privacyClaim: await plan(client, `select id from private.privacy_export_requests
-          where status='verified' order by requested_at,id limit 25`),
-        deletionClaim: await plan(client, `select id from private.account_deletion_requests
-          where status='verified' order by cooling_off_ends_at,id limit 25`),
+        permission: await plan(
+          client,
+          "select private.admin_has_permission('performance_admin','audit.read',clock_timestamp())",
+        ),
+        ownerEvents: await plan(
+          client,
+          `select id,event_type,severity,occurred_at,metadata from public.security_events
+          where user_id='performance_admin' order by occurred_at desc,id desc limit 100`,
+        ),
+        retention: await plan(
+          client,
+          `select resource_type,retention_days from private.retention_policies
+          where enabled order by resource_type limit 25`,
+        ),
+        privacyClaim: await plan(
+          client,
+          `select id from private.privacy_export_requests
+          where status='verified' order by requested_at,id limit 25`,
+        ),
+        deletionClaim: await plan(
+          client,
+          `select id from private.account_deletion_requests
+          where status='verified' order by cooling_off_ends_at,id limit 25`,
+        ),
       },
     };
-    const passed = evidence.permission.p95Ms <= evidence.permission.thresholdP95Ms
-      && evidence.ownerEvents.p95Ms <= evidence.ownerEvents.thresholdP95Ms
-      && evidence.ownerEvents.p99Ms <= evidence.ownerEvents.thresholdP99Ms
-      && evidence.ownerEvents.payloadBytes <= evidence.ownerEvents.thresholdPayloadBytes
-      && Object.values(evidence.acceptance).every((value) => value.p95Ms <= value.thresholdP95Ms
-        && value.p99Ms <= value.thresholdP99Ms && value.payloadBytes <= value.thresholdPayloadBytes);
+    const passed =
+      evidence.permission.p95Ms <= evidence.permission.thresholdP95Ms &&
+      evidence.ownerEvents.p95Ms <= evidence.ownerEvents.thresholdP95Ms &&
+      evidence.ownerEvents.p99Ms <= evidence.ownerEvents.thresholdP99Ms &&
+      evidence.ownerEvents.payloadBytes <= evidence.ownerEvents.thresholdPayloadBytes &&
+      Object.values(evidence.acceptance).every(
+        (value) =>
+          value.p95Ms <= value.thresholdP95Ms &&
+          value.p99Ms <= value.thresholdP99Ms &&
+          value.payloadBytes <= value.thresholdPayloadBytes,
+      );
     if (!passed) throw new Error('SECURITY_PERFORMANCE_THRESHOLD_FAILED');
     await writeFile(
       'test/performance/artifacts/security-permission-summary.json',
@@ -145,7 +203,9 @@ async function run(): Promise<void> {
 
 if (require.main === module) {
   void run().catch((error: unknown) => {
-    process.stderr.write(`SECURITY_PERFORMANCE_FAILED:${error instanceof Error ? error.message : 'UNKNOWN'}\n`);
+    process.stderr.write(
+      `SECURITY_PERFORMANCE_FAILED:${error instanceof Error ? error.message : 'UNKNOWN'}\n`,
+    );
     process.exitCode = 1;
   });
 }

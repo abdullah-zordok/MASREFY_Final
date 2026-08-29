@@ -35,10 +35,17 @@ describe('device HTTP contract', () => {
   };
   const repository = {
     listDevices: jest.fn().mockResolvedValue([first, second]),
-    registerDevice: jest.fn()
+    registerDevice: jest
+      .fn()
       .mockResolvedValueOnce({ device: first, created: true, registrationResult: 'created' })
-      .mockResolvedValue({ device: { ...first, version: 2 }, created: false, registrationResult: 'refreshed' }),
-    revokeDevice: jest.fn().mockResolvedValue({ status: 'revoked', device: first, sessionId: first.clerkSessionId }),
+      .mockResolvedValue({
+        device: { ...first, version: 2 },
+        created: false,
+        registrationResult: 'refreshed',
+      }),
+    revokeDevice: jest
+      .fn()
+      .mockResolvedValue({ status: 'revoked', device: first, sessionId: first.clerkSessionId }),
     completeSessionRevoke: jest.fn().mockResolvedValue(undefined),
   };
   const clerk = { revokeSession: jest.fn().mockResolvedValue('revoked') };
@@ -47,7 +54,9 @@ describe('device HTTP contract', () => {
     const guard = {
       canActivate: jest.fn((context: ExecutionContext) => {
         context.switchToHttp().getRequest<ClerkPrincipalRequest>().clerkPrincipal = {
-          userId: 'user_fixture_a', sessionId: first.clerkSessionId, factorAgeSeconds: 30,
+          userId: 'user_fixture_a',
+          sessionId: first.clerkSessionId,
+          factorAgeSeconds: 30,
         };
         return true;
       }),
@@ -77,17 +86,19 @@ describe('device HTTP contract', () => {
       .get('/api/v1/me/devices?limit=1')
       .expect(200);
     const body = response.body as { items: unknown[]; nextCursor: unknown };
-    expect(body.items).toEqual([{
-      id: deviceId,
-      platform: 'android',
-      appVersion: '1.0.0',
-      deviceName: 'Phone',
-      trusted: false,
-      lastSeenAt: '2026-08-28T10:00:00.000Z',
-      current: true,
-      revokedAt: null,
-      version: 1,
-    }]);
+    expect(body.items).toEqual([
+      {
+        id: deviceId,
+        platform: 'android',
+        appVersion: '1.0.0',
+        deviceName: 'Phone',
+        trusted: false,
+        lastSeenAt: '2026-08-28T10:00:00.000Z',
+        current: true,
+        revokedAt: null,
+        version: 1,
+      },
+    ]);
     expect(body.nextCursor).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(JSON.stringify(body)).not.toMatch(/fingerprint|session|token|cipher|hash/i);
   });
@@ -120,15 +131,21 @@ describe('device HTTP contract', () => {
 
   it('requires a complete push pair and an idempotency key', async () => {
     const body = {
-      deviceFingerprint: 'device-fingerprint-fixture', platform: 'android', appVersion: '1.0.0',
+      deviceFingerprint: 'device-fingerprint-fixture',
+      platform: 'android',
+      appVersion: '1.0.0',
       pushToken: 'push-token-fixture-value',
     };
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/api/v1/me/devices/register').set('Idempotency-Key', 'device-register-03')
-      .send(body).expect(400);
+      .post('/api/v1/me/devices/register')
+      .set('Idempotency-Key', 'device-register-03')
+      .send(body)
+      .expect(400);
     delete (body as { pushToken?: string }).pushToken;
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/api/v1/me/devices/register').send(body).expect(400);
+      .post('/api/v1/me/devices/register')
+      .send(body)
+      .expect(400);
   });
 
   it('revokes the linked provider session after the local commit', async () => {
@@ -138,7 +155,9 @@ describe('device HTTP contract', () => {
       .expect(204);
     expect(clerk.revokeSession).toHaveBeenCalledWith(first.clerkSessionId);
     expect(repository.completeSessionRevoke).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'user_fixture_a' }), deviceId, first.clerkSessionId,
+      expect.objectContaining({ userId: 'user_fixture_a' }),
+      deviceId,
+      first.clerkSessionId,
     );
   });
 

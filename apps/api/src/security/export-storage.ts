@@ -23,7 +23,8 @@ export class ExportStorage {
   }
 
   async upload(key: string, body: Readable, bytes?: number): Promise<void> {
-    if (bytes !== undefined && (!Number.isSafeInteger(bytes) || bytes < 1)) throw storageError('EXPORT_STORAGE_INVALID');
+    if (bytes !== undefined && (!Number.isSafeInteger(bytes) || bytes < 1))
+      throw storageError('EXPORT_STORAGE_INVALID');
     await this.request(key, '', {
       method: 'PUT',
       headers: {
@@ -55,16 +56,22 @@ export class ExportStorage {
       body: JSON.stringify({ expiresIn: expiresInSeconds }),
     });
     let value: unknown;
-    try { value = await response.json(); } catch { throw storageError(); }
-    const signedUrl = typeof value === 'object' && value !== null
-      ? (value as { signedURL?: unknown }).signedURL
-      : undefined;
+    try {
+      value = await response.json();
+    } catch {
+      throw storageError();
+    }
+    const signedUrl =
+      typeof value === 'object' && value !== null
+        ? (value as { signedURL?: unknown }).signedURL
+        : undefined;
     if (typeof signedUrl !== 'string') {
       throw storageError();
     }
     const signed = new URL(signedUrl, this.origin);
     const expectedPath = `/storage/v1/object/sign/report-exports/${key.split('/').map(encodeURIComponent).join('/')}`;
-    if (signed.origin !== this.origin.origin || signed.pathname !== expectedPath) throw storageError();
+    if (signed.origin !== this.origin.origin || signed.pathname !== expectedPath)
+      throw storageError();
     return signed.toString();
   }
 
@@ -78,7 +85,9 @@ export class ExportStorage {
     }
     const encoded = key.split('/').map(encodeURIComponent).join('/');
     const controller = new AbortController();
-    const timeout = setTimeout(() => { controller.abort(); }, 10_000);
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 10_000);
     const headers = new Headers(input.headers);
     headers.set('Authorization', `Bearer ${this.credential}`);
     headers.set('apikey', this.credential);
@@ -94,7 +103,11 @@ export class ExportStorage {
       if (!response.ok) throw storageError();
       return response;
     } catch (error) {
-      if (error instanceof Error && ['EXPORT_STORAGE_INVALID', 'EXPORT_STORAGE_INTEGRITY_FAILED'].includes(error.message)) throw error;
+      if (
+        error instanceof Error &&
+        ['EXPORT_STORAGE_INVALID', 'EXPORT_STORAGE_INTEGRITY_FAILED'].includes(error.message)
+      )
+        throw error;
       throw storageError();
     } finally {
       clearTimeout(timeout);

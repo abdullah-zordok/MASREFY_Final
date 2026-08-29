@@ -3,7 +3,9 @@ import { createLivePool, describeLiveDatabase } from '../../live-database';
 
 describeLiveDatabase('support access integration', () => {
   let pool: PoolService;
-  beforeAll(() => { pool = createLivePool(); });
+  beforeAll(() => {
+    pool = createLivePool();
+  });
   afterAll(async () => pool.onModuleDestroy());
 
   it('accepts only registered, read-only support scopes in PostgreSQL', async () => {

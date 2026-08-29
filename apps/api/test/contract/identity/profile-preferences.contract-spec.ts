@@ -48,10 +48,16 @@ describe('profile and preferences HTTP contract', () => {
     getPreferences: jest.fn().mockResolvedValue(preferences),
     replacePreferences: jest.fn().mockResolvedValue({ ...preferences, theme: 'dark', version: 2 }),
     getOnboarding: jest.fn().mockResolvedValue({
-      step: 'welcome', completedSteps: [], completedAt: null, version: 1,
+      step: 'welcome',
+      completedSteps: [],
+      completedAt: null,
+      version: 1,
     }),
     replaceOnboarding: jest.fn().mockResolvedValue({
-      step: 'tracking_intro', completedSteps: ['welcome'], completedAt: null, version: 2,
+      step: 'tracking_intro',
+      completedSteps: ['welcome'],
+      completedAt: null,
+      version: 2,
     }),
   };
 
@@ -154,7 +160,10 @@ describe('profile and preferences HTTP contract', () => {
         expectedVersion: 1,
       })
       .expect(200, {
-        step: 'tracking_intro', completedSteps: ['welcome'], completedAt: null, version: 2,
+        step: 'tracking_intro',
+        completedSteps: ['welcome'],
+        completedAt: null,
+        version: 2,
       });
   });
 

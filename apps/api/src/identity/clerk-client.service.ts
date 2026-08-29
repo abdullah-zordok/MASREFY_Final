@@ -50,9 +50,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isSignedInState(
-  value: unknown,
-): value is Record<string, unknown> & { isAuthenticated: true; toAuth: (options: unknown) => unknown } {
+function isSignedInState(value: unknown): value is Record<string, unknown> & {
+  isAuthenticated: true;
+  toAuth: (options: unknown) => unknown;
+} {
   return isRecord(value) && value.isAuthenticated === true && typeof value.toAuth === 'function';
 }
 
@@ -109,7 +110,9 @@ export class ClerkClientService {
         (factorVerificationAge !== null &&
           (!Array.isArray(factorVerificationAge) ||
             factorVerificationAge.length !== 2 ||
-              !factorVerificationAge.every((age) => typeof age === 'number' && Number.isFinite(age) && age >= -1)))
+            !factorVerificationAge.every(
+              (age) => typeof age === 'number' && Number.isFinite(age) && age >= -1,
+            )))
       ) {
         return { isAuthenticated: false };
       }
@@ -140,19 +143,27 @@ export class ClerkClientService {
     }
   }
 
-  async revokeUserSessions(userId: string, requestedSessionIds?: readonly string[]): Promise<string[]> {
-    if (userId.trim() !== userId || userId.length < 1 || userId.length > 128) throw new ClerkProviderUnavailableError();
+  async revokeUserSessions(
+    userId: string,
+    requestedSessionIds?: readonly string[],
+  ): Promise<string[]> {
+    if (userId.trim() !== userId || userId.length < 1 || userId.length > 128)
+      throw new ClerkProviderUnavailableError();
     try {
-      const page = await this.withTimeout(this.client.sessions.getSessionList({userId,status:'active',limit:100}));
+      const page = await this.withTimeout(
+        this.client.sessions.getSessionList({ userId, status: 'active', limit: 100 }),
+      );
       if (page.totalCount > 100) throw new ClerkProviderUnavailableError();
       const active = new Map(page.data.map((session) => [session.id, session]));
-      const selected = requestedSessionIds === undefined
-        ? page.data
-        : requestedSessionIds.map((sessionId) => active.get(sessionId));
+      const selected =
+        requestedSessionIds === undefined
+          ? page.data
+          : requestedSessionIds.map((sessionId) => active.get(sessionId));
       if (selected.some((session) => !session)) throw new ClerkSessionIneligibleError();
-      const eligible = selected.flatMap((session) => session ? [session] : []);
-      for (const session of eligible) await this.withTimeout(this.client.sessions.revokeSession(session.id));
-      return eligible.map((_session,index)=>`session-${String(index+1)}`);
+      const eligible = selected.flatMap((session) => (session ? [session] : []));
+      for (const session of eligible)
+        await this.withTimeout(this.client.sessions.revokeSession(session.id));
+      return eligible.map((_session, index) => `session-${String(index + 1)}`);
     } catch (error) {
       if (error instanceof ClerkSessionIneligibleError) throw error;
       throw new ClerkProviderUnavailableError();
@@ -160,18 +171,25 @@ export class ClerkClientService {
   }
 
   async deliverAdminInvitation(email: string, token: string): Promise<void> {
-    if (!this.adminInvitationRedirectUrl || !/^[^\s@]+@[^\s@]+$/.test(email) || token.length < 32 || token.length > 512) {
+    if (
+      !this.adminInvitationRedirectUrl ||
+      !/^[^\s@]+@[^\s@]+$/.test(email) ||
+      token.length < 32 ||
+      token.length > 512
+    ) {
       throw new ClerkProviderUnavailableError();
     }
     const redirect = new URL(this.adminInvitationRedirectUrl);
     redirect.searchParams.set('invitationToken', token);
     try {
-      await this.withTimeout(this.client.invitations.createInvitation({
-        emailAddress: email,
-        redirectUrl: redirect.toString(),
-        notify: true,
-        ignoreExisting: false,
-      }));
+      await this.withTimeout(
+        this.client.invitations.createInvitation({
+          emailAddress: email,
+          redirectUrl: redirect.toString(),
+          notify: true,
+          ignoreExisting: false,
+        }),
+      );
     } catch {
       throw new ClerkProviderUnavailableError();
     }
@@ -191,41 +209,54 @@ export class ClerkClientService {
   }
 
   async listIdentityUsers(offset: number, limit: number): Promise<ClerkIdentityPage> {
-    if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+    if (
+      !Number.isInteger(offset) ||
+      offset < 0 ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
       throw new ClerkProviderUnavailableError();
     }
     try {
-      const page = await this.withTimeout(this.client.users.getUserList({
-        offset, limit, orderBy: '+created_at',
-      }));
-      const nextOffset = offset + page.data.length < page.totalCount
-        ? offset + page.data.length
-        : null;
+      const page = await this.withTimeout(
+        this.client.users.getUserList({
+          offset,
+          limit,
+          orderBy: '+created_at',
+        }),
+      );
+      const nextOffset =
+        offset + page.data.length < page.totalCount ? offset + page.data.length : null;
       return { users: page.data.map((user) => this.identityUser(user)), nextOffset };
     } catch {
       throw new ClerkProviderUnavailableError();
     }
   }
 
-  private identityUser(user: Awaited<ReturnType<ClerkClient['users']['getUser']>>): ClerkIdentityUser {
+  private identityUser(
+    user: Awaited<ReturnType<ClerkClient['users']['getUser']>>,
+  ): ClerkIdentityUser {
     if (user.id.trim() !== user.id || user.id.length < 1 || user.id.length > 128) {
       throw new ClerkProviderUnavailableError();
     }
-    const emailValue = user.emailAddresses.find(
-      (entry) => entry.id === user.primaryEmailAddressId,
-    )?.emailAddress.trim().toLowerCase();
-    const phoneValue = user.phoneNumbers.find(
-      (entry) => entry.id === user.primaryPhoneNumberId,
-    )?.phoneNumber.trim();
+    const emailValue = user.emailAddresses
+      .find((entry) => entry.id === user.primaryEmailAddressId)
+      ?.emailAddress.trim()
+      .toLowerCase();
+    const phoneValue = user.phoneNumbers
+      .find((entry) => entry.id === user.primaryPhoneNumberId)
+      ?.phoneNumber.trim();
     const name = [user.firstName, user.lastName]
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       .map((value) => value.trim())
       .join(' ');
     return {
       id: user.id,
-      primaryEmail: emailValue && emailValue.length <= 320 && /^[^\s@]+@[^\s@]+$/.test(emailValue)
-        ? emailValue
-        : null,
+      primaryEmail:
+        emailValue && emailValue.length <= 320 && /^[^\s@]+@[^\s@]+$/.test(emailValue)
+          ? emailValue
+          : null,
       primaryPhone: phoneValue && /^\+[1-9][0-9]{7,14}$/.test(phoneValue) ? phoneValue : null,
       displayName: name.length >= 1 && name.length <= 100 ? name : null,
     };

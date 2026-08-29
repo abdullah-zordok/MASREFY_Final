@@ -30,7 +30,9 @@ describe('Clerk webhook HTTP contract', () => {
 
   beforeAll(async () => {
     const config = {
-      get: jest.fn((key: string) => key === 'MASARIFI_HTTP_BODY_LIMIT_BYTES' ? 262_144 : undefined),
+      get: jest.fn((key: string) =>
+        key === 'MASARIFI_HTTP_BODY_LIMIT_BYTES' ? 262_144 : undefined,
+      ),
       getRequired: jest.fn().mockReturnValue(signingSecret),
     };
     const module = await Test.createTestingModule({
@@ -59,18 +61,30 @@ describe('Clerk webhook HTTP contract', () => {
       .set('content-type', 'application/json')
       .send(body)
       .expect(202, { accepted: true });
-    expect(repository.receiveClerkWebhook).toHaveBeenCalledWith(expect.objectContaining({
-      eventId: 'msg_fixture_a', eventType: 'user.created', payload: JSON.parse(body) as unknown,
-    }));
+    expect(repository.receiveClerkWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'msg_fixture_a',
+        eventType: 'user.created',
+        payload: JSON.parse(body) as unknown,
+      }),
+    );
   });
 
   it.each([
     ['missing signature', {}, 401],
-    ['bad signature', { 'svix-id': 'msg_bad', 'svix-timestamp': '1', 'svix-signature': 'v1,bad' }, 401],
+    [
+      'bad signature',
+      { 'svix-id': 'msg_bad', 'svix-timestamp': '1', 'svix-signature': 'v1,bad' },
+      401,
+    ],
   ])('rejects %s without storing it', async (_name, headers, status) => {
     const body = JSON.stringify({ type: 'user.created', data: { id: 'user_fixture_a' } });
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set(headers).set('content-type', 'application/json').send(body).expect(status);
+      .post('/webhooks/clerk')
+      .set(headers)
+      .set('content-type', 'application/json')
+      .send(body)
+      .expect(status);
     expect(repository.receiveClerkWebhook).not.toHaveBeenCalled();
   });
 
@@ -78,23 +92,32 @@ describe('Clerk webhook HTTP contract', () => {
     const body = JSON.stringify({ type: 'user.updated', data: { id: 'user_fixture_a' } });
     const stale = Math.floor(Date.now() / 1000) - 601;
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set(signedHeaders(body, 'msg_stale', stale))
-      .set('content-type', 'application/json').send(body).expect(401);
+      .post('/webhooks/clerk')
+      .set(signedHeaders(body, 'msg_stale', stale))
+      .set('content-type', 'application/json')
+      .send(body)
+      .expect(401);
   });
 
   it('acknowledges a signed unsupported type without storage', async () => {
     const body = JSON.stringify({ type: 'session.created', data: { id: 'session_fixture_a' } });
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set(signedHeaders(body, 'msg_unsupported'))
-      .set('content-type', 'application/json').send(body).expect(204);
+      .post('/webhooks/clerk')
+      .set(signedHeaders(body, 'msg_unsupported'))
+      .set('content-type', 'application/json')
+      .send(body)
+      .expect(204);
     expect(repository.receiveClerkWebhook).not.toHaveBeenCalled();
   });
 
   it('validates the supported event schema only after signature verification', async () => {
     const body = JSON.stringify({ type: 'user.deleted', data: {} });
     const response = await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set(signedHeaders(body, 'msg_invalid_schema'))
-      .set('content-type', 'application/json').send(body).expect(400);
+      .post('/webhooks/clerk')
+      .set(signedHeaders(body, 'msg_invalid_schema'))
+      .set('content-type', 'application/json')
+      .send(body)
+      .expect(400);
     expect(response.body).toEqual(expect.objectContaining({ code: 'INVALID_WEBHOOK' }));
   });
 
@@ -102,16 +125,25 @@ describe('Clerk webhook HTTP contract', () => {
     const body = JSON.stringify({ type: 'user.updated', data: { id: 'user_fixture_a' } });
     repository.receiveClerkWebhook.mockResolvedValueOnce('duplicate');
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set(signedHeaders(body, 'msg_duplicate'))
-      .set('content-type', 'application/json').send(body).expect(202);
+      .post('/webhooks/clerk')
+      .set(signedHeaders(body, 'msg_duplicate'))
+      .set('content-type', 'application/json')
+      .send(body)
+      .expect(202);
     repository.receiveClerkWebhook.mockResolvedValueOnce('conflict');
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set(signedHeaders(body, 'msg_conflict'))
-      .set('content-type', 'application/json').send(body).expect(409);
+      .post('/webhooks/clerk')
+      .set(signedHeaders(body, 'msg_conflict'))
+      .set('content-type', 'application/json')
+      .send(body)
+      .expect(409);
   });
 
   it('rejects non-JSON content before signature handling', async () => {
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post('/webhooks/clerk').set('content-type', 'text/plain').send('fixture').expect(415);
+      .post('/webhooks/clerk')
+      .set('content-type', 'text/plain')
+      .send('fixture')
+      .expect(415);
   });
 });

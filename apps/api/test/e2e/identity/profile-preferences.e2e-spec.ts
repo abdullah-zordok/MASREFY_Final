@@ -21,8 +21,16 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
   let app: INestApplication;
   let pool: PoolService;
   let active: ClerkPrincipal;
-  const owner = { userId: 'profile_e2e_owner', sessionId: 'profile_e2e_owner_session', factorAgeSeconds: 30 };
-  const other = { userId: 'profile_e2e_other', sessionId: 'profile_e2e_other_session', factorAgeSeconds: 30 };
+  const owner = {
+    userId: 'profile_e2e_owner',
+    sessionId: 'profile_e2e_owner_session',
+    factorAgeSeconds: 30,
+  };
+  const other = {
+    userId: 'profile_e2e_other',
+    sessionId: 'profile_e2e_other_session',
+    factorAgeSeconds: 30,
+  };
 
   async function asMigration<T>(action: (client: PoolClient) => Promise<T>): Promise<T> {
     return pool.withClient(async (client) => {
@@ -118,17 +126,23 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
       .set('Idempotency-Key', 'profile-e2e-stale')
       .send({ displayName: 'Must Not Persist', expectedVersion: initialVersion })
       .expect(409);
-    await request(server).get('/api/v1/me').expect(200).expect((response) => {
-      expect(response.body).toMatchObject({
-        displayName: 'Updated Owner',
-        version: initialVersion + 1,
+    await request(server)
+      .get('/api/v1/me')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          displayName: 'Updated Owner',
+          version: initialVersion + 1,
+        });
       });
-    });
 
     active = other;
-    await request(server).get('/api/v1/me').expect(200).expect((response) => {
-      expect(response.body).toMatchObject({ id: other.userId, displayName: 'Other' });
-    });
+    await request(server)
+      .get('/api/v1/me')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({ id: other.userId, displayName: 'Other' });
+      });
   });
 
   it('fully replaces preferences and keeps the other owner unchanged', async () => {
@@ -166,8 +180,15 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
       .expect(409);
 
     active = other;
-    await request(server).get('/api/v1/me/preferences').expect(200).expect((response) => {
-      expect(response.body).toMatchObject({ defaultCurrency: 'SAR', theme: 'system', version: 1 });
-    });
+    await request(server)
+      .get('/api/v1/me/preferences')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          defaultCurrency: 'SAR',
+          theme: 'system',
+          version: 1,
+        });
+      });
   });
 });

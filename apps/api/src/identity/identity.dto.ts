@@ -197,7 +197,8 @@ export class OnboardingReplaceDto {
 @ApiSchema({ name: 'OnboardingProgress' })
 export class OnboardingProgressDto {
   @ApiProperty({ enum: ONBOARDING_STEPS }) step!: OnboardingStep;
-  @ApiProperty({ enum: ONBOARDING_STEPS, isArray: true, maxItems: 12 }) completedSteps!: OnboardingStep[];
+  @ApiProperty({ enum: ONBOARDING_STEPS, isArray: true, maxItems: 12 })
+  completedSteps!: OnboardingStep[];
   @ApiProperty({ nullable: true, format: 'date-time' }) completedAt!: string | null;
   @ApiProperty({ minimum: 1, type: Number }) version!: number;
 }
@@ -319,11 +320,14 @@ export function assertPushPair(dto: DeviceRegistrationDto): void {
   }
 }
 
-export function decodeDeviceCursor(value: string | undefined): { lastSeenAt: Date; id: string } | null {
+export function decodeDeviceCursor(
+  value: string | undefined,
+): { lastSeenAt: Date; id: string } | null {
   if (value === undefined) return null;
   try {
     const decoded: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
-    if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) throw new Error();
+    if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded))
+      throw new Error();
     const keys = Object.keys(decoded).sort();
     const record = decoded as Record<string, unknown>;
     const lastSeenAt = record.lastSeenAt;
@@ -345,5 +349,7 @@ export function decodeDeviceCursor(value: string | undefined): { lastSeenAt: Dat
 }
 
 export function encodeDeviceCursor(lastSeenAt: Date, id: string): string {
-  return Buffer.from(JSON.stringify({ lastSeenAt: lastSeenAt.toISOString(), id })).toString('base64url');
+  return Buffer.from(JSON.stringify({ lastSeenAt: lastSeenAt.toISOString(), id })).toString(
+    'base64url',
+  );
 }

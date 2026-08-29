@@ -42,19 +42,27 @@ export class ClerkWebhookWorker {
       await this.repository.synchronizeClerkIdentity(user, user.id);
     }
     recordPlatformMetric(IDENTITY_METRICS.reconciliation, page.users.length, {
-      operation: 'provider_page', outcome: 'success',
+      operation: 'provider_page',
+      outcome: 'success',
     });
-    return this.evidence(page.users.map((user) => user.id), page.nextOffset?.toString() ?? null);
+    return this.evidence(
+      page.users.map((user) => user.id),
+      page.nextOffset?.toString() ?? null,
+    );
   }
 
   async reconcileProfilePage(afterSubject: string | null = null): Promise<ReconciliationEvidence> {
     const limit = this.config.get('MASARIFI_CLERK_RECONCILE_PAGE_SIZE');
     const subjects = await this.repository.listProfileSubjects(afterSubject, limit);
     for (const subject of subjects) {
-      await this.repository.synchronizeClerkIdentity(await this.clerk.getIdentityUser(subject), subject);
+      await this.repository.synchronizeClerkIdentity(
+        await this.clerk.getIdentityUser(subject),
+        subject,
+      );
     }
     recordPlatformMetric(IDENTITY_METRICS.reconciliation, subjects.length, {
-      operation: 'profile_page', outcome: 'success',
+      operation: 'profile_page',
+      outcome: 'success',
     });
     const next = subjects.length === limit ? (subjects.at(-1) ?? null) : null;
     return this.evidence(subjects, next);
@@ -77,7 +85,8 @@ export class ClerkWebhookWorker {
       let delay = pollMs;
       try {
         const result = await this.repository.processNextClerkWebhook(
-          (subject) => this.clerk.getIdentityUser(subject), maxAttempts,
+          (subject) => this.clerk.getIdentityUser(subject),
+          maxAttempts,
         );
         if (result.status === 'failed') {
           delay = pollMs * 2 ** Math.min(result.attemptCount, 4);
@@ -113,10 +122,14 @@ export class ClerkWebhookWorker {
         return;
       }
       const timer = setTimeout(resolve, milliseconds);
-      signal.addEventListener('abort', () => {
-        clearTimeout(timer);
-        resolve();
-      }, { once: true });
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
     });
   }
 }

@@ -43,7 +43,7 @@ describe('outbox k6 runner', () => {
     expect(script).toMatch(/concurrent_claim:\s*\{\s*executor: 'constant-vus',\s*vus: 5/);
     expect(script).toContain('claimBatchSize,');
     expect(script).toContain("'outbox_claim_duration_ms{phase:steady}'");
-    expect(script).toContain("claimDuration.add(Date.now() - started, { phase });");
+    expect(script).toContain('claimDuration.add(Date.now() - started, { phase });');
     expect(script).toContain("{ duration: '1m', target: 75 }");
     expect(script.match(/if \(__VU !== 1 \|\| __ITER % 20 !== 0\) return;/g)).toHaveLength(2);
 

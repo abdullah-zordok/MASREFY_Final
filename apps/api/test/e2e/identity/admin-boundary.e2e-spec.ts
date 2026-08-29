@@ -15,7 +15,10 @@ describeLiveDatabase('Admin identity boundary E2E', () => {
   const owner = 'admin_e2e_owner';
   const other = 'admin_e2e_other';
 
-  async function transaction<T>(role: 'masarifi_migration' | 'authenticated', action: (client: PoolClient) => Promise<T>) {
+  async function transaction<T>(
+    role: 'masarifi_migration' | 'authenticated',
+    action: (client: PoolClient) => Promise<T>,
+  ) {
     return pool.withClient(async (client) => {
       await client.query('begin');
       try {
@@ -33,10 +36,14 @@ describeLiveDatabase('Admin identity boundary E2E', () => {
   beforeAll(async () => {
     pool = createLivePool();
     await transaction('masarifi_migration', async (client) => {
-      await client.query('delete from public.user_devices where user_id in ($1,$2)', [owner, other]);
+      await client.query('delete from public.user_devices where user_id in ($1,$2)', [
+        owner,
+        other,
+      ]);
       await client.query('delete from public.profiles where id in ($1,$2)', [owner, other]);
       await client.query(
-        `insert into public.profiles(id,status) values($1,'active'),($2,'active')`, [owner, other],
+        `insert into public.profiles(id,status) values($1,'active'),($2,'active')`,
+        [owner, other],
       );
       await client.query(
         `insert into public.user_devices(id,user_id,device_fingerprint,platform,app_version)
@@ -47,7 +54,10 @@ describeLiveDatabase('Admin identity boundary E2E', () => {
     const module = await Test.createTestingModule({
       controllers: [IdentityController],
       providers: [{ provide: IdentityService, useValue: {} }],
-    }).overrideGuard(ClerkAuthGuard).useValue({ canActivate: () => true }).compile();
+    })
+      .overrideGuard(ClerkAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     app = module.createNestApplication();
     await app.init();
   });
@@ -55,7 +65,10 @@ describeLiveDatabase('Admin identity boundary E2E', () => {
   afterAll(async () => {
     await app?.close();
     await transaction('masarifi_migration', async (client) => {
-      await client.query('delete from public.user_devices where user_id in ($1,$2)', [owner, other]);
+      await client.query('delete from public.user_devices where user_id in ($1,$2)', [
+        owner,
+        other,
+      ]);
       await client.query('delete from public.profiles where id in ($1,$2)', [owner, other]);
     });
     await pool.onModuleDestroy();
@@ -64,7 +77,9 @@ describeLiveDatabase('Admin identity boundary E2E', () => {
   it('has no Admin route and simulated Admin claims cannot read another user', async () => {
     if (!app) throw new Error('ADMIN_E2E_APP_UNAVAILABLE');
     await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .get('/api/v1/admin/users').set('x-admin-role', 'super-admin').expect(404);
+      .get('/api/v1/admin/users')
+      .set('x-admin-role', 'super-admin')
+      .expect(404);
     const rows = await pool.withClient(async (client) => {
       await client.query('begin');
       try {

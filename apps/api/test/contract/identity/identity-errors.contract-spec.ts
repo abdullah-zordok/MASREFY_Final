@@ -36,7 +36,9 @@ describe('identity safe-error contract', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({ controllers: [ErrorProbeController] }).compile();
+    const module = await Test.createTestingModule({
+      controllers: [ErrorProbeController],
+    }).compile();
     app = module.createNestApplication();
     app.use(new RequestIdMiddleware().use);
     app.useGlobalFilters(new SafeExceptionFilter());

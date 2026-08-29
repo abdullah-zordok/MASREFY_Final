@@ -35,27 +35,34 @@ describeLiveDatabase('onboarding repository', () => {
   beforeAll(async () => {
     pool = createLivePool();
     repository = new IdentityRepository(pool);
-    await asRole('masarifi_worker', (client) => client.query(`
+    await asRole('masarifi_worker', (client) =>
+      client.query(`
       insert into public.profiles (id, status)
       values ('onboarding_integration_owner', 'active'), ('onboarding_integration_other', 'active');
       insert into public.onboarding_progress (user_id)
       values ('onboarding_integration_owner'), ('onboarding_integration_other');
-    `));
+    `),
+    );
   });
 
   afterAll(async () => {
-    await asRole('masarifi_migration', (client) => client.query(`
+    await asRole('masarifi_migration', (client) =>
+      client.query(`
       delete from public.onboarding_progress
       where user_id in ('onboarding_integration_owner', 'onboarding_integration_other');
       delete from public.profiles
       where id in ('onboarding_integration_owner', 'onboarding_integration_other');
-    `));
+    `),
+    );
     await pool.onModuleDestroy();
   });
 
   it('creates, resumes, and no-ops an identical normalized state', async () => {
     expect(await repository.getOnboarding(owner)).toEqual({
-      step: 'welcome', completedSteps: [], completedAt: null, version: 1,
+      step: 'welcome',
+      completedSteps: [],
+      completedAt: null,
+      version: 1,
     });
     const advanced = await repository.replaceOnboarding(owner, {
       step: 'permission_education',
@@ -77,10 +84,23 @@ describeLiveDatabase('onboarding repository', () => {
     const current = await repository.getOnboarding(owner);
     const results = await Promise.all([
       repository.replaceOnboarding(owner, {
-        step: 'keywords', completedSteps: ['welcome', 'tracking_intro', 'permission_education', 'permission_request'], complete: false, expectedVersion: current.version,
+        step: 'keywords',
+        completedSteps: ['welcome', 'tracking_intro', 'permission_education', 'permission_request'],
+        complete: false,
+        expectedVersion: current.version,
       }),
       repository.replaceOnboarding(owner, {
-        step: 'demo', completedSteps: ['welcome', 'tracking_intro', 'permission_education', 'permission_request', 'keywords', 'preference'], complete: false, expectedVersion: current.version,
+        step: 'demo',
+        completedSteps: [
+          'welcome',
+          'tracking_intro',
+          'permission_education',
+          'permission_request',
+          'keywords',
+          'preference',
+        ],
+        complete: false,
+        expectedVersion: current.version,
       }),
     ]);
     expect(results.filter(Boolean)).toHaveLength(1);
@@ -91,7 +111,20 @@ describeLiveDatabase('onboarding repository', () => {
     const current = await repository.getOnboarding(owner);
     const completed = await repository.replaceOnboarding(owner, {
       step: 'complete',
-      completedSteps: ['welcome', 'tracking_intro', 'permission_education', 'permission_request', 'keywords', 'preference', 'demo', 'platform_explanation', 'capture_options', 'optional_automation', 'manual_voice_demo', 'complete'],
+      completedSteps: [
+        'welcome',
+        'tracking_intro',
+        'permission_education',
+        'permission_request',
+        'keywords',
+        'preference',
+        'demo',
+        'platform_explanation',
+        'capture_options',
+        'optional_automation',
+        'manual_voice_demo',
+        'complete',
+      ],
       complete: true,
       expectedVersion: current.version,
     });

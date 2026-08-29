@@ -20,8 +20,16 @@ describeLiveDatabase('onboarding owner HTTP flow', () => {
   let app: INestApplication;
   let pool: PoolService;
   let active: ClerkPrincipal;
-  const owner = { userId: 'onboarding_e2e_owner', sessionId: 'onboarding_e2e_session', factorAgeSeconds: 20 };
-  const other = { userId: 'onboarding_e2e_other', sessionId: 'onboarding_e2e_other_session', factorAgeSeconds: 20 };
+  const owner = {
+    userId: 'onboarding_e2e_owner',
+    sessionId: 'onboarding_e2e_session',
+    factorAgeSeconds: 20,
+  };
+  const other = {
+    userId: 'onboarding_e2e_other',
+    sessionId: 'onboarding_e2e_other_session',
+    factorAgeSeconds: 20,
+  };
 
   async function asMigration<T>(action: (client: PoolClient) => Promise<T>): Promise<T> {
     return pool.withClient(async (client) => {
@@ -139,7 +147,11 @@ describeLiveDatabase('onboarding owner HTTP flow', () => {
       .send({ step: 'complete', completedSteps: steps, complete: true, expectedVersion: 2 })
       .expect(200)
       .expect((response) => {
-        expect(response.body).toMatchObject({ step: 'complete', completedSteps: steps, version: 3 });
+        expect(response.body).toMatchObject({
+          step: 'complete',
+          completedSteps: steps,
+          version: 3,
+        });
         expect((response.body as { completedAt: unknown }).completedAt).toEqual(expect.any(String));
       });
 

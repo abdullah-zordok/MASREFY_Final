@@ -32,10 +32,7 @@ const identityOwned = {
     'public.push_tokens',
     'private.clerk_webhook_events',
   ]),
-  functions: new Set([
-    'public.current_clerk_user_id',
-    'private.assert_active_profile',
-  ]),
+  functions: new Set(['public.current_clerk_user_id', 'private.assert_active_profile']),
   endpoints: new Set([
     'GET /api/v1/me',
     'PATCH /api/v1/me',

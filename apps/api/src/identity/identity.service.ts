@@ -167,10 +167,7 @@ export class IdentityService {
     }
   }
 
-  async listDevices(
-    principal: ClerkPrincipal,
-    query: DeviceListQueryDto,
-  ): Promise<DevicePageDto> {
+  async listDevices(principal: ClerkPrincipal, query: DeviceListQueryDto): Promise<DevicePageDto> {
     const cursor = decodeDeviceCursor(query.cursor);
     try {
       const rows = await this.repository.listDevices(principal, cursor, query.limit);

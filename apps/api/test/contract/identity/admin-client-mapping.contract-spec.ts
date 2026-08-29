@@ -3,9 +3,13 @@ import { resolve } from 'node:path';
 
 describe('Admin client mapping handoff', () => {
   const root = resolve(__dirname, '../../../../..');
-  const mapping = readFileSync(resolve(
-    root, 'apps/api/specs/002-auth-profiles-preferences-sessions/contracts/client-mapping.md',
-  ), 'utf8');
+  const mapping = readFileSync(
+    resolve(
+      root,
+      'apps/api/specs/002-auth-profiles-preferences-sessions/contracts/client-mapping.md',
+    ),
+    'utf8',
+  );
 
   it('maps only safe evidence and explicitly defers privileged Admin work', () => {
     for (const field of ['displayName', 'maskedEmail', 'Device ID', 'app version', 'last seen']) {

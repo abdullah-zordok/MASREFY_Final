@@ -151,10 +151,10 @@ describe('validateEnvironment', () => {
 
   it('normalizes and deduplicates authorized HTTP parties', () => {
     const environment = validateEnvironment({
-        ...valid,
-        CLERK_AUTHORIZED_PARTIES:
-          ' https://admin.example.test,https://admin.example.test,http://localhost:3000 ',
-      }) as unknown as { CLERK_AUTHORIZED_PARTIES: string[] };
+      ...valid,
+      CLERK_AUTHORIZED_PARTIES:
+        ' https://admin.example.test,https://admin.example.test,http://localhost:3000 ',
+    }) as unknown as { CLERK_AUTHORIZED_PARTIES: string[] };
     expect(environment.CLERK_AUTHORIZED_PARTIES).toEqual([
       'https://admin.example.test',
       'http://localhost:3000',
@@ -211,9 +211,9 @@ describe('validateEnvironment', () => {
     expect(() =>
       validateEnvironment({ ...valid, MASARIFI_RECENT_AUTH_MAX_AGE_SECONDS: 59 }),
     ).toThrow('MASARIFI_RECENT_AUTH_MAX_AGE_SECONDS');
-    expect(() =>
-      validateEnvironment({ ...valid, MASARIFI_CLERK_API_TIMEOUT_MS: 10_001 }),
-    ).toThrow('MASARIFI_CLERK_API_TIMEOUT_MS');
+    expect(() => validateEnvironment({ ...valid, MASARIFI_CLERK_API_TIMEOUT_MS: 10_001 })).toThrow(
+      'MASARIFI_CLERK_API_TIMEOUT_MS',
+    );
     expect(() =>
       validateEnvironment({ ...valid, MASARIFI_CLERK_RECONCILE_PAGE_SIZE: 101 }),
     ).toThrow('MASARIFI_CLERK_RECONCILE_PAGE_SIZE');

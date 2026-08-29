@@ -30,37 +30,92 @@ export interface SecurityOperation {
 }
 
 const mutationOperations = new Set([
-  'disableAdmin','revokeAdminSessions','createAdminInvitation','acceptAdminInvitation','createRole',
-  'updateRole','assignAdminRole','revokeAdminRole','createSupportAccessRequest',
-  'decideSupportAccessRequest','revokeSupportAccess','endSupportAccess','decideMySupportAccessRequest',
-  'createSecurityIncident','updateSecurityIncident','createMyPrivacyExport','createMyDeletionRequest',
-  'cancelMyDeletionRequest','actOnPrivacyExport','actOnDeletionRequest','updateRetentionPolicy',
-  'createRetentionHold','releaseRetentionHold',
+  'disableAdmin',
+  'revokeAdminSessions',
+  'createAdminInvitation',
+  'acceptAdminInvitation',
+  'createRole',
+  'updateRole',
+  'assignAdminRole',
+  'revokeAdminRole',
+  'createSupportAccessRequest',
+  'decideSupportAccessRequest',
+  'revokeSupportAccess',
+  'endSupportAccess',
+  'decideMySupportAccessRequest',
+  'createSecurityIncident',
+  'updateSecurityIncident',
+  'createMyPrivacyExport',
+  'createMyDeletionRequest',
+  'cancelMyDeletionRequest',
+  'actOnPrivacyExport',
+  'actOnDeletionRequest',
+  'updateRetentionPolicy',
+  'createRetentionHold',
+  'releaseRetentionHold',
 ]);
 const recentAuthOperations = new Set([
-  'disableAdmin','revokeAdminSessions','createAdminInvitation','acceptAdminInvitation','createRole','updateRole',
-  'assignAdminRole','revokeAdminRole','decideSupportAccessRequest','revokeSupportAccess','decideMySupportAccessRequest',
-  'createSecurityIncident','updateSecurityIncident','createMyPrivacyExport','createMyDeletionRequest','actOnPrivacyExport',
-  'actOnDeletionRequest','updateRetentionPolicy','createRetentionHold','releaseRetentionHold',
-  'listPrivacyExports','listDeletionRequests','listRetentionPolicies',
+  'disableAdmin',
+  'revokeAdminSessions',
+  'createAdminInvitation',
+  'acceptAdminInvitation',
+  'createRole',
+  'updateRole',
+  'assignAdminRole',
+  'revokeAdminRole',
+  'decideSupportAccessRequest',
+  'revokeSupportAccess',
+  'decideMySupportAccessRequest',
+  'createSecurityIncident',
+  'updateSecurityIncident',
+  'createMyPrivacyExport',
+  'createMyDeletionRequest',
+  'actOnPrivacyExport',
+  'actOnDeletionRequest',
+  'updateRetentionPolicy',
+  'createRetentionHold',
+  'releaseRetentionHold',
+  'listPrivacyExports',
+  'listDeletionRequests',
+  'listRetentionPolicies',
 ]);
 const safeKey = /^[A-Za-z0-9._:-]{8,128}$/;
 const requiredReasonOperations = new Set([
-  'disableAdmin','revokeAdminSessions','createRole','updateRole','assignAdminRole','revokeAdminRole','decideSupportAccessRequest',
-  'revokeSupportAccess','updateSecurityIncident','actOnPrivacyExport','actOnDeletionRequest',
-  'updateRetentionPolicy','createRetentionHold','releaseRetentionHold',
+  'disableAdmin',
+  'revokeAdminSessions',
+  'createRole',
+  'updateRole',
+  'assignAdminRole',
+  'revokeAdminRole',
+  'decideSupportAccessRequest',
+  'revokeSupportAccess',
+  'updateSecurityIncident',
+  'actOnPrivacyExport',
+  'actOnDeletionRequest',
+  'updateRetentionPolicy',
+  'createRetentionHold',
+  'releaseRetentionHold',
 ]);
 const rateLimits: Readonly<Record<string, { limit: number; windowSeconds: number }>> = {
-  rbac: {limit:60,windowSeconds:60}, invitations:{limit:10,windowSeconds:3600},
-  support:{limit:30,windowSeconds:60}, evidence:{limit:120,windowSeconds:60},
-  privacy:{limit:10,windowSeconds:3600}, deletion:{limit:6,windowSeconds:3600},
-  retention:{limit:20,windowSeconds:3600}, incidents:{limit:30,windowSeconds:3600},
+  rbac: { limit: 60, windowSeconds: 60 },
+  invitations: { limit: 10, windowSeconds: 3600 },
+  support: { limit: 30, windowSeconds: 60 },
+  evidence: { limit: 120, windowSeconds: 60 },
+  privacy: { limit: 10, windowSeconds: 3600 },
+  deletion: { limit: 6, windowSeconds: 3600 },
+  retention: { limit: 20, windowSeconds: 3600 },
+  incidents: { limit: 30, windowSeconds: 3600 },
 };
 
 function rateCategory(operation: string): string {
   if (operation.includes('Invitation')) return 'invitations';
   if (operation.includes('Support')) return 'support';
-  if (operation.includes('Audit') || operation.includes('SecurityEvent') || operation === 'getSecurityOverview') return 'evidence';
+  if (
+    operation.includes('Audit') ||
+    operation.includes('SecurityEvent') ||
+    operation === 'getSecurityOverview'
+  )
+    return 'evidence';
   if (operation.includes('Incident')) return 'incidents';
   if (operation.includes('Deletion')) return 'deletion';
   if (operation.includes('PrivacyExport')) return 'privacy';
@@ -69,19 +124,22 @@ function rateCategory(operation: string): string {
 }
 
 function hashNetworkAddress(address: string | undefined, keyRing: string): string | null {
-  const normalized=address?.trim().toLowerCase().replace(/^::ffff:/,'');
-  if (!normalized || isIP(normalized)===0) return null;
-  const [active]=keyRing.split(',');
-  const separator=active?.indexOf(':')??-1;
-  if(!active||separator<1)return null;
-  const keyId=active.slice(0,separator);
-  const key=Buffer.from(active.slice(separator+1),'base64url');
-  return `h1:${keyId}:${createHmac('sha256',key).update(normalized).digest('hex')}`;
+  const normalized = address
+    ?.trim()
+    .toLowerCase()
+    .replace(/^::ffff:/, '');
+  if (!normalized || isIP(normalized) === 0) return null;
+  const [active] = keyRing.split(',');
+  const separator = active?.indexOf(':') ?? -1;
+  if (!active || separator < 1) return null;
+  const keyId = active.slice(0, separator);
+  const key = Buffer.from(active.slice(separator + 1), 'base64url');
+  return `h1:${keyId}:${createHmac('sha256', key).update(normalized).digest('hex')}`;
 }
 
 function record(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -92,23 +150,28 @@ function safeReference(value: unknown, kind: string): unknown {
 
 function safeFields(value: unknown): unknown[] {
   if (Array.isArray(value)) return value.slice(0, 40);
-  return Object.entries(record(value)).slice(0, 40).map(([key, field]) => ({
-    key: key.replace(/[^A-Za-z0-9]/g, '').slice(0, 64) || 'value',
-    label: key.slice(0, 120),
-    value: ['string', 'number', 'boolean'].includes(typeof field) ? field : null,
-  }));
+  return Object.entries(record(value))
+    .slice(0, 40)
+    .map(([key, field]) => ({
+      key: key.replace(/[^A-Za-z0-9]/g, '').slice(0, 64) || 'value',
+      label: key.slice(0, 120),
+      value: ['string', 'number', 'boolean'].includes(typeof field) ? field : null,
+    }));
 }
 
 function retainedCategories(value: unknown): string[] {
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string').slice(0, 100);
+  if (Array.isArray(value))
+    return value.filter((item): item is string => typeof item === 'string').slice(0, 100);
   const outcomes = record(value).outcomes;
   if (!Array.isArray(outcomes)) return [];
-  return outcomes.flatMap((item) => {
-    const outcome = record(item);
-    return typeof outcome.resourceType === 'string' && Number(outcome.retainedCount) > 0
-      ? [outcome.resourceType]
-      : [];
-  }).slice(0, 100);
+  return outcomes
+    .flatMap((item) => {
+      const outcome = record(item);
+      return typeof outcome.resourceType === 'string' && Number(outcome.retainedCount) > 0
+        ? [outcome.resourceType]
+        : [];
+    })
+    .slice(0, 100);
 }
 
 function projectRecord(operation: string, value: unknown): Record<string, unknown> {
@@ -172,76 +235,125 @@ export class SecurityService {
     assertSafeTextFields(body);
     const category = rateCategory(input.operation);
     const rate = rateLimits[category];
-    const ipHash=input.networkAddress
-      ?hashNetworkAddress(input.networkAddress,this.config.getRequired('MASARIFI_SECURITY_IP_HASH_KEYS'))
-      :null;
-    let rateAllowed=false;
+    const ipHash = input.networkAddress
+      ? hashNetworkAddress(
+          input.networkAddress,
+          this.config.getRequired('MASARIFI_SECURITY_IP_HASH_KEYS'),
+        )
+      : null;
+    let rateAllowed = false;
     try {
-      rateAllowed=Boolean(rate&&await this.repository.consumeRateLimit(input.principal,category,rate.limit,rate.windowSeconds,ipHash));
-    } catch(error){
-      const code=typeof error==='object'&&error!==null?(error as {code?:unknown}).code:undefined;
-      if(code==='28000'||code==='42501')throw new HttpException({code:'FORBIDDEN'},403);
-      throw new HttpException({code:'SECURITY_OPERATION_FAILED'},503);
+      rateAllowed = Boolean(
+        rate &&
+        (await this.repository.consumeRateLimit(
+          input.principal,
+          category,
+          rate.limit,
+          rate.windowSeconds,
+          ipHash,
+        )),
+      );
+    } catch (error) {
+      const code =
+        typeof error === 'object' && error !== null
+          ? (error as { code?: unknown }).code
+          : undefined;
+      if (code === '28000' || code === '42501') throw new HttpException({ code: 'FORBIDDEN' }, 403);
+      throw new HttpException({ code: 'SECURITY_OPERATION_FAILED' }, 503);
     }
     if (!rateAllowed) {
       throw new HttpException({ code: 'RATE_LIMITED', retryAfter: rate?.windowSeconds ?? 60 }, 429);
     }
     const allowedQuery = allowedQueryFields[input.operation] ?? [];
-    if (Object.keys(input.query).length > 12 || Object.entries(input.query).some(([key,value]) =>
-      !allowedQuery.includes(key) || typeof value !== 'string' || value.length < 1 || value.length > 512 || containsControlCharacter(value))) {
-      throw new HttpException({code:'VALIDATION_FAILED'},400);
+    if (
+      Object.keys(input.query).length > 12 ||
+      Object.entries(input.query).some(
+        ([key, value]) =>
+          !allowedQuery.includes(key) ||
+          typeof value !== 'string' ||
+          value.length < 1 ||
+          value.length > 512 ||
+          containsControlCharacter(value),
+      )
+    ) {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
     }
     const allowed = allowedBodyFields[input.operation];
     if (allowed && Object.keys(body).some((key) => !allowed.includes(key))) {
       throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
     }
-    if (mutationOperations.has(input.operation) && (!input.idempotencyKey || !safeKey.test(input.idempotencyKey))) {
+    if (
+      mutationOperations.has(input.operation) &&
+      (!input.idempotencyKey || !safeKey.test(input.idempotencyKey))
+    ) {
       throw new HttpException({ code: 'IDEMPOTENCY_KEY_REQUIRED' }, 400);
     }
     if (recentAuthOperations.has(input.operation)) {
-      this.assertRecentAuth(input.principal, input.permission !== undefined || input.operation === 'acceptAdminInvitation');
+      this.assertRecentAuth(
+        input.principal,
+        input.permission !== undefined || input.operation === 'acceptAdminInvitation',
+      );
     }
     if (requiredReasonOperations.has(input.operation) || body.reason !== undefined) {
       const reason = body.reason;
-      if (typeof reason !== 'string' || reason.trim() !== reason || reason.length < 10 || reason.length > 500 ||
-          containsControlCharacter(reason)) {
+      if (
+        typeof reason !== 'string' ||
+        reason.trim() !== reason ||
+        reason.length < 10 ||
+        reason.length > 500 ||
+        containsControlCharacter(reason)
+      ) {
         throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
       }
     }
     if ('resourceScopes' in body) {
       try {
-        body.resourceScopes = normalizeSupportScope(body.resourceScopes as Array<{ resource: string; actions: string[] }>);
+        body.resourceScopes = normalizeSupportScope(
+          body.resourceScopes as Array<{ resource: string; actions: string[] }>,
+        );
       } catch {
-        throw new HttpException({code:'INVALID_SCOPE'},400);
+        throw new HttpException({ code: 'INVALID_SCOPE' }, 400);
       }
     }
     if ('approvedScope' in body) {
       try {
-        body.approvedScope = normalizeSupportScope(body.approvedScope as Array<{ resource: string; actions: string[] }>);
+        body.approvedScope = normalizeSupportScope(
+          body.approvedScope as Array<{ resource: string; actions: string[] }>,
+        );
       } catch {
-        throw new HttpException({code:'INVALID_SCOPE'},400);
+        throw new HttpException({ code: 'INVALID_SCOPE' }, 400);
       }
     }
     if (input.operation === 'createMyPrivacyExport') {
       const manifest = this.config.getRequired('MASARIFI_PRIVACY_HANDLER_MANIFEST');
       const scope = body.scope ?? manifest;
-      if (!Array.isArray(scope) || scope.length < 1 || scope.length > manifest.length ||
-          scope.some((entry) => typeof entry !== 'string' || !manifest.includes(entry)) ||
-          new Set(scope).size !== scope.length) {
-        throw new HttpException({code:'VALIDATION_FAILED'},400);
+      if (
+        !Array.isArray(scope) ||
+        scope.length < 1 ||
+        scope.length > manifest.length ||
+        scope.some((entry) => typeof entry !== 'string' || !manifest.includes(entry)) ||
+        new Set(scope).size !== scope.length
+      ) {
+        throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
       }
       body.scope = scope;
     }
     if (input.operation === 'disableAdmin' && body.revokeEligibleSessions !== true) {
-      throw new HttpException({code:'VALIDATION_FAILED'},400);
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
     }
     if (input.operation === 'revokeAdminSessions') {
       const ids = body.sessionIds;
-      if (typeof body.revokeAllEligible !== 'boolean' ||
-          (ids !== undefined && (!Array.isArray(ids) || ids.length < 1 || ids.length > 100 ||
-            ids.some((id) => typeof id !== 'string' || id.length < 1 || id.length > 255) || new Set(ids).size !== ids.length)) ||
-          (!body.revokeAllEligible && ids === undefined)) {
-        throw new HttpException({code:'VALIDATION_FAILED'},400);
+      if (
+        typeof body.revokeAllEligible !== 'boolean' ||
+        (ids !== undefined &&
+          (!Array.isArray(ids) ||
+            ids.length < 1 ||
+            ids.length > 100 ||
+            ids.some((id) => typeof id !== 'string' || id.length < 1 || id.length > 255) ||
+            new Set(ids).size !== ids.length)) ||
+        (!body.revokeAllEligible && ids === undefined)
+      ) {
+        throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
       }
     }
     if (input.operation === 'createMyDeletionRequest') {
@@ -259,7 +371,8 @@ export class SecurityService {
         throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
       }
       const identity = await this.clerk.getIdentityUser(input.principal.userId);
-      if (!identity?.primaryEmail) throw new HttpException({ code: 'VERIFIED_EMAIL_REQUIRED' }, 403);
+      if (!identity?.primaryEmail)
+        throw new HttpException({ code: 'VERIFIED_EMAIL_REQUIRED' }, 403);
       body.tokenHash = `h1:${createHash('sha256').update(token).digest('hex')}`;
       body.verifiedEmail = identity.primaryEmail;
       delete body.token;
@@ -267,9 +380,17 @@ export class SecurityService {
     try {
       const deliveryToken = typeof body.deliveryToken === 'string' ? body.deliveryToken : undefined;
       delete body.deliveryToken;
-      const result = projectResult(input.operation, await this.repository.execute({ ...input, body }));
-      if (input.operation === 'getMyPrivacyExport' && typeof result === 'object' && result !== null && (result as {status?:unknown}).status === 'ready') {
-        this.assertRecentAuth(input.principal,false);
+      const result = projectResult(
+        input.operation,
+        await this.repository.execute({ ...input, body }),
+      );
+      if (
+        input.operation === 'getMyPrivacyExport' &&
+        typeof result === 'object' &&
+        result !== null &&
+        (result as { status?: unknown }).status === 'ready'
+      ) {
+        this.assertRecentAuth(input.principal, false);
         const exportId = input.params.exportId;
         if (!exportId) throw new HttpException({ code: 'NOT_FOUND' }, 404);
         const reference = await this.repository.getReadyExportReference(input.principal, exportId);
@@ -285,18 +406,26 @@ export class SecurityService {
       }
       if (input.operation === 'revokeAdminSessions') {
         const userId = input.params.userId;
-        if (!userId) throw new HttpException({code:'NOT_FOUND'},404);
+        if (!userId) throw new HttpException({ code: 'NOT_FOUND' }, 404);
         try {
-          const sessionIds = body.revokeAllEligible === true ? undefined : body.sessionIds as string[];
-          return {sessionReferences:await this.clerk.revokeUserSessions(userId,sessionIds),version:(result as {version?:unknown}).version};
+          const sessionIds =
+            body.revokeAllEligible === true ? undefined : (body.sessionIds as string[]);
+          return {
+            sessionReferences: await this.clerk.revokeUserSessions(userId, sessionIds),
+            version: (result as { version?: unknown }).version,
+          };
         } catch (error) {
-          if (error instanceof ClerkSessionIneligibleError) throw new HttpException({code:'INELIGIBLE_SESSION'},409);
-          throw new HttpException({code:'PROVIDER_UNAVAILABLE'},503);
+          if (error instanceof ClerkSessionIneligibleError)
+            throw new HttpException({ code: 'INELIGIBLE_SESSION' }, 409);
+          throw new HttpException({ code: 'PROVIDER_UNAVAILABLE' }, 503);
         }
       }
       if (input.operation === 'disableAdmin') {
         const userId = input.params.userId;
-        if (userId) await this.clerk.revokeUserSessions(userId).catch(() => { /* local disable already denies access */ });
+        if (userId)
+          await this.clerk.revokeUserSessions(userId).catch(() => {
+            /* local disable already denies access */
+          });
       }
       if (input.operation === 'createAdminInvitation' && deliveryToken) {
         const email = body.email;
@@ -304,11 +433,16 @@ export class SecurityService {
         try {
           await this.clerk.deliverAdminInvitation(email, deliveryToken);
         } catch {
-          const invitationId = typeof result === 'object' && result !== null
-            ? (result as { id?: unknown }).id
-            : undefined;
+          const invitationId =
+            typeof result === 'object' && result !== null
+              ? (result as { id?: unknown }).id
+              : undefined;
           if (typeof invitationId === 'string') {
-            await this.repository.revokeUndeliveredInvitation(input.principal,invitationId,input.requestId).catch(() => { /* best-effort fail-closed cleanup */ });
+            await this.repository
+              .revokeUndeliveredInvitation(input.principal, invitationId, input.requestId)
+              .catch(() => {
+                /* best-effort fail-closed cleanup */
+              });
           }
           throw new HttpException({ code: 'PROVIDER_UNAVAILABLE' }, 503);
         }
@@ -316,22 +450,36 @@ export class SecurityService {
       return result;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      const code = typeof error === 'object' && error !== null
-        ? (error as { code?: unknown }).code
-        : undefined;
-      const message = typeof error === 'object' && error !== null ? (error as {message?:unknown}).message : undefined;
-      if (message === 'SYSTEM_ROLE_PROTECTED' || code === 'SYSTEM_ROLE_PROTECTED') throw new HttpException({code:'SYSTEM_ROLE_PROTECTED'},409);
-      if (message === 'LAST_SUPER_ADMIN_REQUIRED') throw new HttpException({code:'LAST_SUPER_ADMIN'},409);
-      if (message === 'SUPPORT_GRANT_INVARIANT_INVALID') throw new HttpException({code:'SCOPE_WIDENING'},409);
-      if (message === 'SUPPORT_GRANT_DENIED') throw new HttpException({code:'SCOPE_FORBIDDEN'},403);
-      if (message === 'INVITATION_ACCEPTANCE_DENIED') throw new HttpException({code:'INVITATION_INVALID'},403);
-      if (message === 'RETENTION_HOLD_OVERLAP') throw new HttpException({code:'ACTIVE_HOLD_EXISTS'},409);
-      if (code === 'ACTIVE_ASSIGNMENTS_EXIST') throw new HttpException({code:'ACTIVE_ASSIGNMENTS_EXIST'},409);
+      const code =
+        typeof error === 'object' && error !== null
+          ? (error as { code?: unknown }).code
+          : undefined;
+      const message =
+        typeof error === 'object' && error !== null
+          ? (error as { message?: unknown }).message
+          : undefined;
+      if (message === 'SYSTEM_ROLE_PROTECTED' || code === 'SYSTEM_ROLE_PROTECTED')
+        throw new HttpException({ code: 'SYSTEM_ROLE_PROTECTED' }, 409);
+      if (message === 'LAST_SUPER_ADMIN_REQUIRED')
+        throw new HttpException({ code: 'LAST_SUPER_ADMIN' }, 409);
+      if (message === 'SUPPORT_GRANT_INVARIANT_INVALID')
+        throw new HttpException({ code: 'SCOPE_WIDENING' }, 409);
+      if (message === 'SUPPORT_GRANT_DENIED')
+        throw new HttpException({ code: 'SCOPE_FORBIDDEN' }, 403);
+      if (message === 'INVITATION_ACCEPTANCE_DENIED')
+        throw new HttpException({ code: 'INVITATION_INVALID' }, 403);
+      if (message === 'RETENTION_HOLD_OVERLAP')
+        throw new HttpException({ code: 'ACTIVE_HOLD_EXISTS' }, 409);
+      if (code === 'ACTIVE_ASSIGNMENTS_EXIST')
+        throw new HttpException({ code: 'ACTIVE_ASSIGNMENTS_EXIST' }, 409);
       if (code === '23505') throw new HttpException({ code: 'CONFLICT' }, 409);
-      if (code === '22023' || code === '22P02' || code === '23514') throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+      if (code === '22023' || code === '22P02' || code === '23514')
+        throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
       if (code === '42501') throw new HttpException({ code: 'FORBIDDEN' }, 403);
-      if (code === 'STALE_VERSION' || (code === 'P0002' && 'expectedVersion' in body)) throw new HttpException({ code: 'STALE_VERSION' }, 409);
-      if (code === 'INVALID_TRANSITION') throw new HttpException({ code: 'INVALID_TRANSITION' }, 409);
+      if (code === 'STALE_VERSION' || (code === 'P0002' && 'expectedVersion' in body))
+        throw new HttpException({ code: 'STALE_VERSION' }, 409);
+      if (code === 'INVALID_TRANSITION')
+        throw new HttpException({ code: 'INVALID_TRANSITION' }, 409);
       if (code === 'P0002') throw new HttpException({ code: 'NOT_FOUND' }, 404);
       if (code === 'INVALID_CURSOR') throw new HttpException({ code: 'INVALID_CURSOR' }, 400);
       throw new HttpException({ code: 'SECURITY_OPERATION_FAILED' }, 503);
@@ -339,7 +487,7 @@ export class SecurityService {
   }
 
   private assertRecentAuth(principal: ClerkPrincipal, requireMfa: boolean): void {
-    const age = requireMfa ? principal.mfaAgeSeconds ?? null : principal.factorAgeSeconds;
+    const age = requireMfa ? (principal.mfaAgeSeconds ?? null) : principal.factorAgeSeconds;
     if (age === null || age > this.config.getRequired('MASARIFI_RECENT_AUTH_MAX_AGE_SECONDS')) {
       throw new HttpException({ code: 'RECENT_AUTH_REQUIRED' }, 403);
     }

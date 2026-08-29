@@ -10,9 +10,9 @@ process.env.CLERK_INSTANCE_DOMAIN ??= 'example.clerk.accounts.dev';
 process.env.CLERK_AUTHORIZED_PARTIES ??= 'https://admin.example.test';
 process.env.CLERK_WEBHOOK_SIGNING_SECRET ??= ['whsec', 'nonfunctionalfixture'].join('_');
 process.env.MASARIFI_PUSH_TOKEN_HASH_KEY ??= Buffer.alloc(32, 1).toString('base64url');
-process.env.MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS ??=
-  `active:${Buffer.alloc(32, 2).toString('base64url')}`;
-process.env.MASARIFI_ADMIN_INVITATION_REDIRECT_URL ??= 'https://admin.example.test/invitations/accept';
+process.env.MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS ??= `active:${Buffer.alloc(32, 2).toString('base64url')}`;
+process.env.MASARIFI_ADMIN_INVITATION_REDIRECT_URL ??=
+  'https://admin.example.test/invitations/accept';
 process.env.MASARIFI_SECURITY_IP_HASH_KEYS ??= `active:${Buffer.alloc(32, 3).toString('base64url')}`;
 process.env.SUPABASE_URL ??= 'http://127.0.0.1:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'local_nonfunctional_service_role_fixture';

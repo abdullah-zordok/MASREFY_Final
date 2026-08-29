@@ -21,7 +21,12 @@ describe('profile and preferences DTOs', () => {
 
   it('normalizes only the approved profile update fields', async () => {
     const dto = await body(
-      { displayName: '  Masarifi User  ', locale: 'ar', timezone: 'Asia/Riyadh', expectedVersion: 2 },
+      {
+        displayName: '  Masarifi User  ',
+        locale: 'ar',
+        timezone: 'Asia/Riyadh',
+        expectedVersion: 2,
+      },
       ProfileUpdateDto,
     );
     assertProfileUpdateFields(dto);
@@ -46,19 +51,26 @@ describe('profile and preferences DTOs', () => {
     expect(() => {
       assertProfileUpdateFields(empty);
     }).toThrow('PROFILE_UPDATE_EMPTY');
-    await expect(body({ timezone: 'Riyadh', expectedVersion: 1 }, ProfileUpdateDto)).rejects.toBeDefined();
+    await expect(
+      body({ timezone: 'Riyadh', expectedVersion: 1 }, ProfileUpdateDto),
+    ).rejects.toBeDefined();
   });
 
   it('accepts one complete strict preference replacement', async () => {
-    await expect(body({
-      defaultCurrency: 'EGP',
-      language: 'en',
-      theme: 'dark',
-      calendar: 'gregorian',
-      weekStart: 0,
-      privacySettings: { hideBalances: true, reducedMotion: false },
-      expectedVersion: 1,
-    }, PreferencesReplaceDto)).resolves.toMatchObject({ defaultCurrency: 'EGP', expectedVersion: 1 });
+    await expect(
+      body(
+        {
+          defaultCurrency: 'EGP',
+          language: 'en',
+          theme: 'dark',
+          calendar: 'gregorian',
+          weekStart: 0,
+          privacySettings: { hideBalances: true, reducedMotion: false },
+          expectedVersion: 1,
+        },
+        PreferencesReplaceDto,
+      ),
+    ).resolves.toMatchObject({ defaultCurrency: 'EGP', expectedVersion: 1 });
   });
 
   it.each([
@@ -70,16 +82,21 @@ describe('profile and preferences DTOs', () => {
     { privacySettings: { unknown: true } },
     { privacySettings: { hideBalances: 'yes' } },
   ])('rejects invalid or incomplete preferences', async (override) => {
-    await expect(body({
-      defaultCurrency: 'SAR',
-      language: 'ar',
-      theme: 'system',
-      calendar: 'gregorian',
-      weekStart: 6,
-      privacySettings: {},
-      expectedVersion: 1,
-      ...override,
-    }, PreferencesReplaceDto)).rejects.toBeDefined();
+    await expect(
+      body(
+        {
+          defaultCurrency: 'SAR',
+          language: 'ar',
+          theme: 'system',
+          calendar: 'gregorian',
+          weekStart: 6,
+          privacySettings: {},
+          expectedVersion: 1,
+          ...override,
+        },
+        PreferencesReplaceDto,
+      ),
+    ).rejects.toBeDefined();
   });
 
   it.each([undefined, '', 'short', 'contains space', 'x'.repeat(129)])(

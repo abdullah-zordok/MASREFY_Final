@@ -77,8 +77,16 @@ function mergeNamed(
 ): void {
   for (const name of Object.keys(source).sort()) {
     if (category === 'schemas' && target[name] !== undefined) {
-      const current = target[name] as { properties?: Record<string, unknown>; required?: string[]; additionalProperties?: unknown };
-      const approved = source[name] as { properties?: Record<string, unknown>; required?: string[]; additionalProperties?: unknown };
+      const current = target[name] as {
+        properties?: Record<string, unknown>;
+        required?: string[];
+        additionalProperties?: unknown;
+      };
+      const approved = source[name] as {
+        properties?: Record<string, unknown>;
+        required?: string[];
+        additionalProperties?: unknown;
+      };
       const currentProperties = Object.keys(current.properties ?? {}).sort();
       const approvedProperties = Object.keys(approved.properties ?? {}).sort();
       const currentRequired = [...(current.required ?? [])].sort();
@@ -97,11 +105,15 @@ function mergeNamed(
   }
 }
 
-function composeFragments(document: OpenAPIObject, fragments: readonly Record<string, unknown>[]): void {
+function composeFragments(
+  document: OpenAPIObject,
+  fragments: readonly Record<string, unknown>[],
+): void {
   const operationIds = new Set<string>();
   for (const path of Object.values(document.paths) as Record<string, unknown>[]) {
     for (const [method, operation] of Object.entries(path)) {
-      if (!operationMethods.has(method) || typeof operation !== 'object' || operation === null) continue;
+      if (!operationMethods.has(method) || typeof operation !== 'object' || operation === null)
+        continue;
       const operationId = (operation as Record<string, unknown>).operationId;
       if (typeof operationId === 'string') operationIds.add(operationId);
     }
@@ -116,13 +128,19 @@ function composeFragments(document: OpenAPIObject, fragments: readonly Record<st
         const value = incoming[key];
         if (key in existing) {
           const current = existing[key];
-          const currentId = typeof current === 'object' && current !== null
-            ? (current as Record<string, unknown>).operationId
-            : undefined;
-          const incomingId = typeof value === 'object' && value !== null
-            ? (value as Record<string, unknown>).operationId
-            : undefined;
-          if (!operationMethods.has(key) || currentId !== incomingId || typeof incomingId !== 'string') {
+          const currentId =
+            typeof current === 'object' && current !== null
+              ? (current as Record<string, unknown>).operationId
+              : undefined;
+          const incomingId =
+            typeof value === 'object' && value !== null
+              ? (value as Record<string, unknown>).operationId
+              : undefined;
+          if (
+            !operationMethods.has(key) ||
+            currentId !== incomingId ||
+            typeof incomingId !== 'string'
+          ) {
             throw new Error(`OpenAPI path operation conflict: ${pathName} ${key}`);
           }
           existing[key] = structuredClone(value);

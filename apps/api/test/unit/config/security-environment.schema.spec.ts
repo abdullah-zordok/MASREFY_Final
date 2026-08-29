@@ -107,16 +107,36 @@ describe('Phase 03 security environment', () => {
   });
 
   it('enforces URL, size, retention, polling, and manifest bounds', () => {
-    expect(() => validateEnvironment({ ...api, MASARIFI_ADMIN_INVITATION_REDIRECT_URL: 'http://example.test' })).toThrow('MASARIFI_ADMIN_INVITATION_REDIRECT_URL');
-    expect(() => validateEnvironment({ ...worker, MASARIFI_EXPORT_MAX_BYTES: 1024 })).toThrow('MASARIFI_EXPORT_MAX_BYTES');
-    expect(() => validateEnvironment({ ...worker, MASARIFI_EXPORT_MAX_ENTRIES: 10_001 })).toThrow('MASARIFI_EXPORT_MAX_ENTRIES');
-    expect(() => validateEnvironment({ ...worker, MASARIFI_EXPORT_RETENTION_HOURS: 169 })).toThrow('MASARIFI_EXPORT_RETENTION_HOURS');
-    expect(() => validateEnvironment({ ...worker, MASARIFI_SECURITY_WORKER_POLL_MS: 99 })).toThrow('MASARIFI_SECURITY_WORKER_POLL_MS');
-    expect(() => validateEnvironment({ ...worker, MASARIFI_PRIVACY_HANDLER_MANIFEST: 'identity@1,identity@1' })).toThrow('MASARIFI_PRIVACY_HANDLER_MANIFEST');
+    expect(() =>
+      validateEnvironment({
+        ...api,
+        MASARIFI_ADMIN_INVITATION_REDIRECT_URL: 'http://example.test',
+      }),
+    ).toThrow('MASARIFI_ADMIN_INVITATION_REDIRECT_URL');
+    expect(() => validateEnvironment({ ...worker, MASARIFI_EXPORT_MAX_BYTES: 1024 })).toThrow(
+      'MASARIFI_EXPORT_MAX_BYTES',
+    );
+    expect(() => validateEnvironment({ ...worker, MASARIFI_EXPORT_MAX_ENTRIES: 10_001 })).toThrow(
+      'MASARIFI_EXPORT_MAX_ENTRIES',
+    );
+    expect(() => validateEnvironment({ ...worker, MASARIFI_EXPORT_RETENTION_HOURS: 169 })).toThrow(
+      'MASARIFI_EXPORT_RETENTION_HOURS',
+    );
+    expect(() => validateEnvironment({ ...worker, MASARIFI_SECURITY_WORKER_POLL_MS: 99 })).toThrow(
+      'MASARIFI_SECURITY_WORKER_POLL_MS',
+    );
+    expect(() =>
+      validateEnvironment({
+        ...worker,
+        MASARIFI_PRIVACY_HANDLER_MANIFEST: 'identity@1,identity@1',
+      }),
+    ).toThrow('MASARIFI_PRIVACY_HANDLER_MANIFEST');
   });
 
   it('rejects API-only values in the worker and never echoes a secret', () => {
-    expect(() => validateEnvironment({ ...worker, MASARIFI_ADMIN_ROUTES_ENABLED: true })).toThrow('MASARIFI_ADMIN_ROUTES_ENABLED');
+    expect(() => validateEnvironment({ ...worker, MASARIFI_ADMIN_ROUTES_ENABLED: true })).toThrow(
+      'MASARIFI_ADMIN_ROUTES_ENABLED',
+    );
     const sentinel = 'SENTINEL_SECURITY_SECRET_VALUE';
     try {
       validateEnvironment({ ...api, MASARIFI_SECURITY_IP_HASH_KEYS: sentinel });

@@ -34,17 +34,20 @@ describeLiveDatabase('profile and preferences repository', () => {
   beforeAll(async () => {
     pool = createLivePool();
     repository = new IdentityRepository(pool);
-    await asRole('masarifi_worker', (client) => client.query(`
+    await asRole('masarifi_worker', (client) =>
+      client.query(`
         insert into public.profiles (id, primary_email, phone_e164, display_name, status)
         values ('profile_preferences_owner', 'owner@example.test', '+966500000012', 'Owner', 'active'),
                ('profile_preferences_other', null, null, 'Other', 'active');
         insert into public.user_preferences (user_id)
         values ('profile_preferences_owner'), ('profile_preferences_other');
-      `));
+      `),
+    );
   });
 
   afterAll(async () => {
-    await asRole('masarifi_migration', (client) => client.query(`
+    await asRole('masarifi_migration', (client) =>
+      client.query(`
         delete from private.outbox_events
         where aggregate_type = 'profile'
           and payload ->> 'profileId' in ('profile_preferences_owner', 'profile_preferences_other');
@@ -52,7 +55,8 @@ describeLiveDatabase('profile and preferences repository', () => {
         where user_id in ('profile_preferences_owner', 'profile_preferences_other');
         delete from public.profiles
         where id in ('profile_preferences_owner', 'profile_preferences_other');
-      `));
+      `),
+    );
     await pool.onModuleDestroy();
   });
 
@@ -66,8 +70,9 @@ describeLiveDatabase('profile and preferences repository', () => {
       expectedVersion: before.version,
     });
     expect(updated).toMatchObject({ id: owner.userId, displayName: 'Updated Owner', locale: 'en' });
-    await expect(repository.updateProfile(owner, { locale: 'ar', expectedVersion: before.version }))
-      .resolves.toBeNull();
+    await expect(
+      repository.updateProfile(owner, { locale: 'ar', expectedVersion: before.version }),
+    ).resolves.toBeNull();
   });
 
   it('fully replaces preferences and allows only one concurrent winner', async () => {
@@ -97,14 +102,12 @@ describeLiveDatabase('profile and preferences repository', () => {
   });
 
   it('enqueues one safe profile event and none for the stale retry', async () => {
-    const events = await asRole(
-      'masarifi_migration',
-      (client) =>
-        client.query<{ aggregate_id: string | null; payload: Record<string, unknown> }>(
-          `select aggregate_id, payload from private.outbox_events
+    const events = await asRole('masarifi_migration', (client) =>
+      client.query<{ aggregate_id: string | null; payload: Record<string, unknown> }>(
+        `select aggregate_id, payload from private.outbox_events
            where event_type = 'profile.updated' and payload ->> 'profileId' = $1`,
-          [owner.userId],
-        ),
+        [owner.userId],
+      ),
     );
     expect(events.rows).toHaveLength(1);
     const event = events.rows[0];

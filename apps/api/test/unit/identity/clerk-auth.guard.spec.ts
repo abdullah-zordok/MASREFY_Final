@@ -3,10 +3,7 @@ import type { Request } from 'express';
 
 import type { PlatformConfigService } from '../../../src/platform/config/platform-config.service';
 import type { ClerkClientService } from '../../../src/identity/clerk-client.service';
-import {
-  ClerkAuthGuard,
-  type ClerkPrincipalRequest,
-} from '../../../src/identity/clerk-auth.guard';
+import { ClerkAuthGuard, type ClerkPrincipalRequest } from '../../../src/identity/clerk-auth.guard';
 
 const config = {
   getRequired: jest.fn((key: string) => {

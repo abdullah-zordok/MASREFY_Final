@@ -6,29 +6,50 @@ import archiver from 'archiver';
 
 import type { ExportEntry } from './privacy-handlers';
 
-export interface ExportPackageLimits { maxBytes: number; maxEntries: number }
-export interface ExportPackageEntry { path: string; mediaType: ExportEntry['mediaType']; bytes: number; sha256: string }
-export interface ExportPackageResult { bytes: number; entries: readonly ExportPackageEntry[] }
+export interface ExportPackageLimits {
+  maxBytes: number;
+  maxEntries: number;
+}
+export interface ExportPackageEntry {
+  path: string;
+  mediaType: ExportEntry['mediaType'];
+  bytes: number;
+  sha256: string;
+}
+export interface ExportPackageResult {
+  bytes: number;
+  entries: readonly ExportPackageEntry[];
+}
 
-const safePath = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\/\/)[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.(?:json|ndjson)$/;
+const safePath =
+  /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\/\/)[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.(?:json|ndjson)$/;
 
 export async function writeExportPackage(
   entries: Iterable<ExportEntry>,
   destination: Writable,
   limits: ExportPackageLimits,
 ): Promise<ExportPackageResult> {
-  if (!Number.isSafeInteger(limits.maxBytes) || limits.maxBytes < 1 ||
-      !Number.isSafeInteger(limits.maxEntries) || limits.maxEntries < 1) {
+  if (
+    !Number.isSafeInteger(limits.maxBytes) ||
+    limits.maxBytes < 1 ||
+    !Number.isSafeInteger(limits.maxEntries) ||
+    limits.maxEntries < 1
+  ) {
     throw new Error('EXPORT_LIMIT_INVALID');
   }
   const selected = [...entries];
-  if (selected.length < 1 || selected.length > limits.maxEntries) throw new Error('EXPORT_ENTRY_COUNT_INVALID');
+  if (selected.length < 1 || selected.length > limits.maxEntries)
+    throw new Error('EXPORT_ENTRY_COUNT_INVALID');
   const paths = new Set<string>();
   for (const entry of selected) {
-    if (!safePath.test(entry.path) || !['application/json', 'application/x-ndjson'].includes(entry.mediaType)) {
+    if (
+      !safePath.test(entry.path) ||
+      !['application/json', 'application/x-ndjson'].includes(entry.mediaType)
+    ) {
       throw new Error('EXPORT_ENTRY_INVALID');
     }
-    if (paths.has(entry.path) || entry.path === 'manifest.json') throw new Error('EXPORT_ENTRY_DUPLICATE');
+    if (paths.has(entry.path) || entry.path === 'manifest.json')
+      throw new Error('EXPORT_ENTRY_DUPLICATE');
     paths.add(entry.path);
   }
 
@@ -64,10 +85,17 @@ export async function writeExportPackage(
       source.pipe(counted);
       archive.append(counted, { name: entry.path, date: new Date(0), mode: 0o600 });
       await finished(counted);
-      manifest.push({ path: entry.path, mediaType: entry.mediaType, bytes, sha256: `sha256:${hash.digest('hex')}` });
+      manifest.push({
+        path: entry.path,
+        mediaType: entry.mediaType,
+        bytes,
+        sha256: `sha256:${hash.digest('hex')}`,
+      });
     }
     archive.append(JSON.stringify({ schemaVersion: 1, entries: manifest }), {
-      name: 'manifest.json', date: new Date(0), mode: 0o600,
+      name: 'manifest.json',
+      date: new Date(0),
+      mode: 0o600,
     });
     await archive.finalize();
     await completed;
@@ -75,7 +103,11 @@ export async function writeExportPackage(
   } catch (error) {
     archive.abort();
     destination.destroy(error instanceof Error ? error : new Error('EXPORT_PACKAGE_FAILED'));
-    try { await completed; } catch { /* preserve the originating safe error */ }
+    try {
+      await completed;
+    } catch {
+      /* preserve the originating safe error */
+    }
     throw error;
   }
 }

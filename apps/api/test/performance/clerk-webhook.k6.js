@@ -12,7 +12,14 @@ const unexpected = new Counter('clerk_webhook_unexpected');
 
 export const options = {
   scenarios: {
-    webhook_burst: { executor: 'constant-arrival-rate', rate: 20, timeUnit: '1s', duration: '30s', preAllocatedVUs: 20, maxVUs: 50 },
+    webhook_burst: {
+      executor: 'constant-arrival-rate',
+      rate: 20,
+      timeUnit: '1s',
+      duration: '30s',
+      preAllocatedVUs: 20,
+      maxVUs: 50,
+    },
   },
   thresholds: {
     checks: ['rate==1'],

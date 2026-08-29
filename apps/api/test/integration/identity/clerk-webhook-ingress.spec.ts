@@ -34,9 +34,9 @@ describeLiveDatabase('Clerk webhook durable receipt', () => {
   });
 
   afterAll(async () => {
-    await asMigration((client) => client.query(
-      'delete from private.clerk_webhook_events where clerk_event_id = $1', [eventId],
-    ));
+    await asMigration((client) =>
+      client.query('delete from private.clerk_webhook_events where clerk_event_id = $1', [eventId]),
+    );
     await pool.onModuleDestroy();
   });
 
@@ -49,28 +49,36 @@ describeLiveDatabase('Clerk webhook durable receipt', () => {
       payload,
     };
     await expect(repository.receiveClerkWebhook(receipt)).resolves.toBe('inserted');
-    const durable = await asMigration((client) => client.query<{ count: string }>(
-      'select count(*) from private.clerk_webhook_events where clerk_event_id = $1', [eventId],
-    ));
+    const durable = await asMigration((client) =>
+      client.query<{ count: string }>(
+        'select count(*) from private.clerk_webhook_events where clerk_event_id = $1',
+        [eventId],
+      ),
+    );
     expect(durable.rows[0]?.count).toBe('1');
     await expect(repository.receiveClerkWebhook(receipt)).resolves.toBe('duplicate');
-    await expect(repository.receiveClerkWebhook({ ...receipt, payloadHash: 'f'.repeat(64) }))
-      .resolves.toBe('conflict');
-    const after = await asMigration((client) => client.query<{ count: string; payload_hash: string }>(
-      `select count(*)::text as count, min(payload_hash) as payload_hash
+    await expect(
+      repository.receiveClerkWebhook({ ...receipt, payloadHash: 'f'.repeat(64) }),
+    ).resolves.toBe('conflict');
+    const after = await asMigration((client) =>
+      client.query<{ count: string; payload_hash: string }>(
+        `select count(*)::text as count, min(payload_hash) as payload_hash
        from private.clerk_webhook_events where clerk_event_id = $1`,
-      [eventId],
-    ));
+        [eventId],
+      ),
+    );
     expect(after.rows[0]).toEqual({ count: '1', payload_hash: payloadHash });
   });
 
   it('keeps ingress free of profile and outbox effects', async () => {
-    const evidence = await asMigration((client) => client.query<{ profiles: string; events: string }>(
-      `select
+    const evidence = await asMigration((client) =>
+      client.query<{ profiles: string; events: string }>(
+        `select
          (select count(*) from public.profiles where id = 'user_ingress_fixture_a')::text as profiles,
          (select count(*) from private.outbox_events
           where payload ->> 'profileId' = 'user_ingress_fixture_a')::text as events`,
-    ));
+      ),
+    );
     expect(evidence.rows[0]).toEqual({ profiles: '0', events: '0' });
   });
 });

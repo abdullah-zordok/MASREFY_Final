@@ -56,10 +56,10 @@ export class AdminAuthGuard implements CanActivate {
     }
     await this.clerk.canActivate(context);
     const request = context.switchToHttp().getRequest<AdminPrincipalRequest>();
-    const requirement = this.reflector.getAllAndOverride<AdminAccessRequirement | undefined>(ADMIN_ACCESS, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requirement = this.reflector.getAllAndOverride<AdminAccessRequirement | undefined>(
+      ADMIN_ACCESS,
+      [context.getHandler(), context.getClass()],
+    );
     if (!requirement || !canonicalPermissions.has(requirement.permission)) {
       throw forbidden('ADMIN_PERMISSION_DENIED');
     }
@@ -67,7 +67,11 @@ export class AdminAuthGuard implements CanActivate {
     if (!principal) throw forbidden('ADMIN_PERMISSION_DENIED');
     if (requirement.recentMfa) {
       const maximumAge = this.config.get('MASARIFI_RECENT_AUTH_MAX_AGE_SECONDS');
-      if (principal.mfaAgeSeconds === null || principal.mfaAgeSeconds === undefined || principal.mfaAgeSeconds > maximumAge) {
+      if (
+        principal.mfaAgeSeconds === null ||
+        principal.mfaAgeSeconds === undefined ||
+        principal.mfaAgeSeconds > maximumAge
+      ) {
         throw forbidden('RECENT_AUTH_REQUIRED');
       }
     }
@@ -79,19 +83,32 @@ export class AdminAuthGuard implements CanActivate {
       await this.repository.assertAdminPermission(principal, requirement.permission);
     } catch (error) {
       if (
-        typeof error === 'object' && error !== null &&
-        ('code' in error && Reflect.get(error, 'code') === '42501' ||
-          'message' in error && Reflect.get(error, 'message') === 'ADMIN_PERMISSION_DENIED')
+        typeof error === 'object' &&
+        error !== null &&
+        (('code' in error && Reflect.get(error, 'code') === '42501') ||
+          ('message' in error && Reflect.get(error, 'message') === 'ADMIN_PERMISSION_DENIED'))
       ) {
-        recordPlatformMetric(SECURITY_METRICS.permissionDecision, 1, { outcome: 'denied', permission: requirement.permission });
+        recordPlatformMetric(SECURITY_METRICS.permissionDecision, 1, {
+          outcome: 'denied',
+          permission: requirement.permission,
+        });
         throw forbidden('ADMIN_PERMISSION_DENIED');
       }
-      recordPlatformMetric(SECURITY_METRICS.permissionDecision, 1, { outcome: 'unavailable', permission: requirement.permission });
+      recordPlatformMetric(SECURITY_METRICS.permissionDecision, 1, {
+        outcome: 'unavailable',
+        permission: requirement.permission,
+      });
       throw new HttpException({ code: 'AUTHORIZATION_UNAVAILABLE' }, 503);
     }
     request.adminAuthorizations.add(cacheKey);
-    recordPlatformMetric(SECURITY_METRICS.permissionDecision, 1, { outcome: 'allowed', permission: requirement.permission });
-    recordPlatformMetric(SECURITY_METRICS.permissionDuration, performance.now() - startedAt, { outcome: 'allowed', permission: requirement.permission });
+    recordPlatformMetric(SECURITY_METRICS.permissionDecision, 1, {
+      outcome: 'allowed',
+      permission: requirement.permission,
+    });
+    recordPlatformMetric(SECURITY_METRICS.permissionDuration, performance.now() - startedAt, {
+      outcome: 'allowed',
+      permission: requirement.permission,
+    });
     return true;
   }
 }

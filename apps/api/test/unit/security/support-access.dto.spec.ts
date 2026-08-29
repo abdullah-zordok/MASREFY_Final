@@ -6,13 +6,17 @@ import {
 
 describe('support access boundary DTOs', () => {
   it('normalizes only registered resources/actions and removes duplicates', () => {
-    expect(normalizeSupportScope([
-      { resource: SUPPORT_RESOURCES[1], actions: [SUPPORT_ACTIONS[1], SUPPORT_ACTIONS[1]] },
-      { resource: SUPPORT_RESOURCES[0], actions: [SUPPORT_ACTIONS[0]] },
-    ])).toEqual([
-      { resource: SUPPORT_RESOURCES[1], actions: [SUPPORT_ACTIONS[1]] },
-      { resource: SUPPORT_RESOURCES[0], actions: [SUPPORT_ACTIONS[0]] },
-    ].sort((left, right) => left.resource.localeCompare(right.resource)));
+    expect(
+      normalizeSupportScope([
+        { resource: SUPPORT_RESOURCES[1], actions: [SUPPORT_ACTIONS[1], SUPPORT_ACTIONS[1]] },
+        { resource: SUPPORT_RESOURCES[0], actions: [SUPPORT_ACTIONS[0]] },
+      ]),
+    ).toEqual(
+      [
+        { resource: SUPPORT_RESOURCES[1], actions: [SUPPORT_ACTIONS[1]] },
+        { resource: SUPPORT_RESOURCES[0], actions: [SUPPORT_ACTIONS[0]] },
+      ].sort((left, right) => left.resource.localeCompare(right.resource)),
+    );
   });
 
   it.each([
