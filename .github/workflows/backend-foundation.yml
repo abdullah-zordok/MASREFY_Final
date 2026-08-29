@@ -83,7 +83,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       NODE_ENV: test
-      MASARIFI_PROCESS_KIND: migration
       MASARIFI_RELEASE_VERSION: ci
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       K6_DATABASE_URL: postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres
@@ -108,8 +107,11 @@ jobs:
       - run: npm run test:db
       - run: npm run build
       - run: npm run start:migration
+        env:
+          MASARIFI_PROCESS_KIND: migration
       - run: npm run test:migration
         env:
+          MASARIFI_PROCESS_KIND: migration
           MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:database:integration
         env:
