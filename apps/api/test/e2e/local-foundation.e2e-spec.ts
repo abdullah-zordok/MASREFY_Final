@@ -114,6 +114,7 @@ describe('local foundation', () => {
   it('reports healthy dependencies and fails safely when one is unavailable', async () => {
     const environment = validateEnvironment({
       ...applicationEnvironment(),
+      MASARIFI_PROCESS_KIND: 'api',
       MASARIFI_READINESS_CACHE_TTL_MS: 0,
     });
     const config = new PlatformConfigService(new ConfigService(environment));
