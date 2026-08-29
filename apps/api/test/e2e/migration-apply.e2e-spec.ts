@@ -11,13 +11,16 @@ describeLiveDatabase('migration application', () => {
 
   it('is idempotent and creates only the registered application inventory', async () => {
     const liveTestFlag = process.env.MASARIFI_LIVE_DATABASE_TESTS;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.MASARIFI_LIVE_DATABASE_TESTS;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     try {
       const { runMigrations } = await import('../../src/migration');
       await expect(runMigrations()).resolves.toBe(0);
       await expect(runMigrations()).resolves.toBe(0);
     } finally {
       process.env.MASARIFI_LIVE_DATABASE_TESTS = liveTestFlag;
+      process.env.SUPABASE_SERVICE_ROLE_KEY = serviceRoleKey;
     }
 
     const schemas = await pool.query<{ name: string }>(
