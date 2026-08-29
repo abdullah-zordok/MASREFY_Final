@@ -17,6 +17,7 @@ npm-debug.log*
 apps/api/test/performance/artifacts/*.json
 apps/api/test/performance/artifacts/*.txt
 !apps/api/test/performance/artifacts/.gitkeep
+!apps/api/test/performance/artifacts/security-permission-summary.json
 .DS_Store
 Thumbs.db
 .worktrees/

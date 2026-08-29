@@ -14,6 +14,7 @@ export interface ClerkPrincipal {
   userId: string;
   sessionId: string;
   factorAgeSeconds: number | null;
+  mfaAgeSeconds?: number | null;
 }
 
 export interface ClerkPrincipalRequest extends Request {
@@ -83,9 +84,12 @@ export class ClerkAuthGuard implements CanActivate {
     return {
       userId: auth.userId,
       sessionId: auth.sessionId,
-      factorAgeSeconds: auth.factorVerificationAge?.[0] === undefined
+      factorAgeSeconds: auth.factorVerificationAge?.[0] === undefined || auth.factorVerificationAge[0] < 0
         ? null
         : auth.factorVerificationAge[0] * 60,
+      mfaAgeSeconds: auth.factorVerificationAge?.[1] === undefined || auth.factorVerificationAge[1] < 0
+        ? null
+        : auth.factorVerificationAge[1] * 60,
     };
   }
 }

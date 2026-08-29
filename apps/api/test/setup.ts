@@ -12,6 +12,18 @@ process.env.CLERK_WEBHOOK_SIGNING_SECRET ??= ['whsec', 'nonfunctionalfixture'].j
 process.env.MASARIFI_PUSH_TOKEN_HASH_KEY ??= Buffer.alloc(32, 1).toString('base64url');
 process.env.MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS ??=
   `active:${Buffer.alloc(32, 2).toString('base64url')}`;
+process.env.MASARIFI_ADMIN_INVITATION_REDIRECT_URL ??= 'https://admin.example.test/invitations/accept';
+process.env.MASARIFI_SECURITY_IP_HASH_KEYS ??= `active:${Buffer.alloc(32, 3).toString('base64url')}`;
+process.env.SUPABASE_URL ??= 'http://127.0.0.1:54321';
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'local_nonfunctional_service_role_fixture';
+process.env.MASARIFI_EXPORT_RETENTION_HOURS ??= '24';
+process.env.MASARIFI_EXPORT_SIGNED_URL_SECONDS ??= '300';
+process.env.MASARIFI_DELETION_COOLING_OFF_HOURS ??= '72';
+process.env.MASARIFI_EXPORT_MAX_BYTES ??= '16777216';
+process.env.MASARIFI_EXPORT_MAX_ENTRIES ??= '100';
+process.env.MASARIFI_SECURITY_WORKER_POLL_MS ??= '500';
+process.env.MASARIFI_SECURITY_JOB_BATCH_SIZE ??= '25';
+process.env.MASARIFI_PRIVACY_HANDLER_MANIFEST ??= 'identity@1';
 
 let liveDatabasePool: Pool | undefined;
 

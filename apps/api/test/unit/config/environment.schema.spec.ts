@@ -16,6 +16,13 @@ const valid = {
   CLERK_WEBHOOK_SIGNING_SECRET: ['whsec', 'nonfunctionalfixture'].join('_'),
   MASARIFI_PUSH_TOKEN_HASH_KEY: pushKey(1),
   MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS: `active:${pushKey(2)}`,
+  MASARIFI_ADMIN_INVITATION_REDIRECT_URL: 'https://admin.example.test/invitations/accept',
+  MASARIFI_SECURITY_IP_HASH_KEYS: `active:${pushKey(3)}`,
+  SUPABASE_URL: 'http://127.0.0.1:54321',
+  SUPABASE_SERVICE_ROLE_KEY: 'local_nonfunctional_service_role_fixture',
+  MASARIFI_EXPORT_RETENTION_HOURS: 24,
+  MASARIFI_EXPORT_SIGNED_URL_SECONDS: 300,
+  MASARIFI_DELETION_COOLING_OFF_HOURS: 72,
 };
 
 describe('validateEnvironment', () => {
@@ -112,9 +119,18 @@ describe('validateEnvironment', () => {
       'CLERK_INSTANCE_DOMAIN',
       'CLERK_AUTHORIZED_PARTIES',
       'CLERK_WEBHOOK_SIGNING_SECRET',
+      'MASARIFI_ADMIN_INVITATION_REDIRECT_URL',
+      'MASARIFI_EXPORT_SIGNED_URL_SECONDS',
     ]) {
       Reflect.deleteProperty(worker, key);
     }
+    Object.assign(worker, {
+      MASARIFI_EXPORT_MAX_BYTES: 16 * 1024 * 1024,
+      MASARIFI_EXPORT_MAX_ENTRIES: 100,
+      MASARIFI_SECURITY_WORKER_POLL_MS: 500,
+      MASARIFI_SECURITY_JOB_BATCH_SIZE: 25,
+      MASARIFI_PRIVACY_HANDLER_MANIFEST: 'identity@1',
+    });
 
     expect(validateEnvironment(worker)).toMatchObject({
       MASARIFI_PROCESS_KIND: 'worker',
@@ -165,6 +181,7 @@ describe('validateEnvironment', () => {
       validateEnvironment({
         ...valid,
         NODE_ENV: 'production',
+        SUPABASE_URL: 'https://project.example.supabase.co',
         CLERK_PUBLISHABLE_KEY: clerkKey('pk', 'test'),
         CLERK_SECRET_KEY: clerkKey('sk', 'test'),
         CLERK_AUTHORIZED_PARTIES: 'https://admin.example.test',

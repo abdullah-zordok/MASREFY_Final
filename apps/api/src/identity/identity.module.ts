@@ -10,6 +10,7 @@ import { ClerkWebhookWorker } from './clerk-webhook.worker';
 import { IdentityController } from './identity.controller';
 import { IdentityRepository } from './identity.repository';
 import { IdentityService } from './identity.service';
+import { IdentityPrivacyHandler } from './identity-privacy.handler';
 import { PushTokenCrypto } from './push-token.crypto';
 
 @Module({
@@ -49,7 +50,7 @@ export class IdentityModule {}
 
 @Module({
   imports: [DatabaseModule],
-  providers: [ClerkClientService, IdentityRepository, ClerkWebhookWorker],
-  exports: [ClerkWebhookWorker],
+  providers: [ClerkClientService, IdentityRepository, IdentityPrivacyHandler, ClerkWebhookWorker],
+  exports: [ClerkWebhookWorker, IdentityPrivacyHandler],
 })
 export class IdentityWorkerModule {}

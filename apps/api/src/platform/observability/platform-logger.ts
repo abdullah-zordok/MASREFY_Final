@@ -10,6 +10,12 @@ export interface SafeLogFields {
   processKind?: string;
   version?: string;
   state?: string;
+  permissionKey?: string;
+  resourceType?: string;
+  resourceId?: string;
+  jobName?: string;
+  severity?: string;
+  durationMs?: number;
 }
 
 const levels: Record<LogLevel, number> = {

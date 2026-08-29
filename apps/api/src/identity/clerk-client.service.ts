@@ -22,6 +22,12 @@ export class ClerkProviderUnavailableError extends Error {
   }
 }
 
+export class ClerkSessionIneligibleError extends Error {
+  constructor() {
+    super('CLERK_SESSION_INELIGIBLE');
+  }
+}
+
 export interface ClerkIdentityUser {
   id: string;
   primaryEmail: string | null;
@@ -55,6 +61,7 @@ export class ClerkClientService {
   private readonly client: ClerkClient;
   private readonly timeoutMs: number;
   private readonly instanceDomain: string | undefined;
+  private readonly adminInvitationRedirectUrl: string | undefined;
 
   constructor(config: PlatformConfigService) {
     this.client = createClerkClient({
@@ -66,6 +73,7 @@ export class ClerkClientService {
     });
     this.timeoutMs = config.get('MASARIFI_CLERK_API_TIMEOUT_MS');
     this.instanceDomain = config.get('CLERK_INSTANCE_DOMAIN');
+    this.adminInvitationRedirectUrl = config.get('MASARIFI_ADMIN_INVITATION_REDIRECT_URL');
   }
 
   async authenticateRequest(request: ExpressRequest): Promise<ClerkAuthentication> {
@@ -101,7 +109,7 @@ export class ClerkClientService {
         (factorVerificationAge !== null &&
           (!Array.isArray(factorVerificationAge) ||
             factorVerificationAge.length !== 2 ||
-            !factorVerificationAge.every((age) => typeof age === 'number')))
+              !factorVerificationAge.every((age) => typeof age === 'number' && Number.isFinite(age) && age >= -1)))
       ) {
         return { isAuthenticated: false };
       }
@@ -128,6 +136,43 @@ export class ClerkClientService {
       return 'revoked';
     } catch (error) {
       if (statusCode(error) === 404) return 'not_found';
+      throw new ClerkProviderUnavailableError();
+    }
+  }
+
+  async revokeUserSessions(userId: string, requestedSessionIds?: readonly string[]): Promise<string[]> {
+    if (userId.trim() !== userId || userId.length < 1 || userId.length > 128) throw new ClerkProviderUnavailableError();
+    try {
+      const page = await this.withTimeout(this.client.sessions.getSessionList({userId,status:'active',limit:100}));
+      if (page.totalCount > 100) throw new ClerkProviderUnavailableError();
+      const active = new Map(page.data.map((session) => [session.id, session]));
+      const selected = requestedSessionIds === undefined
+        ? page.data
+        : requestedSessionIds.map((sessionId) => active.get(sessionId));
+      if (selected.some((session) => !session)) throw new ClerkSessionIneligibleError();
+      const eligible = selected.flatMap((session) => session ? [session] : []);
+      for (const session of eligible) await this.withTimeout(this.client.sessions.revokeSession(session.id));
+      return eligible.map((_session,index)=>`session-${String(index+1)}`);
+    } catch (error) {
+      if (error instanceof ClerkSessionIneligibleError) throw error;
+      throw new ClerkProviderUnavailableError();
+    }
+  }
+
+  async deliverAdminInvitation(email: string, token: string): Promise<void> {
+    if (!this.adminInvitationRedirectUrl || !/^[^\s@]+@[^\s@]+$/.test(email) || token.length < 32 || token.length > 512) {
+      throw new ClerkProviderUnavailableError();
+    }
+    const redirect = new URL(this.adminInvitationRedirectUrl);
+    redirect.searchParams.set('invitationToken', token);
+    try {
+      await this.withTimeout(this.client.invitations.createInvitation({
+        emailAddress: email,
+        redirectUrl: redirect.toString(),
+        notify: true,
+        ignoreExisting: false,
+      }));
+    } catch {
       throw new ClerkProviderUnavailableError();
     }
   }

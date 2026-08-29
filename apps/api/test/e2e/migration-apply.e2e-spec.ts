@@ -29,8 +29,17 @@ describeLiveDatabase('migration application', () => {
       "select schemaname || '.' || tablename as name from pg_tables where schemaname in ('private', 'audit') order by name",
     );
     expect(tables.rows.map((row) => row.name)).toEqual([
+      'audit.audit_events',
+      'private.account_deletion_requests',
       'private.clerk_webhook_events',
       'private.outbox_events',
+      'private.privacy_export_requests',
+      'private.retention_holds',
+      'private.retention_policies',
+      'private.security_incident_timeline',
+      'private.security_incidents',
+      'private.support_access_grants',
+      'private.support_access_requests',
     ]);
 
     const functions = await pool.query<{ name: string }>(
@@ -40,11 +49,22 @@ describeLiveDatabase('migration application', () => {
        order by name`,
     );
     expect(functions.rows.map((row) => row.name)).toEqual([
+      'accept_admin_invitation',
+      'admin_has_permission',
       'assert_active_profile',
+      'assert_admin_permission',
+      'assert_support_grant',
       'claim_outbox_batch',
+      'dispatch_security_alerts',
       'enqueue_outbox_event',
+      'is_valid_support_scope',
+      'prevent_retention_hold_overlap',
       'protect_clerk_webhook_receipt',
+      'protect_last_super_admin',
+      'protect_security_definition',
+      'reject_immutable_change',
       'set_updated_at_and_version',
+      'validate_support_grant_invariant',
     ]);
 
     const roles = await pool.query<{ name: string; login: boolean }>(

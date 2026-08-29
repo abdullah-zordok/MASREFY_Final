@@ -16,6 +16,9 @@ const config = {
     if (key === 'CLERK_PUBLISHABLE_KEY') return ['pk', 'test', 'boundaryfixture'].join('_');
     if (key === 'CLERK_INSTANCE_DOMAIN') return 'example.clerk.accounts.dev';
     if (key === 'CLERK_AUTHORIZED_PARTIES') return ['https://admin.example.test'];
+    if (key === 'MASARIFI_ADMIN_INVITATION_REDIRECT_URL') {
+      return 'https://admin.example.test/invitations/accept';
+    }
     throw new Error(`UNEXPECTED_CONFIG:${key}`);
   },
   getRequired: (key: string) => {

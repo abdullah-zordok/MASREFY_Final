@@ -1,0 +1,22 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(8);
+grant authenticated, masarifi_api, masarifi_worker, masarifi_migration to current_user with inherit true, set true;
+set local role masarifi_migration;
+insert into public.profiles(id,status) values('evidence_admin','active');
+insert into public.admin_profiles(user_id,status) values('evidence_admin','active');
+insert into public.security_events(user_id,event_type,severity,metadata) values('evidence_admin','security.login','high','{"category":"auth"}');
+insert into audit.audit_events(actor_id,actor_type,action,resource_type,request_id) values('evidence_admin','admin','security.reviewed','security_event','request-1');
+insert into private.security_incidents(title,severity,detected_at) values('Safe incident','high',clock_timestamp());
+insert into private.security_incident_timeline(incident_id,actor_id,event_type,details_redacted) select id,'evidence_admin','incident_opened','Opened' from private.security_incidents;
+
+select throws_ok($$update public.security_events set severity='low'$$,'42501','SECURITY_EVIDENCE_IMMUTABLE','security events immutable');
+select throws_ok($$delete from public.security_events$$,'42501','SECURITY_EVIDENCE_IMMUTABLE','security events undeletable');
+select throws_ok($$update audit.audit_events set action='security.changed'$$,'42501','SECURITY_EVIDENCE_IMMUTABLE','audit immutable');
+select throws_ok($$delete from audit.audit_events$$,'42501','SECURITY_EVIDENCE_IMMUTABLE','audit undeletable');
+select throws_ok($$update private.security_incident_timeline set details_redacted='Changed'$$,'42501','SECURITY_EVIDENCE_IMMUTABLE','timeline immutable');
+select throws_ok($$delete from private.security_incident_timeline$$,'42501','SECURITY_EVIDENCE_IMMUTABLE','timeline undeletable');
+select ok(not has_table_privilege('masarifi_api','audit.audit_events','UPDATE'),'API has no audit update grant');
+select ok(not has_table_privilege('masarifi_worker','public.security_events','DELETE'),'worker has no security delete grant');
+select * from finish();
+rollback;

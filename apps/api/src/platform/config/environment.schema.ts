@@ -33,6 +33,17 @@ const applicationKeys = new Set([
   'MASARIFI_CLERK_WEBHOOK_POLL_MS',
   'MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS',
   'MASARIFI_CLERK_RECONCILE_PAGE_SIZE',
+  'MASARIFI_ADMIN_ROUTES_ENABLED',
+  'MASARIFI_ADMIN_INVITATION_REDIRECT_URL',
+  'MASARIFI_SECURITY_IP_HASH_KEYS',
+  'MASARIFI_EXPORT_MAX_BYTES',
+  'MASARIFI_EXPORT_MAX_ENTRIES',
+  'MASARIFI_EXPORT_RETENTION_HOURS',
+  'MASARIFI_EXPORT_SIGNED_URL_SECONDS',
+  'MASARIFI_DELETION_COOLING_OFF_HOURS',
+  'MASARIFI_SECURITY_WORKER_POLL_MS',
+  'MASARIFI_SECURITY_JOB_BATCH_SIZE',
+  'MASARIFI_PRIVACY_HANDLER_MANIFEST',
 ]);
 const testHarnessKeys = new Set(['MASARIFI_IMAGE_UNDER_TEST', 'MASARIFI_LIVE_DATABASE_TESTS']);
 
@@ -78,6 +89,32 @@ function parseAuthorizedParties(value: string, helpers: Joi.CustomHelpers): unkn
     if (!unique.includes(party)) unique.push(party);
   }
   return unique;
+}
+
+function parseKeyRing(value: string, helpers: Joi.CustomHelpers): unknown {
+  const entries = value.split(',');
+  if (entries.length < 1 || entries.length > 3) return helpers.error('array.length');
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    const separator = entry.indexOf(':');
+    const id = separator > 0 ? entry.slice(0, separator) : '';
+    const material = separator > 0 ? decodedKey(entry.slice(separator + 1)) : undefined;
+    if (!safeKeyId.test(id) || ids.has(id) || !material) return helpers.error('string.pattern.base');
+    ids.add(id);
+  }
+  return value;
+}
+
+function parseHandlerManifest(value: string, helpers: Joi.CustomHelpers): unknown {
+  if (value.length > 6_400) return helpers.error('string.max');
+  const entries = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (
+    entries.length < 1 ||
+    entries.length > 100 ||
+    new Set(entries).size !== entries.length ||
+    entries.some((entry) => !/^[a-z][a-z0-9-]{0,63}@1$/.test(entry))
+  ) return helpers.error('string.pattern.base');
+  return [...entries].sort();
 }
 
 const schema = Joi.object<PlatformEnvironment>({
@@ -143,6 +180,19 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_CLERK_WEBHOOK_POLL_MS: Joi.number().integer().min(100).max(10_000).default(500),
   MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS: Joi.number().integer().min(1).max(100).default(10),
   MASARIFI_CLERK_RECONCILE_PAGE_SIZE: Joi.number().integer().min(1).max(100).default(100),
+  MASARIFI_ADMIN_ROUTES_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  MASARIFI_ADMIN_INVITATION_REDIRECT_URL: Joi.string().uri({ scheme: ['http', 'https'] }).max(2_048).optional(),
+  MASARIFI_SECURITY_IP_HASH_KEYS: Joi.string().trim().custom(parseKeyRing, 'security IP hash key parser').optional(),
+  SUPABASE_URL: Joi.string().uri({ scheme: ['http', 'https'] }).max(2_048).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().trim().min(16).max(4_096).optional(),
+  MASARIFI_EXPORT_MAX_BYTES: Joi.number().integer().min(1_048_576).max(1_073_741_824).optional(),
+  MASARIFI_EXPORT_MAX_ENTRIES: Joi.number().integer().min(1).max(10_000).optional(),
+  MASARIFI_EXPORT_RETENTION_HOURS: Joi.number().integer().min(1).max(168).optional(),
+  MASARIFI_EXPORT_SIGNED_URL_SECONDS: Joi.number().integer().min(60).max(900).optional(),
+  MASARIFI_DELETION_COOLING_OFF_HOURS: Joi.number().integer().min(1).max(2_160).optional(),
+  MASARIFI_SECURITY_WORKER_POLL_MS: Joi.number().integer().min(100).max(10_000).optional(),
+  MASARIFI_SECURITY_JOB_BATCH_SIZE: Joi.number().integer().min(1).max(100).optional(),
+  MASARIFI_PRIVACY_HANDLER_MANIFEST: Joi.string().custom(parseHandlerManifest, 'privacy handler manifest parser').optional(),
 }).unknown(true);
 
 const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment)[]> = {
@@ -154,11 +204,28 @@ const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment
     'CLERK_WEBHOOK_SIGNING_SECRET',
     'MASARIFI_PUSH_TOKEN_HASH_KEY',
     'MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS',
+    'MASARIFI_ADMIN_INVITATION_REDIRECT_URL',
+    'MASARIFI_SECURITY_IP_HASH_KEYS',
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'MASARIFI_EXPORT_RETENTION_HOURS',
+    'MASARIFI_EXPORT_SIGNED_URL_SECONDS',
+    'MASARIFI_DELETION_COOLING_OFF_HOURS',
   ],
   worker: [
     'CLERK_SECRET_KEY',
     'MASARIFI_PUSH_TOKEN_HASH_KEY',
     'MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS',
+    'MASARIFI_SECURITY_IP_HASH_KEYS',
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'MASARIFI_EXPORT_MAX_BYTES',
+    'MASARIFI_EXPORT_MAX_ENTRIES',
+    'MASARIFI_EXPORT_RETENTION_HOURS',
+    'MASARIFI_DELETION_COOLING_OFF_HOURS',
+    'MASARIFI_SECURITY_WORKER_POLL_MS',
+    'MASARIFI_SECURITY_JOB_BATCH_SIZE',
+    'MASARIFI_PRIVACY_HANDLER_MANIFEST',
   ],
   migration: [],
 };
@@ -235,6 +302,13 @@ function validateIdentityEnvironment(environment: PlatformEnvironment): void {
 }
 
 export function validateEnvironment(input: Record<string, unknown>): PlatformEnvironment {
+  const processKind = input.MASARIFI_PROCESS_KIND;
+  if (processKind === 'migration' && input.SUPABASE_SERVICE_ROLE_KEY !== undefined) {
+    invalidEnvironment(['SUPABASE_SERVICE_ROLE_KEY']);
+  }
+  if (processKind === 'worker' && input.MASARIFI_ADMIN_ROUTES_ENABLED !== undefined) {
+    invalidEnvironment(['MASARIFI_ADMIN_ROUTES_ENABLED']);
+  }
   const unknownApplicationKeys = Object.keys(input).filter(
     (key) =>
       key.startsWith('MASARIFI_') &&
@@ -262,6 +336,13 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   }
 
   const environment = value as PlatformEnvironment;
+  if (environment.MASARIFI_ADMIN_INVITATION_REDIRECT_URL) {
+    const redirect = new URL(environment.MASARIFI_ADMIN_INVITATION_REDIRECT_URL);
+    const localHttp = environment.NODE_ENV !== 'production' && redirect.protocol === 'http:' && /^(localhost|127\.0\.0\.1)$/.test(redirect.hostname);
+    if ((redirect.protocol !== 'https:' && !localHttp) || redirect.username || redirect.password || redirect.pathname === '/') {
+      invalidEnvironment(['MASARIFI_ADMIN_INVITATION_REDIRECT_URL']);
+    }
+  }
   if (
     environment.MASARIFI_OUTBOX_RETRY_MAX_SECONDS < environment.MASARIFI_OUTBOX_RETRY_BASE_SECONDS
   ) {
@@ -283,6 +364,7 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
           /localhost|127\.0\.0\.1/i.test(origin),
       );
     if (invalidOrigin) throw new Error('Invalid environment variables: MASARIFI_CORS_ORIGINS');
+    if (environment.SUPABASE_URL?.startsWith('http://')) invalidEnvironment(['SUPABASE_URL']);
   }
 
   validateIdentityEnvironment(environment);

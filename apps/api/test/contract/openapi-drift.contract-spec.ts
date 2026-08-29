@@ -89,11 +89,20 @@ describe('OpenAPI drift', () => {
     const identity = loadContract(
       '../../specs/002-auth-profiles-preferences-sessions/contracts/openapi.yaml',
     );
-    const generated = generateOpenApi(app, [identity]) as unknown as Contract;
+    const security = loadContract('../../specs/003-admin-rbac-security/contracts/openapi.yaml');
+    const generated = generateOpenApi(app, [identity, security]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
-      paths: { ...contractSurface(foundation).paths, ...contractSurface(identity).paths },
-      schemas: { ...contractSurface(foundation).schemas, ...contractSurface(identity).schemas },
+      paths: {
+        ...contractSurface(foundation).paths,
+        ...contractSurface(identity).paths,
+        ...contractSurface(security).paths,
+      },
+      schemas: {
+        ...contractSurface(foundation).schemas,
+        ...contractSurface(identity).schemas,
+        ...contractSurface(security).schemas,
+      },
     });
   });
 
@@ -102,17 +111,23 @@ describe('OpenAPI drift', () => {
     const identity = loadContract(
       '../../specs/002-auth-profiles-preferences-sessions/contracts/openapi.yaml',
     );
+    const security = loadContract('../../specs/003-admin-rbac-security/contracts/openapi.yaml');
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
     ) => Contract;
-    const generated = generateWithFragments(app, [identity]);
+    const generated = generateWithFragments(app, [identity, security]);
     const foundationSurface = contractSurface(foundation);
     const identitySurface = contractSurface(identity);
+    const securitySurface = contractSurface(security);
 
     expect(contractSurface(generated)).toEqual({
-      paths: { ...foundationSurface.paths, ...identitySurface.paths },
-      schemas: { ...foundationSurface.schemas, ...identitySurface.schemas },
+      paths: { ...foundationSurface.paths, ...identitySurface.paths, ...securitySurface.paths },
+      schemas: {
+        ...foundationSurface.schemas,
+        ...identitySurface.schemas,
+        ...securitySurface.schemas,
+      },
     });
     expect(
       Object.values(generated.paths).flatMap((path) =>
@@ -129,6 +144,9 @@ describe('OpenAPI drift', () => {
       'registerMyDevice',
       'revokeMyDevice',
       'receiveClerkWebhook',
+      'listAdmins',
+      'createMyPrivacyExport',
+      'createMyDeletionRequest',
     ]));
   });
 

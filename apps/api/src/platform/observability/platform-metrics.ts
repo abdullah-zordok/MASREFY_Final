@@ -31,10 +31,23 @@ export const IDENTITY_METRICS = {
   deviceSessionRetry: 'masarifi_device_session_retry_total',
 } as const;
 
+export const SECURITY_METRICS = {
+  permissionDecision: 'masarifi_security_permission_decision_total',
+  permissionDuration: 'masarifi_security_permission_duration_ms',
+  auditAppend: 'masarifi_security_audit_append_total',
+  supportGrant: 'masarifi_security_support_grant_total',
+  incident: 'masarifi_security_incident_total',
+  privacyJob: 'masarifi_security_privacy_job_total',
+  retentionJob: 'masarifi_security_retention_job_total',
+  jobRun: 'masarifi_security_job_run_total',
+  jobDuration: 'masarifi_security_job_duration_ms',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
-  | (typeof IDENTITY_METRICS)[keyof typeof IDENTITY_METRICS];
+  | (typeof IDENTITY_METRICS)[keyof typeof IDENTITY_METRICS]
+  | (typeof SECURITY_METRICS)[keyof typeof SECURITY_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -46,6 +59,9 @@ const allowedLabels = new Set([
   'outcome',
   'operation',
   'reason',
+  'permission',
+  'severity',
+  'job',
 ]);
 const safeLabelValue = /^[A-Za-z0-9_./:-]{1,128}$/;
 const counterNames = new Set<MetricName>([
@@ -58,6 +74,13 @@ const counterNames = new Set<MetricName>([
   IDENTITY_METRICS.webhookReceipt,
   IDENTITY_METRICS.webhookProcess,
   IDENTITY_METRICS.deviceSessionRetry,
+  SECURITY_METRICS.permissionDecision,
+  SECURITY_METRICS.auditAppend,
+  SECURITY_METRICS.supportGrant,
+  SECURITY_METRICS.incident,
+  SECURITY_METRICS.privacyJob,
+  SECURITY_METRICS.retentionJob,
+  SECURITY_METRICS.jobRun,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

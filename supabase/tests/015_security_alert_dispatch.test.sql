@@ -1,0 +1,16 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(4);
+grant masarifi_worker,masarifi_migration to current_user with inherit true,set true;
+grant usage on schema extensions to masarifi_worker;
+set local role masarifi_migration;
+insert into public.security_events(event_type,severity,metadata) values('security.alert_test','high','{"category":"test"}');
+reset role;
+set local role masarifi_worker;
+select is(private.dispatch_security_alerts(10),1,'high event dispatches once');
+select is(private.dispatch_security_alerts(10),0,'committed marker prevents duplicate dispatch');
+reset role;
+select ok(exists(select 1 from audit.audit_events where action='security.alert_dispatched'),'dispatch marker is immutable audit evidence');
+select throws_ok($$select private.dispatch_security_alerts(0)$$,'22023','SECURITY_ALERT_LIMIT_INVALID','dispatch batch is bounded');
+select * from finish();
+rollback;

@@ -55,6 +55,7 @@ describe('ClerkAuthGuard', () => {
       userId: 'user_phone_1',
       sessionId: 'sess_1',
       factorAgeSeconds: 120,
+      mfaAgeSeconds: 300,
     });
   });
 

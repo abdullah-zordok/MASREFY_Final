@@ -9,6 +9,7 @@ import { GracefulShutdown } from './platform/observability/graceful-shutdown';
 import { PlatformLogger } from './platform/observability/platform-logger';
 import { OutboxWorkerService } from './platform/outbox/outbox-worker.service';
 import { startTelemetry } from './platform/observability/telemetry';
+import { SecurityWorkerService } from './security/security.worker';
 
 export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const { WorkerModule } = await import('./worker.module');
@@ -22,18 +23,21 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const shutdown = new GracefulShutdown(config.get('MASARIFI_SHUTDOWN_TIMEOUT_MS'));
   const worker = app.get(OutboxWorkerService);
   const clerkWorker = app.get(ClerkWebhookWorker);
+  const securityWorker = app.get(SecurityWorkerService);
   app.useLogger(logger);
 
   process.once('SIGTERM', () => {
     void shutdown.shutdown(async () => {
       await worker.stop();
       await clerkWorker.stop();
+      await securityWorker.stop();
       await app.close();
       await telemetry.shutdown();
     });
   });
   worker.start();
   clerkWorker.start();
+  securityWorker.start();
   logger.info('platform.started', {
     context: 'Bootstrap',
     processKind: 'worker',

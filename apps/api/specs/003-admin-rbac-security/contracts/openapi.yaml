@@ -1,0 +1,1680 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Admin RBAC and Security API
+  version: 0.3.0
+  description: SPEC-BE-003 fragment; composed with existing platform and identity contracts.
+servers:
+  - url: /
+security:
+  - ClerkBearer: []
+tags:
+  - name: Admin Access
+  - name: Support Access
+  - name: Security
+  - name: Audit
+  - name: Privacy
+  - name: Retention
+paths:
+  /api/v1/admin/access/admins:
+    get:
+      operationId: listAdmins
+      tags: [Admin Access]
+      x-permission: admin-team.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [invited, active, suspended, revoked] },
+          }
+        - { name: search, in: query, schema: { type: string, minLength: 1, maxLength: 120 } }
+      responses:
+        '200': { $ref: '#/components/responses/AdminPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/admin/access/admins/{userId}:
+    get:
+      operationId: getAdmin
+      tags: [Admin Access]
+      x-permission: admin-team.read
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Masked administrator detail with assignments and eligible actions.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AdminDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/access/admins/{userId}/disable:
+    post:
+      operationId: disableAdmin
+      tags: [Admin Access]
+      x-permission: admin-team.disable
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason, revokeEligibleSessions, expectedVersion]
+              properties:
+                reason: { $ref: '#/components/schemas/Reason' }
+                revokeEligibleSessions: { type: boolean }
+                replacementAdminId: { $ref: '#/components/schemas/NullableUserId' }
+                expectedVersion: { $ref: '#/components/schemas/Version' }
+      responses:
+        '200':
+          {
+            description: Disabled Admin summary.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/AdminSummary' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/access/admins/{userId}/sessions/revoke:
+    post:
+      operationId: revokeAdminSessions
+      tags: [Admin Access]
+      x-permission: admin-team.sessions.revoke
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revokeAllEligible, reason, expectedVersion]
+              properties:
+                sessionIds:
+                  type: array
+                  uniqueItems: true
+                  maxItems: 100
+                  items: { type: string, minLength: 1, maxLength: 128 }
+                revokeAllEligible: { type: boolean }
+                reason: { $ref: '#/components/schemas/Reason' }
+                expectedVersion: { $ref: '#/components/schemas/Version' }
+      responses:
+        '200':
+          description: Safe revoked session references and current Admin version.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/SessionRevokeResult' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/admin/access/invitations:
+    get:
+      operationId: listAdminInvitations
+      tags: [Admin Access]
+      x-permission: admin-team.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [pending, accepted, expired, revoked] },
+          }
+      responses:
+        '200': { $ref: '#/components/responses/InvitationPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createAdminInvitation
+      tags: [Admin Access]
+      x-permission: access.invites.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitationCreate' }
+      responses:
+        '201':
+          description: Invitation accepted for delivery; token is never returned.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Invitation' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/v1/admin/access/invitations/accept:
+    post:
+      operationId: acceptAdminInvitation
+      tags: [Admin Access]
+      description: Uses authenticated Clerk identity and verified primary email; no Admin permission is required before acceptance.
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 512, writeOnly: true }
+      responses:
+        '200':
+          {
+            description: Existing completed acceptance.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/AdminDetail' } } },
+          }
+        '201':
+          {
+            description: Admin profile and invited assignment activated.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/AdminDetail' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/Gone' }
+  /api/v1/admin/access/roles:
+    get:
+      operationId: listRoles
+      tags: [Admin Access]
+      x-permission: access.roles.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: enabled, in: query, schema: { type: boolean } }
+      responses:
+        '200': { $ref: '#/components/responses/RolePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createRole
+      tags: [Admin Access]
+      x-permission: access.roles.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RoleCreate' } } }
+      responses:
+        '201':
+          {
+            description: Custom role created.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Role' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/access/roles/{roleId}:
+    get:
+      operationId: getRole
+      tags: [Admin Access]
+      x-permission: access.roles.read
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      responses:
+        '200':
+          {
+            description: Role detail.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Role' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateRole
+      tags: [Admin Access]
+      x-permission: access.roles.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RoleUpdate' } } }
+      responses:
+        '200':
+          {
+            description: Role updated.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Role' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/access/assignments:
+    post:
+      operationId: assignAdminRole
+      tags: [Admin Access]
+      x-permission: access.assignments.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AssignmentCreate' } } }
+      responses:
+        '201':
+          {
+            description: Role assignment created.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Assignment' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/access/assignments/{assignmentId}:
+    delete:
+      operationId: revokeAdminRole
+      tags: [Admin Access]
+      x-permission: access.assignments.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VersionedReason' } } }
+      responses:
+        '204': { description: Assignment revoked or already terminal. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/access/permissions:
+    get:
+      operationId: listPermissions
+      tags: [Admin Access]
+      x-permission: permissions.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: resource, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { name: search, in: query, schema: { type: string, minLength: 1, maxLength: 120 } }
+      responses:
+        '200': { $ref: '#/components/responses/PermissionPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/admin/support-access/requests:
+    get:
+      operationId: listSupportAccessRequests
+      tags: [Support Access]
+      x-permission: support.access.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [pending, approved, denied, expired, revoked] },
+          }
+        - { name: assignee, in: query, schema: { $ref: '#/components/schemas/UserId' } }
+      responses:
+        '200': { $ref: '#/components/responses/SupportPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createSupportAccessRequest
+      tags: [Support Access]
+      x-permission: support.access.request
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/SupportRequestCreate' } } }
+      responses:
+        '201':
+          {
+            description: Pending request created.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/support-access/requests/{requestId}:
+    get:
+      operationId: getSupportAccessRequest
+      tags: [Support Access]
+      x-permission: support.access.read
+      parameters:
+        - $ref: '#/components/parameters/RequestResourceId'
+      responses:
+        '200':
+          {
+            description: Redacted request detail.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/support-access/requests/{requestId}/decision:
+    post:
+      operationId: decideSupportAccessRequest
+      tags: [Support Access]
+      x-permission: support.access.approve
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/RequestResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SupportDecision' } } }
+      responses:
+        '200':
+          {
+            description: Grant or denial state.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/support-access/requests/{requestId}/revoke:
+    post:
+      operationId: revokeSupportAccess
+      tags: [Support Access]
+      x-permission: support.access.revoke
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/RequestResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VersionedReason' } } }
+      responses:
+        '200':
+          {
+            description: Revoked request/grant state.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/support-access/requests/{requestId}/workspace:
+    get:
+      operationId: getSupportWorkspace
+      tags: [Support Access]
+      x-permission: support.access.use
+      parameters:
+        - $ref: '#/components/parameters/RequestResourceId'
+      responses:
+        '200':
+          {
+            description: Registered masked/status/aggregate sections only.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportWorkspace' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/Gone' }
+  /api/v1/admin/support-access/requests/{requestId}/end:
+    post:
+      operationId: endSupportAccess
+      tags: [Support Access]
+      x-permission: support.access.use
+      parameters:
+        - $ref: '#/components/parameters/RequestResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/OptionalVersionedReason' } } }
+      responses:
+        '200':
+          {
+            description: Ended request/grant state.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/me/support-access/requests:
+    get:
+      operationId: listMySupportAccessRequests
+      tags: [Support Access]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CustomerLimit'
+      responses:
+        '200': { $ref: '#/components/responses/SupportPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/me/support-access/requests/{requestId}/decision:
+    post:
+      operationId: decideMySupportAccessRequest
+      tags: [Support Access]
+      x-recent-auth: true
+      parameters:
+        - $ref: '#/components/parameters/RequestResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [decision]
+              properties: { decision: { type: string, enum: [approve, deny] } }
+      responses:
+        '200':
+          {
+            description: Owner-safe approval/denial status.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SupportRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/me/security/events:
+    get:
+      operationId: listMySecurityEvents
+      tags: [Security]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CustomerLimit'
+        - { name: type, in: query, schema: { type: string, minLength: 1, maxLength: 80 } }
+        - { name: severity, in: query, schema: { $ref: '#/components/schemas/Severity' } }
+      responses:
+        '200': { $ref: '#/components/responses/SecurityEventPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/admin/security/overview:
+    get:
+      operationId: getSecurityOverview
+      tags: [Security]
+      x-permission: security.events.read
+      parameters:
+        - {
+            name: platform,
+            in: query,
+            schema: { type: string, enum: [all, ios, android, unknown, global], default: all },
+          }
+        - { name: period, in: query, schema: { type: string, enum: [7d, 30d, 90d], default: 30d } }
+      responses:
+        '200':
+          {
+            description: Redacted bounded metrics with freshness/partial flag.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SecurityOverview' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/security/events:
+    get:
+      operationId: listAdminSecurityEvents
+      tags: [Security]
+      x-permission: security.events.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: type, in: query, schema: { type: string, minLength: 1, maxLength: 80 } }
+        - { name: severity, in: query, schema: { $ref: '#/components/schemas/Severity' } }
+      responses:
+        '200': { $ref: '#/components/responses/SecurityEventPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/security/incidents:
+    get:
+      operationId: listSecurityIncidents
+      tags: [Security]
+      x-permission: security.incidents.manage
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/IncidentStatus' } }
+        - { name: severity, in: query, schema: { $ref: '#/components/schemas/Severity' } }
+      responses:
+        '200': { $ref: '#/components/responses/IncidentPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createSecurityIncident
+      tags: [Security]
+      x-permission: security.incidents.manage
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IncidentCreate' } } }
+      responses:
+        '201':
+          {
+            description: Incident opened.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Incident' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/security/incidents/{incidentId}:
+    get:
+      operationId: getSecurityIncident
+      tags: [Security]
+      x-permission: security.incidents.manage
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          {
+            description: Incident with immutable timeline/audit references.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Incident' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateSecurityIncident
+      tags: [Security]
+      x-permission: security.incidents.manage
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IncidentAction' } } }
+      responses:
+        '200':
+          {
+            description: Incident transitioned.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Incident' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/admin/audit/events:
+    get:
+      operationId: listAuditEvents
+      tags: [Audit]
+      x-permission: audit.read
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: actor, in: query, schema: { type: string, minLength: 1, maxLength: 128 } }
+        - { name: action, in: query, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { name: resource, in: query, schema: { type: string, minLength: 1, maxLength: 80 } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { $ref: '#/components/responses/AuditPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/audit/events/{eventId}:
+    get:
+      operationId: getAuditEvent
+      tags: [Audit]
+      x-permission: audit.read
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          {
+            description: Redacted immutable event detail.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/AuditEvent' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/me/privacy/exports:
+    post:
+      operationId: createMyPrivacyExport
+      tags: [Privacy]
+      x-recent-auth: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/PrivacyExportCreate' } } }
+      responses:
+        '202':
+          {
+            description: Existing or new active request accepted.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/PrivacyExport' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/me/privacy/exports/{exportId}:
+    get:
+      operationId: getMyPrivacyExport
+      tags: [Privacy]
+      description: Ready response requires recent authentication and includes a minutes-lived URL; non-ready responses do not.
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          {
+            description: Owner-safe export state.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/PrivacyExport' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+  /api/v1/me/deletion-requests:
+    post:
+      operationId: createMyDeletionRequest
+      tags: [Privacy]
+      x-recent-auth: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DeletionCreate' } } }
+      responses:
+        '202':
+          {
+            description: Existing or new active deletion request.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/DeletionRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/me/deletion-requests/{deletionId}:
+    get:
+      operationId: getMyDeletionRequest
+      tags: [Privacy]
+      parameters:
+        - $ref: '#/components/parameters/DeletionId'
+      responses:
+        '200':
+          {
+            description: Owner-safe deletion status.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/DeletionRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: cancelMyDeletionRequest
+      tags: [Privacy]
+      parameters:
+        - $ref: '#/components/parameters/DeletionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204': { description: Request cancelled or already cancelled before processing. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/privacy/exports:
+    get:
+      operationId: listPrivacyExports
+      tags: [Privacy]
+      x-permission: privacy.exports.read
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ExportStatus' } }
+      responses:
+        '200': { $ref: '#/components/responses/ExportPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/privacy/exports/{exportId}/actions:
+    post:
+      operationId: actOnPrivacyExport
+      tags: [Privacy]
+      x-permission: privacy.exports.manage
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PrivacyAction' } } }
+      responses:
+        '200':
+          {
+            description: Updated redacted export state.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/PrivacyExport' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/privacy/deletions:
+    get:
+      operationId: listDeletionRequests
+      tags: [Privacy]
+      x-permission: privacy.deletions.read
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/DeletionStatus' } }
+        - { name: hold, in: query, schema: { type: boolean } }
+      responses:
+        '200': { $ref: '#/components/responses/DeletionPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/privacy/deletions/{deletionId}/actions:
+    post:
+      operationId: actOnDeletionRequest
+      tags: [Privacy]
+      x-permission: privacy.deletions.manage
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/DeletionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DeletionAction' } } }
+      responses:
+        '200':
+          {
+            description: Updated redacted deletion state.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/DeletionRequest' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/admin/retention/policies:
+    get:
+      operationId: listRetentionPolicies
+      tags: [Retention]
+      x-permission: retention.read
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/AdminLimit'
+        - { name: resource, in: query, schema: { type: string, minLength: 1, maxLength: 80 } }
+        - { name: enabled, in: query, schema: { type: boolean } }
+      responses:
+        '200': { $ref: '#/components/responses/RetentionPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/retention/policies/{policyId}:
+    patch:
+      operationId: updateRetentionPolicy
+      tags: [Retention]
+      x-permission: retention.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/PolicyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RetentionUpdate' } } }
+      responses:
+        '200':
+          {
+            description: Updated policy and audit reference.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/RetentionPolicy' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/retention/holds:
+    post:
+      operationId: createRetentionHold
+      tags: [Retention]
+      x-permission: retention.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/HoldCreate' } } }
+      responses:
+        '201':
+          {
+            description: Hold created.,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/RetentionHold' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/retention/holds/{holdId}:
+    delete:
+      operationId: releaseRetentionHold
+      tags: [Retention]
+      x-permission: retention.write
+      x-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VersionedReason' } } }
+      responses:
+        '204': { description: Hold released or already terminal. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+components:
+  securitySchemes:
+    ClerkBearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Cursor:
+      {
+        name: cursor,
+        in: query,
+        schema: { type: string, minLength: 1, maxLength: 512, pattern: '^[A-Za-z0-9_-]+$' },
+      }
+    AdminLimit:
+      { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+    CustomerLimit:
+      { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    UserId:
+      { name: userId, in: path, required: true, schema: { $ref: '#/components/schemas/UserId' } }
+    RoleId:
+      { name: roleId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    AssignmentId:
+      {
+        name: assignmentId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/Uuid' },
+      }
+    RequestResourceId:
+      { name: requestId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    IncidentId:
+      { name: incidentId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    EventId:
+      { name: eventId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    ExportId:
+      { name: exportId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    DeletionId:
+      { name: deletionId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    PolicyId:
+      { name: policyId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    HoldId:
+      { name: holdId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+  schemas:
+    Uuid: { type: string, format: uuid }
+    UserId: { type: string, minLength: 1, maxLength: 128 }
+    NullableUserId: { oneOf: [{ $ref: '#/components/schemas/UserId' }, { type: 'null' }] }
+    Version: { type: integer, format: int64, minimum: 1 }
+    Reason: { type: string, minLength: 10, maxLength: 500 }
+    Timestamp: { type: string, format: date-time }
+    Severity: { type: string, enum: [info, low, medium, high, critical] }
+    IncidentStatus: { type: string, enum: [open, investigating, contained, resolved] }
+    ExportStatus: { type: string, enum: [requested, verified, processing, ready, expired, failed] }
+    DeletionStatus:
+      { type: string, enum: [requested, verified, cancelled, processing, completed, failed] }
+    PermissionKey: { type: string, minLength: 3, maxLength: 100, pattern: '^[a-z][a-z0-9._-]+$' }
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, code, message]
+      properties:
+        field: { type: string, minLength: 1, maxLength: 128 }
+        code: { type: string, minLength: 1, pattern: '^[A-Z][A-Z0-9_]*$', maxLength: 64 }
+        message: { type: string, minLength: 1, maxLength: 256 }
+    SafeError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]*$', maxLength: 64 }
+        message: { type: string, minLength: 1, maxLength: 256 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+        fieldErrors:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/FieldError' }
+    PageMeta:
+      type: object
+      additionalProperties: false
+      required: [nextCursor]
+      properties: { nextCursor: { type: [string, 'null'], maxLength: 512 } }
+    AdminSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [id, displayName, emailMasked, status, roleKeys, mfaStatus, activeSessionCount, version]
+      properties:
+        id: { $ref: '#/components/schemas/UserId' }
+        displayName: { type: [string, 'null'], maxLength: 120 }
+        emailMasked: { type: [string, 'null'], maxLength: 254 }
+        status: { type: string, enum: [invited, active, suspended, revoked] }
+        department: { type: [string, 'null'], maxLength: 80 }
+        roleKeys:
+          { type: array, uniqueItems: true, maxItems: 50, items: { type: string, maxLength: 64 } }
+        mfaStatus: { type: string, enum: [enabled, missing, unknown] }
+        activeSessionCount: { type: integer, minimum: 0 }
+        version: { $ref: '#/components/schemas/Version' }
+    AdminDetail:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          displayName,
+          emailMasked,
+          status,
+          roleKeys,
+          mfaStatus,
+          activeSessionCount,
+          version,
+          assignments,
+          effectivePermissionKeys,
+          eligibleActions,
+        ]
+      properties:
+        id: { $ref: '#/components/schemas/UserId' }
+        displayName: { type: [string, 'null'], maxLength: 120 }
+        emailMasked: { type: [string, 'null'], maxLength: 254 }
+        status: { type: string, enum: [invited, active, suspended, revoked] }
+        department: { type: [string, 'null'], maxLength: 80 }
+        roleKeys:
+          { type: array, uniqueItems: true, maxItems: 50, items: { type: string, maxLength: 64 } }
+        mfaStatus: { type: string, enum: [enabled, missing, unknown] }
+        activeSessionCount: { type: integer, minimum: 0 }
+        version: { $ref: '#/components/schemas/Version' }
+        assignments:
+          { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Assignment' } }
+        effectivePermissionKeys:
+          {
+            type: array,
+            uniqueItems: true,
+            maxItems: 500,
+            items: { $ref: '#/components/schemas/PermissionKey' },
+          }
+        eligibleActions:
+          { type: array, uniqueItems: true, maxItems: 20, items: { type: string, maxLength: 64 } }
+    Invitation:
+      type: object
+      additionalProperties: false
+      required: [id, emailMasked, roleId, status, expiresAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        emailMasked: { type: string, minLength: 3, maxLength: 254 }
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        department: { type: [string, 'null'], maxLength: 80 }
+        status: { type: string, enum: [pending, accepted, expired, revoked] }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        version: { $ref: '#/components/schemas/Version' }
+    InvitationCreate:
+      type: object
+      additionalProperties: false
+      required: [email, roleId, expiresInHours]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        department: { type: string, minLength: 1, maxLength: 80 }
+        expiresInHours: { type: integer, minimum: 1, maximum: 720 }
+        message: { type: string, maxLength: 1000 }
+    Role:
+      type: object
+      additionalProperties: false
+      required: [id, key, name, systemRole, enabled, permissionKeys, assignmentCount, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        key: { type: string, pattern: '^[a-z][a-z0-9-]{1,63}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 500 }
+        systemRole: { type: boolean }
+        enabled: { type: boolean }
+        permissionKeys:
+          {
+            type: array,
+            uniqueItems: true,
+            maxItems: 500,
+            items: { $ref: '#/components/schemas/PermissionKey' },
+          }
+        assignmentCount: { type: integer, minimum: 0 }
+        version: { $ref: '#/components/schemas/Version' }
+    RoleCreate:
+      type: object
+      additionalProperties: false
+      required: [key, name, permissionKeys, reason]
+      properties:
+        key: { type: string, pattern: '^[a-z][a-z0-9-]{1,63}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        permissionKeys:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 500,
+            uniqueItems: true,
+            items: { $ref: '#/components/schemas/PermissionKey' },
+          }
+        reason: { $ref: '#/components/schemas/Reason' }
+    RoleUpdate:
+      type: object
+      additionalProperties: false
+      required: [reason, expectedVersion]
+      minProperties: 3
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 500 }
+        enabled: { type: boolean }
+        permissionKeys:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 500,
+            uniqueItems: true,
+            items: { $ref: '#/components/schemas/PermissionKey' },
+          }
+        reason: { $ref: '#/components/schemas/Reason' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    Assignment:
+      type: object
+      additionalProperties: false
+      required: [id, userId, roleId, startsAt, endsAt, revokedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/UserId' }
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        endsAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        version: { $ref: '#/components/schemas/Version' }
+    AssignmentCreate:
+      type: object
+      additionalProperties: false
+      required: [userId, roleId, reason]
+      properties:
+        userId: { $ref: '#/components/schemas/UserId' }
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        endsAt: { $ref: '#/components/schemas/Timestamp' }
+        reason: { $ref: '#/components/schemas/Reason' }
+    Permission:
+      type: object
+      additionalProperties: false
+      required: [id, key, resource, action, description]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        resource: { type: string, minLength: 1, maxLength: 64 }
+        action: { type: string, minLength: 1, maxLength: 64 }
+        description: { type: [string, 'null'], maxLength: 500 }
+    VersionedReason:
+      type: object
+      additionalProperties: false
+      required: [reason, expectedVersion]
+      properties:
+        reason: { $ref: '#/components/schemas/Reason' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    OptionalVersionedReason:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    SupportScopeEntry:
+      type: object
+      additionalProperties: false
+      required: [resource, actions]
+      properties:
+        resource:
+          {
+            type: string,
+            enum:
+              [
+                profile-contact,
+                account-status,
+                device-diagnostics,
+                session-diagnostics,
+                subscription-summary,
+                import-summary,
+              ],
+          }
+        actions:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 3,
+            uniqueItems: true,
+            items: { type: string, enum: [read-masked, read-status, read-aggregate] },
+          }
+    SupportRequestCreate:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          userId,
+          supportTicketId,
+          assignee,
+          purpose,
+          resourceScopes,
+          durationMinutes,
+          customerApprovalRequired,
+        ]
+      properties:
+        userId: { $ref: '#/components/schemas/UserId' }
+        supportTicketId: { type: string, minLength: 1, maxLength: 128 }
+        assignee: { $ref: '#/components/schemas/UserId' }
+        purpose: { type: string, minLength: 10, maxLength: 500 }
+        resourceScopes:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 6,
+            uniqueItems: true,
+            items: { $ref: '#/components/schemas/SupportScopeEntry' },
+          }
+        durationMinutes: { type: integer, minimum: 5, maximum: 60 }
+        customerApprovalRequired: { type: boolean }
+    SupportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          user,
+          requester,
+          assignee,
+          supportTicketId,
+          scopes,
+          status,
+          customerApprovalRequired,
+          expiresAt,
+          version,
+        ]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        user: { $ref: '#/components/schemas/SafeReference' }
+        requester: { $ref: '#/components/schemas/SafeReference' }
+        assignee: { $ref: '#/components/schemas/SafeReference' }
+        supportTicketId: { type: string, minLength: 1, maxLength: 128 }
+        scopes:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 6,
+            items: { $ref: '#/components/schemas/SupportScopeEntry' },
+          }
+        status: { type: string, enum: [pending, approved, denied, expired, revoked] }
+        customerApprovalRequired: { type: boolean }
+        customerApprovedAt: { type: [string, 'null'], format: date-time }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        version: { $ref: '#/components/schemas/Version' }
+    SupportDecision:
+      type: object
+      additionalProperties: false
+      required: [decision, reason, expectedVersion]
+      properties:
+        decision: { type: string, enum: [approve, deny] }
+        reason: { $ref: '#/components/schemas/Reason' }
+        approvedScope:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 6,
+            uniqueItems: true,
+            items: { $ref: '#/components/schemas/SupportScopeEntry' },
+          }
+        durationMinutes: { type: integer, minimum: 5, maximum: 60 }
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    SupportWorkspace:
+      type: object
+      additionalProperties: false
+      required: [requestId, grantId, expiresAt, sections]
+      properties:
+        requestId: { $ref: '#/components/schemas/Uuid' }
+        grantId: { $ref: '#/components/schemas/Uuid' }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        sections:
+          type: array
+          maxItems: 6
+          items:
+            type: object
+            additionalProperties: false
+            required: [resource, values]
+            properties:
+              resource: { type: string, maxLength: 64 }
+              values:
+                { type: array, maxItems: 50, items: { $ref: '#/components/schemas/SafeField' } }
+    SafeField:
+      type: object
+      additionalProperties: false
+      required: [key, label, value]
+      properties:
+        key: { type: string, pattern: '^[A-Za-z][A-Za-z0-9]{0,63}$' }
+        label: { type: string, minLength: 1, maxLength: 120 }
+        value: { type: [string, number, boolean, 'null'], maxLength: 500 }
+    SecurityEvent:
+      type: object
+      additionalProperties: false
+      required: [id, eventType, severity, occurredAt, safeMetadata]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        eventType: { type: string, minLength: 1, maxLength: 80 }
+        severity: { $ref: '#/components/schemas/Severity' }
+        occurredAt: { $ref: '#/components/schemas/Timestamp' }
+        safeMetadata:
+          { type: array, maxItems: 20, items: { $ref: '#/components/schemas/SafeField' } }
+    SecurityOverview:
+      type: object
+      additionalProperties: false
+      required: [freshness, partial, metrics]
+      properties:
+        freshness: { $ref: '#/components/schemas/Timestamp' }
+        partial: { type: boolean }
+        metrics: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/SafeField' } }
+    IncidentCreate:
+      type: object
+      additionalProperties: false
+      required: [title, severity, detectedAt]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        severity: { $ref: '#/components/schemas/Severity' }
+        detectedAt: { $ref: '#/components/schemas/Timestamp' }
+        ownerId: { $ref: '#/components/schemas/UserId' }
+        summaryRedacted: { type: string, maxLength: 1000 }
+    IncidentAction:
+      type: object
+      additionalProperties: false
+      required: [action, reason, expectedVersion]
+      properties:
+        action: { type: string, enum: [investigate, contain, resolve, note] }
+        note: { type: string, maxLength: 1000 }
+        reason: { $ref: '#/components/schemas/Reason' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    Incident:
+      type: object
+      additionalProperties: false
+      required: [id, title, severity, status, detectedAt, timeline, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        severity: { $ref: '#/components/schemas/Severity' }
+        status: { $ref: '#/components/schemas/IncidentStatus' }
+        detectedAt: { $ref: '#/components/schemas/Timestamp' }
+        owner: { $ref: '#/components/schemas/SafeReference' }
+        summaryRedacted: { type: [string, 'null'], maxLength: 1000 }
+        timeline:
+          { type: array, maxItems: 200, items: { $ref: '#/components/schemas/TimelineEntry' } }
+        version: { $ref: '#/components/schemas/Version' }
+    TimelineEntry:
+      type: object
+      additionalProperties: false
+      required: [id, eventType, detailsRedacted, occurredAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        eventType: { type: string, minLength: 1, maxLength: 80 }
+        detailsRedacted: { type: string, minLength: 1, maxLength: 1000 }
+        occurredAt: { $ref: '#/components/schemas/Timestamp' }
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [id, actorType, action, resourceType, requestId, occurredAt, safeMetadata]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        actor: { $ref: '#/components/schemas/SafeReference' }
+        actorType: { type: string, enum: [user, admin, system, provider] }
+        action: { type: string, minLength: 1, maxLength: 100 }
+        resourceType: { type: string, minLength: 1, maxLength: 80 }
+        resourceId: { type: [string, 'null'], maxLength: 128 }
+        result: { type: string, enum: [success, failure, blocked] }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+        occurredAt: { $ref: '#/components/schemas/Timestamp' }
+        safeMetadata:
+          { type: array, maxItems: 40, items: { $ref: '#/components/schemas/SafeField' } }
+    SafeReference:
+      type: object
+      additionalProperties: false
+      required: [id, kind, label]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        kind: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, minLength: 1, maxLength: 160 }
+    PrivacyExportCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        scope:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 20,
+            uniqueItems: true,
+            items: { type: string, pattern: '^[a-z][a-z0-9._-]{1,79}$' },
+          }
+    PrivacyExport:
+      type: object
+      additionalProperties: false
+      required: [id, status, requestedAt, expiresAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { $ref: '#/components/schemas/ExportStatus' }
+        scope:
+          { type: array, maxItems: 20, uniqueItems: true, items: { type: string, maxLength: 80 } }
+        requestedAt: { $ref: '#/components/schemas/Timestamp' }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        basename: { type: string, pattern: '^[A-Za-z0-9._-]+\.zip$' }
+        mediaType: { type: string, const: application/zip }
+        sizeBytes: { type: integer, format: int64, minimum: 0 }
+        checksumLabel: { type: string, maxLength: 80 }
+        downloadUrl: { type: string, format: uri, writeOnly: false }
+        downloadUrlExpiresAt: { $ref: '#/components/schemas/Timestamp' }
+        safeError: { type: string, maxLength: 160 }
+        version: { $ref: '#/components/schemas/Version' }
+    DeletionCreate:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation: { type: string, const: DELETE_MY_ACCOUNT }
+        reason: { type: string, maxLength: 500 }
+    DeletionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [id, status, requestedAt, coolingOffEndsAt, completedAt, retainedCategories, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { $ref: '#/components/schemas/DeletionStatus' }
+        requestedAt: { $ref: '#/components/schemas/Timestamp' }
+        coolingOffEndsAt: { $ref: '#/components/schemas/Timestamp' }
+        completedAt: { type: [string, 'null'], format: date-time }
+        retainedCategories: { type: array, maxItems: 100, items: { type: string, maxLength: 80 } }
+        safeError: { type: string, maxLength: 160 }
+        version: { $ref: '#/components/schemas/Version' }
+    PrivacyAction:
+      type: object
+      additionalProperties: false
+      required: [action, reason, expectedVersion]
+      properties:
+        action: { type: string, enum: [verify, retry, expire, fail] }
+        reason: { $ref: '#/components/schemas/Reason' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    DeletionAction:
+      type: object
+      additionalProperties: false
+      required: [action, reason, expectedVersion]
+      properties:
+        action: { type: string, enum: [verify, schedule, retry, fail, cancel] }
+        reason: { $ref: '#/components/schemas/Reason' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    RetentionPolicy:
+      type: object
+      additionalProperties: false
+      required: [id, resourceType, retentionDays, deletionMode, legalBasis, enabled, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        resourceType: { type: string, minLength: 1, maxLength: 80 }
+        retentionDays: { type: integer, minimum: 0 }
+        deletionMode: { type: string, enum: [delete, anonymize, archive] }
+        legalBasis: { type: string, minLength: 1, maxLength: 500 }
+        enabled: { type: boolean }
+        version: { $ref: '#/components/schemas/Version' }
+    RetentionUpdate:
+      type: object
+      additionalProperties: false
+      required: [retentionDays, reason, expectedVersion]
+      properties:
+        retentionDays: { type: integer, minimum: 0 }
+        deletionMode: { type: string, enum: [delete, anonymize, archive] }
+        legalBasis: { type: string, minLength: 1, maxLength: 500 }
+        enabled: { type: boolean }
+        reason: { $ref: '#/components/schemas/Reason' }
+        expectedVersion: { $ref: '#/components/schemas/Version' }
+    HoldCreate:
+      type: object
+      additionalProperties: false
+      required: [resourceType, resourceId, reason]
+      properties:
+        resourceType: { type: string, minLength: 1, maxLength: 80 }
+        resourceId: { type: string, minLength: 1, maxLength: 128 }
+        reason: { $ref: '#/components/schemas/Reason' }
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        endsAt: { $ref: '#/components/schemas/Timestamp' }
+    RetentionHold:
+      type: object
+      additionalProperties: false
+      required: [id, resourceType, resourceId, startsAt, endsAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        resourceType: { type: string, minLength: 1, maxLength: 80 }
+        resourceId: { type: string, minLength: 1, maxLength: 128 }
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        endsAt: { type: [string, 'null'], format: date-time }
+        version: { $ref: '#/components/schemas/Version' }
+    SessionRevokeResult:
+      type: object
+      additionalProperties: false
+      required: [sessionReferences, version]
+      properties:
+        sessionReferences:
+          { type: array, maxItems: 100, items: { type: string, minLength: 1, maxLength: 128 } }
+        version: { $ref: '#/components/schemas/Version' }
+    AdminPage: { $ref: '#/components/schemas/GenericAdminPage' }
+    GenericAdminPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminSummary' } }
+        nextCursor: { type: [string, 'null'], maxLength: 512 }
+    InvitationPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Invitation' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    RolePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Role' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    PermissionPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor, manifestHash]
+      properties:
+        {
+          items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Permission' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+          manifestHash: { type: string, maxLength: 128 },
+        }
+    SupportPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items:
+            { type: array, maxItems: 200, items: { $ref: '#/components/schemas/SupportRequest' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    SecurityEventPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items:
+            { type: array, maxItems: 200, items: { $ref: '#/components/schemas/SecurityEvent' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    IncidentPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Incident' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AuditEvent' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    ExportPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items:
+            { type: array, maxItems: 200, items: { $ref: '#/components/schemas/PrivacyExport' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    DeletionPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items:
+            { type: array, maxItems: 200, items: { $ref: '#/components/schemas/DeletionRequest' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+    RetentionPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        {
+          items:
+            { type: array, maxItems: 200, items: { $ref: '#/components/schemas/RetentionPolicy' } },
+          nextCursor: { type: [string, 'null'], maxLength: 512 },
+        }
+  responses:
+    Unauthorized:
+      {
+        description: Missing or invalid Clerk session.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    Forbidden:
+      {
+        description: Active profile/Admin,
+        exact permission,
+        recent auth/MFA,
+        ownership,
+        or support grant is absent.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    NotFound:
+      {
+        description: No authorized resource is visible.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    Conflict:
+      {
+        description: Version,
+        state,
+        uniqueness,
+        scope,
+        idempotency,
+        self-approval,
+        or continuity conflict.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    Gone:
+      {
+        description: Resource or invitation/grant/export is expired or terminal.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    RateLimited:
+      {
+        description: Bounded abuse limit exceeded.,
+        headers: { Retry-After: { schema: { type: integer, minimum: 1 } } },
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    Unavailable:
+      {
+        description: Required database,
+        Clerk,
+        Storage,
+        audit,
+        or worker capability unavailable.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } },
+      }
+    AdminPage:
+      {
+        description: Bounded masked Admin page.,
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/GenericAdminPage' } } },
+      }
+    InvitationPage:
+      {
+        description: Bounded masked invitation page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/InvitationPage' } } },
+      }
+    RolePage:
+      {
+        description: Bounded role page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/RolePage' } } },
+      }
+    PermissionPage:
+      {
+        description: Bounded permission manifest page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/PermissionPage' } } },
+      }
+    SupportPage:
+      {
+        description: Bounded redacted support-access page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/SupportPage' } } },
+      }
+    SecurityEventPage:
+      {
+        description: Bounded redacted security-event page.,
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/SecurityEventPage' } } },
+      }
+    IncidentPage:
+      {
+        description: Bounded incident page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/IncidentPage' } } },
+      }
+    AuditPage:
+      {
+        description: Bounded immutable audit page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/AuditPage' } } },
+      }
+    ExportPage:
+      {
+        description: Bounded redacted export-request page without URLs.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/ExportPage' } } },
+      }
+    DeletionPage:
+      {
+        description: Bounded redacted deletion-request page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/DeletionPage' } } },
+      }
+    RetentionPage:
+      {
+        description: Bounded retention-policy page.,
+        content: { application/json: { schema: { $ref: '#/components/schemas/RetentionPage' } } },
+      }

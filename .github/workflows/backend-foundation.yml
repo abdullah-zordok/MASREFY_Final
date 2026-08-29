@@ -117,6 +117,13 @@ jobs:
       - run: npm run test:foundation:e2e
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:integration
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:e2e
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:performance:security
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:platform
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
