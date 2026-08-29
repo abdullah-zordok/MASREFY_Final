@@ -946,9 +946,9 @@ critical security workflow.
 - Audit/security/privacy/export/download/support-grant state is private and
   `no-store`. Immutable export package metadata may use validators without
   extending authorization or expiry.
-- Performance evidence includes permission checks under role fan-out and expiry,
-  one million audit/security rows, concurrent support accesses, privacy/deletion
-  backlog, retention batches, cold state, and invalidation/role-change storms.
+- Performance evidence covers permission fan-out, assignment expiry, a million-row
+  evidence set, support concurrency, privacy/deletion queues, bounded retention,
+  cold state, invalidation, and role-change load.
 
 ## Mobile and Admin Integration
 
