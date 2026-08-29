@@ -185,8 +185,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      attestations: write
-      artifact-metadata: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
@@ -196,19 +194,33 @@ jobs:
         with:
           node-version-file: apps/api/.nvmrc
       - run: cd apps/api && npm ci --omit=dev --ignore-scripts && npx --yes @cyclonedx/cyclonedx-npm@4.1.1 --omit dev --output-file ../../backend-sbom.cdx.json
-      - id: provenance
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763
-        with:
-          subject-path: backend-image-digest.txt
-      - id: sbom-attestation
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763
-        with:
-          subject-path: backend-image-digest.txt
-          sbom-path: backend-sbom.cdx.json
-      - run: gh attestation verify backend-image-digest.txt --repo ${{ github.repository }} --signer-workflow ${{ github.repository }}/.github/workflows/backend-foundation.yml
-        env:
-          GH_TOKEN: ${{ github.token }}
       - uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9
+        with:
+          cosign-release: v3.0.5
+      - name: Create SLSA v1 provenance predicate
+        shell: bash
+        run: |
+          jq -n \
+            --arg repository "https://github.com/${GITHUB_REPOSITORY}" \
+            --arg ref "${GITHUB_REF}" \
+            --arg sha "${GITHUB_SHA}" \
+            --arg invocation "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
+            '{
+              buildDefinition: {
+                buildType: "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
+                externalParameters: { repository: $repository, ref: $ref, workflow: ".github/workflows/backend-foundation.yml" },
+                internalParameters: { runner: "ubuntu-24.04" },
+                resolvedDependencies: [{ uri: ("git+" + $repository + "@" + $ref), digest: { gitCommit: $sha } }]
+              },
+              runDetails: {
+                builder: { id: "https://github.com/actions/runner" },
+                metadata: { invocationId: $invocation }
+              }
+            }' > backend-provenance.json
+      - run: cosign attest-blob --yes --bundle backend-provenance.sigstore.json --predicate backend-provenance.json --type slsaprovenance1 backend-image-digest.txt
+      - run: cosign verify-blob-attestation --bundle backend-provenance.sigstore.json --type slsaprovenance1 --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/backend-foundation.yml@refs/tags/backend-v.*" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" backend-image-digest.txt
+      - run: cosign attest-blob --yes --bundle backend-sbom-attestation.sigstore.json --predicate backend-sbom.cdx.json --type cyclonedx backend-image-digest.txt
+      - run: cosign verify-blob-attestation --bundle backend-sbom-attestation.sigstore.json --type cyclonedx --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/backend-foundation.yml@refs/tags/backend-v.*" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" backend-image-digest.txt
       - run: cosign sign-blob --yes --bundle backend-sbom.sigstore.json backend-sbom.cdx.json
       - run: cosign verify-blob --bundle backend-sbom.sigstore.json --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/backend-foundation.yml@refs/tags/backend-v.*" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" backend-sbom.cdx.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -217,6 +229,7 @@ jobs:
           path: |
             backend-image-digest.txt
             backend-sbom.cdx.json
+            backend-provenance.json
+            backend-provenance.sigstore.json
+            backend-sbom-attestation.sigstore.json
             backend-sbom.sigstore.json
-            ${{ steps.provenance.outputs.bundle-path }}
-            ${{ steps.sbom-attestation.outputs.bundle-path }}

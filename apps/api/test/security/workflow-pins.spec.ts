@@ -56,12 +56,12 @@ describe('backend workflow action pins', () => {
     expect(workflow).toContain(
       'actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53',
     );
-    expect(
-      workflow.match(/actions\/attest@a1948c3f048ba23858d222213b7c278aabede763/g),
-    ).toHaveLength(2);
-    expect(workflow).toContain('gh attestation verify backend-image-digest.txt');
+    expect(workflow).not.toContain('actions/attest@');
+    expect(workflow.match(/cosign attest-blob/g)).toHaveLength(2);
+    expect(workflow.match(/cosign verify-blob-attestation/g)).toHaveLength(2);
     expect(workflow).toContain('cosign verify-blob');
-    expect(workflow).toContain('attestations: write');
-    expect(workflow).toContain('artifact-metadata: write');
+    expect(workflow).toContain('cosign-release: v3.0.5');
+    expect(workflow).not.toContain('attestations: write');
+    expect(workflow).not.toContain('artifact-metadata: write');
   });
 });
