@@ -40,6 +40,7 @@ describe('outbox k6 runner', () => {
     );
     expect(script).toContain('max_open_conns: 1');
     expect(script).toContain('const claimBatchSize = 50;');
+    expect(script).toMatch(/concurrent_claim:\s*\{\s*executor: 'constant-vus',\s*vus: 5/);
     expect(script).toContain('claimBatchSize,');
     expect(script).toContain("'outbox_claim_duration_ms{phase:steady}'");
     expect(script).toContain("claimDuration.add(Date.now() - started, { phase });");

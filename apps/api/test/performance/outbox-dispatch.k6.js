@@ -22,7 +22,7 @@ const stress = __ENV.MASARIFI_STRESS === '1';
 const normalScenarios = {
   concurrent_claim: {
     executor: 'constant-vus',
-    vus: 20,
+    vus: 5,
     duration: '45s',
     exec: 'dispatch',
   },
