@@ -320,8 +320,8 @@ defined in 5.1. `UQ` means unique and `FK` means foreign key.
 
 | Table | Required table-specific columns and constraints | Owner |
 |---|---|---|
-| `categories` | nullable `user_id`, `parent_id FK self`, `kind`, `name`, `icon`, `color`, `system_key`, `sort_order`, `active`; UQ system key or user/name/kind | 004 |
-| `accounts` | `user_id`, `name`, `type`, `currency_code FK`, `institution_name`, `last_four`, `status`, `sort_order`, `include_in_totals`, `opened_at`, `closed_at` | 004 |
+| `categories` | nullable `user_id`, `parent_id FK self`, nullable `merged_into_id FK self`, `kind`, `label_ar`, `label_en`, `icon`, `color`, `system_key`, `sort_order`, `active`, `deleted_at`; UQ system key or active user/locale label/kind | 004 |
+| `accounts` | `user_id`, `name`, `type`, `currency_code FK`, `institution_name`, `last_four`, `credit_limit_minor`, `is_default`, `icon_key`, `color_key`, `notes`, `status`, `sort_order`, `include_in_totals`, `opened_at`, `closed_at`, `deleted_at` | 004 |
 | `transactions` | `user_id`, `kind`, `status`, `currency_code`, `category_id FK`, `merchant`, `note`, `occurred_at`, `source`, `external_ref`, `reverses_transaction_id FK`, `deleted_at`; no mutable balance field | 005 |
 | `transaction_postings` | `transaction_id FK`, `account_id FK`, `amount_minor bigint`, `clearing_state`, `posting_role`, `occurred_at`; nonzero amount and immutable after commit | 005 |
 | `transaction_revisions` | `transaction_id FK`, `revision_no`, `actor_id`, `reason`, `before_snapshot jsonb`, `after_snapshot jsonb`, UQ transaction/revision | 005 |
@@ -908,7 +908,7 @@ Exclusive resource ownership:
 | 001 | `/health`, `/api/v1/meta` | platform timestamps/outbox | `outbox.dispatch`, `migration.apply` | `platform.*`, `outbox.*` |
 | 002 | `/api/v1/me`, `/webhooks/clerk` | identity helpers | `clerk.webhook.process` | `profile.*`, `device.*` |
 | 003 | `/api/v1/admin/access`, `/audit`, `/security`, `/privacy` | RBAC/support/privacy | privacy, deletion, retention jobs | `admin.*`, `security.*`, `privacy.*` |
-| 004 | `/api/v1/reference`, `/categories`, `/accounts`, `/exchange-rates` | reference/account reads | reference seed/rate refresh | `category.*`, `account.*`, `exchange-rate.*` |
+| 004 | `/api/v1/reference`, `/categories`, `/accounts`, `/exchange-rates` | reference/account reads | reference seed/rate refresh | `reference.*`, `category.*`, `account.*`, `exchange-rate.*` |
 | 005 | `/api/v1/transactions`, `/transfers` | ledger mutation/reconciliation | `ledger.reconcile` | `transaction.*`, `balance.*`, `transfer.*` |
 | 006 | `/api/v1/sync`, `/conflicts` | idempotency/sync | idempotency/sync cleanup | `sync.*`, `conflict.*` |
 | 007 | `/api/v1/salary`, `/budgets`, `/obligations`, `/savings-goals` | planning projections | schedule, match, reminder jobs | `planning.*` |
@@ -1389,8 +1389,8 @@ request an opening balance, but only Spec 005 commits it as a ledger transaction
 |---|---|---|
 | `public.currencies` | `code char(3) PK`; `name text`; `minor_unit smallint`; `enabled boolean=true`; `created_at=now()`; `updated_at=now()`; `version=1` | uppercase code; minor 0..4; index enabled/code |
 | `public.supported_countries` | `code char(2) PK`; `name text`; `default_currency char(3) FK currencies`; `enabled boolean=true`; timestamps/version | uppercase code; index enabled/code |
-| `public.categories` | `M`; `user_id text? FK profiles`; `parent_id uuid? FK categories`; `kind text`; `name text`; `icon text?`; `color text?`; `system_key text?`; `sort_order int=0`; `active boolean=true`; `deleted_at timestamptz?` | kind `income/expense/transfer`; parent not self; UQ system_key where user null; UQ user/lower(name)/kind active partial; indexes user/kind/active/sort, parent |
-| `public.accounts` | `M+U`; `name text`; `type text`; `currency_code char(3) FK currencies`; `institution_name text?`; `last_four char(4)?`; `status text='active'`; `sort_order int=0`; `include_in_totals boolean=true`; `opened_at date?`; `closed_at date?`; `deleted_at timestamptz?` | type `cash/bank/card/wallet/other`; status `active/archived/closed`; last_four digits; closed>=opened; indexes user/status/sort, user/currency, active partial |
+| `public.categories` | `M`; `user_id text? FK profiles`; `parent_id uuid? FK categories`; `merged_into_id uuid? FK categories`; `kind text`; `label_ar text`; `label_en text`; `icon text?`; `color text?`; `system_key text?`; `sort_order int=0`; `active boolean=true`; `deleted_at timestamptz?` | kind `income/expense/transfer`; hierarchy/merge graph acyclic and owner/kind compatible; UQ system_key where user null; separate active partial UQ indexes for user/lower(label_ar)/kind and user/lower(label_en)/kind; indexes user/kind/active/sort, parent, merged target |
+| `public.accounts` | `M+U`; `name text`; `type text`; `currency_code char(3) FK currencies`; `institution_name text?`; `last_four char(4)?`; `credit_limit_minor bigint?`; `is_default boolean=false`; `icon_key text?`; `color_key text?`; `notes text?`; `status text='active'`; `sort_order int=0`; `include_in_totals boolean=true`; `opened_at date?`; `closed_at date?`; `deleted_at timestamptz?` | type `bank/debit_card/credit_card/wallet/cash/savings/other` to preserve the executable Mobile contract; status `active/archived/closed`; last_four digits; nonnegative credit limit only for credit cards; closed>=opened; one active default per user; indexes user/status/sort, user/currency, active partial |
 | `public.exchange_rates` | `I`; `base_currency char(3) FK currencies`; `quote_currency char(3) FK currencies`; `rate numeric(24,12)`; `effective_at timestamptz`; `provider text`; `provider_ref text?` | rate>0; base<>quote; UQ base/quote/effective/provider; index pair/effective desc |
 
 #### Dedicated ERD
@@ -1422,11 +1422,13 @@ erDiagram
 | `GET /api/v1/reference/countries` | same | `{code,name,defaultCurrency}` |
 | `GET /api/v1/exchange-rates?base&quote&at` | validated codes/time | closest approved `{base,quote,rate,effectiveAt,provider}` or `404 FX_UNAVAILABLE` |
 | `GET /api/v1/categories?kind&includeInactive` | owner; cursor for user categories | merged system/user category items |
-| `POST /api/v1/categories` | `{kind,name,icon?,color?,parentId?,sortOrder?}` | created category/version |
+| `POST /api/v1/categories` | `{kind?,labelAr,labelEn,icon?,color?,parentId?,sortOrder?}`; omitted financial kind defaults to expense for the current Mobile adapter | created category/version |
 | `PATCH/DELETE /api/v1/categories/:id` | explicit fields + expectedVersion; delete idempotent | updated item or `204` |
+| `POST /api/v1/categories/:id/restore` and `/merge` | expectedVersion; merge also supplies targetId | restored or merged category/version |
 | `GET /api/v1/accounts?status` | owner | bounded account summaries with balance projection from Spec 005 |
-| `POST /api/v1/accounts` | `{name,type,currency,institutionName?,lastFour?,includeInTotals,openingBalanceMinor?}` | `{account,...,openingTransactionId?}` after Spec 005 atomic orchestration |
-| `GET/PATCH/DELETE /api/v1/accounts/:id` | owner; patch expectedVersion | account detail/update/`204` |
+| `POST /api/v1/accounts` | `{name,type,currency,institutionName?,lastFour?,creditLimitMinor?,isDefault?,iconKey?,colorKey?,notes?,includeInTotals,openingBalanceMinor?}` | `{account,...,openingTransactionId?}` after Spec 005 atomic orchestration; before Spec 005 a nonzero opening balance fails atomically |
+| `GET/PATCH/DELETE /api/v1/accounts/:id` | owner; patch expectedVersion | account detail/update/`204` archive |
+| `POST /api/v1/accounts/:id/restore` and `/close` | expectedVersion; close includes closedAt | restored or closed account/version |
 | Admin reference routes | `reference.read/write`; full replacement/version contracts | reference management resources |
 
 #### Functions, Views, Jobs, and Events
@@ -1438,14 +1440,17 @@ erDiagram
 - `reference.seed` is an idempotent deployment job for currencies, countries, and
   current system categories. `exchange-rate.refresh` is optional until a provider
   is approved; absence returns unavailable rather than fake data.
-- Events: `category.created/updated/deleted`, `account.created/updated/archived`,
-  `exchange-rate.refreshed`.
+- Events: `reference.updated`, `category.created/updated/deleted/merged`,
+  `account.created/updated/archived/closed`, `exchange-rate.refreshed`.
 
 #### Business Rules
 
 - Account currency is immutable after the first committed posting.
 - Closing/archiving an account requires no pending operation; history remains.
 - A category referenced by history is soft-deleted and hidden from new entry.
+- Category hierarchy and merge targets remain acyclic and owner/kind compatible;
+  ledger reclassification is delegated to the Spec 005 command rather than direct
+  edits to committed financial rows.
 - Transfers use transfer kind and do not depend on an expense/income category.
 - Opening balance command delegates to Spec 005; account row alone never stores
   or changes balance.
@@ -1457,13 +1462,17 @@ erDiagram
 - Categories/reference use the global 24-hour/versioned cache and ETags. Accounts
   are user-scoped; summaries use ledger version and no shared cache.
 - Category/account query P95 <=100 ms; account endpoint <=300 ms/150 KB.
-- Mobile account/category repositories and `core-finance-seeds` switch to these
-  APIs; SQLite retains encrypted projections and reference versions.
-- Admin reference/category/rate management uses permission-protected routes.
+- Backend contract tests establish Mobile account/category repository and
+  `core-finance-seeds` parity; the actual adapter switch remains Spec 014. SQLite
+  retains encrypted projections and reference versions.
+- Admin reference/category/rate management contracts use permission-protected
+  routes; the actual Admin adapter switch remains Spec 014.
 - Demo data remains explicit and is not inserted into production reference seeds.
 - Mocks/contracts being replaced are Mobile account/category/reference seeds and
   repositories plus Admin reference/category/exchange-rate fixtures and handlers;
-  the live adapters retain current service and Zod response shapes.
+  the live adapters retain current service and Zod response shapes, including the
+  current account-type distinctions, default account, credit limit, safe display
+  metadata, and category archive/restore/merge behavior.
 
 #### Tests, Migration, Rollback, and Observability
 
@@ -1482,8 +1491,9 @@ erDiagram
 #### Acceptance Criteria and Definition of Done
 
 - Complete schema/RLS/indexes, deterministic reference seed, APIs, Mobile/Admin
-  contracts, opening-balance ledger integration, tests, budgets, cache rules,
-  metrics/alerts, migration mapping, reconciliation, and rollback evidence pass.
+  contracts, explicit pre-Spec-005 opening-balance rejection and future ledger
+  handoff contract, tests, budgets, cache rules, metrics/alerts, migration mapping,
+  reconciliation, and rollback evidence pass.
 
 ### Phase 05 - SPEC-BE-005: Transactions, Ledger, Transfers & Financial Integrity
 
@@ -2902,8 +2912,9 @@ metadata, account ordering/status, opening-balance command contract, reference
 seeds, account/category Mobile adapters, and indexed account/category reads.
 
 Acceptance: references seed idempotently, category ownership/system visibility is
-correct, opening balance routes to the ledger rather than an account field, and
-summary reads meet payload/query budgets.
+correct, a nonzero opening balance fails atomically until the Spec 005 ledger
+command exists rather than using an account field, and summary reads meet
+payload/query budgets.
 
 #### SPEC-BE-005 - Transactions, Ledger, Transfers & Financial Integrity
 

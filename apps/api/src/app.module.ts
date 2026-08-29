@@ -6,10 +6,19 @@ import { DatabaseModule } from './platform/database/database.module';
 import { HealthModule } from './platform/health/health.module';
 import { RequestIdMiddleware } from './platform/http/request-id.middleware';
 import { MetaModule } from './platform/meta/meta.module';
+import { ReferenceModule } from './reference/reference.module';
 import { SecurityModule } from './security/security.module';
 
 @Module({
-  imports: [PlatformConfigModule, DatabaseModule, HealthModule, IdentityModule, MetaModule, SecurityModule],
+  imports: [
+    PlatformConfigModule,
+    DatabaseModule,
+    HealthModule,
+    IdentityModule,
+    MetaModule,
+    SecurityModule,
+    ReferenceModule,
+  ],
   providers: [RequestIdMiddleware],
 })
 export class AppModule implements NestModule {

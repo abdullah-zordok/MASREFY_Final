@@ -1,0 +1,2 @@
+-- Canonical reference seeds are insert-only release migrations. This file is
+-- intentionally empty so local Supabase reset does not create a second seed path.

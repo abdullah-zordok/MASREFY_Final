@@ -32,6 +32,7 @@
     "test:stress": "ts-node test/performance/run-outbox-k6.ts --stress",
     "perf:check": "node --check test/performance/platform-http.k6.js && node --check test/performance/outbox-dispatch.k6.js && node --check test/performance/identity-profile.k6.js && node --check test/performance/identity-devices.k6.js && node --check test/performance/clerk-webhook.k6.js && node --check test/performance/security-permission.k6.js && node --check test/performance/security-owner-events.k6.js && node --check test/performance/security-privacy-export.k6.js && node --check test/performance/security-deletion-retention.k6.js",
     "test:performance:security": "ts-node test/performance/run-security.ts",
+    "test:performance:reference": "ts-node test/performance/run-reference.ts",
     "perf:clean:outbox": "ts-node test/performance/run-psql.ts test/performance/outbox-clean.sql",
     "perf:seed:outbox": "ts-node test/performance/run-psql.ts test/performance/outbox-seed.sql",
     "perf:explain:outbox": "ts-node test/performance/run-psql.ts test/performance/outbox-explain.sql",

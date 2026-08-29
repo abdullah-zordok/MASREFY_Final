@@ -59,6 +59,16 @@ const domainErrors: Record<string, { status: number; message: string }> = {
     message: 'Webhook event conflicts with an existing delivery',
   },
   INBOX_UNAVAILABLE: { status: 503, message: 'Webhook inbox is unavailable' },
+  INVALID_CURRENCY: { status: 400, message: 'Currency is invalid' },
+  CATEGORY_INVALID: { status: 409, message: 'Category is invalid' },
+  CATEGORY_CYCLE: { status: 409, message: 'Category hierarchy would contain a cycle' },
+  ACCOUNT_CURRENCY_LOCKED: { status: 409, message: 'Account currency cannot be changed' },
+  ACCOUNT_CLOSED: { status: 409, message: 'Account is closed' },
+  DUPLICATE_RESOURCE: { status: 409, message: 'Resource already exists' },
+  LEDGER_NOT_AVAILABLE: { status: 409, message: 'Ledger operation is not available' },
+  FX_UNAVAILABLE: { status: 404, message: 'Exchange rate is unavailable' },
+  IDEMPOTENCY_KEY_REQUIRED: { status: 400, message: 'Idempotency key is required' },
+  REFERENCE_UNAVAILABLE: { status: 503, message: 'Reference service is unavailable' },
 };
 
 type FieldError = { field: string; code: string; message: string };
@@ -104,12 +114,13 @@ export function safeError(
   domainCode?: string,
 ): SafeError {
   const domain = domainCode === undefined ? undefined : domainErrors[domainCode];
-  const mapped = domainCode !== undefined && domain !== undefined
-    ? { code: domainCode, message: domain.message }
-    : (errors[status] ?? {
-        code: 'INTERNAL_ERROR',
-        message: 'Internal server error',
-      });
+  const mapped =
+    domainCode !== undefined && domain !== undefined
+      ? { code: domainCode, message: domain.message }
+      : (errors[status] ?? {
+          code: 'INTERNAL_ERROR',
+          message: 'Internal server error',
+        });
   const bounded = fieldErrors.slice(0, 50).map(sanitizeFieldError);
   return {
     ...mapped,

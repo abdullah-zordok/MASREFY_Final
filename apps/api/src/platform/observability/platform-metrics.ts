@@ -43,11 +43,21 @@ export const SECURITY_METRICS = {
   jobDuration: 'masarifi_security_job_duration_ms',
 } as const;
 
+export const REFERENCE_METRICS = {
+  operation: 'masarifi_reference_operation_total',
+  duration: 'masarifi_reference_operation_duration_ms',
+  cache: 'masarifi_reference_cache_total',
+  resultCount: 'masarifi_reference_result_count',
+  payloadBytes: 'masarifi_reference_payload_bytes',
+  fxAge: 'masarifi_reference_fx_age_seconds',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
   | (typeof IDENTITY_METRICS)[keyof typeof IDENTITY_METRICS]
-  | (typeof SECURITY_METRICS)[keyof typeof SECURITY_METRICS];
+  | (typeof SECURITY_METRICS)[keyof typeof SECURITY_METRICS]
+  | (typeof REFERENCE_METRICS)[keyof typeof REFERENCE_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -81,6 +91,8 @@ const counterNames = new Set<MetricName>([
   SECURITY_METRICS.privacyJob,
   SECURITY_METRICS.retentionJob,
   SECURITY_METRICS.jobRun,
+  REFERENCE_METRICS.operation,
+  REFERENCE_METRICS.cache,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

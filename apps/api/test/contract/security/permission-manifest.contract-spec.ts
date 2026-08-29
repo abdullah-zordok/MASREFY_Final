@@ -1,4 +1,7 @@
-import { ADMIN_ROLES, PERMISSION_KEYS as ADMIN_PERMISSION_KEYS } from '../../../../admin-web/src/core/permissions/permissions';
+import {
+  ADMIN_ROLES,
+  PERMISSION_KEYS as ADMIN_PERMISSION_KEYS,
+} from '../../../../admin-web/src/core/permissions/permissions';
 import { permissionsByRole as adminPermissionsByRole } from '../../../../admin-web/src/core/permissions/role-map';
 import {
   CLIENT_PERMISSION_ALIASES,
@@ -30,10 +33,31 @@ describe('permission manifest contract', () => {
 
   it('canonicalizes every current Admin role mapping without unknown keys', () => {
     for (const role of ADMIN_ROLES) {
-      const expected = [...new Set(adminPermissionsByRole[role].map((key) => CLIENT_PERMISSION_ALIASES[key] ?? key))].sort();
+      const backend =
+        role === 'super-admin'
+          ? ['reference.read', 'reference.write']
+          : role === 'security-administrator'
+            ? ['reference.read']
+            : [];
+      const expected = [
+        ...new Set([
+          ...adminPermissionsByRole[role].map((key) => CLIENT_PERMISSION_ALIASES[key] ?? key),
+          ...backend,
+        ]),
+      ].sort();
       expect(SYSTEM_ROLE_PERMISSIONS[role]).toEqual(expected);
       expect(expected.every((key) => PERMISSION_KEYS.includes(key))).toBe(true);
     }
+  });
+
+  it('adds backend-only reference permissions without changing the pinned client list', () => {
+    expect(PERMISSION_KEYS).toEqual(expect.arrayContaining(['reference.read', 'reference.write']));
+    expect(CLIENT_PERMISSION_KEYS).not.toContain('reference.read');
+    expect(SYSTEM_ROLE_PERMISSIONS['super-admin']).toEqual(
+      expect.arrayContaining(['reference.read', 'reference.write']),
+    );
+    expect(SYSTEM_ROLE_PERMISSIONS['security-administrator']).toContain('reference.read');
+    expect(SYSTEM_ROLE_PERMISSIONS['security-administrator']).not.toContain('reference.write');
   });
 
   it('publishes a stable SHA-256 manifest hash', () => {

@@ -23,6 +23,11 @@ PII, tokens, or financial descriptions.
 | `masarifi_outbox_retry_total` | rate >5% of published for 5 min | warning, Backend | critical >20%; stop scaling and diagnose; `outbox-delivery-failure.md` |
 | `masarifi_outbox_delivery_failed_total` | any increase | critical, Backend | page immediately; retain/reconcile every source row; `outbox-delivery-failure.md` |
 | `masarifi_outbox_published_total` | no increase for 2 min while eligible depth >0 | critical, Backend | queue/worker outage response; `outbox-delivery-failure.md` |
+| `masarifi_reference_operation_total` | errors >5% for 5 min, or any sustained ownership/permission denial anomaly | warning, Backend/Security | critical >20%; `reference-account-recovery.md` |
+| `masarifi_reference_operation_duration_ms` | P95 >100 ms for data operations or >300 ms for account routes for 10 min | warning, Backend | critical at 2x; inspect approved plans and cache state; `reference-account-recovery.md` |
+| `masarifi_reference_cache_total` | misses >50% for 15 min or no invalidation after a reference write | warning, Backend | bypass local cache, compare database hash, and reconcile; `reference-account-recovery.md` |
+| `masarifi_reference_result_count` / `masarifi_reference_payload_bytes` | result count exceeds the route bound or account payload >150 KiB | critical, Backend | block release, inspect pagination/mass-assignment drift; `reference-account-recovery.md` |
+| `masarifi_reference_fx_age_seconds` | approved configured rate age exceeds its request maximum | warning, Backend | return `FX_UNAVAILABLE`; never estimate a rate; `reference-account-recovery.md` |
 
 Migration checksum/apply failure, secret detection, exploitable Critical/High
 findings, missing SBOM/provenance/signature, root/writable image, and OpenAPI or

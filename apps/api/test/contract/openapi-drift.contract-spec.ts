@@ -90,18 +90,23 @@ describe('OpenAPI drift', () => {
       '../../specs/002-auth-profiles-preferences-sessions/contracts/openapi.yaml',
     );
     const security = loadContract('../../specs/003-admin-rbac-security/contracts/openapi.yaml');
-    const generated = generateOpenApi(app, [identity, security]) as unknown as Contract;
+    const reference = loadContract(
+      '../../specs/004-reference-data-categories-accounts/contracts/openapi.yaml',
+    );
+    const generated = generateOpenApi(app, [identity, security, reference]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
       paths: {
         ...contractSurface(foundation).paths,
         ...contractSurface(identity).paths,
         ...contractSurface(security).paths,
+        ...contractSurface(reference).paths,
       },
       schemas: {
         ...contractSurface(foundation).schemas,
         ...contractSurface(identity).schemas,
         ...contractSurface(security).schemas,
+        ...contractSurface(reference).schemas,
       },
     });
   });
@@ -112,42 +117,54 @@ describe('OpenAPI drift', () => {
       '../../specs/002-auth-profiles-preferences-sessions/contracts/openapi.yaml',
     );
     const security = loadContract('../../specs/003-admin-rbac-security/contracts/openapi.yaml');
+    const reference = loadContract(
+      '../../specs/004-reference-data-categories-accounts/contracts/openapi.yaml',
+    );
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
     ) => Contract;
-    const generated = generateWithFragments(app, [identity, security]);
+    const generated = generateWithFragments(app, [identity, security, reference]);
     const foundationSurface = contractSurface(foundation);
     const identitySurface = contractSurface(identity);
     const securitySurface = contractSurface(security);
+    const referenceSurface = contractSurface(reference);
 
     expect(contractSurface(generated)).toEqual({
-      paths: { ...foundationSurface.paths, ...identitySurface.paths, ...securitySurface.paths },
+      paths: {
+        ...foundationSurface.paths,
+        ...identitySurface.paths,
+        ...securitySurface.paths,
+        ...referenceSurface.paths,
+      },
       schemas: {
         ...foundationSurface.schemas,
         ...identitySurface.schemas,
         ...securitySurface.schemas,
+        ...referenceSurface.schemas,
       },
     });
     expect(
       Object.values(generated.paths).flatMap((path) =>
         Object.values(path).map((operation) => operation.operationId),
       ),
-    ).toEqual(expect.arrayContaining([
-      'getMyProfile',
-      'updateMyProfile',
-      'getMyPreferences',
-      'replaceMyPreferences',
-      'getMyOnboardingProgress',
-      'replaceMyOnboardingProgress',
-      'listMyDevices',
-      'registerMyDevice',
-      'revokeMyDevice',
-      'receiveClerkWebhook',
-      'listAdmins',
-      'createMyPrivacyExport',
-      'createMyDeletionRequest',
-    ]));
+    ).toEqual(
+      expect.arrayContaining([
+        'getMyProfile',
+        'updateMyProfile',
+        'getMyPreferences',
+        'replaceMyPreferences',
+        'getMyOnboardingProgress',
+        'replaceMyOnboardingProgress',
+        'listMyDevices',
+        'registerMyDevice',
+        'revokeMyDevice',
+        'receiveClerkWebhook',
+        'listAdmins',
+        'createMyPrivacyExport',
+        'createMyDeletionRequest',
+      ]),
+    );
   });
 
   it('rejects conflicting schemas, security schemes, and operation IDs', () => {

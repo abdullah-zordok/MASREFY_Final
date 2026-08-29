@@ -1,24 +1,24 @@
 import { SchemaCompatibilityService } from '../../../src/platform/database/schema-compatibility';
 
 describe('SchemaCompatibilityService', () => {
-  it('accepts the exact application migration range', async () => {
-    const database = {
-      query: jest.fn().mockResolvedValue({ rows: [{ version: '20260829075000' }] }),
-    };
-    const service = new SchemaCompatibilityService(database as never);
-
-    await expect(service.check()).resolves.toBeUndefined();
-  });
-
-  it.each([null, '20260827001300', '20260828000100'])(
-    'fails closed for version %s',
+  it.each(['20260829080200', '20260829080300', '20260829090000'])(
+    'accepts compatible additive schema version %s',
     async (version) => {
       const database = {
         query: jest.fn().mockResolvedValue({ rows: [{ version }] }),
       };
       const service = new SchemaCompatibilityService(database as never);
 
-      await expect(service.check()).rejects.toThrow('SCHEMA_INCOMPATIBLE');
+      await expect(service.check()).resolves.toBeUndefined();
     },
   );
+
+  it.each([null, '20260829075000', 'malformed'])('fails closed for version %s', async (version) => {
+    const database = {
+      query: jest.fn().mockResolvedValue({ rows: [{ version }] }),
+    };
+    const service = new SchemaCompatibilityService(database as never);
+
+    await expect(service.check()).rejects.toThrow('SCHEMA_INCOMPATIBLE');
+  });
 });
