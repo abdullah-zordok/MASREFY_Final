@@ -60,7 +60,10 @@ describe('backend workflow action pins', () => {
     expect(workflow.match(/cosign attest-blob/g)).toHaveLength(2);
     expect(workflow.match(/cosign verify-blob-attestation/g)).toHaveLength(2);
     expect(workflow).toContain('cosign verify-blob');
-    expect(workflow).toContain('cosign-release: v3.0.5');
+    expect(workflow).toContain(
+      'sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6',
+    );
+    expect(workflow).toContain('cosign-release: v3.0.6');
     expect(workflow).not.toContain('attestations: write');
     expect(workflow).not.toContain('artifact-metadata: write');
   });
