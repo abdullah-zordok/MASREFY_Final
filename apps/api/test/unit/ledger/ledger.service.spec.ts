@@ -44,7 +44,7 @@ describe('LedgerService create transaction', () => {
       service.createTransaction({
         principal,
         body,
-        idempotencyKey: 'key-12345678',
+        idempotencyKey: 'request-key',
         requestId: 'req_1',
         now: new Date('2026-08-30T08:01:00Z'),
       }),
@@ -55,7 +55,7 @@ describe('LedgerService create transaction', () => {
         operation: 'createTransaction',
         scope: 'ledger.transaction.create',
         principal,
-        idempotencyKey: 'key-12345678',
+        idempotencyKey: 'request-key',
         requestId: 'req_1',
         status: 201,
         command: {
@@ -84,7 +84,7 @@ describe('LedgerService create transaction', () => {
         service.createTransaction({
           principal: { ...principal, factorAgeSeconds },
           body,
-          idempotencyKey: 'key-12345678',
+          idempotencyKey: 'request-key',
           requestId: 'req_1',
           now: new Date('2026-08-30T08:01:00Z'),
         }),
@@ -103,7 +103,7 @@ describe('LedgerService create transaction', () => {
         service.createTransaction({
           principal: { ...principal, factorAgeSeconds: null },
           body: candidate,
-          idempotencyKey: 'key-12345678',
+          idempotencyKey: 'request-key',
           requestId: 'req_1',
           now: new Date('2026-08-30T08:01:00Z'),
         }),
@@ -118,7 +118,7 @@ describe('LedgerService create transaction', () => {
       service.createTransaction({
         principal,
         body,
-        idempotencyKey: 'key-12345678',
+        idempotencyKey: 'request-key',
         requestId: 'req_1',
         now: new Date('2026-08-30T08:01:00Z'),
       }),
