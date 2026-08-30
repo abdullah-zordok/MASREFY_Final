@@ -9,7 +9,13 @@ on:
         default: false
         type: boolean
   pull_request:
-    paths: ["apps/api/**", "supabase/**", "docker/**", ".github/workflows/backend-foundation.yml"]
+    paths:
+      [
+        "apps/api/**",
+        "supabase/**",
+        "docker/**",
+        ".github/workflows/backend-foundation.yml",
+      ]
   push:
     branches: [main]
     tags: ["backend-v*"]
@@ -125,7 +131,18 @@ jobs:
       - run: npm run test:e2e
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:ledger:integration
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:ledger:security
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:ledger:recovery
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:performance:security
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:performance:ledger
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:platform
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6

@@ -3,7 +3,7 @@ import { ReferenceService } from '../../../src/reference/reference.service';
 describe('exchange-rate service', () => {
   const principal = { userId: 'user_1', sessionId: 'session_1', factorAgeSeconds: 0 };
   const repository = { sharedHash: jest.fn(), execute: jest.fn() };
-  const service = new ReferenceService(repository as never);
+  const service = new ReferenceService(repository as never, { createAccount: jest.fn() } as never);
 
   beforeEach(() => jest.clearAllMocks());
 

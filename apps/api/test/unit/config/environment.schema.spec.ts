@@ -219,6 +219,22 @@ describe('validateEnvironment', () => {
     ).toThrow('MASARIFI_CLERK_RECONCILE_PAGE_SIZE');
   });
 
+  it('normalizes unique bounded ledger recent-auth thresholds', () => {
+    expect(
+      validateEnvironment({ ...valid, MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS: 'SAR:50000,USD:900' })
+        .MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS,
+    ).toEqual({ SAR: 50000, USD: 900 });
+  });
+
+  it.each(['SAR', 'sar:1', 'SAR:0', 'SAR:9007199254740992', 'SAR:1,SAR:2', 'SAR:1, USD:x'])(
+    'rejects malformed ledger threshold manifest %s without echoing it',
+    (manifest) => {
+      expect(() =>
+        validateEnvironment({ ...valid, MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS: manifest }),
+      ).toThrow('MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS');
+    },
+  );
+
   it('never echoes Clerk or push secret values', () => {
     const sentinel = ['sk', 'test', 'SENTINEL!PRIVATE!VALUE'].join('_');
     try {

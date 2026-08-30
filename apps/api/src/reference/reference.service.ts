@@ -1,6 +1,7 @@
 import { HttpException, Injectable } from '@nestjs/common';
 
 import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
+import { LedgerService } from '../ledger/ledger.service';
 import {
   recordPlatformMetric,
   REFERENCE_METRICS,
@@ -167,7 +168,10 @@ const encodeCategoryCursor = (item: CategoryItem): string =>
 @Injectable()
 export class ReferenceService {
   private readonly cache = new Map<string, CacheEntry>();
-  constructor(private readonly repository: ReferenceRepository) {}
+  constructor(
+    private readonly repository: ReferenceRepository,
+    private readonly ledger: LedgerService,
+  ) {}
 
   async execute(request: ReferenceRequest): Promise<unknown> {
     const startedAt = performance.now();
@@ -181,6 +185,8 @@ export class ReferenceService {
       if (input.operation === 'listCurrencies') result = await this.cached(input, 'currencies');
       else if (input.operation === 'listCountries') result = await this.cached(input, 'countries');
       else if (input.operation === 'listCategories') result = await this.categories(input);
+      else if (input.operation === 'createAccount')
+        result = await this.ledger.createAccount(input, this.repository);
       else result = await this.repository.execute(input);
       if (input.permission === 'reference.write') {
         this.cache.clear();
@@ -390,6 +396,7 @@ export class ReferenceService {
       query,
       params,
       requestId: request.requestId,
+      idempotencyKey: request.idempotencyKey,
       permission: request.permission,
     };
   }

@@ -8,7 +8,10 @@ describe('ReferenceService boundaries', () => {
     mfaAgeSeconds: 0,
   };
   const repository = { sharedHash: jest.fn(), execute: jest.fn() };
-  const service = new ReferenceService(repository as never);
+  const ledger = {
+    createAccount: jest.fn().mockResolvedValue({ account: { id: 'a' }, openingTransactionId: 't' }),
+  };
+  const service = new ReferenceService(repository as never, ledger as never);
   beforeEach(() => jest.clearAllMocks());
 
   it('checks the canonical database hash before every cache hit', async () => {
@@ -21,7 +24,7 @@ describe('ReferenceService boundaries', () => {
     expect(repository.execute).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects nonzero opening balance before repository work', async () => {
+  it('hands every account creation to the atomic ledger boundary, including zero', async () => {
     await expect(
       service.execute({
         operation: 'createAccount',
@@ -30,7 +33,15 @@ describe('ReferenceService boundaries', () => {
         idempotencyKey: 'request-key',
         body: { name: 'Cash', type: 'cash', currency: 'SAR', openingBalanceMinor: 1 },
       }),
-    ).rejects.toMatchObject({ status: 409 });
+    ).resolves.toEqual({ account: { id: 'a' }, openingTransactionId: 't' });
+    await service.execute({
+      operation: 'createAccount',
+      principal,
+      requestId: 'request-2',
+      idempotencyKey: 'request-key-2',
+      body: { name: 'Cash 2', type: 'cash', currency: 'SAR', openingBalanceMinor: 0 },
+    });
+    expect(ledger.createAccount).toHaveBeenCalledTimes(2);
     expect(repository.execute).not.toHaveBeenCalled();
   });
 

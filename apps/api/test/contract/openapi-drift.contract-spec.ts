@@ -93,7 +93,15 @@ describe('OpenAPI drift', () => {
     const reference = loadContract(
       '../../specs/004-reference-data-categories-accounts/contracts/openapi.yaml',
     );
-    const generated = generateOpenApi(app, [identity, security, reference]) as unknown as Contract;
+    const ledger = loadContract(
+      '../../specs/005-transactions-ledger-integrity/contracts/openapi.yaml',
+    );
+    const generated = generateOpenApi(app, [
+      identity,
+      security,
+      reference,
+      ledger,
+    ]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
       paths: {
@@ -101,12 +109,14 @@ describe('OpenAPI drift', () => {
         ...contractSurface(identity).paths,
         ...contractSurface(security).paths,
         ...contractSurface(reference).paths,
+        ...contractSurface(ledger).paths,
       },
       schemas: {
         ...contractSurface(foundation).schemas,
         ...contractSurface(identity).schemas,
         ...contractSurface(security).schemas,
         ...contractSurface(reference).schemas,
+        ...contractSurface(ledger).schemas,
       },
     });
   });
@@ -120,15 +130,19 @@ describe('OpenAPI drift', () => {
     const reference = loadContract(
       '../../specs/004-reference-data-categories-accounts/contracts/openapi.yaml',
     );
+    const ledger = loadContract(
+      '../../specs/005-transactions-ledger-integrity/contracts/openapi.yaml',
+    );
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
     ) => Contract;
-    const generated = generateWithFragments(app, [identity, security, reference]);
+    const generated = generateWithFragments(app, [identity, security, reference, ledger]);
     const foundationSurface = contractSurface(foundation);
     const identitySurface = contractSurface(identity);
     const securitySurface = contractSurface(security);
     const referenceSurface = contractSurface(reference);
+    const ledgerSurface = contractSurface(ledger);
 
     expect(contractSurface(generated)).toEqual({
       paths: {
@@ -136,12 +150,14 @@ describe('OpenAPI drift', () => {
         ...identitySurface.paths,
         ...securitySurface.paths,
         ...referenceSurface.paths,
+        ...ledgerSurface.paths,
       },
       schemas: {
         ...foundationSurface.schemas,
         ...identitySurface.schemas,
         ...securitySurface.schemas,
         ...referenceSurface.schemas,
+        ...ledgerSurface.schemas,
       },
     });
     expect(

@@ -1,0 +1,453 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Phase 05 Ledger Contract
+  version: 0.5.0
+servers:
+  - url: /
+security:
+  - clerkSession: []
+paths:
+  /api/v1/transactions:
+    get:
+      operationId: listTransactions
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit100'
+        - { name: accountId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - { name: categoryId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - { name: kind, in: query, schema: { $ref: '#/components/schemas/TransactionKind' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/TransactionStatus' } }
+        - { name: source, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: query, in: query, schema: { type: string, minLength: 1, maxLength: 100 } }
+      responses:
+        '200':
+          description: Owner transaction page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionPage' }
+        '400': { $ref: '#/components/responses/LedgerValidationError' }
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '403': { $ref: '#/components/responses/ForbiddenError' }
+    post:
+      operationId: createTransaction
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTransaction' }
+      responses:
+        '201':
+          description: Confirmed income or expense
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutationResponse' }
+        '400': { $ref: '#/components/responses/LedgerValidationError' }
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '403': { $ref: '#/components/responses/ForbiddenError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+        '429': { $ref: '#/components/responses/RateError' }
+        '503': { $ref: '#/components/responses/LedgerUnavailableError' }
+  /api/v1/transactions/{transactionId}:
+    parameters: [ { $ref: '#/components/parameters/TransactionId' } ]
+    get:
+      operationId: getTransaction
+      responses:
+        '200':
+          description: Owner transaction detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionDetail' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+    patch:
+      operationId: reviseTransaction
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviseTransaction' }
+      responses:
+        '200':
+          description: Revised transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutationResponse' }
+        '400': { $ref: '#/components/responses/LedgerValidationError' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+    delete:
+      operationId: deleteTransaction
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteTransaction' }
+      responses:
+        '200':
+          description: Soft-deleted transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteResponse' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+  /api/v1/transactions/{transactionId}/restore:
+    post:
+      operationId: restoreTransaction
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VersionRequest' }
+      responses:
+        '200':
+          description: Restored transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutationResponse' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+  /api/v1/transactions/{transactionId}/reverse:
+    post:
+      operationId: reverseTransaction
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReverseTransaction' }
+      responses:
+        '201':
+          description: Linked full reversal
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinkedMutationResponse' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+  /api/v1/transactions/{transactionId}/refunds:
+    post:
+      operationId: refundTransaction
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefundTransaction' }
+      responses:
+        '201':
+          description: Linked partial or full refund
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinkedMutationResponse' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+  /api/v1/transfers:
+    post:
+      operationId: createTransfer
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTransfer' }
+      responses:
+        '201':
+          description: Same-currency transfer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutationResponse' }
+        '400': { $ref: '#/components/responses/LedgerValidationError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+        '429': { $ref: '#/components/responses/RateError' }
+  /api/v1/accounts/{accountId}/summary:
+    get:
+      operationId: getAccountLedgerSummary
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Owner account balance and recent ledger summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountSummary' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+components:
+  securitySchemes:
+    clerkSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string, maxLength: 512 }
+    Limit100:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+    TransactionId:
+      name: transactionId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Uuid' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+  schemas:
+    Uuid: { type: string, format: uuid }
+    CurrencyCode: { type: string, pattern: '^[A-Z]{3}$' }
+    SafeMinor: { type: integer, minimum: -9007199254740991, maximum: 9007199254740991 }
+    PositiveMinor: { type: integer, minimum: 1, maximum: 9007199254740991 }
+    TransactionKind:
+      type: string
+      enum: [income, expense, transfer, opening, refund, reversal, adjustment]
+    TransactionStatus:
+      type: string
+      enum: [draft, pending, confirmed, reversed, deleted]
+    TransactionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, kind, status, amountMinor, currency, accountIds, feeMinor, title, occurredAt, source, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { $ref: '#/components/schemas/TransactionKind' }
+        status: { $ref: '#/components/schemas/TransactionStatus' }
+        amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        accountIds:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Uuid' }
+        feeMinor: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        categoryId: { oneOf: [ { $ref: '#/components/schemas/Uuid' }, { type: 'null' } ] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        merchant: { type: [string, 'null'], maxLength: 160 }
+        paymentMethod: { type: [string, 'null'], maxLength: 80 }
+        note: { type: [string, 'null'], maxLength: 500 }
+        occurredAt: { type: string, format: date-time }
+        source: { type: string, minLength: 1, maxLength: 64 }
+        originalTransactionId: { oneOf: [ { $ref: '#/components/schemas/Uuid' }, { type: 'null' } ] }
+        version: { type: integer, format: int64, minimum: 1 }
+        deletedAt: { type: [string, 'null'], format: date-time }
+        undoExpiresAt: { type: [string, 'null'], format: date-time }
+    Posting:
+      type: object
+      additionalProperties: false
+      required: [id, accountId, amountMinor, clearingState, postingRole, occurredAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        accountId: { $ref: '#/components/schemas/Uuid' }
+        amountMinor: { $ref: '#/components/schemas/SafeMinor' }
+        clearingState: { type: string, enum: [pending, confirmed] }
+        postingRole: { type: string, enum: [source, destination, fee, opening, refund, reversal, adjustment] }
+        occurredAt: { type: string, format: date-time }
+    RevisionMetadata:
+      type: object
+      additionalProperties: false
+      required: [revisionNo, reason, createdAt]
+      properties:
+        revisionNo: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+    Balance:
+      type: object
+      additionalProperties: false
+      required: [accountId, currency, confirmedMinor, pendingMinor, ledgerVersion]
+      properties:
+        accountId: { $ref: '#/components/schemas/Uuid' }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        confirmedMinor: { $ref: '#/components/schemas/SafeMinor' }
+        pendingMinor: { $ref: '#/components/schemas/SafeMinor' }
+        ledgerVersion: { type: integer, format: int64, minimum: 0 }
+        reconciledAt: { type: [string, 'null'], format: date-time }
+    TransactionDetail:
+      type: object
+      required: [transaction, postings, revisions, ledgerVersion, requestId]
+      additionalProperties: false
+      properties:
+        transaction: { $ref: '#/components/schemas/TransactionSummary' }
+        postings: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/Posting' } }
+        revisions: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/RevisionMetadata' } }
+        ledgerVersion: { type: integer, format: int64, minimum: 0 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+    TransactionPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor, ledgerVersion, requestId]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/TransactionSummary' } }
+        nextCursor: { type: [string, 'null'], maxLength: 512 }
+        ledgerVersion: { type: integer, format: int64, minimum: 0 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+    CreateTransaction:
+      type: object
+      additionalProperties: false
+      required: [kind, amountMinor, currency, accountId, title, occurredAt]
+      properties:
+        kind: { type: string, enum: [income, expense] }
+        amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        accountId: { $ref: '#/components/schemas/Uuid' }
+        categoryId: { oneOf: [ { $ref: '#/components/schemas/Uuid' }, { type: 'null' } ] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        merchant: { type: [string, 'null'], maxLength: 160 }
+        paymentMethod: { type: [string, 'null'], maxLength: 80 }
+        note: { type: [string, 'null'], maxLength: 500 }
+        occurredAt: { type: string, format: date-time }
+        source: { type: string, minLength: 1, maxLength: 64, default: manual }
+        externalRef: { type: [string, 'null'], maxLength: 200 }
+    ReviseTransaction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      minProperties: 3
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        accountId: { $ref: '#/components/schemas/Uuid' }
+        categoryId: { oneOf: [ { $ref: '#/components/schemas/Uuid' }, { type: 'null' } ] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        merchant: { type: [string, 'null'], maxLength: 160 }
+        paymentMethod: { type: [string, 'null'], maxLength: 80 }
+        note: { type: [string, 'null'], maxLength: 500 }
+        occurredAt: { type: string, format: date-time }
+    VersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+    DeleteTransaction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    ReverseTransaction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        occurredAt: { type: string, format: date-time }
+    RefundTransaction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, amountMinor, occurredAt, reason]
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+        amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        accountId: { $ref: '#/components/schemas/Uuid' }
+        occurredAt: { type: string, format: date-time }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    CreateTransfer:
+      type: object
+      additionalProperties: false
+      required: [sourceAccountId, destinationAccountId, amountMinor, currency, occurredAt, title]
+      properties:
+        sourceAccountId: { $ref: '#/components/schemas/Uuid' }
+        destinationAccountId: { $ref: '#/components/schemas/Uuid' }
+        amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        feeMinor: { type: integer, minimum: 0, maximum: 9007199254740991, default: 0 }
+        feeAccountId: { $ref: '#/components/schemas/Uuid' }
+        occurredAt: { type: string, format: date-time }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        note: { type: [string, 'null'], maxLength: 500 }
+    MutationResponse:
+      type: object
+      additionalProperties: false
+      required: [transaction, balances, ledgerVersion, requestId]
+      properties:
+        transaction: { $ref: '#/components/schemas/TransactionDetail' }
+        balances: { type: array, minItems: 1, maxItems: 3, items: { $ref: '#/components/schemas/Balance' } }
+        ledgerVersion: { type: integer, format: int64, minimum: 1 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+    LinkedMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/MutationResponse'
+        - type: object
+          required: [original]
+          properties:
+            original: { $ref: '#/components/schemas/TransactionSummary' }
+    DeleteResponse:
+      type: object
+      additionalProperties: false
+      required: [transactionId, deletedAt, undoExpiresAt, version, balances, ledgerVersion, requestId]
+      properties:
+        transactionId: { $ref: '#/components/schemas/Uuid' }
+        deletedAt: { type: string, format: date-time }
+        undoExpiresAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, minimum: 1 }
+        balances: { type: array, minItems: 1, maxItems: 3, items: { $ref: '#/components/schemas/Balance' } }
+        ledgerVersion: { type: integer, format: int64, minimum: 1 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+    AccountSummary:
+      type: object
+      additionalProperties: false
+      required: [accountId, currency, balance, recentTransactions, ledgerVersion, requestId]
+      properties:
+        accountId: { $ref: '#/components/schemas/Uuid' }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        balance: { $ref: '#/components/schemas/Balance' }
+        recentTransactions: { type: array, maxItems: 25, items: { $ref: '#/components/schemas/TransactionSummary' } }
+        ledgerVersion: { type: integer, format: int64, minimum: 0 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{2,63}$' }
+        message: { type: string, minLength: 1, maxLength: 240 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+        retryAfterSeconds: { type: integer, minimum: 1, maximum: 3600 }
+        currentVersion: { type: integer, format: int64, minimum: 1 }
+  responses:
+    LedgerValidationError:
+      description: Invalid allowlisted input
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    UnauthorizedError:
+      description: Invalid authentication
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    ForbiddenError:
+      description: Inactive or unauthorized principal
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    NotFoundError:
+      description: Owner-safe not found
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    ConflictError:
+      description: Version, idempotency, state, refund or reversal conflict
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    RateError:
+      description: Financial mutation rate exceeded
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    LedgerUnavailableError:
+      description: Safe temporary ledger failure
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }

@@ -61,6 +61,9 @@ describeLiveDatabase('foundation backup and restore', () => {
 
     try {
       const before = await inventory(pool);
+      const excluded = await pool.query<{ tablename: string }>(
+        "select tablename from pg_tables where schemaname='private' and tablename<>'outbox_events' order by tablename",
+      );
       execFileSync(
         process.execPath,
         [
@@ -73,6 +76,8 @@ describeLiveDatabase('foundation backup and restore', () => {
           '--data-only',
           '--schema',
           'private',
+          '--exclude',
+          excluded.rows.map(({ tablename }) => `private.${tablename}`).join(','),
           '--file',
           backupFile,
         ],
@@ -100,7 +105,18 @@ describeLiveDatabase('foundation backup and restore', () => {
       if (!databaseContainer) throw new Error('SUPABASE_DATABASE_CONTAINER_MISSING');
       execFileSync(
         'docker',
-        ['exec', '-i', databaseContainer, 'psql', '-U', 'postgres', '-d', 'postgres'],
+        [
+          'exec',
+          '-i',
+          databaseContainer,
+          'psql',
+          '--set',
+          'ON_ERROR_STOP=1',
+          '-U',
+          'postgres',
+          '-d',
+          'postgres',
+        ],
         {
           input: readFileSync(backupFile),
           timeout: 600_000,

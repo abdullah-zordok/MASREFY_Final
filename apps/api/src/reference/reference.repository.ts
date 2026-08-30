@@ -14,6 +14,7 @@ export interface ReferenceOperation {
   query: Record<string, unknown>;
   params: Record<string, string>;
   requestId: string;
+  idempotencyKey?: string;
   permission?: 'reference.read' | 'reference.write';
 }
 
@@ -81,6 +82,12 @@ interface AdminReferenceTarget {
 @Injectable()
 export class ReferenceRepository {
   constructor(private readonly pool: PoolService) {}
+
+  async createAccountOnClient(client: PoolClient, input: ReferenceOperation): Promise<unknown> {
+    if (input.operation !== 'createAccount') throw new Error('REFERENCE_OPERATION_INVALID');
+    await client.query('select private.assert_active_profile($1)', [input.principal.userId]);
+    return this.executeInTransaction(client, input);
+  }
 
   private transaction<T>(
     principal: ClerkPrincipal,

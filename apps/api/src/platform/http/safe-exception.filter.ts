@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import { LEDGER_METRICS, recordPlatformMetric } from '../observability/platform-metrics';
 import { normalizeRequestId } from './request-id.middleware';
 
 const errors: Record<number, { code: string; message: string }> = {
@@ -68,6 +69,25 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   LEDGER_NOT_AVAILABLE: { status: 409, message: 'Ledger operation is not available' },
   FX_UNAVAILABLE: { status: 404, message: 'Exchange rate is unavailable' },
   IDEMPOTENCY_KEY_REQUIRED: { status: 400, message: 'Idempotency key is required' },
+  IDEMPOTENCY_KEY_REUSED: { status: 409, message: 'Idempotency key was already used' },
+  IDEMPOTENCY_IN_PROGRESS: { status: 409, message: 'Idempotent request is in progress' },
+  IDEMPOTENCY_REPLAY_UNAVAILABLE: {
+    status: 503,
+    message: 'Idempotency replay is unavailable',
+  },
+  ACCOUNT_NOT_POSTABLE: { status: 409, message: 'Account cannot accept this transaction' },
+  CURRENCY_MISMATCH: { status: 409, message: 'Currencies do not match' },
+  AMOUNT_OUT_OF_RANGE: { status: 400, message: 'Amount is out of range' },
+  TRANSACTION_NOT_EDITABLE: { status: 409, message: 'Transaction cannot be changed' },
+  TRANSACTION_HAS_DEPENDENTS: { status: 409, message: 'Transaction has dependent records' },
+  REVERSAL_EXISTS: { status: 409, message: 'Transaction was already reversed' },
+  REFUND_EXCEEDS_AVAILABLE: {
+    status: 409,
+    message: 'Refund exceeds the available amount',
+  },
+  UNDO_EXPIRED: { status: 409, message: 'Undo window has expired' },
+  LEDGER_BUSY: { status: 409, message: 'Ledger is busy' },
+  LEDGER_UNAVAILABLE: { status: 503, message: 'Ledger is unavailable' },
   REFERENCE_UNAVAILABLE: { status: 503, message: 'Reference service is unavailable' },
 };
 
@@ -77,6 +97,7 @@ type SafeError = {
   message: string;
   requestId: string;
   fieldErrors?: FieldError[];
+  currentVersion?: number;
 };
 
 const safeField = /^[A-Za-z0-9_.-]{1,128}$/;
@@ -112,6 +133,7 @@ export function safeError(
   requestId?: string,
   fieldErrors: FieldError[] = [],
   domainCode?: string,
+  currentVersion?: unknown,
 ): SafeError {
   const domain = domainCode === undefined ? undefined : domainErrors[domainCode];
   const mapped =
@@ -126,6 +148,12 @@ export function safeError(
     ...mapped,
     requestId: normalizeRequestId(requestId),
     ...(bounded.length > 0 ? { fieldErrors: bounded } : {}),
+    ...(domainCode === 'VERSION_CONFLICT' &&
+    typeof currentVersion === 'number' &&
+    Number.isSafeInteger(currentVersion) &&
+    currentVersion >= 1
+      ? { currentVersion }
+      : {}),
   };
 }
 
@@ -136,8 +164,20 @@ export class SafeExceptionFilter implements ExceptionFilter {
     const request = http.getRequest<Request & { requestId?: string }>();
     const response = http.getResponse<Response>();
     const status = exceptionStatus(exception);
+    const domainCode = exceptionDomainCode(exception, status);
+    const domainResponse =
+      exception instanceof HttpException && typeof exception.getResponse() === 'object'
+        ? (exception.getResponse() as { currentVersion?: unknown })
+        : undefined;
+    if (
+      domainCode &&
+      /^\/api\/v1\/(transactions(?:\/|$)|transfers(?:\/|$)|accounts\/[^/]+\/summary(?:\/|$))/.test(
+        request.path,
+      )
+    )
+      recordPlatformMetric(LEDGER_METRICS.error, 1, { reason: domainCode });
     response
       .status(status)
-      .json(safeError(status, request.requestId, [], exceptionDomainCode(exception, status)));
+      .json(safeError(status, request.requestId, [], domainCode, domainResponse?.currentVersion));
   }
 }

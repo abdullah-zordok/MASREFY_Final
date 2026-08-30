@@ -20,7 +20,10 @@ describe('Admin reference contract', () => {
 
   it('rejects malformed typed fields before a shared mutation', async () => {
     const repository = { sharedHash: jest.fn(), execute: jest.fn() };
-    const service = new ReferenceService(repository as never);
+    const service = new ReferenceService(
+      repository as never,
+      { createAccount: jest.fn() } as never,
+    );
     const request = {
       principal: { userId: 'admin_1', sessionId: 's', factorAgeSeconds: 0 },
       requestId: 'request-1',

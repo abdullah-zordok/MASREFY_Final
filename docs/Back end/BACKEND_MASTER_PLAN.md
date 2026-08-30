@@ -322,7 +322,7 @@ defined in 5.1. `UQ` means unique and `FK` means foreign key.
 |---|---|---|
 | `categories` | nullable `user_id`, `parent_id FK self`, nullable `merged_into_id FK self`, `kind`, `label_ar`, `label_en`, `icon`, `color`, `system_key`, `sort_order`, `active`, `deleted_at`; UQ system key or active user/locale label/kind | 004 |
 | `accounts` | `user_id`, `name`, `type`, `currency_code FK`, `institution_name`, `last_four`, `credit_limit_minor`, `is_default`, `icon_key`, `color_key`, `notes`, `status`, `sort_order`, `include_in_totals`, `opened_at`, `closed_at`, `deleted_at` | 004 |
-| `transactions` | `user_id`, `kind`, `status`, `currency_code`, `category_id FK`, `merchant`, `note`, `occurred_at`, `source`, `external_ref`, `reverses_transaction_id FK`, `deleted_at`; no mutable balance field | 005 |
+| `transactions` | `user_id`, `kind`, `status`, `amount_minor`, `fee_minor`, `currency_code`, `category_id FK`, `title`, `merchant`, `payment_method`, `note`, `occurred_at`, `source`, `external_ref`, `reverses_transaction_id FK`, `deleted_at`; no mutable balance field | 005 |
 | `transaction_postings` | `transaction_id FK`, `account_id FK`, `amount_minor bigint`, `clearing_state`, `posting_role`, `occurred_at`; nonzero amount and immutable after commit | 005 |
 | `transaction_revisions` | `transaction_id FK`, `revision_no`, `actor_id`, `reason`, `before_snapshot jsonb`, `after_snapshot jsonb`, UQ transaction/revision | 005 |
 | `transaction_conflicts` | `transaction_id FK`, `client_mutation_id FK`, `server_version`, `client_version`, `conflict_fields text[]`, `status`, `resolution`, `resolved_by`, `resolved_at` | 006 |
@@ -1516,7 +1516,7 @@ opening entries, audit/outbox, and reconciliation.
 
 | Table | Complete columns | Keys, constraints, indexes, defaults |
 |---|---|---|
-| `public.transactions` | `M+U`; `kind text`; `status text='confirmed'`; `currency_code char(3) FK currencies`; `category_id uuid? FK categories`; `merchant text?`; `note text?`; `occurred_at timestamptz`; `source text='manual'`; `external_ref text?`; `reverses_transaction_id uuid? FK transactions`; `deleted_at timestamptz?`; `undo_expires_at timestamptz?` | kind `income/expense/transfer/opening/refund/reversal/adjustment`; status `draft/pending/confirmed/reversed/deleted`; kind/category checks; no self reversal; partial UQ `(user_id,source,external_ref)` where ref not null; indexes user/time/id active, category/time, reverse link |
+| `public.transactions` | `M+U`; `kind text`; `status text='confirmed'`; `amount_minor bigint`; `fee_minor bigint=0`; `currency_code char(3) FK currencies`; `category_id uuid? FK categories`; `title text`; `merchant text?`; `payment_method text?`; `note text?`; `occurred_at timestamptz`; `source text='manual'`; `external_ref text?`; `reverses_transaction_id uuid? FK transactions`; `deleted_at timestamptz?`; `undo_expires_at timestamptz?` | amount positive and JS-safe; fee nonnegative and JS-safe; kind `income/expense/transfer/opening/refund/reversal/adjustment`; status `draft/pending/confirmed/reversed/deleted`; kind/category checks; bounded safe title/payment metadata; no self reversal; partial UQ `(user_id,source,external_ref)` where ref not null; indexes user/time/id active, category/time, reverse link |
 | `public.transaction_postings` | `I`; `transaction_id uuid FK transactions restrict`; `account_id uuid FK accounts restrict`; `amount_minor bigint`; `clearing_state text='confirmed'`; `posting_role text`; `occurred_at timestamptz` | amount<>0; state `pending/confirmed`; role `source/destination/fee/opening/refund/reversal/adjustment`; indexes transaction, account/time/id, pending partial; immutable |
 | `audit.transaction_revisions` | `I`; `transaction_id uuid FK transactions`; `revision_no int`; `actor_id text`; `reason text`; `before_snapshot jsonb`; `after_snapshot jsonb` | revision>0; UQ transaction/revision; index transaction/time; immutable |
 | `public.account_balances` | `account_id uuid PK/FK accounts`; `confirmed_minor bigint=0`; `pending_minor bigint=0`; `ledger_version bigint=0`; `reconciled_at timestamptz?`; `updated_at=now()` | ledger_version>=0; index reconciled_at; API/worker write only |
@@ -1541,9 +1541,10 @@ erDiagram
 - All money mutation executes through guarded API/database functions using the
   caller Clerk JWT, active profile, account/category ownership, idempotency, and
   expected version.
-- Admin financial reads require exact permission and audit. Admin cannot mutate a
-  customer's ledger through support access unless a separately approved product
-  operation exists; none is introduced here.
+- Phase 05 grants no Admin/support raw ledger read or financial mutation. The
+  current aggregate transaction-count contract remains unchanged; any future
+  detail/read model requires a separately owned permission, purpose-bound scope,
+  audit contract, and Spec.
 
 #### APIs and Contracts
 
@@ -1551,17 +1552,17 @@ erDiagram
 |---|---|---|
 | `GET /api/v1/transactions` | cursor, `accountId?`, `categoryId?`, `kind?`, `from?`, `to?`, `query?`, max 100 | `{items:[TransactionSummary],nextCursor,ledgerVersion}` |
 | `GET /api/v1/transactions/:id` | owner | header, postings, revision metadata, version |
-| `POST /api/v1/transactions` | `Idempotency-Key`; `{kind:'income'|'expense',amountMinor,currency,accountId,categoryId?,merchant?,note?,occurredAt,source?,externalRef?}` | confirmed transaction and account balance |
-| `PATCH /api/v1/transactions/:id` | key; `{expectedVersion,categoryId?,merchant?,note?,occurredAt?,amountMinor?,accountId?,reason}` | revised transaction/balances |
+| `POST /api/v1/transactions` | `Idempotency-Key`; `{kind:'income'|'expense',amountMinor,currency,accountId,categoryId?,title,merchant?,paymentMethod?,note?,occurredAt,source?,externalRef?}` | confirmed transaction and account balance |
+| `PATCH /api/v1/transactions/:id` | key; `{expectedVersion,categoryId?,title?,merchant?,paymentMethod?,note?,occurredAt?,amountMinor?,accountId?,reason}` | revised transaction/balances |
 | `DELETE /api/v1/transactions/:id` | key; `{expectedVersion,reason}` | `{deletedAt,undoExpiresAt,balances[]}` |
 | `POST /api/v1/transactions/:id/restore` | key; `{expectedVersion}` within undo window | restored transaction/balances |
 | `POST /api/v1/transactions/:id/reverse` | key; `{expectedVersion,reason,occurredAt?}` | reversal transaction/original state |
-| `POST /api/v1/transactions/:id/refunds` | key; `{amountMinor,accountId?,occurredAt,reason}` | linked refund; total cannot exceed refundable amount |
-| `POST /api/v1/transfers` | key; `{sourceAccountId,destinationAccountId,amountMinor,currency,feeMinor?,feeAccountId?,occurredAt,note?}` | one transfer transaction, postings, both balances |
+| `POST /api/v1/transactions/:id/refunds` | key; `{expectedVersion,amountMinor,accountId?,occurredAt,reason}` | linked refund; total cannot exceed refundable amount |
+| `POST /api/v1/transfers` | key; `{sourceAccountId,destinationAccountId,amountMinor,currency,feeMinor?,feeAccountId?,occurredAt,title,note?}` | one transfer transaction, postings, both balances |
 | `GET /api/v1/accounts/:id/summary` | owner; period? | account/balance/recent transactions/ledgerVersion |
 
 `TransactionSummary` is `{id,kind,status,amountMinor,currency,accountIds[],
-category?,merchant?,occurredAt,source,version,deletedAt?}`. Response amount is the
+category?,title,merchant?,paymentMethod?,occurredAt,source,version,deletedAt?}`. Response amount is the
 user-facing absolute amount; signed postings remain internal.
 
 #### RPCs, Triggers, Jobs, and Events
@@ -1597,23 +1598,25 @@ user-facing absolute amount; signed postings remain internal.
 #### Security, Performance, and Caching
 
 - ASVS Level 3-applicable verification, strict integer/range checks, recent auth
-  for configured high-value thresholds, per-user mutation limits, deterministic
-  errors, and no balance details in logs.
+  for the bounded optional `MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS`
+  `CURRENCY:positiveMinor` manifest using the shared factor-age maximum, per-user
+  mutation limits, deterministic errors, and no balance details in logs.
 - Financial source data is never stale-shared cached. `account_balances` is the
   supported fast projection; Mobile may cache encrypted summaries by ledgerVersion.
 - Required P95: create 350 ms, transfer 500 ms, account detail 300 ms, list 300
   ms; DB mutation 150 ms. Query plans/indexes from Section 5.6 are evidence.
 
-#### Mobile/Admin Integration and Replaced Mocks
+#### Mobile/Admin Compatibility Contracts
 
-- Replaces Mobile `core-finance` transaction/account repository, seeds, demo-data
-  finance paths, filters, delete/undo, and transfer behavior while preserving
-  service interfaces through a live adapter.
-- Mobile `paymentMethod` and all current input fields are included in domain
-  adapters; no input is silently discarded. SQLite `REAL` values are converted
-  to safe integer minor units before sync.
-- Admin transaction/user financial views consume permission-protected read models;
-  no Admin client financial write is added.
+- Phase 05 publishes backend contracts matching Mobile `core-finance` service
+  fields and operations, including `title` and optional `paymentMethod`; it does
+  not cut over adapters, remove mocks/demo data, or add client features.
+- A later client-owned cutover preserves integer minor units and operation keys;
+  SQLite sync/import remains SPEC-BE-006 and uses ledger commands rather than
+  direct SQL writes.
+- The current Admin aggregate transaction-count contract remains unchanged.
+  Phase 05 adds no raw ledger view, financial export, support-scope extension, or
+  Admin financial write.
 
 #### Tests, Migration, Rollback, and Observability
 

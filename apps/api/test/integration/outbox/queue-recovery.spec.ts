@@ -22,6 +22,10 @@ describeLiveDatabase('outbox queue recovery', () => {
   it('retains rows through outage, slowdown, restart, recovery, and terminal exhaustion', async () => {
     const aggregateId = await seedOutbox(pool, 4);
     try {
+      await pool.query(
+        "update private.outbox_events set available_at = '1900-01-01T00:00:00Z' where aggregate_id = $1",
+        [aggregateId],
+      );
       const outageRows = await repository.claim('outage-worker', 3, 30);
       const unavailable = {
         publish: jest.fn().mockRejectedValue(new Error('queue unavailable')),
@@ -47,7 +51,7 @@ describeLiveDatabase('outbox queue recovery', () => {
       expect(retained.rows[0]?.count).toBe('4');
 
       await pool.query(
-        'update private.outbox_events set available_at = now() where aggregate_id = $1 and published_at is null',
+        "update private.outbox_events set available_at = '1900-01-01T00:00:00Z' where aggregate_id = $1 and published_at is null",
         [aggregateId],
       );
       const restartedRepository = new OutboxRepository(pool);

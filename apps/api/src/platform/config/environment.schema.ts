@@ -29,6 +29,7 @@ const applicationKeys = new Set([
   'MASARIFI_PUSH_TOKEN_HASH_KEY',
   'MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS',
   'MASARIFI_RECENT_AUTH_MAX_AGE_SECONDS',
+  'MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS',
   'MASARIFI_CLERK_API_TIMEOUT_MS',
   'MASARIFI_CLERK_WEBHOOK_POLL_MS',
   'MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS',
@@ -123,6 +124,28 @@ function parseHandlerManifest(value: string, helpers: Joi.CustomHelpers): unknow
   return [...entries].sort();
 }
 
+function parseLedgerThresholds(value: string, helpers: Joi.CustomHelpers): unknown {
+  if (value.length > 2_048) return helpers.error('string.max');
+  const entries = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const result: Record<string, number> = {};
+  if (entries.length < 1 || entries.length > 64) return helpers.error('string.pattern.base');
+  for (const entry of entries) {
+    const match = /^([A-Z]{3}):([1-9][0-9]{0,15})$/.exec(entry);
+    const currency = match?.[1],
+      amountText = match?.[2];
+    if (!currency || !amountText || result[currency] !== undefined)
+      return helpers.error('string.pattern.base');
+    const amount = Number(amountText);
+    if (!Number.isSafeInteger(amount) || amount > Number.MAX_SAFE_INTEGER)
+      return helpers.error('string.pattern.base');
+    result[currency] = amount;
+  }
+  return Object.fromEntries(Object.entries(result).sort(([a], [b]) => a.localeCompare(b)));
+}
+
 const schema = Joi.object<PlatformEnvironment>({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
   MASARIFI_PROCESS_KIND: Joi.string().valid('api', 'worker', 'migration').required(),
@@ -182,6 +205,9 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_PUSH_TOKEN_HASH_KEY: Joi.string().trim().pattern(base64UrlKey).optional(),
   MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS: Joi.string().trim().min(1).max(1_024).optional(),
   MASARIFI_RECENT_AUTH_MAX_AGE_SECONDS: Joi.number().integer().min(60).max(3_600).default(600),
+  MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS: Joi.string()
+    .custom(parseLedgerThresholds, 'ledger recent-auth threshold parser')
+    .optional(),
   MASARIFI_CLERK_API_TIMEOUT_MS: Joi.number().integer().min(250).max(10_000).default(2_000),
   MASARIFI_CLERK_WEBHOOK_POLL_MS: Joi.number().integer().min(100).max(10_000).default(500),
   MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS: Joi.number().integer().min(1).max(100).default(10),

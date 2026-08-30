@@ -4,6 +4,7 @@ import { HttpException, type ExecutionContext, type INestApplication } from '@ne
 import { Test } from '@nestjs/testing';
 
 import { ClerkAuthGuard } from '../../../src/identity/clerk-auth.guard';
+import { LedgerService } from '../../../src/ledger/ledger.service';
 import { SafeExceptionFilter } from '../../../src/platform/http/safe-exception.filter';
 import { ReferenceController } from '../../../src/reference/reference.controller';
 import { ReferenceRepository } from '../../../src/reference/reference.repository';
@@ -54,6 +55,20 @@ export async function createReferenceE2eHarness(): Promise<ReferenceE2eHarness> 
     controllers: [ReferenceController],
     providers: [
       ReferenceService,
+      {
+        provide: LedgerService,
+        useValue: {
+          createAccount: jest.fn((input: { body: Record<string, unknown> }) =>
+            execute({ operation: 'createAccount' }).then((value) => ({
+              ...(value as object),
+              openingTransactionId:
+                Number(input.body.openingBalanceMinor ?? 0) === 0
+                  ? null
+                  : '30000000-0000-4000-8000-000000000001',
+            })),
+          ),
+        },
+      },
       {
         provide: ReferenceRepository,
         useValue: { sharedHash: jest.fn().mockResolvedValue('hash'), execute },

@@ -162,7 +162,6 @@ export function normalizeCreateAccount(value: unknown): Record<string, unknown> 
     input.openingBalanceMinor === undefined
       ? 0
       : integer(input.openingBalanceMinor, -MAX_SAFE, MAX_SAFE);
-  if (opening !== 0) failure('LEDGER_NOT_AVAILABLE');
   const credit =
     input.creditLimitMinor === undefined
       ? undefined

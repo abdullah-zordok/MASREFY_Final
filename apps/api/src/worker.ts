@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 
 import { PlatformConfigService } from './platform/config/platform-config.service';
 import { ClerkWebhookWorker } from './identity/clerk-webhook.worker';
+import { LedgerWorker } from './ledger/ledger.worker';
 import { GracefulShutdown } from './platform/observability/graceful-shutdown';
 import { PlatformLogger } from './platform/observability/platform-logger';
 import { OutboxWorkerService } from './platform/outbox/outbox-worker.service';
@@ -24,6 +25,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const worker = app.get(OutboxWorkerService);
   const clerkWorker = app.get(ClerkWebhookWorker);
   const securityWorker = app.get(SecurityWorkerService);
+  const ledgerWorker = app.get(LedgerWorker);
   app.useLogger(logger);
 
   process.once('SIGTERM', () => {
@@ -31,6 +33,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
       await worker.stop();
       await clerkWorker.stop();
       await securityWorker.stop();
+      await ledgerWorker.stop();
       await app.close();
       await telemetry.shutdown();
     });
@@ -38,6 +41,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   worker.start();
   clerkWorker.start();
   securityWorker.start();
+  ledgerWorker.start();
   logger.info('platform.started', {
     context: 'Bootstrap',
     processKind: 'worker',

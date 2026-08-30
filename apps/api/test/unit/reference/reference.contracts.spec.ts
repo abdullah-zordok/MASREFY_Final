@@ -19,7 +19,7 @@ describe('reference runtime contracts', () => {
     expect(() => dto.assertIdempotencyKey('bad key')).toThrow('IDEMPOTENCY_KEY_REQUIRED');
   });
 
-  it('defaults safe account fields and rejects nonzero opening balances', () => {
+  it('defaults safe account fields and preserves a nonzero opening for the atomic ledger handoff', () => {
     expect(
       dto.normalizeCreateAccount({ name: 'Cash', type: 'cash', currency: 'SAR' }),
     ).toMatchObject({
@@ -30,14 +30,14 @@ describe('reference runtime contracts', () => {
       includeInTotals: true,
       openingBalanceMinor: 0,
     });
-    expect(() =>
+    expect(
       dto.normalizeCreateAccount({
         name: 'Cash',
         type: 'cash',
         currency: 'SAR',
         openingBalanceMinor: 1,
       }),
-    ).toThrow('LEDGER_NOT_AVAILABLE');
+    ).toMatchObject({ openingBalanceMinor: 1 });
   });
 
   it('requires bilingual custom labels and defaults category kind to expense', () => {

@@ -52,12 +52,39 @@ export const REFERENCE_METRICS = {
   fxAge: 'masarifi_reference_fx_age_seconds',
 } as const;
 
+export const LEDGER_METRICS = {
+  command: 'masarifi_ledger_command_total',
+  commandDuration: 'masarifi_ledger_command_duration_ms',
+  read: 'masarifi_ledger_read_total',
+  readDuration: 'masarifi_ledger_read_duration_ms',
+  readResultCount: 'masarifi_ledger_read_result_count',
+  payloadBytes: 'masarifi_ledger_payload_bytes',
+  idempotency: 'masarifi_ledger_idempotency_total',
+  idempotencyReplay: 'masarifi_ledger_idempotency_replay_total',
+  conflict: 'masarifi_ledger_conflict_total',
+  error: 'masarifi_ledger_error_total',
+  rateLimitDenied: 'masarifi_ledger_rate_limit_denied_total',
+  lockWaitDuration: 'masarifi_ledger_lock_wait_duration_ms',
+  postingCount: 'masarifi_ledger_posting_count',
+  touchedAccountCount: 'masarifi_ledger_touched_account_count',
+  projectionUpdate: 'masarifi_ledger_projection_update_total',
+  appendFailure: 'masarifi_ledger_append_failure_total',
+  reconciliationChecked: 'masarifi_ledger_reconciliation_checked_total',
+  reconciliationMismatch: 'masarifi_ledger_reconciliation_mismatch_total',
+  reconciliationFailure: 'masarifi_ledger_reconciliation_failure_total',
+  reconciliationRetry: 'masarifi_ledger_reconciliation_retry_total',
+  reconciliationBatchSize: 'masarifi_ledger_reconciliation_batch_size',
+  reconciliationAge: 'masarifi_ledger_reconciliation_age_seconds',
+  reconciliationDuration: 'masarifi_ledger_reconciliation_duration_ms',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
   | (typeof IDENTITY_METRICS)[keyof typeof IDENTITY_METRICS]
   | (typeof SECURITY_METRICS)[keyof typeof SECURITY_METRICS]
-  | (typeof REFERENCE_METRICS)[keyof typeof REFERENCE_METRICS];
+  | (typeof REFERENCE_METRICS)[keyof typeof REFERENCE_METRICS]
+  | (typeof LEDGER_METRICS)[keyof typeof LEDGER_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -68,10 +95,12 @@ const allowedLabels = new Set([
   'dependency',
   'outcome',
   'operation',
+  'scope',
   'reason',
   'permission',
   'severity',
   'job',
+  'mismatch_kind',
 ]);
 const safeLabelValue = /^[A-Za-z0-9_./:-]{1,128}$/;
 const counterNames = new Set<MetricName>([
@@ -93,6 +122,19 @@ const counterNames = new Set<MetricName>([
   SECURITY_METRICS.jobRun,
   REFERENCE_METRICS.operation,
   REFERENCE_METRICS.cache,
+  LEDGER_METRICS.command,
+  LEDGER_METRICS.read,
+  LEDGER_METRICS.idempotency,
+  LEDGER_METRICS.idempotencyReplay,
+  LEDGER_METRICS.conflict,
+  LEDGER_METRICS.error,
+  LEDGER_METRICS.rateLimitDenied,
+  LEDGER_METRICS.projectionUpdate,
+  LEDGER_METRICS.appendFailure,
+  LEDGER_METRICS.reconciliationChecked,
+  LEDGER_METRICS.reconciliationMismatch,
+  LEDGER_METRICS.reconciliationFailure,
+  LEDGER_METRICS.reconciliationRetry,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

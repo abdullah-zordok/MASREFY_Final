@@ -9,16 +9,41 @@ describe('account HTTP lifecycle', () => {
   });
   afterAll(async () => harness.app.close());
 
-  it('rejects a nonzero opening balance without repository effects', async () => {
+  it('accepts positive/negative openings, replays, and rejects unsafe or invalid currency input', async () => {
+    const positive = await request(harness.server)
+      .post('/api/v1/accounts')
+      .set('Idempotency-Key', 'valid-key')
+      .send({ name: 'Cash', type: 'cash', currency: 'SAR', openingBalanceMinor: 1 })
+      .expect(201);
+    expect((positive.body as { openingTransactionId: unknown }).openingTransactionId).toBe(
+      '30000000-0000-4000-8000-000000000001',
+    );
     await request(harness.server)
       .post('/api/v1/accounts')
       .set('Idempotency-Key', 'valid-key')
       .send({ name: 'Cash', type: 'cash', currency: 'SAR', openingBalanceMinor: 1 })
-      .expect(409)
-      .expect((response) => {
-        expect((response.body as unknown as { code: unknown }).code).toBe('LEDGER_NOT_AVAILABLE');
-      });
-    expect(harness.execute).not.toHaveBeenCalled();
+      .expect(201)
+      .expect(positive.body as object);
+    await request(harness.server)
+      .post('/api/v1/accounts')
+      .set('Idempotency-Key', 'negative-key')
+      .send({ name: 'Debt', type: 'cash', currency: 'SAR', openingBalanceMinor: -1 })
+      .expect(201);
+    await request(harness.server)
+      .post('/api/v1/accounts')
+      .set('Idempotency-Key', 'unsafe-key')
+      .send({
+        name: 'Unsafe',
+        type: 'cash',
+        currency: 'SAR',
+        openingBalanceMinor: Number.MAX_SAFE_INTEGER + 1,
+      })
+      .expect(400);
+    await request(harness.server)
+      .post('/api/v1/accounts')
+      .set('Idempotency-Key', 'currency-key')
+      .send({ name: 'Invalid Currency', type: 'cash', currency: 'sar', openingBalanceMinor: 1 })
+      .expect(400);
   });
 
   it('supports create, update, archive, restore, and close routes', async () => {

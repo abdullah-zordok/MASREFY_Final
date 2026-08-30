@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 
 import { IdentityModule } from './identity/identity.module';
+import { LedgerModule } from './ledger/ledger.module';
 import { PlatformConfigModule } from './platform/config/platform-config.module';
 import { DatabaseModule } from './platform/database/database.module';
 import { HealthModule } from './platform/health/health.module';
@@ -18,6 +19,7 @@ import { SecurityModule } from './security/security.module';
     MetaModule,
     SecurityModule,
     ReferenceModule,
+    LedgerModule,
   ],
   providers: [RequestIdMiddleware],
 })
