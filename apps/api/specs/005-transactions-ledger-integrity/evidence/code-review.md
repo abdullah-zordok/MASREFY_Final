@@ -86,7 +86,7 @@ No actionable Rule 1-9 violation remains:
 - [x] Walked Test Guard Rules 1-9 and the Jest reference
 
 Verification after fixes: full formatter, typecheck, ESLint, and 56 unit suites /
-445 tests pass; focused worker/event/observability tests pass 43/43; focused
+446 tests pass; focused worker/event/observability tests pass 43/43; focused
 write endpoint suites pass 5/5.
 
 ## Independent review
@@ -113,7 +113,7 @@ local review also expanded the requested low-cardinality command/read/lock/
 posting/projection/reconciliation metrics and distinguished atomic append-failure
 stages. No Critical, Important, or accepted Minor finding remains open.
 
-Post-review verification: formatter/typecheck/ESLint pass; unit 56/445;
+Post-review verification: formatter/typecheck/ESLint pass; unit 56/446;
 contract 32/119; clean PostgreSQL reset/lint and pgTAP 22/606; live integration
 41/100; E2E 29/46; security 16/86; performance 56,687/56,687 checks; container
 7/19. All listed suites have zero failures and zero skips in their live runs.

@@ -3,7 +3,7 @@
 Date: 2026-08-30 (Asia/Riyadh)
 Branch: `codex/spec-be-005`
 Base: `dfed012743ca0c3c5f760e7b2439dbc0dae9c825`
-Status: local implementation and release gates pass; exact-commit main/tag supply-chain evidence pending T108-T110
+Status: complete; exact main and immutable `backend-v0.5.0` release gates pass
 
 No skipped, stale, unavailable, or external-only check is counted as a pass.
 Exact commands and counts are retained in `local-release.md`; focused financial,
@@ -35,7 +35,7 @@ procedures are retained beside this file.
 | FR-019 | PASS | Safe event schemas and fixed-cardinality command/read/lock/posting/projection/reconciliation metrics, dashboards, alerts, and leakage tests pass. |
 | FR-020 | PASS | DTO/OpenAPI/internal/idempotency/event/job/function/Mobile/Admin drift and executable mapping contracts pass 32/119. |
 | FR-021 | PASS | Ordered checksummed forward migrations, Phase 04 prefix compatibility, failed-then-forward-fix, retry, backup/restore, and N-1 app contract pass. |
-| FR-022 | PASS | Unit 56/445, contract 32/119, pgTAP 22/606, integration 41/100, E2E 29/46, security 16/86, performance 56,687 checks, and container 7/19 all pass with zero live skips. |
+| FR-022 | PASS | Unit 56/446, contract 32/119, pgTAP 22/606, integration 41/100, E2E 29/46, security 16/86, local performance 56,687 checks, immutable-tag performance 24,299/24,299 checks, and container 7/19 all pass with zero live skips. |
 | FR-023 | PASS | Diff inventory contains only the temporary idempotency bridge from SPEC-BE-006 and no Mobile/Admin/later-Spec implementation. |
 
 ## Acceptance criteria
@@ -52,10 +52,10 @@ procedures are retained beside this file.
 | AC-008 | PASS | Runtime OpenAPI, internal contracts, representative client mapping, and zero client-source diff. |
 | AC-009 | PASS | `reconciliation.md`; confirmed/pending drift detected once per incident, retry/restart works, no repair occurs. |
 | AC-010 | PASS | `performance.md`; 100k/200k data, bounded plans/payloads and all P95/P99 thresholds pass. |
-| AC-011 | PASS | OWASP/security suites, type/lint, dependency audit, nonroot/read-only container checks, and independent review show no open exploitable Critical/High finding. Registry scan remains part of AC-014. |
+| AC-011 | PASS | OWASP/security suites, type/lint, dependency audit, nonroot/read-only container checks, independent review, and immutable-tag Trivy HIGH/CRITICAL scan show no open exploitable Critical/High finding. |
 | AC-012 | PASS | `recovery.md`; clean upgrade, failure/forward fix, checksums, N-1, write disable, queue/worker replay, backup restore, reconciliation. |
 | AC-013 | PASS | Platform and ledger runbooks plus executable observability contract cover metrics, owners, dashboards, alerts, rollback, and incident closure. |
-| AC-014 | PENDING | Must be produced by exact final main and immutable `backend-v0.5.0` workflows: pushed commit, CI, registry digest/scan, SBOM, signature, provenance, and attestations. |
+| AC-014 | PASS | `remote.md`: exact main run 33311567050 and immutable tag run 33313879571 pass; image `sha256:5bf639c...`, Trivy, CycloneDX SBOM, Cosign signatures/attestations, and SLSA provenance are retained with artifact IDs and hashes. |
 | AC-015 | PASS | Scope inventory below; no Phase 06 resource beyond idempotency and no client/later-Spec feature. |
 
 ## Success criteria
@@ -65,7 +65,7 @@ procedures are retained beside this file.
 | SC-001 | PASS | Every duplicate/concurrent/restart/ambiguous-response fixture yields one effect and the completed replay. |
 | SC-002 | PASS | Golden, randomized, concurrent, restore, migration, and 100k/200k projections reconcile 100 percent. |
 | SC-003 | PASS | All service-precheck and database-race stale versions reject without overwriting the winner. |
-| SC-004 | PASS | Create P95 141 ms (<350); transfer P95 18 ms (<500); P99/payload ceilings pass. |
+| SC-004 | PASS | Immutable-tag create P95/P99 17/32 ms and transfer 16/28 ms; every latency and payload ceiling passes. |
 | SC-005 | PASS | Complete live authorization matrix exposes no cross-owner/Admin/anonymous/worker read or write. |
 | SC-006 | PASS | Every seeded confirmed/pending discrepancy appears within one bounded cycle with alert/event evidence and no repair. |
 | SC-007 | PASS | N-1 application, failed migration, backup/restore, rollback, and replay procedures preserve all committed history/outcomes/balances. |
@@ -111,8 +111,9 @@ procedures are retained beside this file.
   reconciliation procedures are implemented and exercised.
 - [x] Implementation `db5066e` plus local-evidence `82a61ba` were verified and
   pushed to `origin/codex/spec-be-005` without rewriting history.
-- [ ] Exact main/tag CI, immutable image, SBOM, vulnerability scan, signature,
-  provenance, and attestations (T109-T110) pending.
+- [x] Exact main/tag CI, immutable image, SBOM, vulnerability scan, signature,
+  provenance, and attestations pass; identifiers and hashes are retained in
+  `remote.md`.
 
 ## Scope and preservation inventory
 

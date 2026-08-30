@@ -13,7 +13,7 @@ Image: `masarifi-backend:spec-be-001`
 | TypeScript | PASS | `npm run typecheck`; 0 errors |
 | ESLint | PASS | `npm run lint`; 0 errors/warnings |
 | k6 syntax | PASS | `npm run perf:check`; 10 scripts parsed |
-| Unit | PASS | 56 suites, 445 tests passed; 0 failed/skipped |
+| Unit | PASS | 56 suites, 446 tests passed; 0 failed/skipped |
 | Contract/OpenAPI | PASS | 32 suites, 119 tests passed; 0 failed/skipped |
 | Full live integration | PASS | 41 suites, 100 tests passed; 0 failed/skipped |
 | Focused ledger integration/concurrency | PASS | 10 suites, 30 tests passed; 0 failed/skipped |
@@ -34,8 +34,9 @@ Image: `masarifi-backend:spec-be-001`
 
 The local image ID/digest is
 `sha256:68988e8d5dd628619f413a48e6ee0c65a0c6d18111d8534811152afb497cec8f`.
-The immutable tag workflow remains authoritative for registry scan, CycloneDX
-SBOM, Sigstore signature, SLSA provenance, and attestations.
+The immutable tag workflow is authoritative for registry scan, CycloneDX SBOM,
+Sigstore signature, SLSA provenance, and attestations; its passing identifiers
+and hashes are retained in `remote.md`.
 
 ## Resolved red-to-green diagnostics
 
@@ -74,6 +75,6 @@ Final live Jest/pgTAP/container suites contain zero skips. The previously
 documented SPEC-BE-002 Apple registration, protected Phone identities/full
 three-user matrix, hosted canonical-schema proof, provider rotation/outage,
 deployed webhook secret/URL, and protected historical release evidence remain
-external-only and are not counted above. Phase 05 protected-tag scan/SBOM/
-signature/provenance/attestation evidence is collected only by T109-T110 after
-the exact committed revision passes main CI.
+external-only and are not counted above. Phase 05 exact-main and immutable-tag
+scan/SBOM/signature/provenance/attestation evidence passed and is retained in
+`remote.md`.

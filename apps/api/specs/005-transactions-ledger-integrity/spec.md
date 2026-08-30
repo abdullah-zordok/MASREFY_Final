@@ -6,7 +6,7 @@ and release requirements remain unchanged)
 **Feature Directory**: `apps/api/specs/005-transactions-ledger-integrity`
 **Base Revision**: `dfed012743ca0c3c5f760e7b2439dbc0dae9c825`
 **Created**: 2026-08-30
-**Status**: Implemented; local release gates passed; remote release evidence pending
+**Status**: Complete; released as immutable `backend-v0.5.0`
 **Input**: "Fully complete Phase 05 — SPEC-BE-005: Transactions, Ledger,
 Transfers & Financial Integrity, including the temporary forward-compatible
 SPEC-BE-006 idempotency prerequisite and all required implementation, testing,
