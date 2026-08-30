@@ -260,7 +260,7 @@ description: "Dependency-ordered implementation tasks for SPEC-BE-005"
 - [x] T108 Commit the exact Phase 05 diff on `codex/spec-be-005` with Spec-identifying messages, rerun pre-push checks on the committed revision, and push without rewriting history
 - [x] T109 Integrate the verified branch to synchronized `main` without touching unrelated primary-checkout work or rewriting history, push `main`, and record immutable commit/CI links in `apps/api/specs/005-transactions-ledger-integrity/evidence/remote.md`
 - [x] T110 Create and push the required immutable Phase 05 backend release tag only after main CI passes; collect actual image digest, scan, SBOM, signature, provenance, and attestation results in `apps/api/specs/005-transactions-ledger-integrity/evidence/remote.md`
-- [ ] T111 Finish the development branch only after all required local and remote verification passes, leaving any unavailable protected identity/provider evidence explicitly external in `apps/api/specs/005-transactions-ledger-integrity/evidence/definition-of-done.md`
+- [x] T111 Finish the development branch only after all required local and remote verification passes, leaving any unavailable protected identity/provider evidence explicitly external in `apps/api/specs/005-transactions-ledger-integrity/evidence/definition-of-done.md`
 
 ## Dependencies
 
