@@ -109,7 +109,8 @@ procedures are retained beside this file.
 - [x] Mobile/Admin compatibility passes without source implementation changes.
 - [x] Metrics, alerts, dashboards, runbooks, rollback, restore, and
   reconciliation procedures are implemented and exercised.
-- [ ] Exact committed revision pre-push verification and push (T108) pending.
+- [x] Implementation `db5066e` plus local-evidence `82a61ba` were verified and
+  pushed to `origin/codex/spec-be-005` without rewriting history.
 - [ ] Exact main/tag CI, immutable image, SBOM, vulnerability scan, signature,
   provenance, and attestations (T109-T110) pending.
 
