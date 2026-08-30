@@ -228,11 +228,13 @@ describe('navigation journey', () => {
   });
 
   it('updates mounted More labels immediately when the locale changes', () => {
-    usePreferenceStore.getState().setLocale('en');
+    void usePreferenceStore.getState().setLocale('en');
     renderWithProviders(<MoreRoute />);
     expect(screen.getByText(translate('appShell.more.services', 'en'))).toBeOnTheScreen();
 
-    act(() => usePreferenceStore.getState().setLocale('ar'));
+    act(() => {
+      void usePreferenceStore.getState().setLocale('ar');
+    });
 
     expect(screen.getByText(translate('appShell.more.services', 'ar'))).toBeOnTheScreen();
     expect(screen.queryByText(translate('appShell.more.services', 'en'))).toBeNull();

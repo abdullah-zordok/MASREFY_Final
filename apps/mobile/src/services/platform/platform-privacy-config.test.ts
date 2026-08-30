@@ -26,7 +26,11 @@ describe('native privacy configuration', () => {
       'android.permission.READ_SMS'
     );
     expect(appConfig.expo.android.allowBackup).toBe(false);
-    expect(manifest).not.toContain('android.permission.READ_SMS');
+    expect(
+      manifest.match(
+        /<uses-permission[^>]*android\.permission\.READ_SMS[^>]*\/>/g
+      ) ?? []
+    ).toEqual([expect.stringContaining('tools:node="remove"')]);
     expect(manifest).toContain('android:allowBackup="false"');
   });
 });

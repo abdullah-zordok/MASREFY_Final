@@ -17,6 +17,78 @@ export interface CurrencyItem {
 
 export const supportedCurrencies: readonly CurrencyItem[] = [
   {
+    code: 'SAR',
+    minorUnitScale: 2,
+    symbol: 'SAR',
+    symbolAr: '﷼',
+    symbolEn: 'SAR',
+    flag: '🇸🇦',
+    nameAr: 'الريال السعودي',
+    nameEn: 'Saudi Riyal',
+    countryAr: 'السعودية',
+    countryEn: 'Saudi Arabia'
+  },
+  {
+    code: 'AED',
+    minorUnitScale: 2,
+    symbol: 'AED',
+    symbolAr: 'د.إ',
+    symbolEn: 'AED',
+    flag: '🇦🇪',
+    nameAr: 'الدرهم الإماراتي',
+    nameEn: 'UAE Dirham',
+    countryAr: 'الإمارات',
+    countryEn: 'United Arab Emirates'
+  },
+  {
+    code: 'KWD',
+    minorUnitScale: 3,
+    symbol: 'KWD',
+    symbolAr: 'د.ك',
+    symbolEn: 'KWD',
+    flag: '🇰🇼',
+    nameAr: 'الدينار الكويتي',
+    nameEn: 'Kuwaiti Dinar',
+    countryAr: 'الكويت',
+    countryEn: 'Kuwait'
+  },
+  {
+    code: 'QAR',
+    minorUnitScale: 2,
+    symbol: 'QAR',
+    symbolAr: 'ر.ق',
+    symbolEn: 'QAR',
+    flag: '🇶🇦',
+    nameAr: 'الريال القطري',
+    nameEn: 'Qatari Riyal',
+    countryAr: 'قطر',
+    countryEn: 'Qatar'
+  },
+  {
+    code: 'BHD',
+    minorUnitScale: 3,
+    symbol: 'BHD',
+    symbolAr: 'د.ب',
+    symbolEn: 'BHD',
+    flag: '🇧🇭',
+    nameAr: 'الدينار البحريني',
+    nameEn: 'Bahraini Dinar',
+    countryAr: 'البحرين',
+    countryEn: 'Bahrain'
+  },
+  {
+    code: 'OMR',
+    minorUnitScale: 3,
+    symbol: 'OMR',
+    symbolAr: 'ر.ع',
+    symbolEn: 'OMR',
+    flag: '🇴🇲',
+    nameAr: 'الريال العماني',
+    nameEn: 'Omani Rial',
+    countryAr: 'عمان',
+    countryEn: 'Oman'
+  },
+  {
     code: 'EGP',
     minorUnitScale: 2,
     symbol: 'EGP',
@@ -63,78 +135,6 @@ export const supportedCurrencies: readonly CurrencyItem[] = [
     nameEn: 'British Pound',
     countryAr: 'المملكة المتحدة',
     countryEn: 'United Kingdom'
-  },
-  {
-    code: 'AED',
-    minorUnitScale: 2,
-    symbol: 'AED',
-    symbolAr: 'د.إ',
-    symbolEn: 'AED',
-    flag: '🇦🇪',
-    nameAr: 'الدرهم الإماراتي',
-    nameEn: 'UAE Dirham',
-    countryAr: 'الإمارات',
-    countryEn: 'United Arab Emirates'
-  },
-  {
-    code: 'SAR',
-    minorUnitScale: 2,
-    symbol: 'SAR',
-    symbolAr: '﷼',
-    symbolEn: 'SAR',
-    flag: '🇸🇦',
-    nameAr: 'الريال السعودي',
-    nameEn: 'Saudi Riyal',
-    countryAr: 'السعودية',
-    countryEn: 'Saudi Arabia'
-  },
-  {
-    code: 'OMR',
-    minorUnitScale: 3,
-    symbol: 'OMR',
-    symbolAr: 'ر.ع',
-    symbolEn: 'OMR',
-    flag: '🇴🇲',
-    nameAr: 'الريال العماني',
-    nameEn: 'Omani Rial',
-    countryAr: 'عمان',
-    countryEn: 'Oman'
-  },
-  {
-    code: 'KWD',
-    minorUnitScale: 3,
-    symbol: 'KWD',
-    symbolAr: 'د.ك',
-    symbolEn: 'KWD',
-    flag: '🇰🇼',
-    nameAr: 'الدينار الكويتي',
-    nameEn: 'Kuwaiti Dinar',
-    countryAr: 'الكويت',
-    countryEn: 'Kuwait'
-  },
-  {
-    code: 'QAR',
-    minorUnitScale: 2,
-    symbol: 'QAR',
-    symbolAr: 'ر.ق',
-    symbolEn: 'QAR',
-    flag: '🇶🇦',
-    nameAr: 'الريال القطري',
-    nameEn: 'Qatari Riyal',
-    countryAr: 'قطر',
-    countryEn: 'Qatar'
-  },
-  {
-    code: 'BHD',
-    minorUnitScale: 3,
-    symbol: 'BHD',
-    symbolAr: 'د.ب',
-    symbolEn: 'BHD',
-    flag: '🇧🇭',
-    nameAr: 'الدينار البحريني',
-    nameEn: 'Bahraini Dinar',
-    countryAr: 'البحرين',
-    countryEn: 'Bahrain'
   },
   {
     code: 'JOD',

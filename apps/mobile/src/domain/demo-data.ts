@@ -15,15 +15,17 @@ import {
   createNotificationPreferences,
   notificationEventSchema
 } from './notifications';
+import type { Locale } from './foundation';
 
 export function createClientDemoData(
   now = Date.now(),
-  timeZone = 'Asia/Riyadh'
+  timeZone = 'Asia/Riyadh',
+  locale: Locale = 'en'
 ) {
   const finance = {
-    accounts: createDemoAccounts(now),
+    accounts: createDemoAccounts(now, locale),
     categories: createDefaultCategories(),
-    transactions: createDemoTransactions(now)
+    transactions: createDemoTransactions(now, locale)
   };
   const automaticEvent = detectedFinancialEventSchema.parse({
     id: 'demo-tracking-auto',
@@ -34,7 +36,7 @@ export function createClientDemoData(
     confidenceBasisPoints: 9700,
     amountMinor: 24_375,
     currencyCode: 'SAR',
-    merchant: 'Tamimi Markets',
+    merchant: finance.transactions[2].merchant,
     categoryId: 'food',
     accountHint: null,
     accountId: 'account-default',
@@ -56,7 +58,7 @@ export function createClientDemoData(
     decisionStatus: 'review_required',
     confidenceBasisPoints: 7200,
     amountMinor: 8_950,
-    merchant: 'Local Store',
+    merchant: locale === 'ar' ? 'متجر محلي' : 'Local Store',
     reasonCodes: ['low_confidence'],
     transactionId: null
   });
@@ -116,7 +118,7 @@ export function createClientDemoData(
       senderRuleSchema.parse({
         id: 'demo-sender-bank',
         normalizedSender: 'masarifibank',
-        displayLabel: 'Masarifi Bank',
+        displayLabel: finance.accounts[2].institution ?? 'Masarifi Bank',
         institutionKey: 'masarifi',
         origin: 'recognized',
         enabled: true,
@@ -136,7 +138,7 @@ export function createClientDemoData(
       eventType: 'tracking.expense.added',
       titleKey: 'notifications.tracking.expense.added.title',
       bodyKey: 'notifications.tracking.expense.added.body',
-      messageValues: { merchant: 'Tamimi Markets' },
+      messageValues: { merchant: finance.transactions[2].merchant ?? '' },
       sensitivity: 'protected',
       target: { kind: 'transaction', transactionId: 'demo-transaction-3' },
       availableActions: [{ kind: 'view', expiresAt: null, sourceVersion: 1 }],
@@ -169,7 +171,7 @@ export function createClientDemoData(
 
   return {
     finance,
-    planning: createDemoFinancialPlanningSeed(now, timeZone),
+    planning: createDemoFinancialPlanningSeed(now, timeZone, locale),
     tracking,
     notifications,
     notificationPreferences: createNotificationPreferences(now)

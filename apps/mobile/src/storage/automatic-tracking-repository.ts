@@ -58,6 +58,32 @@ export class AutomaticTrackingRepository {
     this.sequence = 0;
   }
 
+  relocalizeDemoFixtures(seed: AutomaticTrackingSeed): void {
+    const events = new Map(seed.events?.map((event) => [event.id, event]));
+    const reviews = new Map(seed.reviews?.map((review) => [review.id, review]));
+    const senders = new Map(seed.senders?.map((sender) => [sender.id, sender]));
+    this.events = this.events.map((event) => {
+      const localized = events.get(event.id);
+      return localized ? { ...event, merchant: localized.merchant } : event;
+    });
+    this.reviews = this.reviews.map((review) => {
+      const localized = reviews.get(review.id);
+      return localized
+        ? {
+            ...review,
+            proposedValues: {
+              ...review.proposedValues,
+              merchant: localized.proposedValues.merchant
+            }
+          }
+        : review;
+    });
+    this.senders = this.senders.map((sender) => {
+      const localized = senders.get(sender.id);
+      return localized ? { ...sender, displayLabel: localized.displayLabel } : sender;
+    });
+  }
+
   async hydrate(): Promise<void> {
     const database = await openDatabase();
     const [events, reviews, duplicates, senders, history, feedback] =

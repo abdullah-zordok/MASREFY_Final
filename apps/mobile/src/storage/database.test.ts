@@ -283,6 +283,17 @@ it('applies every migration to a fresh database', async () => {
       'settings_profile'
     ])
   );
+  for (const table of [
+    'finance_accounts',
+    'finance_categories',
+    'finance_transactions',
+    'planning_salary_profiles',
+    'planning_budgets',
+    'planning_obligations',
+    'planning_savings_goals'
+  ]) {
+    expect(await database.getAllAsync(`SELECT id FROM ${table}`)).toEqual([]);
+  }
 });
 
 it('rolls back the schema and version record when DDL fails', async () => {

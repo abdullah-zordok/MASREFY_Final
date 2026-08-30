@@ -694,6 +694,11 @@ const en = {
     'Why do we need the last 4 digits?',
   'coreFinance.accounts.setup.educationBody':
     'Banks include the last 4 digits in SMS alerts. This helps Masarifi match transactions to this account automatically.',
+  'coreFinance.accounts.setup.nameExample.bank':
+    'e.g. Salary Account, Main Checking',
+  'coreFinance.accounts.setup.nameExample.credit_card':
+    'e.g. NBE Platinum, HSBC Cash Back',
+  'coreFinance.accounts.setup.nameExample.cash': 'e.g. Wallet Cash, Home Safe',
   'coreFinance.accounts.setup.currencyPickerTitle': 'Select Currency',
   'coreFinance.accounts.setup.currencySearchPlaceholder': 'Search currency...',
   'coreFinance.accounts.setup.makeDefaultDesc':

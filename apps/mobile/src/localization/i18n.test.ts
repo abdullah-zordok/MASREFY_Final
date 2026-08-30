@@ -42,6 +42,42 @@ describe('message catalog parity', () => {
       }
     }
   });
+
+  it('uses the approved Gulf-neutral Arabic account glossary', () => {
+    expect(ar).toMatchObject({
+      'coreFinance.accounts.setup.introTitle': 'تفاصيل الحساب',
+      'coreFinance.accounts.setup.educationTitle':
+        'لماذا نحتاج آخر أربعة أرقام؟',
+      'coreFinance.accounts.typeSelect.bank': 'بطاقة خصم / حساب بنكي',
+      'coreFinance.accounts.typeSelect.credit_card': 'بطاقة ائتمانية',
+      'coreFinance.accounts.typeSelect.cash': 'حساب نقدي',
+      'coreFinance.accounts.typeSelect.wallet': 'محفظة رقمية'
+    });
+  });
+
+  it('keeps confirmed Egyptian account-flow phrases out of product copy', () => {
+    const accountCopy = Object.entries(ar)
+      .filter(([key]) => key.startsWith('coreFinance.accounts.'))
+      .map(([, value]) => value)
+      .join('\n');
+
+    for (const phrase of [
+      'بتضيف إيه',
+      'ده بيحدد',
+      'قربنا نخلص',
+      'ليه بنحتاج',
+      'بيبعت',
+      'كريدت كارد',
+      'كارت',
+      'فلوس البيت',
+      'حساب المرتب',
+      'إنت اللي بتسجله',
+      'فودافون كاش',
+      'أورنج كاش'
+    ]) {
+      expect(accountCopy).not.toContain(phrase);
+    }
+  });
 });
 
 describe('direction derivation', () => {

@@ -1,6 +1,70 @@
 import type { Account, Category, Transaction } from './core-finance';
+import type { Locale } from './foundation';
 
 const FIXTURE_NOW = Date.UTC(2026, 7, 8, 12);
+
+const demoCopy = {
+  en: {
+    bankAccount: 'Masarifi',
+    cashAccount: 'Cash Wallet',
+    cardAccount: 'Client Card',
+    bank: 'Masarifi Bank',
+    accountNote: 'Client demo account',
+    cardNote: 'Client demo card',
+    transactionNote: 'Client demo data',
+    fallbackTitle: 'Demo transaction',
+    fallbackMerchant: 'Demo merchant',
+    titles: [
+      'Monthly salary',
+      'Rent payment',
+      'Grocery run',
+      'Coffee meeting',
+      'Client dinner supplies',
+      'Wallet top-up',
+      'Electricity bill',
+      'Streaming subscription',
+      'Card refund'
+    ],
+    merchants: {
+      building: 'Building Management',
+      grocery: 'Tamimi Markets',
+      cafe: 'Draft Cafe',
+      mall: 'Mall Store',
+      utility: 'Utility Provider',
+      streaming: 'StreamBox'
+    }
+  },
+  ar: {
+    bankAccount: 'مصاريفي',
+    cashAccount: 'المحفظة النقدية',
+    cardAccount: 'بطاقة العميل',
+    bank: 'بنك مصاريفي',
+    accountNote: 'حساب بيانات العرض',
+    cardNote: 'بطاقة بيانات العرض',
+    transactionNote: 'بيانات عرض تجريبية',
+    fallbackTitle: 'معاملة تجريبية',
+    fallbackMerchant: 'تاجر تجريبي',
+    titles: [
+      'الراتب الشهري',
+      'دفعة الإيجار',
+      'مشتريات البقالة',
+      'لقاء في المقهى',
+      'مستلزمات العشاء',
+      'شحن المحفظة',
+      'فاتورة الكهرباء',
+      'اشتراك البث',
+      'استرداد البطاقة'
+    ],
+    merchants: {
+      building: 'إدارة المبنى',
+      grocery: 'أسواق التميمي',
+      cafe: 'مقهى درافت',
+      mall: 'متجر المركز التجاري',
+      utility: 'مزود الكهرباء',
+      streaming: 'ستريم بوكس'
+    }
+  }
+} as const;
 
 export const defaultCategorySeeds = [
   ['housing', 'السكن', 'Housing'],
@@ -61,15 +125,20 @@ export function createDefaultAccount(now = Date.now()): Account {
   };
 }
 
-export function createDemoAccounts(now = Date.now()): Account[] {
+export function createDemoAccounts(
+  now = Date.now(),
+  locale: Locale = 'en'
+): Account[] {
+  const copy = demoCopy[locale];
   return [
     {
       ...createDefaultAccount(now),
+      name: copy.bankAccount,
       openingBalanceMinor: 0
     },
     {
       id: 'demo-account-cash',
-      name: 'Cash Wallet',
+      name: copy.cashAccount,
       type: 'cash',
       currencyCode: 'SAR',
       openingBalanceMinor: 42_500,
@@ -79,24 +148,24 @@ export function createDemoAccounts(now = Date.now()): Account[] {
       isDefault: false,
       iconKey: 'wallet',
       colorKey: 'account-bronze',
-      notes: 'Client demo account',
+      notes: copy.accountNote,
       status: 'active',
       createdAt: now,
       updatedAt: now
     },
     {
       id: 'demo-account-card',
-      name: 'Client Card',
+      name: copy.cardAccount,
       type: 'credit_card',
       currencyCode: 'SAR',
       openingBalanceMinor: 0,
-      institution: 'Masarifi Bank',
+      institution: copy.bank,
       lastFour: '4821',
       creditLimitMinor: 500_000,
       isDefault: false,
       iconKey: 'card',
       colorKey: 'account-neutral',
-      notes: 'Client demo card',
+      notes: copy.cardNote,
       status: 'active',
       createdAt: now,
       updatedAt: now
@@ -104,81 +173,85 @@ export function createDemoAccounts(now = Date.now()): Account[] {
   ];
 }
 
-export function createDemoTransactions(now = Date.now()): Transaction[] {
+export function createDemoTransactions(
+  now = Date.now(),
+  locale: Locale = 'en'
+): Transaction[] {
+  const copy = demoCopy[locale];
   const date = new Date(now);
   const at = (day: number, hour: number) =>
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), day, hour);
   return [
-    demoTransaction(1, now, {
+    demoTransaction(1, now, copy, {
       type: 'income',
       amountMinor: 12_500_00,
       categoryId: 'salary',
-      title: 'Monthly salary',
+      title: copy.titles[0],
       merchant: null,
       occurredAt: at(1, 9)
     }),
-    demoTransaction(2, now, {
+    demoTransaction(2, now, copy, {
       amountMinor: 1_850_00,
       categoryId: 'housing',
-      title: 'Rent payment',
-      merchant: 'Building Management',
+      title: copy.titles[1],
+      merchant: copy.merchants.building,
       occurredAt: at(2, 10)
     }),
-    demoTransaction(3, now, {
+    demoTransaction(3, now, copy, {
       amountMinor: 243_75,
       categoryId: 'food',
-      title: 'Grocery run',
-      merchant: 'Tamimi Markets',
+      title: copy.titles[2],
+      merchant: copy.merchants.grocery,
       occurredAt: at(4, 18)
     }),
-    demoTransaction(4, now, {
+    demoTransaction(4, now, copy, {
       amountMinor: 78_50,
       accountId: 'demo-account-cash',
       categoryId: 'restaurants',
-      title: 'Coffee meeting',
-      merchant: 'Draft Cafe',
+      title: copy.titles[3],
+      merchant: copy.merchants.cafe,
       paymentMethod: 'cash',
       occurredAt: at(6, 14)
     }),
-    demoTransaction(5, now, {
+    demoTransaction(5, now, copy, {
       amountMinor: 320_00,
       accountId: 'demo-account-card',
       categoryId: 'shopping',
-      title: 'Client dinner supplies',
-      merchant: 'Mall Store',
+      title: copy.titles[4],
+      merchant: copy.merchants.mall,
       paymentMethod: 'card',
       occurredAt: at(10, 20)
     }),
-    demoTransaction(6, now, {
+    demoTransaction(6, now, copy, {
       type: 'transfer',
       amountMinor: 500_00,
       accountId: 'account-default',
       destinationAccountId: 'demo-account-cash',
       categoryId: 'transfers',
-      title: 'Wallet top-up',
+      title: copy.titles[5],
       merchant: null,
       occurredAt: at(12, 11)
     }),
-    demoTransaction(7, now, {
+    demoTransaction(7, now, copy, {
       amountMinor: 159_00,
       categoryId: 'utilities',
-      title: 'Electricity bill',
-      merchant: 'Utility Provider',
+      title: copy.titles[6],
+      merchant: copy.merchants.utility,
       occurredAt: at(15, 8)
     }),
-    demoTransaction(8, now, {
+    demoTransaction(8, now, copy, {
       amountMinor: 49_99,
       categoryId: 'subscriptions',
-      title: 'Streaming subscription',
-      merchant: 'StreamBox',
+      title: copy.titles[7],
+      merchant: copy.merchants.streaming,
       occurredAt: at(18, 7)
     }),
-    demoTransaction(9, now, {
+    demoTransaction(9, now, copy, {
       type: 'refund',
       amountMinor: 25_00,
       categoryId: 'shopping',
-      title: 'Card refund',
-      merchant: 'Mall Store',
+      title: copy.titles[8],
+      merchant: copy.merchants.mall,
       originalTransactionId: 'demo-transaction-5',
       occurredAt: at(19, 13)
     })
@@ -188,6 +261,7 @@ export function createDemoTransactions(now = Date.now()): Transaction[] {
 function demoTransaction(
   index: number,
   now: number,
+  copy: (typeof demoCopy)[Locale],
   overrides: Partial<Transaction>
 ): Transaction {
   return {
@@ -199,8 +273,8 @@ function demoTransaction(
     destinationAccountId: null,
     feeMinor: 0,
     categoryId: 'shopping',
-    title: `Demo transaction ${index}`,
-    merchant: 'Demo merchant',
+    title: `${copy.fallbackTitle} ${index}`,
+    merchant: copy.fallbackMerchant,
     paymentMethod: 'card',
     occurredAt: now - index * 86_400_000,
     source: 'manual',
@@ -209,7 +283,7 @@ function demoTransaction(
     syncStatus: 'synced',
     originalTransactionId: null,
     obligationId: null,
-    notes: 'Client demo data',
+    notes: copy.transactionNote,
     version: 1,
     adjustmentSign: 1,
     deletedAt: null,

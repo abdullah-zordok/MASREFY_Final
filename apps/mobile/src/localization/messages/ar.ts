@@ -7,6 +7,7 @@
  */
 
 import type { MessageCatalog } from './en';
+import { gulfArabicProductGlossary as glossary } from '../gulf-arabic-glossary';
 
 const ar: MessageCatalog = {
   'app.title': 'مسارف',
@@ -666,7 +667,7 @@ const ar: MessageCatalog = {
   'coreFinance.accounts.create': 'إنشاء الحساب',
   'coreFinance.accounts.step1Of2': 'الخطوة 1 من 2',
   'coreFinance.accounts.step2Of2': 'الخطوة 2 من 2',
-  'coreFinance.accounts.setup.introTitle': 'قربنا نخلص',
+  'coreFinance.accounts.setup.introTitle': glossary.accountDetails,
   'coreFinance.accounts.setup.introSubtitle':
     'أدخل تفاصيل الحساب لبدء التتبع بدقة.',
   'coreFinance.accounts.setup.cardBasics': 'بيانات البطاقة',
@@ -676,9 +677,14 @@ const ar: MessageCatalog = {
   'coreFinance.accounts.setup.billing': 'الفوترة وموعد السداد',
   'coreFinance.accounts.setup.dueDay': 'يوم الاستحقاق الشهري',
   'coreFinance.accounts.setup.lastFour': 'آخر 4 أرقام من البطاقة (اختياري)',
-  'coreFinance.accounts.setup.educationTitle': 'ليه بنحتاج آخر 4 أرقام؟',
+  'coreFinance.accounts.setup.educationTitle': `لماذا نحتاج ${glossary.lastFourDigits}؟`,
   'coreFinance.accounts.setup.educationBody':
-    'البنك بيبعت رسائل SMS بتحتوي على آخر 4 أرقام، ده بيساعد مصاريفي يربط المعاملة بالحساب ده تلقائيًا.',
+    'قد تحتوي رسائل البنك على آخر أربعة أرقام، ما يساعد مصاريفي على مطابقة المعاملة بهذا الحساب تلقائيًا عند تفعيل التتبع.',
+  'coreFinance.accounts.setup.nameExample.bank': `مثال: مصرف الراجحي، حساب ${glossary.salary}`,
+  'coreFinance.accounts.setup.nameExample.credit_card':
+    'مثال: بطاقة الأهلي الائتمانية، بطاقة المشتريات',
+  'coreFinance.accounts.setup.nameExample.cash':
+    'مثال: المحفظة النقدية، مصروف المنزل',
   'coreFinance.accounts.setup.currencyPickerTitle': 'اختر العملة',
   'coreFinance.accounts.setup.currencySearchPlaceholder': 'ابحث عن العملة...',
   'coreFinance.accounts.setup.makeDefaultDesc':
@@ -696,21 +702,21 @@ const ar: MessageCatalog = {
   'coreFinance.accounts.keepEditing': 'متابعة التعديل',
   'coreFinance.accounts.discard': 'تجاهل',
   'coreFinance.accounts.restore': 'استعادة الحساب',
-  'coreFinance.accounts.typeSelect.title': 'بتضيف إيه؟',
+  'coreFinance.accounts.typeSelect.title': `ما نوع ${glossary.account} الذي تريد إضافته؟`,
   'coreFinance.accounts.typeSelect.subtitle':
-    'ده بيحدد مصاريفي هيتابع الحساب إزاي.',
-  'coreFinance.accounts.typeSelect.bank': 'ديبت كارد / حساب بنكي',
+    'يحدّد هذا الخيار كيفية متابعة مصاريفي للحساب.',
+  'coreFinance.accounts.typeSelect.bank': `${glossary.debitCard} / ${glossary.bankAccount}`,
   'coreFinance.accounts.typeSelect.bank.desc':
-    'كارت بنكي عادي أو حساب بتحوّل منه.',
-  'coreFinance.accounts.typeSelect.credit_card': 'كريدت كارد',
+    'بطاقة بنكية أو حساب تُجري منه التحويلات.',
+  'coreFinance.accounts.typeSelect.credit_card': glossary.creditCard,
   'coreFinance.accounts.typeSelect.credit_card.desc':
-    'بيتابع الصرف مقابل حد الائتمان.',
-  'coreFinance.accounts.typeSelect.cash': 'كاش',
+    'يتابع الإنفاق مقارنةً بالحد الائتماني.',
+  'coreFinance.accounts.typeSelect.cash': glossary.cashAccount,
   'coreFinance.accounts.typeSelect.cash.desc':
-    'من غير بنك ولا رسائل – إنت اللي بتسجله.',
-  'coreFinance.accounts.typeSelect.wallet': 'محفظة إلكترونية',
+    'حساب بدون بنك أو رسائل؛ تسجّل معاملاته بنفسك.',
+  'coreFinance.accounts.typeSelect.wallet': glossary.digitalWallet,
   'coreFinance.accounts.typeSelect.wallet.desc':
-    'فودافون كاش، أورنج كاش، وشبهها.',
+    'محفظة رقمية للمدفوعات والتحويلات.',
   'coreFinance.accounts.typeSelect.savings': 'ذهب / ادخار',
   'coreFinance.accounts.typeSelect.savings.desc':
     'سبائك، ودائع، أو أصول ادخارية.',

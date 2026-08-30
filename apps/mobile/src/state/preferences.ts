@@ -19,11 +19,13 @@ import {
 import { loadPreferences, savePreferences } from '@/storage/secure-preferences';
 import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
 import { changeLocale } from '@/localization/i18n';
+import { isDemoModeEnabled } from '@/config/demo-mode';
+import { synchronizeClientDemoLocale } from '@/services/mocks/client-demo-locale';
 
 interface PreferenceState extends UserPreferences {
   hydrated: boolean;
   hydrate: () => Promise<void>;
-  setLocale: (locale: Locale) => void;
+  setLocale: (locale: Locale) => Promise<boolean>;
   setTheme: (theme: ThemePreference) => void;
   toggleHideBalances: () => void;
   setBaseCurrencyCode: (code: string) => void;
@@ -48,6 +50,11 @@ interface PreferenceState extends UserPreferences {
   ) => void;
 }
 
+let localeRequestVersion = 0;
+let pendingDemoLocaleRequests = 0;
+let demoLocaleQueue: Promise<unknown> = Promise.resolve();
+let lastSynchronizedDemoLocale: Locale | null = null;
+
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   ...buildPreferences({}),
   hydrated: false,
@@ -63,11 +70,50 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     }
   },
 
-  setLocale: (locale) => {
-    const next = { ...get(), locale, direction: directionForLocale(locale) };
-    changeLocale(locale);
-    set(next);
-    void persist(next);
+  setLocale: async (locale) => {
+    if (!isDemoModeEnabled()) {
+      if (locale === get().locale) return true;
+      commitLocale(locale, set, get);
+      return true;
+    }
+    if (
+      locale === get().locale &&
+      locale === lastSynchronizedDemoLocale &&
+      pendingDemoLocaleRequests === 0
+    )
+      return true;
+
+    const requestVersion = ++localeRequestVersion;
+    pendingDemoLocaleRequests += 1;
+    const synchronization = demoLocaleQueue.then(async () => {
+      try {
+        await synchronizeClientDemoLocale(locale);
+        lastSynchronizedDemoLocale = locale;
+        return true;
+      } catch {
+        const committedLocale = get().locale;
+        if (
+          requestVersion === localeRequestVersion &&
+          lastSynchronizedDemoLocale !== committedLocale
+        ) {
+          try {
+            await synchronizeClientDemoLocale(committedLocale);
+            lastSynchronizedDemoLocale = committedLocale;
+          } catch {
+            // A later same-locale selection retries because the locales differ.
+          }
+        }
+        return false;
+      }
+    });
+    demoLocaleQueue = synchronization.then(() => undefined);
+    const synchronized = await synchronization;
+    pendingDemoLocaleRequests -= 1;
+    if (!synchronized) return false;
+    if (requestVersion === localeRequestVersion && locale !== get().locale) {
+      commitLocale(locale, set, get);
+    }
+    return requestVersion === localeRequestVersion;
   },
 
   setTheme: () => set({ theme: 'light' }),
@@ -110,10 +156,23 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
 }));
 
 registerRuntimeUserDataReset(() => {
+  localeRequestVersion += 1;
+  lastSynchronizedDemoLocale = null;
   const defaults = buildPreferences({});
   changeLocale(defaults.locale);
   usePreferenceStore.setState({ ...defaults, hydrated: true });
 });
+
+function commitLocale(
+  locale: Locale,
+  set: (state: Partial<PreferenceState>) => void,
+  get: () => PreferenceState
+): void {
+  const next = { ...get(), locale, direction: directionForLocale(locale) };
+  changeLocale(locale);
+  set(next);
+  void persist(next);
+}
 
 function persist(state: PreferenceState): Promise<void> {
   return savePreferences({

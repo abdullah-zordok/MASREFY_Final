@@ -18,7 +18,8 @@ import {
 } from '@/domain/demo-session';
 import { failUnlock, resetLock } from '@/features/security/privacy-lock';
 import { createAppShellStorage } from '@/storage/app-shell-storage';
-import { seedClientDemoData } from '@/storage/client-demo-seeder';
+import { synchronizeClientDemoLocale } from '@/services/mocks/client-demo-locale';
+import { usePreferenceStore } from '@/state/preferences';
 import { resetLocalUserData } from '@/storage/local-data-reset';
 import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
 
@@ -81,6 +82,9 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
   hydrate: async (now = Date.now()) => {
     try {
       const demoMode = isDemoModeEnabled();
+      if (demoMode && !usePreferenceStore.getState().hydrated)
+        await usePreferenceStore.getState().hydrate();
+      const locale = usePreferenceStore.getState().locale;
       const [
         storedSession,
         onboarding,
@@ -96,7 +100,7 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
         storage.loadPinCredential(),
         storage.loadProfilePromptDismissed(),
         demoMode
-          ? seedClientDemoData({ now }).catch(() => false)
+          ? synchronizeClientDemoLocale(locale, now).catch(() => false)
           : Promise.resolve(false)
       ]);
       const session =

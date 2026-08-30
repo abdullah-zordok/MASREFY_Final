@@ -26,6 +26,9 @@ import { authenticatedSession } from '@/test-utils/app-shell-fixtures';
 jest.mock('@/config/demo-mode', () => ({
   isDemoModeEnabled: () => true
 }));
+jest.mock('@/services/mocks/client-demo-locale', () => ({
+  synchronizeClientDemoLocale: jest.fn().mockResolvedValue(true)
+}));
 
 jest.mock('expo-router', () => ({
   router: {
@@ -43,6 +46,7 @@ const mockRouter = jest.mocked(router);
 const mockRedirect = jest.mocked(Redirect);
 const mockUsePathname = jest.mocked(usePathname);
 const mockUseRootNavigationState = jest.mocked(useRootNavigationState);
+const setLocale = usePreferenceStore.getState().setLocale;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -53,23 +57,40 @@ beforeEach(() => {
   usePreferenceStore.setState({
     locale: 'ar',
     direction: 'rtl',
-    hydrated: true
+    hydrated: true,
+    setLocale
   });
 });
 
 describe('public auth routes', () => {
-  it('persists language and opens welcome', () => {
+  it('persists language and opens welcome', async () => {
     renderWithProviders(<LanguageRoute />);
 
     fireEvent.press(screen.getByLabelText('الإنجليزية'));
 
-    expect(usePreferenceStore.getState().locale).toBe('en');
-    expect(mockRouter.replace).toHaveBeenCalledWith('/(public)/welcome');
+    await waitFor(() => {
+      expect(usePreferenceStore.getState().locale).toBe('en');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/(public)/welcome');
+    });
 
     renderWithProviders(<WelcomeRoute />);
     expect(
       screen.getByText(translate('appShell.public.welcome.body', 'en'))
     ).toBeTruthy();
+  });
+
+  it('stays on language selection when locale synchronization fails', async () => {
+    usePreferenceStore.setState({
+      setLocale: jest.fn().mockResolvedValue(false)
+    });
+    renderWithProviders(<LanguageRoute />);
+
+    fireEvent.press(screen.getByLabelText('الإنجليزية'));
+
+    await waitFor(() =>
+      expect(usePreferenceStore.getState().setLocale).toHaveBeenCalledWith('en')
+    );
+    expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
   it('opens welcome, sign-in, sign-up, legal, phone, and Google paths without passwords', () => {

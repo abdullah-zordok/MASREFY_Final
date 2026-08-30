@@ -1,10 +1,32 @@
 import { addMonthsClamped, expectedDateForMonth } from './financial-planning';
 import { localDateInTimeZone } from './financial-period';
+import type { Locale } from './foundation';
+
+const demoPlanningCopy = {
+  en: {
+    employer: 'Demo Employer',
+    budget: 'Monthly budget',
+    obligation: 'Car installment',
+    provider: 'Demo Auto',
+    providerKeywords: ['demo auto', 'car'],
+    goal: 'Emergency fund'
+  },
+  ar: {
+    employer: 'جهة العمل التجريبية',
+    budget: 'الميزانية الشهرية',
+    obligation: 'قسط السيارة',
+    provider: 'معرض السيارات التجريبي',
+    providerKeywords: ['معرض السيارات', 'سيارة'],
+    goal: 'صندوق الطوارئ'
+  }
+} as const;
 
 export function createDemoFinancialPlanningSeed(
   now = Date.now(),
-  timeZone = 'Asia/Riyadh'
+  timeZone = 'Asia/Riyadh',
+  locale: Locale = 'en'
 ) {
+  const copy = demoPlanningCopy[locale];
   const today = localDateInTimeZone(now, timeZone);
   const year = Number(today.slice(0, 4));
   const month = Number(today.slice(5, 7));
@@ -27,7 +49,7 @@ export function createDemoFinancialPlanningSeed(
         expectedAmountMinor: 1_250_000,
         currencyCode: 'SAR',
         salaryDay: 1,
-        sourceName: 'Demo Employer',
+        sourceName: copy.employer,
         receivingAccountId: 'account-default',
         nextExpectedDate: nextSalary,
         automaticDetectionEnabled: true,
@@ -51,7 +73,7 @@ export function createDemoFinancialPlanningSeed(
       {
         ...metadata,
         id: 'demo-budget-current',
-        name: 'Monthly budget',
+        name: copy.budget,
         periodKey,
         currencyCode: 'SAR',
         configuredExpenseLimitMinor: 500_000,
@@ -83,8 +105,8 @@ export function createDemoFinancialPlanningSeed(
         direction: 'payable' as const,
         type: 'car_installment' as const,
         scheduleKind: 'fixed_term' as const,
-        title: 'Car installment',
-        provider: 'Demo Auto',
+        title: copy.obligation,
+        provider: copy.provider,
         currencyCode: 'SAR',
         contractedTotalMinor: 6_000_000,
         openingPaidMinor: 1_000_000,
@@ -95,7 +117,7 @@ export function createDemoFinancialPlanningSeed(
         endDate: addMonthsClamped(dueDate, 24, 25),
         fundingAccountId: 'account-default',
         automaticMatchingEnabled: true,
-        providerKeywords: ['demo auto', 'car'],
+        providerKeywords: [...copy.providerKeywords],
         reminderTiming: null,
         notes: null,
         status: 'active' as const
@@ -114,7 +136,7 @@ export function createDemoFinancialPlanningSeed(
       {
         ...metadata,
         id: 'demo-goal-emergency',
-        title: 'Emergency fund',
+        title: copy.goal,
         targetMinor: 2_000_000,
         openingTrackedMinor: 500_000,
         currencyCode: 'SAR',

@@ -110,7 +110,9 @@ it('preserves a child state while changing locale direction', () => {
   );
 
   fireEvent.press(screen.getByTestId('stateful-child'));
-  act(() => usePreferenceStore.getState().setLocale('ar'));
+  act(() => {
+    void usePreferenceStore.getState().setLocale('ar');
+  });
 
   expect(screen.getByTestId('foundation-direction-root')).toHaveStyle({
     direction: 'rtl'

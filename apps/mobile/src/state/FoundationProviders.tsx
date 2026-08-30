@@ -7,7 +7,7 @@
  * never by reading raw tokens directly. Constitution Principle V.
  */
 
-import React, { useEffect, useMemo, type ReactNode } from 'react';
+import React, { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -50,6 +50,7 @@ export function FoundationProviders({
   const direction = usePreferenceStore((state) => state.direction);
   const hydrated = usePreferenceStore((state) => state.hydrated);
   const hydrate = usePreferenceStore((state) => state.hydrate);
+  const previousLocale = useRef(locale);
 
   useEffect(() => {
     if (!hydrated) {
@@ -64,11 +65,13 @@ export function FoundationProviders({
 
   useEffect(() => {
     changeLocale(locale);
+    if (previousLocale.current !== locale) client.clear();
+    previousLocale.current = locale;
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.documentElement.dir = direction;
       document.documentElement.lang = locale;
     }
-  }, [locale, direction]);
+  }, [client, locale, direction]);
 
   const resolved: ResolvedTheme = useMemo(() => resolveTheme('light'), []);
   const themeValue: ThemeContextValue = useMemo(

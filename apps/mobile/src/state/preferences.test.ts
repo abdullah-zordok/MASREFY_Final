@@ -2,18 +2,141 @@ import { buildPreferences } from '@/domain/foundation';
 import { loadPreferences, savePreferences } from '@/storage/secure-preferences';
 import { usePreferenceStore } from './preferences';
 import { resetRuntimeUserData } from '@/storage/runtime-user-data-reset';
+import { synchronizeClientDemoLocale } from '@/services/mocks/client-demo-locale';
 
 jest.mock('@/storage/secure-preferences', () => ({
   loadPreferences: jest.fn(),
   savePreferences: jest.fn().mockResolvedValue(undefined)
 }));
+jest.mock('@/services/mocks/client-demo-locale', () => ({
+  synchronizeClientDemoLocale: jest.fn(async () => true)
+}));
 
 const mockLoadPreferences = jest.mocked(loadPreferences);
 const mockSavePreferences = jest.mocked(savePreferences);
+const synchronizeDemoLocale = jest.mocked(synchronizeClientDemoLocale);
 
 beforeEach(() => {
+  delete process.env.EXPO_PUBLIC_DEMO_MODE;
   jest.clearAllMocks();
   usePreferenceStore.setState({ ...buildPreferences({}), hydrated: false });
+});
+
+it('commits a demo locale switch after its fixtures are relocalized', async () => {
+  process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+  let finishSync!: () => void;
+  synchronizeDemoLocale.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      finishSync = () => resolve(true);
+    })
+  );
+
+  const switchingLocale = usePreferenceStore.getState().setLocale('en');
+  expect(usePreferenceStore.getState().locale).toBe('ar');
+  finishSync();
+  await switchingLocale;
+
+  expect(synchronizeDemoLocale).toHaveBeenCalledWith('en');
+  expect(usePreferenceStore.getState()).toMatchObject({
+    locale: 'en',
+    direction: 'ltr'
+  });
+});
+
+it('keeps the current locale when demo relocalization fails', async () => {
+  process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+  synchronizeDemoLocale.mockRejectedValueOnce(new Error('database unavailable'));
+
+  await usePreferenceStore.getState().setLocale('en');
+
+  expect(usePreferenceStore.getState().locale).toBe('ar');
+  expect(mockSavePreferences).not.toHaveBeenCalled();
+});
+
+it('preserves preference changes made while demo relocalization runs', async () => {
+  process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+  let finishSync!: () => void;
+  synchronizeDemoLocale.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      finishSync = () => resolve(true);
+    })
+  );
+
+  const switchingLocale = usePreferenceStore.getState().setLocale('en');
+  usePreferenceStore.getState().toggleHideBalances();
+  finishSync();
+  await switchingLocale;
+
+  expect(usePreferenceStore.getState()).toMatchObject({
+    locale: 'en',
+    hideBalances: true
+  });
+});
+
+it('serializes rapid demo locale changes and commits only the latest', async () => {
+  process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+  let finishEnglish!: () => void;
+  let finishArabic!: () => void;
+  synchronizeDemoLocale
+    .mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishEnglish = () => resolve(true);
+      })
+    )
+    .mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishArabic = () => resolve(true);
+      })
+    );
+
+  const switchingToEnglish = usePreferenceStore.getState().setLocale('en');
+  const switchingBackToArabic = usePreferenceStore.getState().setLocale('ar');
+  finishEnglish();
+  await switchingToEnglish;
+  await Promise.resolve();
+
+  expect(synchronizeDemoLocale).toHaveBeenLastCalledWith('ar');
+  expect(usePreferenceStore.getState().locale).toBe('ar');
+
+  finishArabic();
+  await switchingBackToArabic;
+
+  expect(usePreferenceStore.getState()).toMatchObject({
+    locale: 'ar',
+    direction: 'rtl'
+  });
+  expect(mockSavePreferences).not.toHaveBeenCalled();
+});
+
+it('restores the committed demo locale when the latest queued switch fails', async () => {
+  process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+  let finishEnglish!: () => void;
+  synchronizeDemoLocale
+    .mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishEnglish = () => resolve(true);
+      })
+    )
+    .mockRejectedValueOnce(new Error('Arabic synchronization failed'))
+    .mockResolvedValueOnce(true);
+
+  const switchingToEnglish = usePreferenceStore.getState().setLocale('en');
+  const switchingBackToArabic = usePreferenceStore.getState().setLocale('ar');
+  finishEnglish();
+
+  await expect(switchingToEnglish).resolves.toBe(false);
+  await expect(switchingBackToArabic).resolves.toBe(false);
+
+  expect(synchronizeDemoLocale.mock.calls.map(([locale]) => locale)).toEqual([
+    'en',
+    'ar',
+    'ar'
+  ]);
+  expect(usePreferenceStore.getState()).toMatchObject({
+    locale: 'ar',
+    direction: 'rtl'
+  });
+  expect(mockSavePreferences).not.toHaveBeenCalled();
 });
 
 it.each(['dark', 'system'] as const)(

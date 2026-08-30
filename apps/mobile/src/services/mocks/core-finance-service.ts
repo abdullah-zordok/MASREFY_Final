@@ -31,6 +31,7 @@ import {
   legacyFixtureAccounts,
   legacyFixtureTransactions
 } from '@/domain/core-finance-seeds';
+import type { Locale } from '@/domain/foundation';
 import { CoreFinanceRepository } from '@/storage/core-finance-repository';
 import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
 import {
@@ -368,10 +369,14 @@ export function createSeededCoreFinanceService() {
   );
 }
 
-export function createProductionCoreFinanceService() {
+let demoCoreFinanceRepository: CoreFinanceRepository | null = null;
+
+export function createProductionCoreFinanceService(locale: Locale = 'ar') {
   if (isDemoModeEnabled()) {
+    const repository = createDemoCoreFinanceRepository(locale);
+    demoCoreFinanceRepository = repository;
     return createMockCoreFinanceService(
-      createDemoCoreFinanceRepository(),
+      repository,
       {
         persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
         registerForReset: true
@@ -393,23 +398,31 @@ export function createProductionCoreFinanceService() {
   );
 }
 
-export function createDemoCoreFinanceService() {
-  return createMockCoreFinanceService(
-    createDemoCoreFinanceRepository(),
-    { persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test' }
-  );
+export function createDemoCoreFinanceService(locale: Locale = 'ar') {
+  return createMockCoreFinanceService(createDemoCoreFinanceRepository(locale), {
+    persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test'
+  });
 }
 
-function createDemoCoreFinanceRepository() {
+function createDemoCoreFinanceRepository(locale: Locale) {
+  const now = Date.now();
   return new CoreFinanceRepository({
-    accounts: createDemoAccounts(),
+    accounts: createDemoAccounts(now, locale),
     categories: createDefaultCategories(),
-    transactions: createDemoTransactions(),
+    transactions: createDemoTransactions(now, locale),
     replaceEmptyDefaultLedger: true
   });
 }
 
 export const coreFinanceService = createProductionCoreFinanceService();
+
+export function relocalizeDemoCoreFinanceRepository(locale: Locale): void {
+  const now = Date.now();
+  demoCoreFinanceRepository?.relocalizeDemoFixtures({
+    accounts: createDemoAccounts(now, locale),
+    transactions: createDemoTransactions(now, locale)
+  });
+}
 
 function result<T>(
   value: T,

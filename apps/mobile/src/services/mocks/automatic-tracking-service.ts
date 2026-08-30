@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { isDemoModeEnabled } from '@/config/demo-mode';
 import { createClientDemoData } from '@/domain/demo-data';
+import type { Locale } from '@/domain/foundation';
 
 import {
   decideAutomaticTracking,
@@ -367,12 +368,34 @@ export function createMockAutomaticTrackingService({
   };
 }
 
-export const automaticTrackingService = createMockAutomaticTrackingService({
-  persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
-  notificationService: assistantNotificationsService,
-  permissionService: createTrackingPermissionService(),
-  registerForReset: true
-});
+let demoAutomaticTrackingRepository: AutomaticTrackingRepository | null = null;
+
+function createProductionAutomaticTrackingService(locale: Locale = 'ar') {
+  const repository = new AutomaticTrackingRepository(
+    isDemoModeEnabled()
+      ? createClientDemoData(Date.now(), 'Asia/Riyadh', locale).tracking
+      : {}
+  );
+  if (isDemoModeEnabled()) demoAutomaticTrackingRepository = repository;
+  return createMockAutomaticTrackingService({
+    repository,
+    persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
+    notificationService: assistantNotificationsService,
+    permissionService: createTrackingPermissionService(),
+    registerForReset: true
+  });
+}
+
+export const automaticTrackingService =
+  createProductionAutomaticTrackingService();
+
+export function relocalizeDemoAutomaticTrackingRepository(
+  locale: Locale
+): void {
+  demoAutomaticTrackingRepository?.relocalizeDemoFixtures(
+    createClientDemoData(Date.now(), 'Asia/Riyadh', locale).tracking
+  );
+}
 
 function page<T>(items: T[], cursor: string | null = null, pageSize = 50) {
   const start = cursor

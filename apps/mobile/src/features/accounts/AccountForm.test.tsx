@@ -42,14 +42,33 @@ describe('AccountForm', () => {
     expect(screen.queryByText(translate('coreFinance.accounts.setup.dueDay'))).toBeNull();
   });
 
-  it('defaults a new account to the configured base currency', () => {
-    usePreferenceStore.setState({ baseCurrencyCode: 'USD' });
-    const rendered = renderWithProviders(<AccountForm initialType="bank" />);
+  it.each(['SAR', 'AED'] as const)(
+    'defaults a new account to the configured %s preference',
+    (baseCurrencyCode) => {
+      usePreferenceStore.setState({ baseCurrencyCode });
+      const rendered = renderWithProviders(<AccountForm initialType="bank" />);
 
-    expect(screen.getByText('USD')).toBeTruthy();
-    rendered.unmount();
-    usePreferenceStore.setState({ baseCurrencyCode: 'SAR' });
-  });
+      expect(screen.getByText(baseCurrencyCode)).toBeTruthy();
+      rendered.unmount();
+      usePreferenceStore.setState({ baseCurrencyCode: 'SAR' });
+    }
+  );
+
+  it.each([
+    ['bank', 'مثال: مصرف الراجحي، حساب الراتب'],
+    ['credit_card', 'مثال: بطاقة الأهلي الائتمانية، بطاقة المشتريات'],
+    ['cash', 'مثال: المحفظة النقدية، مصروف المنزل']
+  ] as const)(
+    'exposes the Gulf-neutral %s account example through the labeled field',
+    (initialType, placeholder) => {
+      usePreferenceStore.setState({ locale: 'ar', direction: 'rtl' });
+      renderWithProviders(<AccountForm initialType={initialType} />);
+
+      expect(
+        screen.getByLabelText(translate('coreFinance.accounts.name', 'ar'))
+      ).toHaveProp('placeholder', placeholder);
+    }
+  );
 
   it('renders streamlined fields for cash type', () => {
     renderWithProviders(<AccountForm initialType="cash" />);

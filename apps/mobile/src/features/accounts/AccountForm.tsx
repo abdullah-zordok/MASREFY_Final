@@ -302,16 +302,10 @@ export function AccountForm({
             onChangeText={setName}
             placeholder={
               isCash
-                ? locale === 'ar'
-                  ? 'مثال: كاش المحفظة، فلوس البيت'
-                  : 'e.g. Wallet Cash, Home Safe'
+                ? t('coreFinance.accounts.setup.nameExample.cash')
                 : isCreditCard
-                  ? locale === 'ar'
-                    ? 'مثال: كريدت كارد الأهلي، كارت المشتريات'
-                    : 'e.g. NBE Platinum, HSBC Cash Back'
-                  : locale === 'ar'
-                    ? 'مثال: بنك مصر، حساب المرتب'
-                    : 'e.g. Salary Account, Main Checking'
+                  ? t('coreFinance.accounts.setup.nameExample.credit_card')
+                  : t('coreFinance.accounts.setup.nameExample.bank')
             }
             errorText={errorField === 'name' ? error : undefined}
             autoFocus={!isEditing}

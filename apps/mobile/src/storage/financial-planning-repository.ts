@@ -85,6 +85,42 @@ export class FinancialPlanningRepository {
     this.sequence = 0;
   }
 
+  relocalizeDemoFixtures(seed: FinancialPlanningSeed): void {
+    const salaryProfiles = new Map(
+      seed.salaryProfiles?.map((profile) => [profile.id, profile])
+    );
+    const budgets = new Map(seed.budgets?.map((budget) => [budget.id, budget]));
+    const obligations = new Map(
+      seed.obligations?.map((obligation) => [obligation.id, obligation])
+    );
+    const savingsGoals = new Map(
+      seed.savingsGoals?.map((goal) => [goal.id, goal])
+    );
+    this.salaryProfiles = this.salaryProfiles.map((profile) => {
+      const localized = salaryProfiles.get(profile.id);
+      return localized ? { ...profile, sourceName: localized.sourceName } : profile;
+    });
+    this.budgets = this.budgets.map((budget) => {
+      const localized = budgets.get(budget.id);
+      return localized ? { ...budget, name: localized.name } : budget;
+    });
+    this.obligations = this.obligations.map((obligation) => {
+      const localized = obligations.get(obligation.id);
+      return localized
+        ? {
+            ...obligation,
+            title: localized.title,
+            provider: localized.provider,
+            providerKeywords: localized.providerKeywords
+          }
+        : obligation;
+    });
+    this.savingsGoals = this.savingsGoals.map((goal) => {
+      const localized = savingsGoals.get(goal.id);
+      return localized ? { ...goal, title: localized.title } : goal;
+    });
+  }
+
   async hydrate(): Promise<void> {
     const database = await openDatabase();
     const [

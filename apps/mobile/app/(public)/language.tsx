@@ -10,9 +10,10 @@ import { usePreferenceStore } from '@/state/preferences';
 export default function LanguageRoute() {
   const setLocale = usePreferenceStore((state) => state.setLocale);
 
-  function choose(locale: 'ar' | 'en') {
-    setLocale(locale);
-    router.replace('/(public)/welcome');
+  async function choose(locale: 'ar' | 'en') {
+    if (await setLocale(locale)) {
+      router.replace('/(public)/welcome');
+    }
   }
 
   return (
@@ -20,11 +21,11 @@ export default function LanguageRoute() {
       <StyledText variant="title">{translate('appShell.public.language.title')}</StyledText>
       <ActionButton
         label={translate('appShell.public.language.arabic')}
-        onPress={() => choose('ar')}
+        onPress={() => void choose('ar')}
       />
       <ActionButton
         label={translate('appShell.public.language.english')}
-        onPress={() => choose('en')}
+        onPress={() => void choose('en')}
         variant="secondary"
       />
     </View>

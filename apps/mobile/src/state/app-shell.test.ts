@@ -1,9 +1,11 @@
 import { useAppShellStore } from './app-shell';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { buildPreferences } from '@/domain/foundation';
 import { seedClientDemoData } from '@/storage/client-demo-seeder';
 import { resetLocalUserData } from '@/storage/local-data-reset';
 import { resetRuntimeUserData } from '@/storage/runtime-user-data-reset';
+import { usePreferenceStore } from './preferences';
 import type {
   AuthenticationSession,
   OnboardingProgress,
@@ -66,6 +68,7 @@ beforeEach(() => {
   delete process.env.EXPO_PUBLIC_DEMO_MODE;
   jest.clearAllMocks();
   useAppShellStore.getState().reset();
+  usePreferenceStore.setState({ ...buildPreferences({}), hydrated: true });
   secureGet.mockImplementation(async (key) =>
     key === 'masarifi.appShell.session'
       ? JSON.stringify(session)
@@ -105,6 +108,22 @@ describe('useAppShellStore', () => {
       'masarifi.appShell.onboarding',
       expect.stringContaining('completed')
     );
+    expect(seedDemo).toHaveBeenCalledWith({ locale: 'ar', now: 100 });
+  });
+
+  it('hydrates a persisted English preference before demo startup', async () => {
+    process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+    usePreferenceStore.setState({ ...buildPreferences({}), hydrated: false });
+    secureGet.mockImplementation(async (key) => {
+      if (key === 'masarifi.preferences')
+        return JSON.stringify({ locale: 'en' });
+      if (key === 'masarifi.appShell.session') return JSON.stringify(session);
+      return JSON.stringify(lock);
+    });
+
+    await useAppShellStore.getState().hydrate(100);
+
+    expect(seedDemo).toHaveBeenCalledWith({ locale: 'en', now: 100 });
   });
 
   it('waits for demo seeding before exposing a hydrated shell', async () => {

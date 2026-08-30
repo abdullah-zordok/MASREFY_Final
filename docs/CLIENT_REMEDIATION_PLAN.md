@@ -429,7 +429,7 @@ Keep the 14-Spec sequence and extend it before the affected Spec packages are cr
 
 **Client IDs:** #2, #7–#15, #17, #59.
 
-**Current implementation:** SAR preference default is fixed; array ordering and Egyptian account-flow copy/demo content remain.
+**Current implementation:** Mobile slice complete on `codex/client-remediation-gulf-localization`: Gulf-first ordering, Gulf-neutral account-flow copy, and locale-aware demo fixtures are covered without changing the preference-derived default contract.
 
 **Required changes:** Approve one Gulf-neutral glossary; replace confirmed account-flow strings/examples; make demo fixtures locale-aware; order Gulf currencies first; derive default from country/preference.
 
@@ -452,6 +452,8 @@ Keep the 14-Spec sequence and extend it before the affected Spec packages are cr
 **Acceptance criteria:** Saudi fresh install defaults SAR; Gulf six are first; optional currencies remain after them; no identified Egyptian copy/demo titles remain; English and layout are unchanged.
 
 **Definition of Done:** Contract, unit, localization, and current-device smoke tests pass in Arabic and English.
+
+**Mobile verification evidence (2026-08-30):** Targeted localization, account-flow accessibility, currency order/precision/default, locale-transition, demo-fixture, service-state, seeder, migration, and native privacy checks passed (16 suites, 110 tests); full Mobile Jest passed (390 suites, 1,536 tests); `npm run typecheck` passed; every `npm run check:frontend-quality` boundary passed across 881 files; `npm run lint` completed with 0 errors and 77 pre-existing warnings outside this slice. A fresh Expo Android prebuild plus the native privacy-config regression confirms `READ_SMS` is represented only as a removal directive and backups remain disabled. Independent code review found no remaining concrete findings. No device-dependent UI change was made in this workstream.
 
 ### Workstream 1.5 — Fail-Closed Tracking and External Privacy Gate
 
@@ -948,9 +950,9 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 - [ ] Add explicit card-payoff command contract and local regression before live BE-005 implementation.
 - [ ] Enforce card liability opening semantics and one net-worth/obligation formula.
 - [ ] Correct obligation remaining/contracted labels in apps/mobile/src/features/obligations/ObligationOverviewScreen.tsx.
-- [ ] Replace confirmed Egyptian copy in apps/mobile/src/localization/messages/ar.ts and account examples in AccountForm.tsx using the approved glossary.
-- [ ] Localize demo seeds and prove production migrations contain no demo finance rows.
-- [ ] Reorder apps/mobile/src/domain/currencies.ts Gulf-first while keeping preference-derived default.
+- [x] Replace confirmed Egyptian copy in apps/mobile/src/localization/messages/ar.ts and account examples in AccountForm.tsx using the approved glossary.
+- [x] Localize demo seeds and prove production migrations contain no demo finance rows.
+- [x] Reorder apps/mobile/src/domain/currencies.ts Gulf-first while keeping preference-derived default.
 - [ ] Keep production automatic tracking unavailable until Phase 2 corpus evidence passes.
 - [ ] Remove/redact/restrict the #50 screenshot outside the repository and record the distribution review.
 - [ ] Implement BE-002/003/004/005/006/007 changes through their approved Specs and tests; do not edit product tables from the client layer.
@@ -986,22 +988,22 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 | Client ID | Verified | Classification | Phase | Workstream | Dependency | Status |
 |---:|---|---|---:|---|---|---|
 | 1 | Yes | Missing live backend capability | 1 | Account lifecycle | BE-002/003/012/014 | Open |
-| 2 | Yes | Partially fixed / localization config | 1 | Gulf currency/localization | BE-002/004 | Partial |
+| 2 | Yes | Partially fixed / localization config | 1 | Gulf currency/localization | BE-002/004 | Resolved locally (Mobile) |
 | 3 | Yes | Already fixed / regression required | 1 | Financial truth | BE-005/010 | Resolved locally |
 | 4 | Yes | Partial / mock-backed and plan conflict | 1 | Financial truth | BE-005/009/010/014 | Partial |
 | 5 | Yes | Partially fixed / model parity gap | 1 | Financial truth | Amended BE-007 | Partial |
 | 6 | Yes | Business-rule gap | 1 | Financial truth | BE-004/005/007/010 | Partial |
-| 7 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Open |
-| 8 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Open |
-| 9 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Open |
-| 10 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary/#46 | Open |
-| 11 | Yes | Localization/demo issue | 1 | Gulf currency/localization | Reference policy | Open |
-| 12 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Open |
-| 13 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Open |
-| 14 | Yes | Partially fixed ordering | 1 | Gulf currency/localization | #2/#59, BE-004 | Partial |
-| 15 | Yes | Localization consistency issue | 1 | Gulf currency/localization | Glossary | Open |
+| 7 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Resolved locally (Mobile) |
+| 8 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Resolved locally (Mobile) |
+| 9 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Resolved locally (Mobile) |
+| 10 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary/#46 | Resolved locally (Mobile) |
+| 11 | Yes | Localization/demo issue | 1 | Gulf currency/localization | Reference policy | Resolved locally (Mobile) |
+| 12 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Resolved locally (Mobile) |
+| 13 | Yes | Localization issue | 1 | Gulf currency/localization | Glossary | Resolved locally (Mobile) |
+| 14 | Yes | Partially fixed ordering | 1 | Gulf currency/localization | #2/#59, BE-004 | Resolved locally (Mobile) |
+| 15 | Yes | Localization consistency issue | 1 | Gulf currency/localization | Glossary | Resolved locally (Mobile) |
 | 16 | Code only | Likely fixed / native proof required | 3 | RTL/LTR visual proof | RTL audit/device | Verify |
-| 17 | Yes | Demo localization issue | 1 | Gulf currency/localization | Demo seeder | Open |
+| 17 | Yes | Demo localization issue | 1 | Gulf currency/localization | Demo seeder | Resolved locally (Mobile) |
 | 18 | Code only | Likely fixed / visual proof required | 3 | RTL/LTR visual proof | Device/200% | Verify |
 | 19 | Code only | Likely fixed / RTL proof required | 3 | RTL/LTR visual proof | Device RTL | Verify |
 | 20 | Yes | Already fixed | 3 | RTL/LTR visual proof | Regression only | Resolved |
@@ -1043,7 +1045,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 | 56 | Yes | Mobile gap / backend conflict | 1 | Financial truth | BE-004/014 | Open |
 | 57 | Yes | Partial substitute / live workflow missing | 2 | Notifications/feedback | BE-011/014 | Partial |
 | 58 | Yes | Partial / schema and seed invariant gap | 1 | Financial truth | #27/#62, BE-004/005 | Partial |
-| 59 | Yes | Conflicting/outdated default authority | 1 | Gulf currency/localization | Product policy, BE-002/004 | Partial |
+| 59 | Yes | Conflicting/outdated default authority | 1 | Gulf currency/localization | Product policy, BE-002/004 | Resolved locally (Mobile) |
 | 60 | Yes | Resolved clients / backend seed gap | 2 | Canonical billing | BE-012/014 | Partial live |
 | 61 | Yes | Already fixed with timestamp | 1 | Financial truth | BE-005/006 | Resolved |
 | 62 | Yes | Missing deterministic remittance seed | 1 | Financial truth | #58, BE-004/005 | Open |

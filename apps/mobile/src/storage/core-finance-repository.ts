@@ -72,6 +72,35 @@ export class CoreFinanceRepository {
     this.sequence = 0;
   }
 
+  relocalizeDemoFixtures(seed: CoreFinanceSeed): void {
+    const accounts = new Map(seed.accounts?.map((account) => [account.id, account]));
+    const transactions = new Map(
+      seed.transactions?.map((transaction) => [transaction.id, transaction])
+    );
+    this.accounts = this.accounts.map((account) => {
+      const localized = accounts.get(account.id);
+      return localized
+        ? {
+            ...account,
+            name: localized.name,
+            institution: localized.institution,
+            notes: localized.notes
+          }
+        : account;
+    });
+    this.transactions = this.transactions.map((transaction) => {
+      const localized = transactions.get(transaction.id);
+      return localized
+        ? {
+            ...transaction,
+            title: localized.title,
+            merchant: localized.merchant,
+            notes: localized.notes
+          }
+        : transaction;
+    });
+  }
+
   async hydrate(): Promise<void> {
     const seededAccounts = this.accounts.map(copy);
     const seededCategories = this.categories.map(copy);

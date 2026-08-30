@@ -5,6 +5,7 @@ import {
   type Transaction
 } from '@/domain/core-finance';
 import { isDemoModeEnabled } from '@/config/demo-mode';
+import type { Locale } from '@/domain/foundation';
 import { createDemoFinancialPlanningSeed } from '@/domain/financial-planning-seeds';
 import {
   applyPaymentEarliestFirst,
@@ -836,12 +837,20 @@ export function createMockFinancialPlanningService(
   };
 }
 
-export function createProductionFinancialPlanningService() {
+let demoFinancialPlanningRepository: FinancialPlanningRepository | null = null;
+
+export function createProductionFinancialPlanningService(
+  locale: Locale = 'ar'
+) {
   const demoMode = isDemoModeEnabled();
+  const repository = new FinancialPlanningRepository(
+    demoMode
+      ? createDemoFinancialPlanningSeed(Date.now(), 'Asia/Riyadh', locale)
+      : {}
+  );
+  if (demoMode) demoFinancialPlanningRepository = repository;
   return createMockFinancialPlanningService(
-    new FinancialPlanningRepository(
-      demoMode ? createDemoFinancialPlanningSeed() : {}
-    ),
+    repository,
     !demoMode && Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
     async () =>
       (
@@ -865,6 +874,14 @@ export const financialPlanningService =
   process.env.NODE_ENV === 'test'
     ? createSeededFinancialPlanningService()
     : createProductionFinancialPlanningService();
+
+export function relocalizeDemoFinancialPlanningRepository(
+  locale: Locale
+): void {
+  demoFinancialPlanningRepository?.relocalizeDemoFixtures(
+    createDemoFinancialPlanningSeed(Date.now(), 'Asia/Riyadh', locale)
+  );
+}
 
 export function deriveMatchForTransaction(
   transaction: Transaction,
