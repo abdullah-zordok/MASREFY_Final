@@ -35,7 +35,7 @@ procedures are retained beside this file.
 | FR-019 | PASS | Safe event schemas and fixed-cardinality command/read/lock/posting/projection/reconciliation metrics, dashboards, alerts, and leakage tests pass. |
 | FR-020 | PASS | DTO/OpenAPI/internal/idempotency/event/job/function/Mobile/Admin drift and executable mapping contracts pass 32/119. |
 | FR-021 | PASS | Ordered checksummed forward migrations, Phase 04 prefix compatibility, failed-then-forward-fix, retry, backup/restore, and N-1 app contract pass. |
-| FR-022 | PASS | Unit 56/445, contract 32/119, pgTAP 22/606, integration 41/100, E2E 29/46, security 16/86, performance 55,079 checks, and container 7/19 all pass with zero live skips. |
+| FR-022 | PASS | Unit 56/445, contract 32/119, pgTAP 22/606, integration 41/100, E2E 29/46, security 16/86, performance 56,687 checks, and container 7/19 all pass with zero live skips. |
 | FR-023 | PASS | Diff inventory contains only the temporary idempotency bridge from SPEC-BE-006 and no Mobile/Admin/later-Spec implementation. |
 
 ## Acceptance criteria

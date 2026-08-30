@@ -25,7 +25,7 @@ Image: `masarifi-backend:spec-be-001`
 | Fresh database | PASS | `npm run db:reset`; all ordered migrations applied from empty state |
 | Database lint | PASS | `npm run db:lint`; 0 findings in `public`, `private`, `audit` |
 | pgTAP | PASS | 22 files, 606 tests passed; 0 failed |
-| Ledger performance | PASS | 55,079 checks/operations passed, 0 failed/errors, 1,808.80 ops/s; detailed percentiles in `performance.md` |
+| Ledger performance | PASS | 56,687 checks/operations passed, 0 failed/errors, 1,855.71 ops/s; detailed percentiles in `performance.md` |
 | Build | PASS | API, worker, and migration Nest targets built |
 | Migration checksums | PASS | all checksums verified |
 | Dependency audit | PASS | `npm audit --audit-level=high`; 0 vulnerabilities |
@@ -33,7 +33,7 @@ Image: `masarifi-backend:spec-be-001`
 | Diff hygiene | PASS | `git diff --check`; 0 whitespace errors |
 
 The local image ID/digest is
-`sha256:659828a970e4b4cb30a99ec623d5a58a231200453fa8879dde77c24cdae3a578`.
+`sha256:68988e8d5dd628619f413a48e6ee0c65a0c6d18111d8534811152afb497cec8f`.
 The immutable tag workflow remains authoritative for registry scan, CycloneDX
 SBOM, Sigstore signature, SLSA provenance, and attestations.
 

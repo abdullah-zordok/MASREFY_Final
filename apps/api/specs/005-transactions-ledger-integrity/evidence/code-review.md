@@ -115,5 +115,5 @@ stages. No Critical, Important, or accepted Minor finding remains open.
 
 Post-review verification: formatter/typecheck/ESLint pass; unit 56/445;
 contract 32/119; clean PostgreSQL reset/lint and pgTAP 22/606; live integration
-41/100; E2E 29/46; security 16/86; performance 55,079/55,079 checks; container
+41/100; E2E 29/46; security 16/86; performance 56,687/56,687 checks; container
 7/19. All listed suites have zero failures and zero skips in their live runs.
