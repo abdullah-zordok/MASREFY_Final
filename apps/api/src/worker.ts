@@ -11,6 +11,7 @@ import { PlatformLogger } from './platform/observability/platform-logger';
 import { OutboxWorkerService } from './platform/outbox/outbox-worker.service';
 import { startTelemetry } from './platform/observability/telemetry';
 import { SecurityWorkerService } from './security/security.worker';
+import { SyncWorker } from './sync/sync.worker';
 
 export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const { WorkerModule } = await import('./worker.module');
@@ -26,6 +27,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const clerkWorker = app.get(ClerkWebhookWorker);
   const securityWorker = app.get(SecurityWorkerService);
   const ledgerWorker = app.get(LedgerWorker);
+  const syncWorker = app.get(SyncWorker);
   app.useLogger(logger);
 
   process.once('SIGTERM', () => {
@@ -34,6 +36,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
       await clerkWorker.stop();
       await securityWorker.stop();
       await ledgerWorker.stop();
+      await syncWorker.stop();
       await app.close();
       await telemetry.shutdown();
     });
@@ -42,6 +45,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   clerkWorker.start();
   securityWorker.start();
   ledgerWorker.start();
+  syncWorker.start();
   logger.info('platform.started', {
     context: 'Bootstrap',
     processKind: 'worker',

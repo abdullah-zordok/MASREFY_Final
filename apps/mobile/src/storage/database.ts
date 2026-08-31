@@ -9,7 +9,7 @@
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'masarifi.db';
-const CURRENT_SCHEMA_VERSION = 9;
+const CURRENT_SCHEMA_VERSION = 10;
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let databaseWriteQueue: Promise<void> = Promise.resolve();
@@ -60,6 +60,69 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
     `);
 
     const migrations = parseMigrations(`
+    -- migration:10
+    CREATE TABLE IF NOT EXISTS sync_state (
+      domain TEXT PRIMARY KEY,
+      cursor TEXT NOT NULL,
+      last_mutation_id TEXT,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_mutation_queue (
+      operation_id TEXT PRIMARY KEY,
+      domain TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      schema_version INTEGER NOT NULL DEFAULT 1 CHECK(schema_version = 1),
+      depends_on TEXT NOT NULL DEFAULT '[]',
+      operation TEXT NOT NULL,
+      resource_id TEXT,
+      base_version INTEGER,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at INTEGER,
+      last_error_code TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_mutation_queue_ready
+      ON sync_mutation_queue(status, next_attempt_at, created_at, operation_id);
+
+    CREATE TABLE IF NOT EXISTS sync_id_mappings (
+      domain TEXT NOT NULL,
+      local_id TEXT NOT NULL,
+      server_id TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(domain, local_id),
+      UNIQUE(domain, server_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_id_mappings_server
+      ON sync_id_mappings(domain, server_id);
+
+    CREATE TABLE IF NOT EXISTS sync_resource_state (
+      domain TEXT NOT NULL,
+      server_id TEXT NOT NULL,
+      version INTEGER NOT NULL CHECK(version >= 0),
+      deleted_at INTEGER,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(domain, server_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_resource_state_version
+      ON sync_resource_state(domain, version, server_id);
+
+    ALTER TABLE offline_entries ADD COLUMN amount_minor INTEGER;
+
+    UPDATE offline_entries
+      SET amount_minor=CAST(round(amount * 100) AS INTEGER)
+      WHERE abs(amount) <= 90071992547409.91 AND amount * 100 = round(amount * 100);
+
+    UPDATE offline_entries
+      SET last_error_key='legacy_amount_review_required'
+      WHERE amount_minor IS NULL;
+
     -- migration:9
     CREATE TABLE IF NOT EXISTS settings_profile (
       id TEXT PRIMARY KEY CHECK (id = 'singleton'),

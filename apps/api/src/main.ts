@@ -29,7 +29,11 @@ export async function bootstrapApi(): Promise<INestApplication> {
   const shutdown = new GracefulShutdown(config.get('MASARIFI_SHUTDOWN_TIMEOUT_MS'));
   app.useLogger(logger);
   configureRequestDrain(app, shutdown);
-  configureValidation(app, config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'), ['/webhooks/clerk']);
+  const syncBodyLimit = config.get('MASARIFI_SYNC_PAYLOAD_LIMIT_BYTES');
+  configureValidation(app, config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'), ['/webhooks/clerk'], {
+    '/api/v1/sync/mutations': syncBodyLimit,
+    '/api/v1/conflicts/:conflictId': syncBodyLimit,
+  });
   configureHttpSecurity(app, config);
   app.useGlobalFilters(new SafeExceptionFilter());
   app.useGlobalInterceptors(

@@ -36,6 +36,11 @@ describe('backend workflow action pins', () => {
       'npm run test:ledger:integration',
       'npm run test:ledger:security',
       'npm run test:ledger:recovery',
+      'npm run test:sync:logic',
+      'npm run test:sync:integration',
+      'npm run test:sync:security',
+      'npm run test:sync:recovery',
+      'npm run test:performance:sync',
       'npm run test:performance:ledger',
       'npm run test:performance:platform',
       'npm run perf:seed:outbox',
@@ -50,7 +55,11 @@ describe('backend workflow action pins', () => {
     const stressSeedIndex = workflow.indexOf('npm run perf:seed:outbox', loadIndex);
     expect(stressSeedIndex).toBeGreaterThan(loadIndex);
     expect(stressSeedIndex).toBeLessThan(stressIndex);
-    expect(workflow).toContain('needs: [secrets, sentinel-redaction, application, database]');
+    expect(workflow).toContain(
+      'needs: [secrets, sentinel-redaction, application, mobile, database]',
+    );
+    expect(workflow).toContain('working-directory: apps/mobile');
+    expect(workflow).toContain('npm test -- --runInBand');
     expect(workflow).not.toMatch(/supabase\/tests\/.*(?:migration|db push)/i);
   });
 

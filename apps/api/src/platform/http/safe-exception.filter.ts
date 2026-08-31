@@ -89,6 +89,14 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   LEDGER_BUSY: { status: 409, message: 'Ledger is busy' },
   LEDGER_UNAVAILABLE: { status: 503, message: 'Ledger is unavailable' },
   REFERENCE_UNAVAILABLE: { status: 503, message: 'Reference service is unavailable' },
+  SYNC_CURSOR_INVALID: { status: 400, message: 'Sync cursor is invalid' },
+  SYNC_CURSOR_AHEAD: { status: 409, message: 'Sync cursor is ahead of the server' },
+  SYNC_CURSOR_EXPIRED: { status: 409, message: 'Sync cursor has expired' },
+  SYNC_PAYLOAD_TOO_LARGE: { status: 413, message: 'Sync payload is too large' },
+  SYNC_OPERATION_ID_REUSED: { status: 409, message: 'Sync operation ID was already used' },
+  SYNC_MUTATION_NOT_FOUND: { status: 404, message: 'Sync mutation was not found' },
+  SYNC_CONFLICT_NOT_FOUND: { status: 404, message: 'Sync conflict was not found' },
+  SYNC_CONFLICT_ALREADY_RESOLVED: { status: 409, message: 'Sync conflict is already resolved' },
 };
 
 type FieldError = { field: string; code: string; message: string };

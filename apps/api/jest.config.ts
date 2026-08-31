@@ -13,7 +13,8 @@ const base: Config = {
 const project = (displayName: string, path: string): Config => ({
   ...base,
   displayName,
-  testMatch: [`<rootDir>/test/${path}/**/*.spec.ts`, `<rootDir>/test/${path}/**/*-spec.ts`],
+  roots: [`<rootDir>/test/${path}`],
+  testMatch: ['**/*.spec.ts', '**/*-spec.ts'],
 });
 
 export default {

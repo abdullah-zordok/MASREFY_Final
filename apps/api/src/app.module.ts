@@ -9,6 +9,7 @@ import { RequestIdMiddleware } from './platform/http/request-id.middleware';
 import { MetaModule } from './platform/meta/meta.module';
 import { ReferenceModule } from './reference/reference.module';
 import { SecurityModule } from './security/security.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SecurityModule } from './security/security.module';
     SecurityModule,
     ReferenceModule,
     LedgerModule,
+    SyncModule,
   ],
   providers: [RequestIdMiddleware],
 })

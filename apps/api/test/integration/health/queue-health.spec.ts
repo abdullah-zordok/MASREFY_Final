@@ -13,6 +13,12 @@ describe('QueueHealthIndicator', () => {
       [],
       1_000,
     );
+    expect(database.query).toHaveBeenCalledWith(expect.stringContaining('limit 101'), [], 1_000);
+    expect(database.query).toHaveBeenCalledWith(
+      expect.stringContaining("status='processing'"),
+      [],
+      1_000,
+    );
   });
 
   it('returns down without exposing the dependency error', async () => {

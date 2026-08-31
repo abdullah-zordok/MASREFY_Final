@@ -1,0 +1,66 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(56);
+
+select has_column('private','idempotency_keys','lease_token','idempotency fence exists');
+select has_table('public','client_sync_state','client checkpoints exist');
+select has_table('public','client_mutations','durable mutation receipts exist');
+select has_table('public','transaction_conflicts','financial conflicts exist');
+
+select has_pk('public','client_sync_state','sync state PK exists');
+select has_column('public','client_sync_state','user_id','checkpoint owner exists');
+select has_column('public','client_sync_state','device_id','checkpoint device exists');
+select has_column('public','client_sync_state','domain','checkpoint domain exists');
+select has_column('public','client_sync_state','last_cursor','checkpoint cursor exists');
+select has_column('public','client_sync_state','last_synced_at','checkpoint time exists');
+select has_column('public','client_sync_state','last_ack_mutation','checkpoint mutation exists');
+select col_is_fk('public','client_sync_state','user_id','checkpoint owner FK exists');
+select has_index('public','client_sync_state','client_sync_state_owner_device_domain_uq','checkpoint is unique per owner/device/domain');
+
+select has_pk('public','client_mutations','mutation PK exists');
+select has_column('public','client_mutations','user_id','mutation owner exists');
+select has_column('public','client_mutations','device_id','mutation device exists');
+select col_is_fk('public','client_mutations','device_id','mutation device FK exists');
+select has_column('public','client_mutations','factor_age_seconds','accepted recent-auth age exists');
+select has_column('public','client_mutations','operation_id','stable operation id exists');
+select has_column('public','client_mutations','operation','operation exists');
+select has_column('public','client_mutations','domain','mutation domain exists');
+select has_column('public','client_mutations','resource_id','resource id exists');
+select has_column('public','client_mutations','base_version','base version exists');
+select has_column('public','client_mutations','payload_hash','payload hash exists');
+select has_column('public','client_mutations','payload','payload exists');
+select has_column('public','client_mutations','status','mutation status exists');
+select has_column('public','client_mutations','result','stable result exists');
+select has_column('public','client_mutations','error','stable error exists');
+select has_column('public','client_mutations','attempt_count','attempt count exists');
+select has_column('public','client_mutations','next_attempt_at','retry time exists');
+select has_column('public','client_mutations','locked_by','worker identity exists');
+select has_column('public','client_mutations','locked_until','worker lease exists');
+select has_column('public','client_mutations','lease_token','worker fence exists');
+select has_column('public','client_mutations','processed_at','terminal time exists');
+select col_is_fk('public','client_mutations','user_id','mutation owner FK exists');
+select has_index('public','client_mutations','client_mutations_owner_operation_uq','operation is owner-idempotent');
+select has_index('public','client_mutations','client_mutations_claim_idx','worker claim index exists');
+select has_index('public','client_mutations','client_mutations_device_cursor_idx','device receipt index exists');
+
+select has_pk('public','transaction_conflicts','conflict PK exists');
+select has_column('public','transaction_conflicts','user_id','conflict owner exists');
+select has_column('public','transaction_conflicts','transaction_id','conflicting transaction exists');
+select has_column('public','transaction_conflicts','client_mutation_id','conflicting mutation exists');
+select has_column('public','transaction_conflicts','server_version','server version exists');
+select has_column('public','transaction_conflicts','client_version','client version exists');
+select has_column('public','transaction_conflicts','conflict_fields','conflict fields exist');
+select has_column('public','transaction_conflicts','server_snapshot','server snapshot exists');
+select has_column('public','transaction_conflicts','client_snapshot','client snapshot exists');
+select has_column('public','transaction_conflicts','status','conflict status exists');
+select has_column('public','transaction_conflicts','resolution','resolution exists');
+select has_column('public','transaction_conflicts','resolution_payload','resolution payload exists');
+select has_column('public','transaction_conflicts','resolved_at','resolution time exists');
+select col_is_fk('public','transaction_conflicts','user_id','conflict owner FK exists');
+select col_is_fk('public','transaction_conflicts','transaction_id','transaction FK exists');
+select col_is_fk('public','transaction_conflicts','client_mutation_id','mutation FK exists');
+select has_index('public','transaction_conflicts','transaction_conflicts_owner_status_cursor_idx','owner conflict page index exists');
+select has_index('public','transaction_conflicts','transaction_conflicts_open_mutation_uq','one open conflict per mutation');
+
+select * from finish();
+rollback;

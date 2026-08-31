@@ -219,6 +219,31 @@ describe('validateEnvironment', () => {
     ).toThrow('MASARIFI_CLERK_RECONCILE_PAGE_SIZE');
   });
 
+  it('provides bounded offline-sync defaults', () => {
+    expect(validateEnvironment(valid)).toMatchObject({
+      MASARIFI_SYNC_BATCH_SIZE: 100,
+      MASARIFI_SYNC_DELTA_LIMIT: 500,
+      MASARIFI_SYNC_PAYLOAD_LIMIT_BYTES: 524_288,
+      MASARIFI_SYNC_LEASE_SECONDS: 60,
+      MASARIFI_SYNC_MAX_ATTEMPTS: 10,
+      MASARIFI_SYNC_RETENTION_DAYS: 30,
+    });
+  });
+
+  it('rejects unsafe offline-sync bounds and inverted retry delays', () => {
+    for (const candidate of [
+      { MASARIFI_SYNC_BATCH_SIZE: 101 },
+      { MASARIFI_SYNC_DELTA_LIMIT: 501 },
+      { MASARIFI_SYNC_PAYLOAD_LIMIT_BYTES: 524_289 },
+      { MASARIFI_SYNC_LEASE_SECONDS: 301 },
+      { MASARIFI_SYNC_MAX_ATTEMPTS: 0 },
+      { MASARIFI_SYNC_RETENTION_DAYS: 29 },
+      { MASARIFI_SYNC_RETRY_BASE_SECONDS: 30, MASARIFI_SYNC_RETRY_MAX_SECONDS: 10 },
+    ]) {
+      expect(() => validateEnvironment({ ...valid, ...candidate })).toThrow('MASARIFI_SYNC_');
+    }
+  });
+
   it('normalizes unique bounded ledger recent-auth thresholds', () => {
     expect(
       validateEnvironment({ ...valid, MASARIFI_LEDGER_RECENT_AUTH_THRESHOLDS: 'SAR:50000,USD:900' })

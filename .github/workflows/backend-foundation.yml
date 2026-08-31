@@ -12,6 +12,7 @@ on:
     paths:
       [
         "apps/api/**",
+        "apps/mobile/**",
         "supabase/**",
         "docker/**",
         ".github/workflows/backend-foundation.yml",
@@ -81,9 +82,27 @@ jobs:
       - run: npm run test:openapi
       - run: npm run test:integration
       - run: npm run test:e2e
+      - run: npm run test:sync:logic
       - run: npm run build
       - run: npm audit --audit-level=high
       - run: npm run migration:checksums
+
+  mobile:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --runInBand
 
   database:
     runs-on: ubuntu-24.04
@@ -140,9 +159,20 @@ jobs:
       - run: npm run test:ledger:recovery
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:sync:integration
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:sync:security
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:sync:recovery
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:performance:security
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:ledger
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:performance:sync
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:platform
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
@@ -168,7 +198,7 @@ jobs:
         run: npm run supabase:stop
 
   image:
-    needs: [secrets, sentinel-redaction, application, database]
+    needs: [secrets, sentinel-redaction, application, mobile, database]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

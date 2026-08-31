@@ -96,11 +96,13 @@ describe('OpenAPI drift', () => {
     const ledger = loadContract(
       '../../specs/005-transactions-ledger-integrity/contracts/openapi.yaml',
     );
+    const sync = loadContract('../../specs/006-offline-sync-idempotency/contracts/openapi.yaml');
     const generated = generateOpenApi(app, [
       identity,
       security,
       reference,
       ledger,
+      sync,
     ]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
@@ -110,6 +112,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(security).paths,
         ...contractSurface(reference).paths,
         ...contractSurface(ledger).paths,
+        ...contractSurface(sync).paths,
       },
       schemas: {
         ...contractSurface(foundation).schemas,
@@ -117,6 +120,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(security).schemas,
         ...contractSurface(reference).schemas,
         ...contractSurface(ledger).schemas,
+        ...contractSurface(sync).schemas,
       },
     });
   });
@@ -133,16 +137,18 @@ describe('OpenAPI drift', () => {
     const ledger = loadContract(
       '../../specs/005-transactions-ledger-integrity/contracts/openapi.yaml',
     );
+    const sync = loadContract('../../specs/006-offline-sync-idempotency/contracts/openapi.yaml');
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
     ) => Contract;
-    const generated = generateWithFragments(app, [identity, security, reference, ledger]);
+    const generated = generateWithFragments(app, [identity, security, reference, ledger, sync]);
     const foundationSurface = contractSurface(foundation);
     const identitySurface = contractSurface(identity);
     const securitySurface = contractSurface(security);
     const referenceSurface = contractSurface(reference);
     const ledgerSurface = contractSurface(ledger);
+    const syncSurface = contractSurface(sync);
 
     expect(contractSurface(generated)).toEqual({
       paths: {
@@ -151,6 +157,7 @@ describe('OpenAPI drift', () => {
         ...securitySurface.paths,
         ...referenceSurface.paths,
         ...ledgerSurface.paths,
+        ...syncSurface.paths,
       },
       schemas: {
         ...foundationSurface.schemas,
@@ -158,6 +165,7 @@ describe('OpenAPI drift', () => {
         ...securitySurface.schemas,
         ...referenceSurface.schemas,
         ...ledgerSurface.schemas,
+        ...syncSurface.schemas,
       },
     });
     expect(
@@ -179,6 +187,8 @@ describe('OpenAPI drift', () => {
         'listAdmins',
         'createMyPrivacyExport',
         'createMyDeletionRequest',
+        'submitSyncMutations',
+        'getSyncDelta',
       ]),
     );
   });

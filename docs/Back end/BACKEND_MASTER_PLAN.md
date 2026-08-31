@@ -1643,6 +1643,11 @@ user-facing absolute amount; signed postings remain internal.
 
 ### Phase 06 - SPEC-BE-006: Offline Sync, Idempotency & Conflict Resolution
 
+**Delivery status (2026-08-31):** implemented and locally verified. Retained
+specification, review, release, recovery, and acceptance evidence lives in
+`apps/api/specs/006-offline-sync-idempotency/`. External provider/registry gates
+remain explicitly pending and require separate authorization.
+
 #### Objective and Scope
 
 Provide the only client synchronization protocol and mutation replay contract.
@@ -1663,9 +1668,9 @@ for money.
 | Table | Complete columns | Keys, constraints, indexes, defaults |
 |---|---|---|
 | `private.idempotency_keys` | `I`; `actor_id text`; `scope text`; `key_hash text`; `request_hash text`; `response_status int?`; `response_body jsonb?`; `resource_ref text?`; `state text='claimed'`; `locked_until timestamptz`; `expires_at timestamptz` | state `claimed/completed/failed`; response status 100..599 when set; UQ `(actor_id,scope,key_hash)`; indexes `(expires_at)`, `(state,locked_until)`; request hash immutable |
-| `public.transaction_conflicts` | `M+U`; `transaction_id uuid FK transactions`; `client_mutation_id uuid FK client_mutations`; `server_version bigint`; `client_version bigint`; `conflict_fields text[]`; `server_snapshot jsonb`; `client_snapshot jsonb`; `status text='open'`; `resolution text?`; `resolved_by text?`; `resolved_at timestamptz?` | status `open/resolved/rejected`; resolution `server/client/merged/duplicate/keep_both` only for nonfinancial duplication; versions>=0; UQ transaction/client mutation; index user/status/time |
-| `public.client_sync_state` | `M+U`; `device_id uuid FK user_devices`; `domain text`; `last_cursor bigint=0`; `last_synced_at timestamptz?`; `last_acknowledged_mutation_id uuid?` | cursor>=0; UQ `(user_id,device_id,domain)`; index user/device/time |
-| `public.client_mutations` | `I+U`; `device_id uuid FK user_devices`; `operation_id uuid`; `domain text`; `resource_type text`; `resource_id uuid?`; `base_version bigint?`; `payload_hash text`; `payload jsonb`; `status text='received'`; `result_ref text?`; `error_code text?`; `processed_at timestamptz?` | status `received/processing/applied/conflict/rejected`; base>=0; UQ `(user_id,operation_id)`; indexes status/created, user/device/created |
+| `public.transaction_conflicts` | `M+U`; transaction/client-mutation FKs; server/client versions; fields; redacted snapshots; status/resolution; optional resolution payload and idempotency hashes; resolved/created/updated times | status `open/resolved/rejected`; resolution `server/client/merged/duplicate`; bounded snapshots; one open conflict per mutation; owner/status and transaction indexes |
+| `public.client_sync_state` | `M+U`; device FK; domain; acknowledged and last-issued cursors; last sync time; last acknowledged mutation FK | `last_issued_cursor>=last_cursor>=0`; UQ `(user_id,device_id,domain)` |
+| `public.client_mutations` | `I+U`; device FK; operation/domain/resource/schema/dependency envelope; resource/base version; hashes/payload; status/result/error; retry/lease/fence fields; processed/created/updated times | status `received/processing/applied/conflict/rejected`; schema version 1; bounded payload/outcome/lease invariants; UQ `(user_id,operation_id)`; claim and device-cursor indexes |
 
 #### Dedicated ERD
 
@@ -1696,13 +1701,13 @@ erDiagram
 
 | Route | Request | Response |
 |---|---|---|
-| `GET /api/v1/sync/bootstrap` | `deviceId`, optional domain list | reference versions, per-domain cursors, bounded initial snapshot URLs/pages, server time |
-| `GET /api/v1/sync/delta` | `deviceId`, `domain`, `cursor>=0`, `limit<=500` | `{changes:[{cursor,resourceType,resourceId,operation,version,payload?,deletedAt?}],nextCursor,hasMore}` |
-| `POST /api/v1/sync/mutations` | `Idempotency-Key`; `{deviceId,mutations:[1..100 MutationEnvelope]}` | per-operation `{operationId,status,resourceId?,version?,conflictId?,error?}`, server cursors |
-| `POST /api/v1/sync/ack` | `{deviceId,domain,cursor,lastMutationId?}` | `{acknowledgedCursor,serverCursor}` |
-| `GET /api/v1/conflicts` | cursor/status/domain | owner conflict summaries |
-| `GET /api/v1/conflicts/:id` | owner | redacted server/client snapshots and allowed resolutions |
-| `POST /api/v1/conflicts/:id/resolve` | key; `{expectedVersion,resolution,mergedPatch?}` | applied resource/version or rejected result |
+| `GET /api/v1/sync/bootstrap` | `X-Device-ID`; optional domain list | reference versions, per-domain cursors, bounded deterministic snapshots, server time |
+| `GET /api/v1/sync/delta` | `X-Device-ID`; `domain`, opaque cursor, `limit<=500` | `{changes:[{cursor,resourceType,resourceId,operation,version,payload?,deletedAt?}],nextCursor,hasMore}` |
+| `POST /api/v1/sync/mutations` | `X-Device-ID`, `Idempotency-Key`; `{mutations:[1..100 MutationEnvelope]}` | ordered per-operation receipts and server cursors |
+| `POST /api/v1/sync/ack` | `X-Device-ID`; `{domain,cursor,lastMutationId?}` | `{acknowledgedCursor,serverCursor}` |
+| `GET /api/v1/conflicts` | `X-Device-ID`; cursor/status | owner conflict summaries |
+| `GET /api/v1/conflicts/:id` | `X-Device-ID`; owner | redacted server/client snapshots and allowed resolutions |
+| `PATCH /api/v1/conflicts/:id` | `X-Device-ID`, `Idempotency-Key`; `{expectedVersion,resolution,mergedPatch?}` | applied resource/version or rejected result |
 
 `MutationEnvelope` is `{operationId:uuid,domain,resourceType,resourceId?,
 baseVersion?,operation:'create'|'update'|'delete'|'restore',payload,schemaVersion}`.
@@ -1710,14 +1715,17 @@ Unknown domains/resources/schema versions are rejected before persistence.
 
 #### Functions, Triggers, Jobs, and Events
 
-- `private.claim_idempotency_key(actor,scope,key,request_hash,ttl)` returns
+- `private.claim_sync_idempotency_key(actor,scope,key,request_hash,ttl)` returns
   `new/replay/in_progress/hash_mismatch`; completed response is immutable.
-- `private.complete_idempotency_key(...)` records safe response/resource reference
+- `private.complete_sync_idempotency_key(...)` records safe response/resource reference
   in the same transaction as mutation completion.
-- `private.next_sync_cursor(user_id,domain)` allocates monotonic domain cursor;
-  every sync-visible domain event stores it in outbox payload.
-- `private.apply_client_mutation(...)` dispatches only to registered domain
-  commands; it never performs generic dynamic SQL.
+- `private.attach_outbox_sync_metadata()` allocates monotonic owner/domain
+  cursors and stores allowlisted snapshots/tombstones in the existing outbox.
+- Receive/claim/complete/retry functions enforce dependency, lease, fence, and
+  terminal receipt invariants; TypeScript handlers dispatch only to registered
+  Phase 04/05 commands and never use generic dynamic SQL.
+- `private.check_sync_reconciliation()` detects checkpoint, retained cursor, and
+  conflict/receipt drift and is invoked by bounded maintenance.
 - Jobs: `idempotency.cleanup`, `sync-mutations.retry`, `sync-state.cleanup` for
   long-revoked devices, and `conflicts.expire` for resolved snapshot minimization.
 - Events: `sync.mutation_applied/rejected`, `sync.cursor_advanced`,
@@ -1733,8 +1741,7 @@ Unknown domains/resources/schema versions are rejected before persistence.
   validated topological order; unsupported cross-operation references reject the
   dependent operation, not unrelated mutations.
 - Money conflicts allow server/reject/explicit corrected command; `keep_both` is
-  allowed only for a confirmed nonduplicate business record with a new operation
-  ID and never as automatic conflict resolution.
+  not a Phase 06 financial resolution.
 - Tombstones contain ID, type, version, deletedAt only and persist long enough for
   the documented maximum offline window.
 

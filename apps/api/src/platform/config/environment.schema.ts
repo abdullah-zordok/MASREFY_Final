@@ -21,6 +21,16 @@ const applicationKeys = new Set([
   'MASARIFI_OUTBOX_RETRY_BASE_SECONDS',
   'MASARIFI_OUTBOX_RETRY_MAX_SECONDS',
   'MASARIFI_OUTBOX_RETRY_JITTER_MS',
+  'MASARIFI_SYNC_BATCH_SIZE',
+  'MASARIFI_SYNC_DELTA_LIMIT',
+  'MASARIFI_SYNC_PAYLOAD_LIMIT_BYTES',
+  'MASARIFI_SYNC_LEASE_SECONDS',
+  'MASARIFI_SYNC_POLL_MS',
+  'MASARIFI_SYNC_MAX_ATTEMPTS',
+  'MASARIFI_SYNC_RETRY_BASE_SECONDS',
+  'MASARIFI_SYNC_RETRY_MAX_SECONDS',
+  'MASARIFI_SYNC_RETRY_JITTER_MS',
+  'MASARIFI_SYNC_RETENTION_DAYS',
   'MASARIFI_LOG_LEVEL',
   'MASARIFI_META_MIN_MOBILE_VERSION',
   'MASARIFI_META_MIN_ADMIN_VERSION',
@@ -171,6 +181,20 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_OUTBOX_RETRY_BASE_SECONDS: Joi.number().integer().min(1).max(60).default(1),
   MASARIFI_OUTBOX_RETRY_MAX_SECONDS: Joi.number().integer().min(1).max(3_600).default(300),
   MASARIFI_OUTBOX_RETRY_JITTER_MS: Joi.number().integer().min(0).max(5_000).default(1_000),
+  MASARIFI_SYNC_BATCH_SIZE: Joi.number().integer().min(1).max(100).default(100),
+  MASARIFI_SYNC_DELTA_LIMIT: Joi.number().integer().min(1).max(500).default(500),
+  MASARIFI_SYNC_PAYLOAD_LIMIT_BYTES: Joi.number()
+    .integer()
+    .min(65_536)
+    .max(524_288)
+    .default(524_288),
+  MASARIFI_SYNC_LEASE_SECONDS: Joi.number().integer().min(1).max(300).default(60),
+  MASARIFI_SYNC_POLL_MS: Joi.number().integer().min(100).max(10_000).default(500),
+  MASARIFI_SYNC_MAX_ATTEMPTS: Joi.number().integer().min(1).max(100).default(10),
+  MASARIFI_SYNC_RETRY_BASE_SECONDS: Joi.number().integer().min(1).max(60).default(1),
+  MASARIFI_SYNC_RETRY_MAX_SECONDS: Joi.number().integer().min(1).max(3_600).default(300),
+  MASARIFI_SYNC_RETRY_JITTER_MS: Joi.number().integer().min(0).max(5_000).default(1_000),
+  MASARIFI_SYNC_RETENTION_DAYS: Joi.number().integer().min(30).max(365).default(30),
   MASARIFI_LOG_LEVEL: Joi.string().valid('debug', 'info', 'warn', 'error').default('info'),
   MASARIFI_META_MIN_MOBILE_VERSION: Joi.string().trim().min(1).max(32).optional(),
   MASARIFI_META_MIN_ADMIN_VERSION: Joi.string().trim().min(1).max(32).optional(),
@@ -399,6 +423,11 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   ) {
     throw new Error(
       'Invalid environment variables: MASARIFI_OUTBOX_RETRY_BASE_SECONDS, MASARIFI_OUTBOX_RETRY_MAX_SECONDS',
+    );
+  }
+  if (environment.MASARIFI_SYNC_RETRY_MAX_SECONDS < environment.MASARIFI_SYNC_RETRY_BASE_SECONDS) {
+    throw new Error(
+      'Invalid environment variables: MASARIFI_SYNC_RETRY_BASE_SECONDS, MASARIFI_SYNC_RETRY_MAX_SECONDS',
     );
   }
   if (environment.NODE_ENV === 'production' && environment.MASARIFI_LOG_LEVEL === 'debug') {

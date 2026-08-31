@@ -221,12 +221,15 @@ it('migrates retained v1-v6 data through each pending schema in order', async ()
     { version: 6, applied_at: 6 },
     { version: 7, applied_at: expect.any(Number) },
     { version: 8, applied_at: expect.any(Number) },
-    { version: 9, applied_at: expect.any(Number) }
+    { version: 9, applied_at: expect.any(Number) },
+    { version: 10, applied_at: expect.any(Number) }
   ]);
   expect(mockDatabase.events).toEqual([
     'pragma',
     'begin',
     'ddl',
+    'ddl',
+    'migration',
     'ddl',
     'migration',
     'ddl',
@@ -242,7 +245,7 @@ it('migrates retained v1-v6 data through each pending schema in order', async ()
     await database.getAllAsync(
       'SELECT version FROM schema_migrations ORDER BY version'
     )
-  ).toHaveLength(9);
+  ).toHaveLength(10);
   expect(mockDatabase.events.slice(-4)).toEqual([
     'pragma',
     'begin',
@@ -263,7 +266,7 @@ it('applies every migration to a fresh database', async () => {
         'SELECT version FROM schema_migrations ORDER BY version'
       )
     ).map((row) => row.version)
-  ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   expect(
     (
       await database.getAllAsync<{ name: string }>(
@@ -280,7 +283,10 @@ it('applies every migration to a fresh database', async () => {
       'report_schedules',
       ...v7Tables,
       'demo_seed_markers',
-      'settings_profile'
+      'settings_profile',
+      'sync_state',
+      'sync_mutation_queue',
+      'sync_id_mappings'
     ])
   );
   for (const table of [
