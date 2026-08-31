@@ -6,16 +6,16 @@ import { supportedCurrencies } from '../../../../mobile/src/domain/currencies';
 describe('Phase 04 client mapping', () => {
   it('pins executable Mobile reference keys without importing fixtures into production', () => {
     expect(supportedCurrencies.map(({ code }) => code)).toEqual([
+      'SAR',
+      'AED',
+      'KWD',
+      'QAR',
+      'BHD',
+      'OMR',
       'EGP',
       'USD',
       'EUR',
       'GBP',
-      'AED',
-      'SAR',
-      'OMR',
-      'KWD',
-      'QAR',
-      'BHD',
       'JOD',
       'JPY',
     ]);
