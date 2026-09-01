@@ -19,6 +19,11 @@ describe('QueueHealthIndicator', () => {
       [],
       1_000,
     );
+    expect(database.query).toHaveBeenCalledWith(
+      expect.stringContaining('private.planning_job_claims'),
+      [],
+      1_000,
+    );
   });
 
   it('returns down without exposing the dependency error', async () => {

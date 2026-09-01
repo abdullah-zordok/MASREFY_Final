@@ -3,7 +3,7 @@ import { normalizeBootstrapQuery } from '../../../src/sync/sync.dto';
 describe('sync bootstrap contract', () => {
   it('defaults to all domains and canonicalizes an explicit subset', () => {
     expect(normalizeBootstrapQuery({})).toEqual({
-      domains: ['accounts', 'categories', 'transactions'],
+      domains: ['accounts', 'categories', 'planning', 'transactions'],
       after: null,
       limit: 500,
     });

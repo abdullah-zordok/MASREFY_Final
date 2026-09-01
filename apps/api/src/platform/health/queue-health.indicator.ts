@@ -27,6 +27,18 @@ export class QueueHealthIndicator {
             limit 101
           ) recent_sync_failures
         )<=100
+        and not exists(
+          select 1 from private.planning_job_claims
+          where status='running' and locked_until<clock_timestamp()-interval '5 minutes'
+          limit 1
+        )
+        and (
+          select count(*) from (
+            select 1 from private.planning_job_claims
+            where status='exhausted' and updated_at>=clock_timestamp()-interval '5 minutes'
+            limit 101
+          ) recent_planning_failures
+        )<=100
         ) as healthy`,
         [],
         timeoutMs,

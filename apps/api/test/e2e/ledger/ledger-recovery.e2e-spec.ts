@@ -19,7 +19,8 @@ describeLiveDatabase('ledger migration and recovery', () => {
     const files = readdirSync(migrations)
       .filter((name) => name.endsWith('.sql'))
       .sort();
-    expect(files.slice(-4)).toEqual([
+    const phase05Start = files.indexOf('20260830080000_phase05_idempotency_bridge.sql');
+    expect(files.slice(phase05Start, phase05Start + 4)).toEqual([
       '20260830080000_phase05_idempotency_bridge.sql',
       '20260830080100_phase05_ledger_tables.sql',
       '20260830080200_phase05_ledger_commands.sql',

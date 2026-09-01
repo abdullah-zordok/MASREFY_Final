@@ -199,6 +199,7 @@ export class SyncWorker implements OnModuleDestroy {
       'TRANSACTION_INELIGIBLE',
       'ACCOUNT_INVALID',
       'CATEGORY_INVALID',
+      'PLANNING_VERSION_CONFLICT',
     ].includes(code);
   }
 

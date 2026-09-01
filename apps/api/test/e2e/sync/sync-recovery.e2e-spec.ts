@@ -16,7 +16,10 @@ describeLiveDatabase('sync migration and recovery', () => {
     const files = readdirSync(migrations)
       .filter((name) => name.endsWith('.sql'))
       .sort();
-    expect(files.at(-1)).toBe('20260831061405_phase06_sync_schema.sql');
+    const phase06 = '20260831061405_phase06_sync_schema.sql';
+    expect(files.indexOf(phase06)).toBe(
+      files.indexOf('20260831120000_phase07_planning_tables.sql') - 1,
+    );
     expect(buildMigrationManifest(migrations)).toBe(
       readFileSync(resolve(root, 'supabase/migration-checksums.sha256'), 'utf8').replaceAll(
         '\r\n',
@@ -27,7 +30,7 @@ describeLiveDatabase('sync migration and recovery', () => {
     expect(() => {
       assertCompatibleMigrationHistory(versions.slice(0, -1), versions);
     }).not.toThrow();
-    const sql = readFileSync(resolve(migrations, files.at(-1) ?? ''), 'utf8');
+    const sql = readFileSync(resolve(migrations, phase06), 'utf8');
     expect(sql).not.toMatch(/\bdrop\s+(?:table|column|function)\b/i);
   });
 

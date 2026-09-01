@@ -83,6 +83,7 @@ jobs:
       - run: npm run test:integration
       - run: npm run test:e2e
       - run: npm run test:sync:logic
+      - run: npm run test:planning:logic
       - run: npm run build
       - run: npm audit --audit-level=high
       - run: npm run migration:checksums
@@ -168,11 +169,20 @@ jobs:
       - run: npm run test:sync:recovery
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:planning:integration
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:planning:security
+      - run: npm run test:planning:recovery
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:performance:security
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:ledger
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:sync
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:performance:planning
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:platform
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6

@@ -73,6 +73,39 @@ describe('sync DTO normalization', () => {
     ]);
   });
 
+  it('accepts only registered Phase 07 resource types in the planning domain', () => {
+    expect(
+      normalizeMutationBatch({
+        mutations: [
+          {
+            operationId,
+            domain: 'planning',
+            resourceType: 'savings-goal',
+            schemaVersion: 1,
+            dependsOn: [],
+            operation: 'create',
+            payload: { name: 'Goal' },
+          },
+        ],
+      }).mutations[0],
+    ).toMatchObject({ domain: 'planning', resourceType: 'savings-goal' });
+    expect(() =>
+      normalizeMutationBatch({
+        mutations: [
+          {
+            operationId,
+            domain: 'planning',
+            resourceType: 'transaction',
+            schemaVersion: 1,
+            dependsOn: [],
+            operation: 'create',
+            payload: {},
+          },
+        ],
+      }),
+    ).toThrow('VALIDATION_FAILED');
+  });
+
   it('orders dependencies before dependants and rejects dependency cycles', () => {
     const parent = '63000000-0000-4000-8000-000000000003';
     const child = '63000000-0000-4000-8000-000000000004';

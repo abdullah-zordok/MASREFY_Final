@@ -25,7 +25,7 @@ export type Calculation<T> =
   | { status: 'available'; value: T; estimated: boolean; asOf: number | null }
   | { status: 'unavailable'; reason: CalculationReason };
 export type PlanningLifecycle = 'active' | 'paused' | 'archived';
-export type BudgetLifecycle = 'draft' | 'active' | 'paused' | 'deleted';
+export type BudgetLifecycle = 'draft' | 'active' | 'paused' | 'closed' | 'deleted';
 export type ObligationLifecycle =
   'active' | 'paused' | 'completed' | 'closed' | 'archived';
 export type SavingsLifecycle = 'active' | 'paused' | 'completed' | 'archived';
@@ -54,7 +54,7 @@ export interface SalaryProfile extends RecordMetadata {
   currencyCode: string;
   salaryDay: number;
   sourceName: string;
-  receivingAccountId: string;
+  receivingAccountId: string | null;
   nextExpectedDate: LocalDate;
   automaticDetectionEnabled: boolean;
   status: PlanningLifecycle;

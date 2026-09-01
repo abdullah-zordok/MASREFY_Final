@@ -1,10 +1,24 @@
-export const SYNC_DOMAINS = ['accounts', 'categories', 'transactions'] as const;
+export const SYNC_DOMAINS = ['accounts', 'categories', 'planning', 'transactions'] as const;
 export type SyncDomain = (typeof SYNC_DOMAINS)[number];
 
 export const SYNC_OPERATIONS = ['create', 'update', 'archive', 'restore', 'delete'] as const;
 export type SyncOperation = (typeof SYNC_OPERATIONS)[number];
 
-export const SYNC_RESOURCE_TYPES = ['account', 'category', 'transaction'] as const;
+export const SYNC_RESOURCE_TYPES = [
+  'account',
+  'category',
+  'transaction',
+  'salary-profile',
+  'salary-receipt',
+  'budget',
+  'budget-category',
+  'obligation',
+  'obligation-schedule',
+  'obligation-payment',
+  'payment-match',
+  'savings-goal',
+  'savings-movement',
+] as const;
 export type SyncResourceType = (typeof SYNC_RESOURCE_TYPES)[number];
 
 export interface SyncCursor {

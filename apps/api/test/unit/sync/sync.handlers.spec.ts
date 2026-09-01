@@ -74,4 +74,53 @@ describe('SyncHandlers', () => {
     expect(reference.execute).not.toHaveBeenCalled();
     expect(ledger.reviseTransaction).not.toHaveBeenCalled();
   });
+
+  it('routes planning roots, dependents, and tombstones through the existing planning service', async () => {
+    const reverseSavingsMovement = jest
+      .fn<Promise<unknown>, [string, string, { body: Record<string, unknown> }]>()
+      .mockResolvedValue({ id: 'movement' });
+    const planning = {
+      createSavingsGoal: jest.fn().mockResolvedValue({ id: 'goal' }),
+      reverseSavingsMovement,
+    };
+    const handlers = new SyncHandlers({} as never, {} as never, planning as never);
+    await handlers.dispatch(
+      principal,
+      {
+        operationId: '63000000-0000-4000-8000-000000000011',
+        domain: 'planning',
+        resourceType: 'savings-goal',
+        schemaVersion: 1,
+        dependsOn: [],
+        operation: 'create',
+        resourceId: null,
+        baseVersion: null,
+        payload: { name: 'Emergency', targetMinor: '100', currencyCode: 'SAR' },
+      },
+      'request',
+    );
+    await handlers.dispatch(
+      principal,
+      {
+        operationId: '63000000-0000-4000-8000-000000000012',
+        domain: 'planning',
+        resourceType: 'savings-movement',
+        schemaVersion: 1,
+        dependsOn: [],
+        operation: 'delete',
+        resourceId: '63000000-0000-4000-8000-000000000013',
+        baseVersion: 2,
+        payload: { goalId: '63000000-0000-4000-8000-000000000014' },
+      },
+      'request',
+    );
+    expect(planning.createSavingsGoal).toHaveBeenCalled();
+    const call = reverseSavingsMovement.mock.calls[0];
+    expect(call?.slice(0, 2)).toEqual([
+      '63000000-0000-4000-8000-000000000014',
+      '63000000-0000-4000-8000-000000000013',
+    ]);
+    expect(call?.[2].body).toMatchObject({ expectedVersion: 2 });
+    expect(call?.[2].body).not.toHaveProperty('goalId');
+  });
 });

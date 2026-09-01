@@ -180,8 +180,18 @@ export function normalizeMutationBatch(value: unknown): {
       accounts: 'account',
       categories: 'category',
       transactions: 'transaction',
+      planning: normalizedResourceType,
     };
-    if (normalizedResourceType !== expectedResourceType[normalizedDomain]) invalid();
+    if (
+      normalizedDomain === 'planning' &&
+      !SYNC_RESOURCE_TYPES.slice(3).includes(normalizedResourceType)
+    )
+      invalid();
+    if (
+      normalizedDomain !== 'planning' &&
+      normalizedResourceType !== expectedResourceType[normalizedDomain]
+    )
+      invalid();
     if (mutation.schemaVersion !== 1) invalid();
     const rawDependencies = mutation.dependsOn ?? [];
     if (!Array.isArray(rawDependencies) || rawDependencies.length > 100) invalid();

@@ -99,6 +99,33 @@ describe('SyncWorker', () => {
     );
   });
 
+  it('terminally rejects stale planning versions without retrying', async () => {
+    const planningClaim = {
+      ...claimed,
+      mutation: { ...claimed.mutation, domain: 'planning', resourceType: 'budget' },
+    } as const;
+    const repository = {
+      claimMutations: jest.fn().mockResolvedValue([planningClaim]),
+      workerComplete: jest.fn(),
+      retryMutation: jest.fn(),
+    };
+    const handlers = {
+      dispatch: jest
+        .fn()
+        .mockRejectedValue(new HttpException({ code: 'PLANNING_VERSION_CONFLICT' }, 409)),
+    };
+    const worker = new SyncWorker(repository as never, handlers as never, config);
+    await worker.runJob('sync-mutations.retry');
+    expect(repository.workerComplete).toHaveBeenCalledWith(
+      planningClaim.id,
+      planningClaim.leaseToken,
+      'rejected',
+      null,
+      { code: 'PLANNING_VERSION_CONFLICT' },
+    );
+    expect(repository.retryMutation).not.toHaveBeenCalled();
+  });
+
   it.each(['idempotency.cleanup', 'sync-state.cleanup', 'conflicts.expire'] as const)(
     'runs the bounded %s job',
     async (job) => {
