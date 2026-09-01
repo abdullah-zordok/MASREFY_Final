@@ -50,6 +50,7 @@ describeLiveDatabase('migration application', () => {
       'private.security_incidents',
       'private.support_access_grants',
       'private.support_access_requests',
+      'private.sync_cursor_positions',
     ]);
 
     const functions = await pool.query<{ name: string }>(
@@ -115,6 +116,7 @@ describeLiveDatabase('migration application', () => {
       'link_salary_receipt',
       'lookup_idempotency_key',
       'mark_planning_overdue',
+      'next_sync_cursor',
       'planning_thresholds_valid',
       'post_opening_transaction',
       'post_transaction',
