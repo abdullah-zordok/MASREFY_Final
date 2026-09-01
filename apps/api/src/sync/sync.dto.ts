@@ -1,7 +1,6 @@
 import { HttpException } from '@nestjs/common';
 
 import {
-  SYNC_DOMAINS,
   SYNC_OPERATIONS,
   SYNC_RESOURCE_TYPES,
   isSyncDomain,
@@ -15,6 +14,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 // eslint-disable-next-line no-control-regex -- identifiers are external input
 const CONTROL = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 const MAX_PAYLOAD_BYTES = 524_288;
+const CURRENT_STATE_BOOTSTRAP_DOMAINS = [
+  'accounts',
+  'categories',
+  'transactions',
+] as const satisfies readonly SyncDomain[];
 
 function invalid(): never {
   const error = new HttpException({ code: 'VALIDATION_FAILED' }, 400);
@@ -99,13 +103,14 @@ export function normalizeBootstrapQuery(value: unknown): {
   const limit = input.limit === undefined ? 500 : integer(input.limit, 1, 500);
   if (raw === undefined || raw === '') {
     if (after !== null) invalid();
-    return { domains: [...SYNC_DOMAINS], after, limit };
+    return { domains: [...CURRENT_STATE_BOOTSTRAP_DOMAINS], after, limit };
   }
   const values = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : invalid();
   const domains = [...new Set(values.map((item) => domain(text(item, 32))))].sort();
   if (
     domains.length < 1 ||
-    domains.length > SYNC_DOMAINS.length ||
+    domains.length > CURRENT_STATE_BOOTSTRAP_DOMAINS.length ||
+    domains.includes('planning') ||
     (after !== null && domains.length !== 1)
   )
     invalid();

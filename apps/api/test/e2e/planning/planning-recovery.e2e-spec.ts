@@ -19,11 +19,13 @@ describeLiveDatabase('planning migration and recovery', () => {
     const files = readdirSync(migrations)
       .filter((name) => name.endsWith('.sql'))
       .sort();
-    expect(files.slice(-3)).toEqual([
+    const planningFiles = [
       '20260831120000_phase07_planning_tables.sql',
       '20260831120100_phase07_planning_functions.sql',
       '20260831120200_phase07_planning_access.sql',
-    ]);
+    ] as const;
+    const planningStart = files.indexOf(planningFiles[0]);
+    expect(files.slice(planningStart, planningStart + planningFiles.length)).toEqual(planningFiles);
     expect(buildMigrationManifest(migrations)).toBe(
       readFileSync(resolve(root, 'supabase/migration-checksums.sha256'), 'utf8').replaceAll(
         '\r\n',
@@ -32,9 +34,9 @@ describeLiveDatabase('planning migration and recovery', () => {
     );
     const versions = files.map((name) => name.slice(0, 14));
     expect(() => {
-      assertCompatibleMigrationHistory(versions.slice(0, -3), versions);
+      assertCompatibleMigrationHistory(versions.slice(0, planningStart), versions);
     }).not.toThrow();
-    for (const file of files.slice(-3))
+    for (const file of planningFiles)
       expect(readFileSync(resolve(migrations, file), 'utf8')).not.toMatch(
         /\bdrop\s+(?:table|column)\b/i,
       );

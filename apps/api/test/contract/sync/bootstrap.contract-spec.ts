@@ -1,12 +1,15 @@
 import { normalizeBootstrapQuery } from '../../../src/sync/sync.dto';
 
 describe('sync bootstrap contract', () => {
-  it('defaults to all domains and canonicalizes an explicit subset', () => {
+  it('defaults to domains with current-state bootstrap snapshots', () => {
     expect(normalizeBootstrapQuery({})).toEqual({
-      domains: ['accounts', 'categories', 'planning', 'transactions'],
+      domains: ['accounts', 'categories', 'transactions'],
       after: null,
       limit: 500,
     });
+  });
+
+  it('canonicalizes an explicit bootstrap-domain subset', () => {
     expect(normalizeBootstrapQuery({ domains: 'transactions,accounts' })).toEqual({
       domains: ['accounts', 'transactions'],
       after: null,
@@ -14,8 +17,10 @@ describe('sync bootstrap contract', () => {
     });
   });
 
-  it('rejects unknown domains and extra input', () => {
-    expect(() => normalizeBootstrapQuery({ domains: 'unknown' })).toThrow('VALIDATION_FAILED');
-    expect(() => normalizeBootstrapQuery({ ownerId: 'spoof' })).toThrow('VALIDATION_FAILED');
-  });
+  it.each([{ domains: 'unknown' }, { domains: 'planning' }, { ownerId: 'spoof' }])(
+    'rejects unsupported bootstrap query input %#',
+    (query) => {
+      expect(() => normalizeBootstrapQuery(query)).toThrow('VALIDATION_FAILED');
+    },
+  );
 });

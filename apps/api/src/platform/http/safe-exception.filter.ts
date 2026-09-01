@@ -97,6 +97,25 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   SYNC_MUTATION_NOT_FOUND: { status: 404, message: 'Sync mutation was not found' },
   SYNC_CONFLICT_NOT_FOUND: { status: 404, message: 'Sync conflict was not found' },
   SYNC_CONFLICT_ALREADY_RESOLVED: { status: 409, message: 'Sync conflict is already resolved' },
+  PLANNING_NOT_FOUND: { status: 404, message: 'Planning resource was not found' },
+  PLANNING_VERSION_CONFLICT: { status: 409, message: 'Planning resource version conflict' },
+  PLANNING_LIFECYCLE_INVALID: {
+    status: 409,
+    message: 'Planning lifecycle transition is invalid',
+  },
+  PLANNING_CURRENCY_MISMATCH: { status: 409, message: 'Planning currencies do not match' },
+  PLANNING_LEDGER_STATE_INVALID: { status: 409, message: 'Planning ledger state is invalid' },
+  PLANNING_TRANSACTION_DUPLICATE: {
+    status: 409,
+    message: 'Planning transaction is already linked',
+  },
+  PLANNING_ALLOCATION_INVALID: { status: 409, message: 'Planning allocation is invalid' },
+  PLANNING_PROGRESS_INSUFFICIENT: {
+    status: 409,
+    message: 'Planning progress is insufficient',
+  },
+  PLANNING_REVIEW_REQUIRED: { status: 409, message: 'Planning review is required' },
+  PLANNING_RATE_LIMITED: { status: 409, message: 'Planning operation is rate limited' },
 };
 
 type FieldError = { field: string; code: string; message: string };
@@ -156,7 +175,7 @@ export function safeError(
     ...mapped,
     requestId: normalizeRequestId(requestId),
     ...(bounded.length > 0 ? { fieldErrors: bounded } : {}),
-    ...(domainCode === 'VERSION_CONFLICT' &&
+    ...((domainCode === 'VERSION_CONFLICT' || domainCode === 'PLANNING_VERSION_CONFLICT') &&
     typeof currentVersion === 'number' &&
     Number.isSafeInteger(currentVersion) &&
     currentVersion >= 1

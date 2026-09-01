@@ -34,12 +34,63 @@ describe('transactional Mobile delta apply', () => {
           updated_at: '2026-08-31T00:00:00.000Z'
         }
       ],
-      'cursor-one'
+      'cursor-one',
+      false
     );
     expect(statements.some((sql) => sql.includes('finance_accounts'))).toBe(
       false
     );
     expect(statements.some((sql) => sql.includes('sync_state'))).toBe(true);
+  });
+
+  it('persists bootstrap data per page but advances the delta cursor only after the final page', async () => {
+    const runAsync = jest.fn(async (..._args: unknown[]) => undefined);
+    const transaction = {
+      getFirstAsync: jest.fn(async () => null),
+      runAsync
+    };
+    const database = {
+      ...transaction,
+      withExclusiveTransactionAsync: jest.fn(
+        async (action: (value: unknown) => Promise<void>) => action(transaction)
+      )
+    };
+    const adapter = new CoreFinanceSyncAdapter(database as never);
+
+    await adapter.applyBootstrap(
+      'accounts',
+      [
+        {
+          id: 'account-page-one',
+          version: 1,
+          name: 'Cash',
+          type: 'cash',
+          currency_code: 'SAR',
+          status: 'active',
+          created_at: '2026-08-31T00:00:00.000Z',
+          updated_at: '2026-08-31T00:00:00.000Z'
+        }
+      ],
+      'starting-cursor',
+      true
+    );
+
+    expect(
+      runAsync.mock.calls.some(([sql]) =>
+        String(sql).includes('finance_accounts')
+      )
+    ).toBe(true);
+    expect(
+      runAsync.mock.calls.some(([sql]) => String(sql).includes('sync_state'))
+    ).toBe(false);
+
+    runAsync.mockClear();
+    await adapter.applyBootstrap('accounts', [], 'final-cursor', false);
+
+    const cursorWrite = runAsync.mock.calls.find(([sql]) =>
+      String(sql).includes('sync_state')
+    );
+    expect(cursorWrite?.[2]).toBe('final-cursor');
   });
 
   it('advances the cursor only after every local apply succeeds', async () => {

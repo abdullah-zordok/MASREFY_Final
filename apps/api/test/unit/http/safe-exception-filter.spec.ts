@@ -73,4 +73,32 @@ describe('safeError', () => {
       'currentVersion',
     );
   });
+
+  it.each([
+    ['PLANNING_NOT_FOUND', 404, 'Planning resource was not found'],
+    ['PLANNING_VERSION_CONFLICT', 409, 'Planning resource version conflict'],
+    ['PLANNING_LIFECYCLE_INVALID', 409, 'Planning lifecycle transition is invalid'],
+    ['PLANNING_CURRENCY_MISMATCH', 409, 'Planning currencies do not match'],
+    ['PLANNING_LEDGER_STATE_INVALID', 409, 'Planning ledger state is invalid'],
+    ['PLANNING_TRANSACTION_DUPLICATE', 409, 'Planning transaction is already linked'],
+    ['PLANNING_ALLOCATION_INVALID', 409, 'Planning allocation is invalid'],
+    ['PLANNING_PROGRESS_INSUFFICIENT', 409, 'Planning progress is insufficient'],
+    ['PLANNING_REVIEW_REQUIRED', 409, 'Planning review is required'],
+    ['PLANNING_RATE_LIMITED', 409, 'Planning operation is rate limited'],
+  ])('maps the approved planning error %s', (code, status, message) => {
+    expect(safeError(status, 'planning-request', [], code)).toEqual({
+      code,
+      message,
+      requestId: 'planning-request',
+    });
+  });
+
+  it('preserves a validated current version on a planning version conflict', () => {
+    expect(safeError(409, 'planning-request', [], 'PLANNING_VERSION_CONFLICT', 7)).toEqual({
+      code: 'PLANNING_VERSION_CONFLICT',
+      message: 'Planning resource version conflict',
+      requestId: 'planning-request',
+      currentVersion: 7,
+    });
+  });
 });

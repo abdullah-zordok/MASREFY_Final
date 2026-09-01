@@ -39,7 +39,8 @@ export class CoreFinanceSyncAdapter {
   async applyBootstrap(
     domain: SyncDomain,
     items: Record<string, unknown>[],
-    cursor: string
+    cursor: string,
+    hasMore: boolean
   ): Promise<void> {
     const database = await this.db();
     await runExclusiveDatabaseTransaction(database, async (transaction) => {
@@ -61,7 +62,8 @@ export class CoreFinanceSyncAdapter {
             null
           );
       }
-      await this.sync.saveCursor(transaction, domain, cursor, null);
+      if (!hasMore)
+        await this.sync.saveCursor(transaction, domain, cursor, null);
     });
   }
 

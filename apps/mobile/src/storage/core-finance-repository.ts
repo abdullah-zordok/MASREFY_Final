@@ -996,7 +996,8 @@ export class CoreFinanceRepository {
       linkedRefunds.some(
         (refund) =>
           refund.accountId !== value.accountId ||
-          refund.currencyCode !== value.currencyCode
+          refund.currencyCode !== value.currencyCode ||
+          refund.categoryId !== value.categoryId
       ) ||
       value.amountMinor < refundedMinor
     )

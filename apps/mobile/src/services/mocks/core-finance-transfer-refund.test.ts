@@ -223,6 +223,7 @@ it.each([
 it.each([
   ['type', { type: 'income' as const }],
   ['account', { accountId: 'account-wallet' }],
+  ['category', { categoryId: 'housing' }],
   ['amount', { amountMinor: 49 }]
 ])(
   'rejects changing a refunded original %s without mutation',
