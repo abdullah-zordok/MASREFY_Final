@@ -37,6 +37,134 @@ describeLiveDatabase('salary planning live invariants', () => {
     });
   }
 
+  type InvalidPredecessor =
+    | 'foreign-owner'
+    | 'other-profile'
+    | 'ineligible-status'
+    | 'correction-cycle'
+    | 'already-replaced';
+
+  async function seedInvalidCorrectionPredecessor(kind: InvalidPredecessor) {
+    const targetProfileId = randomUUID();
+    const predecessorProfileId =
+      kind === 'foreign-owner' || kind === 'other-profile' ? randomUUID() : targetProfileId;
+    const predecessorOwner = kind === 'foreign-owner' ? other : owner;
+    const targetReceiptId = randomUUID();
+    const predecessorReceiptId = randomUUID();
+    const targetTransactionId = randomUUID();
+    const predecessorTransactionId = randomUUID();
+    const existingReplacementId = randomUUID();
+    const existingReplacementTransactionId = randomUUID();
+    const timestamp = Date.now() - 2 * 86_400_000;
+    const targetExpectedAt = new Date(timestamp).toISOString();
+    const predecessorExpectedAt = new Date(timestamp - 86_400_000).toISOString();
+    const replacementExpectedAt = new Date(timestamp + 86_400_000).toISOString();
+
+    await pool.withClient(async (client) => {
+      await client.query('begin');
+      try {
+        await client.query('set local role masarifi_migration');
+        await client.query(
+          `insert into public.salary_profiles(
+             id,user_id,name,amount_minor,currency_code,frequency,expected_day
+           ) values($1,$2,'Correction target',125000,'SAR','monthly',1)`,
+          [targetProfileId, owner],
+        );
+        if (predecessorProfileId !== targetProfileId)
+          await client.query(
+            `insert into public.salary_profiles(
+               id,user_id,name,amount_minor,currency_code,frequency,expected_day
+             ) values($1,$2,'Unrelated predecessor',125000,'SAR','monthly',1)`,
+            [predecessorProfileId, predecessorOwner],
+          );
+        await client.query(
+          `insert into public.transactions(
+             id,user_id,kind,status,amount_minor,currency_code,title,occurred_at
+           ) values
+             ($1,$2,'income','confirmed',125000,'SAR','Correction target',$3),
+             ($4,$5,'income','confirmed',125000,'SAR','Correction predecessor',$6)`,
+          [
+            targetTransactionId,
+            owner,
+            targetExpectedAt,
+            predecessorTransactionId,
+            predecessorOwner,
+            predecessorExpectedAt,
+          ],
+        );
+        await client.query(
+          `insert into public.salary_receipts(
+             id,user_id,salary_profile_id,expected_at,amount_minor,status
+           ) values($1,$2,$3,$4,125000,'expected')`,
+          [targetReceiptId, owner, targetProfileId, targetExpectedAt],
+        );
+        if (kind === 'ineligible-status') {
+          await client.query(
+            `insert into public.salary_receipts(
+               id,user_id,salary_profile_id,expected_at,amount_minor,status
+             ) values($1,$2,$3,$4,125000,'expected')`,
+            [predecessorReceiptId, predecessorOwner, predecessorProfileId, predecessorExpectedAt],
+          );
+        } else {
+          await client.query(
+            `insert into public.salary_receipts(
+               id,user_id,salary_profile_id,transaction_id,expected_at,received_at,
+               amount_minor,status,replaces_receipt_id
+             ) values($1,$2,$3,$4,$5,$5,125000,$6,$7)`,
+            [
+              predecessorReceiptId,
+              predecessorOwner,
+              predecessorProfileId,
+              predecessorTransactionId,
+              predecessorExpectedAt,
+              kind === 'correction-cycle' ? 'corrected' : 'received',
+              kind === 'correction-cycle' ? targetReceiptId : null,
+            ],
+          );
+        }
+        if (kind === 'already-replaced') {
+          await client.query(
+            `insert into public.transactions(
+               id,user_id,kind,status,amount_minor,currency_code,title,occurred_at
+             ) values($1,$2,'income','confirmed',125000,'SAR','Existing replacement',$3)`,
+            [existingReplacementTransactionId, owner, replacementExpectedAt],
+          );
+          await client.query(
+            `insert into public.salary_receipts(
+               id,user_id,salary_profile_id,transaction_id,expected_at,received_at,
+               amount_minor,status,replaces_receipt_id
+             ) values($1,$2,$3,$4,$5,$5,125000,'corrected',$6)`,
+            [
+              existingReplacementId,
+              owner,
+              targetProfileId,
+              existingReplacementTransactionId,
+              replacementExpectedAt,
+              predecessorReceiptId,
+            ],
+          );
+        }
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      }
+    });
+
+    return {
+      command: {
+        operation: 'link',
+        profileId: targetProfileId,
+        transactionId: targetTransactionId,
+        expectedAt: targetExpectedAt,
+        replacesReceiptId: predecessorReceiptId,
+        operationId: randomUUID(),
+        requestId: `salary-invalid-predecessor-${kind}`,
+      },
+      targetReceiptId,
+    };
+  }
+
   beforeAll(async () => {
     await pool.withClient(async (client) => {
       await client.query('begin');
@@ -147,6 +275,31 @@ describeLiveDatabase('salary planning live invariants', () => {
     );
     expect(unlinked.rows[0]?.result).toMatchObject({ id: receiptId, status: 'undone' });
   });
+
+  it.each([
+    ['a cross-owner correction', 'foreign-owner', /SALARY_RECEIPT_NOT_FOUND/],
+    ['a different-profile correction', 'other-profile', /SALARY_RECEIPT_NOT_FOUND/],
+    ['an ineligible-status correction', 'ineligible-status', /SALARY_RECEIPT_INELIGIBLE/],
+    ['a correction-cycle', 'correction-cycle', /SALARY_RECEIPT_INELIGIBLE/],
+    ['an already-replaced correction', 'already-replaced', /SALARY_RECEIPT_INELIGIBLE/],
+  ] as const)(
+    'rejects %s predecessor without mutating the target receipt',
+    async (_case, kind, expectedError) => {
+      const fixture = await seedInvalidCorrectionPredecessor(kind);
+
+      await expect(
+        api(owner, 'select private.link_salary_receipt($1,$2::jsonb)', [
+          owner,
+          JSON.stringify(fixture.command),
+        ]),
+      ).rejects.toThrow(expectedError);
+      const persisted = await pool.query<{ status: string; replaces_receipt_id: string | null }>(
+        'select status,replaces_receipt_id from public.salary_receipts where id=$1',
+        [fixture.targetReceiptId],
+      );
+      expect(persisted.rows[0]).toEqual({ status: 'expected', replaces_receipt_id: null });
+    },
+  );
 
   it('makes concurrent repeated generation and linking converge without duplicates', async () => {
     const generations = await Promise.allSettled(
