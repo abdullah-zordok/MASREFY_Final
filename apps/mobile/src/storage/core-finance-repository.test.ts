@@ -139,9 +139,14 @@ it('preserves both conflict snapshots until explicit supported resolution', () =
     status: 'pending',
     resolution: null
   });
-  expect(() => repo.resolveConflict(conflict.id, 'keep_both')).toThrow('validation');
+  expect(() => repo.resolveConflict(conflict.id, 'keep_both')).toThrow(
+    'validation'
+  );
   expect(repo.allTransactions()).toHaveLength(before);
-  expect(repo.requireConflict(conflict.id)).toMatchObject({ status: 'pending', resolution: null });
+  expect(repo.requireConflict(conflict.id)).toMatchObject({
+    status: 'pending',
+    resolution: null
+  });
 
   const resolved = repo.resolveConflict(conflict.id, 'keep_later');
   expect(resolved.title).toBe(conflict.laterSnapshot.title);
@@ -161,6 +166,22 @@ it('merges categories and reclassifies all source records atomically', () => {
   expect(
     repo.allTransactions().filter((item) => item.categoryId === source)
   ).toHaveLength(0);
+});
+
+it('assigns a nonempty repository ID to a newly created category', () => {
+  const repo = repository();
+  const created = repo.saveCategory({
+    labelAr: 'اختبار',
+    labelEn: 'Test',
+    financialType: 'expense',
+    parentId: null,
+    iconKey: null,
+    colorKey: null,
+    isFavorite: false
+  });
+
+  expect(created.id).toEqual(expect.stringMatching(/^category-.+/));
+  expect(repo.requireCategory(created.id)).toEqual(created);
 });
 
 it('rolls back a staged planning ledger write when planning fails', async () => {

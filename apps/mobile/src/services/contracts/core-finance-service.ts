@@ -50,6 +50,16 @@ export interface ImpactPreview {
   affectedAccountIds: string[];
 }
 
+export interface CardPayoffInput {
+  fundingAccountId: string;
+  cardAccountId: string;
+  amountMinor: number;
+  currencyCode: string;
+  occurredAt: number;
+  title: string;
+  notes?: string | null;
+}
+
 export interface DeleteResult extends MutationResult<Transaction> {
   undoExpiresAt: number;
 }
@@ -91,10 +101,18 @@ export interface CoreFinanceService {
     pageSize?: number
   ): Promise<TransactionPage>;
   getTransaction(id: string): Promise<Transaction>;
+  getRemainingRefundableMinor(
+    originalTransactionId: string,
+    excludedRefundId?: string
+  ): Promise<number>;
   createTransaction(
     input: TransactionInput,
     operationId?: string,
     source?: Transaction['source']
+  ): Promise<MutationResult<Transaction>>;
+  createCardPayoff(
+    input: CardPayoffInput,
+    operationId: string
   ): Promise<MutationResult<Transaction>>;
   createTransactionsAtomically(
     inputs: readonly TransactionInput[],

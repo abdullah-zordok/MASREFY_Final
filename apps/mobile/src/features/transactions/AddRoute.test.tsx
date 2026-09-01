@@ -5,9 +5,14 @@ import AddRoute from '../../../app/(tabs)/add';
 import { translate } from '@/localization/i18n';
 import { renderWithProviders } from '@/test-utils/render';
 
-const mockParams: { type?: string; accountId?: string } = {
+const mockParams: {
+  type?: string;
+  accountId?: string;
+  originalTransactionId?: string;
+} = {
   type: 'transfer',
-  accountId: 'account-1'
+  accountId: 'account-1',
+  originalTransactionId: undefined
 };
 const mockTransactionForm = jest.fn((_props: unknown) => null);
 
@@ -23,7 +28,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   Object.assign(mockParams, {
     type: 'transfer',
-    accountId: 'account-1'
+    accountId: 'account-1',
+    originalTransactionId: undefined
   });
 });
 
@@ -49,5 +55,35 @@ it('falls back to expense for transaction types hidden from Add', () => {
   expect(mockTransactionForm).toHaveBeenCalledWith({
     initialAccountId: 'account-1',
     initialType: 'expense'
+  });
+});
+
+it('accepts refund only when an original transaction id is present', () => {
+  Object.assign(mockParams, {
+    type: 'refund',
+    originalTransactionId: 'transaction-1'
+  });
+
+  renderWithProviders(<AddRoute />);
+
+  expect(mockTransactionForm).toHaveBeenCalledWith({
+    initialAccountId: 'account-1',
+    initialType: 'refund',
+    originalTransactionId: 'transaction-1'
+  });
+});
+
+it('falls back to expense when refund is missing its original transaction id', () => {
+  Object.assign(mockParams, {
+    type: 'refund',
+    originalTransactionId: undefined
+  });
+
+  renderWithProviders(<AddRoute />);
+
+  expect(mockTransactionForm).toHaveBeenCalledWith({
+    initialAccountId: 'account-1',
+    initialType: 'expense',
+    originalTransactionId: undefined
   });
 });

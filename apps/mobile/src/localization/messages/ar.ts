@@ -424,8 +424,7 @@ const ar: MessageCatalog = {
   'appShell.error.biometricLocked': 'فتح القفل بالبصمة غير متاح مؤقتًا.',
   'appShell.error.persistenceFailed': 'تعذر الحفظ محليًا.',
   'appShell.error.unknown': 'حدث خطأ ما.',
-  'appShell.auth.unavailable':
-    'لم تتم تهيئة مصادقة الحساب لهذا الإصدار.',
+  'appShell.auth.unavailable': 'لم تتم تهيئة مصادقة الحساب لهذا الإصدار.',
 
   'common.light': 'فاتح',
   'common.dark': 'داكن',
@@ -638,6 +637,8 @@ const ar: MessageCatalog = {
   'coreFinance.form.save': 'حفظ المعاملة',
   'coreFinance.validation.required': 'أدخل بيانات المعاملة المطلوبة',
   'coreFinance.validation.invalid': 'راجع بيانات المعاملة',
+  'coreFinance.validation.refund':
+    'أدخل مبلغًا ضمن الرصيد المتبقي المؤهل للاسترداد',
   'coreFinance.undo': 'تراجع',
   'coreFinance.cancel': 'إلغاء',
 
@@ -831,6 +832,8 @@ const ar: MessageCatalog = {
   'tracking.status.label': 'الحالة',
   'tracking.status.enabled': 'مفعّل',
   'tracking.status.disabled': 'معطّل',
+  'tracking.status.unavailable': 'غير متاح',
+  'tracking.status.demo': 'تتبّع تجريبي — ليست بيانات إنتاج',
   'tracking.permission.warning': 'لم يتم منح أذونات الرسائل. اضغط للتفعيل.',
   'tracking.permission.unavailableMessage':
     'التتبع التلقائي للرسائل غير متاح في هذا الإصدار. يظل الإدخال اليدوي متاحًا.',
@@ -1160,9 +1163,11 @@ const ar: MessageCatalog = {
   'planning.salary.setupSubtitle':
     'أدخل هذه التفاصيل مرة واحدة، وسيتولى مصاريفي حساب كل دورة راتب.',
   'planning.salary.detailsGroup': 'تفاصيل الراتب',
-  'planning.salary.detailsGroupSubtitle': 'المبلغ والموعد اللذان تتوقعهما عادةً.',
+  'planning.salary.detailsGroupSubtitle':
+    'المبلغ والموعد اللذان تتوقعهما عادةً.',
   'planning.salary.receivingGroup': 'الاستلام والاكتشاف',
-  'planning.salary.receivingGroupSubtitle': 'اختر حساب الاستلام وطريقة التعرّف على الراتب.',
+  'planning.salary.receivingGroupSubtitle':
+    'اختر حساب الاستلام وطريقة التعرّف على الراتب.',
   'planning.salary.day': 'يوم الراتب المتوقع',
   'planning.salary.dayHelper': 'أدخل يومًا من 1 إلى 31.',
   'planning.salary.source': 'جهة العمل أو مصدر الراتب',

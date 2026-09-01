@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, waitFor } from '@testing-library/react-native';
 
-import { changeLocale } from '@/localization/i18n';
+import { changeLocale, translate } from '@/localization/i18n';
 import { financialPlanningService } from '@/services/mocks/financial-planning-service';
 import { usePreferenceStore } from '@/state/preferences';
 import { renderWithProviders } from '@/test-utils/render';
@@ -32,8 +32,11 @@ jest.mock('@/services/mocks/financial-planning-service', () => {
 it('renders obligation overview, form, and detail states', async () => {
   changeLocale('en');
   const form = renderWithProviders(<ObligationForm />);
-  expect(await form.findByLabelText(/Funding account Daily account/)).toBeTruthy();
-  fireEvent.changeText(await form.findByLabelText('Title'), 'Home appliance');
+  const title = await form.findByLabelText('Title');
+  expect(
+    await form.findByLabelText(/Funding account Daily account/)
+  ).toBeTruthy();
+  fireEvent.changeText(title, 'Home appliance');
   fireEvent.changeText(form.getByLabelText('Contracted total'), '1200');
   fireEvent.changeText(form.getByLabelText('Installment amount'), '100');
   fireEvent.changeText(form.getByLabelText('Number of installments'), '12');
@@ -44,10 +47,18 @@ it('renders obligation overview, form, and detail states', async () => {
   const overview = renderWithProviders(<ObligationOverviewScreen />);
   expect(await overview.findByText('Home appliance')).toBeTruthy();
   expect(await overview.findByLabelText(/Total payable/)).toBeTruthy();
+  expect(
+    overview.getByLabelText(/Amounts owed to me.*0\.00.*SAR/)
+  ).toBeTruthy();
   overview.unmount();
 
-  const detail = renderWithProviders(<ObligationDetailScreen obligationId="obligation-car" />);
-  expect(await detail.findByText('Car installment')).toBeTruthy();
+  const created = (
+    await financialPlanningService.listObligations({ status: 'active' })
+  ).items.find((item) => item.title === 'Home appliance');
+  const detail = renderWithProviders(
+    <ObligationDetailScreen obligationId={created!.id} />
+  );
+  expect(await detail.findByText('Home appliance')).toBeTruthy();
   expect(await detail.findByLabelText(/Contracted total/)).toBeTruthy();
   fireEvent.press(detail.getByText('Pause obligation'));
   expect(await detail.findByText('Paused')).toBeTruthy();
@@ -67,16 +78,25 @@ it.each([
     const createForm = renderWithProviders(<ObligationForm />);
 
     fireEvent.changeText(await createForm.findByLabelText('Title'), title);
-    fireEvent.changeText(createForm.getByLabelText('Contracted total'), majorAmount);
-    fireEvent.changeText(createForm.getByLabelText('Installment amount'), majorAmount);
-    fireEvent.changeText(createForm.getByLabelText('Number of installments'), '1');
+    fireEvent.changeText(
+      createForm.getByLabelText('Contracted total'),
+      majorAmount
+    );
+    fireEvent.changeText(
+      createForm.getByLabelText('Installment amount'),
+      majorAmount
+    );
+    fireEvent.changeText(
+      createForm.getByLabelText('Number of installments'),
+      '1'
+    );
     fireEvent.press(createForm.getByText('Save'));
     expect(await createForm.findByText('Saved')).toBeTruthy();
     createForm.unmount();
 
-    const created = (await financialPlanningService.listObligations({})).items.find(
-      (obligation) => obligation.title === title
-    );
+    const created = (
+      await financialPlanningService.listObligations({})
+    ).items.find((obligation) => obligation.title === title);
     expect(created).toMatchObject({
       currencyCode,
       contractedTotalMinor: 12_345,
@@ -98,5 +118,39 @@ it.each([
       contractedTotalMinor: 12_345,
       installmentAmountMinor: 12_345
     });
+  }
+);
+
+it.each([
+  ['en', 'ltr'],
+  ['ar', 'rtl']
+] as const)(
+  'distinguishes remaining, contracted, and paid obligation amounts in %s',
+  async (locale, direction) => {
+    changeLocale(locale);
+    usePreferenceStore.setState({ locale, direction, baseCurrencyCode: 'SAR' });
+
+    const overview = renderWithProviders(<ObligationOverviewScreen />);
+    await overview.findByText('Car installment');
+    expect(
+      overview.getByLabelText(
+        new RegExp(
+          `Car installment.*${translate('planning.field.remaining')}.*48,000\\.00.*SAR`
+        )
+      )
+    ).toBeTruthy();
+    overview.unmount();
+
+    const detail = renderWithProviders(
+      <ObligationDetailScreen obligationId="obligation-car" />
+    );
+    await detail.findByText('Car installment');
+    expect(
+      detail.getByLabelText(
+        new RegExp(
+          `^${translate('planning.field.remaining')}.*48,000\\.00.*SAR.*${translate('planning.obligation.total')}.*60,000\\.00.*SAR.*${translate('planning.field.paid')}.*12,000\\.00.*SAR$`
+        )
+      )
+    ).toBeTruthy();
   }
 );

@@ -22,6 +22,7 @@ import { formatMinorAmount } from '@/utils/format-financial-value';
 import { currentLocale } from '@/localization/i18n';
 import { useTheme } from '@/state/theme-context';
 import { trackingFieldLabel, trackingReasonSummary } from './tracking-display';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 import {
   invalidateTrackingScopes,
   useReviewItem
@@ -80,8 +81,7 @@ export function ReviewDetail({ id }: { id: string }) {
       ? formatMinorAmount(proposed.amountMinor, currency, locale)
       : translate('tracking.review.notDetected');
   const merchant =
-    stringValue(proposed.merchant) ??
-    translate('tracking.review.notDetected');
+    stringValue(proposed.merchant) ?? translate('tracking.review.notDetected');
   const rows = [
     {
       label: translate('coreFinance.form.amount'),
@@ -109,6 +109,7 @@ export function ReviewDetail({ id }: { id: string }) {
       <StyledText variant="title">
         {translate('tracking.review.detail')}
       </StyledText>
+      <TrackingDemoNotice />
       <SurfaceCard
         accessibilityLabel={`${amount}, ${merchant}`}
         style={{

@@ -23,6 +23,7 @@ import { createTrackingPermissionService } from '@/services/platform/tracking-pe
 import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import type { KeywordRule } from '@/domain/app-shell';
 import { TrackingKeywordChips } from './components/TrackingKeywordChips';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 
 export function TrackingStatusScreen() {
   const direction = usePreferenceStore((state) => state.direction);
@@ -138,13 +139,7 @@ export function TrackingStatusScreen() {
   );
 
   return (
-    <View
-      testID="tracking-status-screen"
-      style={[
-        styles.root,
-        { direction }
-      ]}
-    >
+    <View testID="tracking-status-screen" style={[styles.root, { direction }]}>
       {/* 1. Header with back navigation and localized title */}
       <AppBar
         title={translate('tracking.header.title')}
@@ -182,9 +177,11 @@ export function TrackingStatusScreen() {
                   { textAlign: isRtl ? 'right' : 'left' }
                 ]}
               >
-                {isEnabled
-                  ? translate('tracking.status.enabled')
-                  : translate('tracking.status.disabled')}
+                {permissionUnavailable
+                  ? translate('tracking.status.unavailable')
+                  : isEnabled
+                    ? translate('tracking.status.enabled')
+                    : translate('tracking.status.disabled')}
               </StyledText>
             </View>
 
@@ -198,6 +195,8 @@ export function TrackingStatusScreen() {
               />
             </View>
           </View>
+
+          <TrackingDemoNotice />
 
           {/* Actionable Permission Warning: START = Warning Icon, MIDDLE = Warning Text, END = Chevron */}
           {!hasPermission && (
@@ -370,7 +369,7 @@ export function TrackingStatusScreen() {
           <TrackingKeywordChips
             rules={keywordRules}
             onChange={(rules) => void handleKeywordsChange(rules)}
-            disabled={updating}
+            disabled={updating || permissionUnavailable}
           />
         </SurfaceCard>
 

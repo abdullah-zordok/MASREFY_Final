@@ -22,6 +22,7 @@ it('creates bilingual categories and archives and restores them', async () => {
   const created = await sut.createCategory({
     labelAr: 'اختبار',
     labelEn: 'Test',
+    financialType: 'expense',
     parentId: null,
     isFavorite: true
   });

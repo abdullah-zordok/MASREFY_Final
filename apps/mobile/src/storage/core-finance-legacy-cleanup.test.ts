@@ -24,13 +24,36 @@ class ForeignKeySqlite {
   constructor() {
     this.database.exec(`
       PRAGMA foreign_keys = ON;
-      CREATE TABLE finance_accounts (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
-      CREATE TABLE finance_categories (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+      CREATE TABLE finance_accounts (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        status TEXT,
+        is_default INTEGER,
+        updated_at INTEGER
+      );
+      CREATE TABLE finance_categories (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        parent_id TEXT,
+        status TEXT,
+        merged_into_id TEXT,
+        updated_at INTEGER
+      );
       CREATE TABLE finance_transactions (
         id TEXT PRIMARY KEY,
         payload TEXT NOT NULL,
         account_id TEXT NOT NULL REFERENCES finance_accounts(id),
-        category_id TEXT REFERENCES finance_categories(id)
+        destination_account_id TEXT REFERENCES finance_accounts(id),
+        category_id TEXT REFERENCES finance_categories(id),
+        occurred_at INTEGER,
+        type TEXT,
+        source TEXT,
+        status TEXT,
+        sync_status TEXT,
+        review_status TEXT,
+        normalized_title TEXT,
+        amount_minor INTEGER,
+        updated_at INTEGER
       );
       CREATE TABLE finance_drafts (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
       CREATE TABLE finance_sync_conflicts (

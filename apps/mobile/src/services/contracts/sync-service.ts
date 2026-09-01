@@ -80,8 +80,8 @@ export class SyncHttpService {
     payload?: Record<string, unknown>
   ) {
     return this.send(
-      'POST',
-      `/api/v1/conflicts/${encodeURIComponent(conflictId)}/resolve`,
+      'PATCH',
+      `/api/v1/conflicts/${encodeURIComponent(conflictId)}`,
       { resolution, payload },
       idempotencyKey
     );

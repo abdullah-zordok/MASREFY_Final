@@ -51,6 +51,10 @@ describe('SyncHttpService', () => {
     expect(calls[0]?.url).toBe(
       'https://api.example.test/api/v1/sync/bootstrap?domains=accounts&after=next-page&limit=25'
     );
+    expect(calls[6]).toMatchObject({
+      url: 'https://api.example.test/api/v1/conflicts/conflict-one',
+      init: { method: 'PATCH' }
+    });
     expect(
       calls.every(
         ({ init }) =>

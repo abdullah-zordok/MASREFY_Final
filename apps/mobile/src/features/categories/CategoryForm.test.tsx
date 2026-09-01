@@ -44,6 +44,41 @@ it('shows hero emoji picker button and opens sheet on press', () => {
   expect(heroBtn).toBeTruthy();
 });
 
+it('persists the selected income meaning and returns it after save', async () => {
+  changeLocale('en');
+  const onSuccess = jest.fn();
+  renderWithQueryData(<CategoryForm onSuccess={onSuccess} />, [
+    [coreFinanceKeys.categories(), fixtureCategories]
+  ]);
+
+  expect(screen.getByLabelText(/Expense selected/i)).toHaveAccessibilityState({
+    selected: true
+  });
+  fireEvent.press(screen.getByLabelText(/Income available/i));
+  fireEvent.changeText(
+    screen.getByPlaceholderText(
+      translate('coreFinance.categories.categoryNamePlaceholder')
+    ),
+    'Side income'
+  );
+  fireEvent.press(
+    screen.getByLabelText(translate('coreFinance.categories.save'))
+  );
+
+  await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+  const created = onSuccess.mock.calls[0][0] as Category;
+  expect(created.financialType).toBe('income');
+  await expect(coreFinanceService.listCategories(true)).resolves.toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        labelEn: 'Side income',
+        financialType: 'income'
+      })
+    ])
+  );
+  expect(screen.queryByText('Transfer')).toBeNull();
+});
+
 it.each([
   ['en', ['Coffee icon', 'Pizza icon', 'Cake icon']],
   ['ar', ['أيقونة القهوة', 'أيقونة البيتزا', 'أيقونة الكعك']]

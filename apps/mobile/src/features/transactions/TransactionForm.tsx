@@ -28,6 +28,7 @@ import {
   typography
 } from '@/design-system/tokens';
 import {
+  isConfirmedTransaction,
   parseAmountToMinor,
   type Account,
   type Category,
@@ -38,7 +39,9 @@ import { minorToMajorAmountText } from '@/domain/currencies';
 import {
   invalidateCoreFinanceScopes,
   useAccounts,
-  useCategories
+  useCategories,
+  useRemainingRefundableMinor,
+  useTransaction
 } from '@/features/core-finance/core-finance-queries';
 import { categoryIconName } from '@/features/categories/category-presentation';
 import { openCategorySelection } from '@/features/categories/category-selection-session';
@@ -51,6 +54,7 @@ import { CoreFinanceError } from '@/services/contracts/core-finance-service';
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { usePreferenceStore } from '@/state/preferences';
 import { useTheme } from '@/state/theme-context';
+import { formatMinorAmount } from '@/utils/format-financial-value';
 import { useTransactionDraftGuard } from './useTransactionDraftGuard';
 import { AccountPicker } from './AccountPicker';
 import { TransactionDateField } from './TransactionDateField';
@@ -60,15 +64,65 @@ import { MANUAL_TRANSACTION_DRAFT_ID } from './manual-transaction-draft';
 const editSupportedTypes: TransactionType[] = ['expense', 'income', 'transfer'];
 const EMPTY_AMOUNT_PLACEHOLDER = '0';
 
-export function TransactionForm({
-  initialType = 'expense',
-  initialAccountId = '',
-  transaction
-}: {
+type TransactionFormProps = {
   initialType?: TransactionType;
   initialAccountId?: string;
+  originalTransactionId?: string;
   transaction?: Transaction;
-}) {
+};
+
+type TransactionFormContentProps = TransactionFormProps & {
+  refundOriginal?: Transaction | null;
+  refundOriginalError?: boolean;
+  refundOriginalLoading?: boolean;
+  onRefundOriginalRetry?: () => void;
+};
+
+export function TransactionForm(props: TransactionFormProps) {
+  const refundOriginalId =
+    props.transaction?.type === 'refund'
+      ? (props.transaction.originalTransactionId ?? '')
+      : props.initialType === 'refund'
+        ? (props.originalTransactionId ?? '')
+        : '';
+
+  if (refundOriginalId) {
+    return (
+      <RefundTransactionForm {...props} refundOriginalId={refundOriginalId} />
+    );
+  }
+
+  return <TransactionFormContent {...props} />;
+}
+
+function RefundTransactionForm({
+  refundOriginalId,
+  ...props
+}: TransactionFormProps & { refundOriginalId: string }) {
+  const refundOriginal = useTransaction(refundOriginalId);
+  return (
+    <TransactionFormContent
+      {...props}
+      refundOriginal={refundOriginal.data ?? null}
+      refundOriginalError={refundOriginal.isError}
+      refundOriginalLoading={refundOriginal.isLoading}
+      onRefundOriginalRetry={() => {
+        void refundOriginal.refetch();
+      }}
+    />
+  );
+}
+
+function TransactionFormContent({
+  initialType = 'expense',
+  initialAccountId = '',
+  originalTransactionId = '',
+  transaction,
+  refundOriginal = null,
+  refundOriginalError = false,
+  refundOriginalLoading = false,
+  onRefundOriginalRetry
+}: TransactionFormContentProps) {
   const accounts = useAccounts();
   const categories = useCategories();
   const client = useQueryClient();
@@ -98,50 +152,75 @@ export function TransactionForm({
   const [occurredAt, setOccurredAt] = useState(
     transaction?.occurredAt ?? Date.now()
   );
+  const refundOriginalId =
+    transaction?.type === 'refund'
+      ? (transaction.originalTransactionId ?? '')
+      : initialType === 'refund'
+        ? originalTransactionId
+        : '';
+  const refundLocked = type === 'refund' && Boolean(refundOriginalId);
+  const refundDraft = !transaction && refundLocked;
+  const refundable = useRemainingRefundableMinor(
+    refundOriginalId,
+    refundLocked,
+    transaction?.type === 'refund' ? transaction.id : undefined
+  );
+  const lockedOriginal = refundLocked ? refundOriginal : null;
+  const lockedAccountId = lockedOriginal?.accountId ?? '';
+  const lockedCategoryId = lockedOriginal?.categoryId ?? '';
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [deleted, setDeleted] = useState(transaction?.status === 'deleted');
-  const [draftReady, setDraftReady] = useState(Boolean(transaction));
+  const [draftReady, setDraftReady] = useState(
+    Boolean(transaction || refundDraft)
+  );
   const skipNextDraftReload = useRef(false);
   const [picker, setPicker] = useState<'account' | 'destination' | null>(null);
   const meaningful = Boolean(
     amount || title || accountId || destinationAccountId || categoryId || notes
   );
-  const saveManualDraft = useCallback(
-    () =>
-      coreFinanceService.saveDraft({
-        id: MANUAL_TRANSACTION_DRAFT_ID,
-        transactionType: type,
-        amountText: amount,
-        accountId: accountId || null,
-        destinationAccountId: destinationAccountId || null,
-        categoryId: categoryId || null,
-        merchant: title || null,
-        notes: notes || null,
-        occurredAt,
-        status: 'editing',
-        updatedAt: Date.now()
-      }),
-    [
-      accountId,
-      amount,
-      categoryId,
-      destinationAccountId,
-      notes,
+  const persistManualDraft = useCallback(() => {
+    if (refundDraft) return Promise.resolve(undefined);
+    return coreFinanceService.saveDraft({
+      id: MANUAL_TRANSACTION_DRAFT_ID,
+      transactionType: type,
+      amountText: amount,
+      accountId: accountId || null,
+      destinationAccountId: destinationAccountId || null,
+      categoryId: categoryId || null,
+      merchant: title || null,
+      notes: notes || null,
       occurredAt,
-      title,
-      type
-    ]
+      status: 'editing',
+      updatedAt: Date.now()
+    });
+  }, [
+    accountId,
+    amount,
+    categoryId,
+    destinationAccountId,
+    notes,
+    occurredAt,
+    refundDraft,
+    title,
+    type
+  ]);
+  const saveManualDraft = useCallback(
+    () => persistManualDraft(),
+    [persistManualDraft]
   );
-  const discard = useCallback(
-    () => coreFinanceService.discardDraft(MANUAL_TRANSACTION_DRAFT_ID),
-    []
-  );
+  const discard = useCallback(() => {
+    if (refundDraft) return Promise.resolve(undefined);
+    return coreFinanceService.discardDraft(MANUAL_TRANSACTION_DRAFT_ID);
+  }, [refundDraft]);
   const { requestClose, leaveAfterSave } = useTransactionDraftGuard({
     meaningful: !transaction && meaningful,
     discard
   });
-  const sourceAccountId = accountId || accounts.data?.[0]?.id;
+  const sourceAccountId =
+    lockedAccountId || accountId || accounts.data?.[0]?.id;
+  const resolvedCategoryId =
+    type === 'transfer' ? '' : lockedCategoryId || categoryId;
   const selectedAccount = accounts.data?.find(
     (item: Account) => item.id === sourceAccountId
   );
@@ -149,19 +228,20 @@ export function TransactionForm({
     (item: Account) => item.id === destinationAccountId
   );
   const selectedCategory = categories.data?.find(
-    (item: Category) => item.id === categoryId
+    (item: Category) => item.id === resolvedCategoryId
   );
   const selectedCurrencyCode = transaction
-    ? selectedAccount?.currencyCode ?? transaction.currencyCode
-    : selectedAccount?.currencyCode ?? 'SAR';
+    ? (selectedAccount?.currencyCode ?? transaction.currencyCode)
+    : (lockedOriginal?.currencyCode ?? selectedAccount?.currencyCode ?? 'SAR');
   const editDirty = Boolean(
     transaction &&
     (type !== transaction.type ||
-      parseAmountToMinor(amount, selectedCurrencyCode) !== transaction.amountMinor ||
+      parseAmountToMinor(amount, selectedCurrencyCode) !==
+        transaction.amountMinor ||
       title !== transaction.title ||
       sourceAccountId !== transaction.accountId ||
       (destinationAccountId || null) !== transaction.destinationAccountId ||
-      (type === 'transfer' ? null : categoryId || null) !==
+      (type === 'transfer' ? null : resolvedCategoryId || null) !==
         transaction.categoryId ||
       notes !== (transaction.notes ?? '') ||
       occurredAt !== transaction.occurredAt)
@@ -187,7 +267,7 @@ export function TransactionForm({
 
   useFocusEffect(
     useCallback(() => {
-      if (transaction) return;
+      if (transaction || refundDraft) return;
       if (skipNextDraftReload.current) {
         skipNextDraftReload.current = false;
         return;
@@ -208,26 +288,55 @@ export function TransactionForm({
         })
         .catch(() => setError(translate('coreFinance.state.error')))
         .finally(() => setDraftReady(true));
-    }, [initialType, transaction])
+    }, [initialType, refundDraft, transaction])
   );
 
   useEffect(() => {
-    if (!draftReady || transaction || !meaningful || saving) return;
+    if (!draftReady || transaction || refundDraft || !meaningful || saving)
+      return;
     const timeout = setTimeout(() => {
       void saveManualDraft().catch(() =>
         setError(translate('coreFinance.state.error'))
       );
     }, 250);
     return () => clearTimeout(timeout);
-  }, [draftReady, meaningful, saveManualDraft, saving, transaction]);
+  }, [
+    draftReady,
+    meaningful,
+    refundDraft,
+    saveManualDraft,
+    saving,
+    transaction
+  ]);
   const save = async () => {
     if (saving || deleted) return;
-    const resolvedAccount = accountId || accounts.data?.[0]?.id;
+    const resolvedAccount = sourceAccountId;
     const currencyCode = selectedCurrencyCode;
     const amountMinor = parseAmountToMinor(amount, currencyCode);
-    const categoryRequired = type !== 'transfer' && !categoryId;
-    if (!amountMinor || !resolvedAccount || !title.trim() || categoryRequired) {
+    const resolvedOriginalTransactionId =
+      refundLocked && lockedOriginal
+        ? lockedOriginal.id
+        : (transaction?.originalTransactionId ?? null);
+    const categoryRequired =
+      type !== 'transfer' && type !== 'refund' && !resolvedCategoryId;
+    if (
+      !amountMinor ||
+      !resolvedAccount ||
+      !title.trim() ||
+      categoryRequired ||
+      (type === 'refund' && !resolvedOriginalTransactionId)
+    ) {
       setError(translate('coreFinance.validation.required'));
+      return;
+    }
+    if (
+      refundLocked &&
+      (!lockedOriginal ||
+        lockedOriginal.type !== 'expense' ||
+        !isConfirmedTransaction(lockedOriginal) ||
+        amountMinor > (refundable.data ?? 0))
+    ) {
+      setError(translate('coreFinance.validation.refund'));
       return;
     }
     setSaving(true);
@@ -240,12 +349,12 @@ export function TransactionForm({
         destinationAccountId:
           type === 'transfer' ? destinationAccountId || null : null,
         feeMinor: transaction?.feeMinor ?? 0,
-        categoryId: type === 'transfer' ? null : categoryId,
+        categoryId: type === 'transfer' ? null : resolvedCategoryId || null,
         title,
         merchant: transaction?.merchant ?? null,
         occurredAt,
         notes: notes.trim() || null,
-        originalTransactionId: transaction?.originalTransactionId ?? null,
+        originalTransactionId: resolvedOriginalTransactionId,
         obligationId: transaction?.obligationId ?? null
       };
       const mutation = transaction
@@ -260,9 +369,9 @@ export function TransactionForm({
         setType(initialType);
         setAmount('');
         setTitle('');
-        setAccountId('');
+        setAccountId(refundDraft ? lockedAccountId : '');
         setDestination('');
-        setCategoryId('');
+        setCategoryId(refundDraft ? lockedCategoryId : '');
         setNotes('');
         setOccurredAt(Date.now());
       }
@@ -279,14 +388,25 @@ export function TransactionForm({
       setSaving(false);
     }
   };
-  if (accounts.isLoading || categories.isLoading || !draftReady)
+  if (
+    accounts.isLoading ||
+    categories.isLoading ||
+    !draftReady ||
+    (refundLocked && refundOriginalLoading) ||
+    (refundLocked && refundable.isLoading)
+  )
     return (
       <StateView
         state="loading"
         title={translate('coreFinance.state.loading')}
       />
     );
-  if (accounts.isError || categories.isError)
+  if (
+    accounts.isError ||
+    categories.isError ||
+    (refundLocked && (refundOriginalError || !refundOriginal)) ||
+    (refundLocked && refundable.isError)
+  )
     return (
       <StateView
         state="error"
@@ -295,6 +415,10 @@ export function TransactionForm({
         onAction={() => {
           void accounts.refetch();
           void categories.refetch();
+          if (refundLocked) {
+            onRefundOriginalRetry?.();
+            void refundable.refetch();
+          }
         }}
       />
     );
@@ -410,7 +534,9 @@ export function TransactionForm({
             ? translateDynamic('coreFinance.transaction.editNamed', {
                 type: translate(`coreFinance.type.${type}` as never)
               })
-            : translate('appShell.tabs.add')}
+            : translate(
+                refundDraft ? 'coreFinance.type.refund' : 'appShell.tabs.add'
+              )}
         </Text>
         <Pressable
           accessibilityLabel={translate('coreFinance.form.save')}
@@ -436,67 +562,69 @@ export function TransactionForm({
         keyboardShouldPersistTaps="handled"
       >
         <View testID="transaction-edit-hero" style={styles.editHero}>
-          <View
-            testID="transaction-edit-type-selector"
-            style={[
-              styles.typeSelector,
-              {
-                direction: 'ltr',
-                flexDirection: direction === 'rtl' ? 'row-reverse' : 'row'
-              }
-            ]}
-          >
-            {editSupportedTypes.map((item) => {
-              const label = translate(`coreFinance.type.${item}` as never);
-              const selected = item === type;
-              return (
-                <Pressable
-                  key={item}
-                  testID={`transaction-edit-type-${item}`}
-                  accessibilityLabel={`${label} ${translate(
-                    selected
-                      ? 'designSystem.state.selected'
-                      : deleted
-                        ? 'designSystem.state.disabled'
-                        : 'designSystem.state.available'
-                  )}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected, disabled: deleted }}
-                  disabled={Boolean(transaction && deleted)}
-                  onPress={() => {
-                    setType(item);
-                    if (item === 'transfer') setCategoryId('');
-                    else setDestination('');
-                  }}
-                  style={({ pressed }) => [
-                    styles.typeOption,
-                    {
-                      backgroundColor: selected
-                        ? theme.colors.interactions.primary
-                        : pressed
-                          ? theme.colors.interactions.quietPressed
-                          : theme.colors.surfaces.grouped,
-                      opacity: transaction && deleted ? 0.56 : 1
-                    }
-                  ]}
-                >
-                  <Text
-                    numberOfLines={2}
-                    style={[
-                      styles.typeOptionText,
+          {refundLocked ? null : (
+            <View
+              testID="transaction-edit-type-selector"
+              style={[
+                styles.typeSelector,
+                {
+                  direction: 'ltr',
+                  flexDirection: direction === 'rtl' ? 'row-reverse' : 'row'
+                }
+              ]}
+            >
+              {editSupportedTypes.map((item) => {
+                const label = translate(`coreFinance.type.${item}` as never);
+                const selected = item === type;
+                return (
+                  <Pressable
+                    key={item}
+                    testID={`transaction-edit-type-${item}`}
+                    accessibilityLabel={`${label} ${translate(
+                      selected
+                        ? 'designSystem.state.selected'
+                        : deleted
+                          ? 'designSystem.state.disabled'
+                          : 'designSystem.state.available'
+                    )}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected, disabled: deleted }}
+                    disabled={Boolean(transaction && deleted)}
+                    onPress={() => {
+                      setType(item);
+                      if (item === 'transfer') setCategoryId('');
+                      else setDestination('');
+                    }}
+                    style={({ pressed }) => [
+                      styles.typeOption,
                       {
-                        color: selected
-                          ? theme.colors.content.inverse
-                          : theme.colors.content.primary
+                        backgroundColor: selected
+                          ? theme.colors.interactions.primary
+                          : pressed
+                            ? theme.colors.interactions.quietPressed
+                            : theme.colors.surfaces.grouped,
+                        opacity: transaction && deleted ? 0.56 : 1
                       }
                     ]}
                   >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.typeOptionText,
+                        {
+                          color: selected
+                            ? theme.colors.content.inverse
+                            : theme.colors.content.primary
+                        }
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
           <View style={styles.amountBlock}>
             <View
               testID="transaction-edit-amount-unit"
@@ -537,7 +665,7 @@ export function TransactionForm({
             categoryVisualKey={selectedCategory?.iconKey ?? null}
             label={translate('coreFinance.transaction.category')}
             title={categoryLabel}
-            disabled={Boolean(transaction && deleted)}
+            disabled={refundLocked || Boolean(transaction && deleted)}
             onPress={() => void openPicker('category')}
           />
         )}
@@ -550,7 +678,7 @@ export function TransactionForm({
             translate('coreFinance.transaction.account')
           }
           subtitle={selectedAccount?.currencyCode}
-          disabled={Boolean(transaction && deleted)}
+          disabled={refundLocked || Boolean(transaction && deleted)}
           onPress={() => void openPicker('account')}
         />
         {type === 'transfer' ? (
@@ -589,6 +717,37 @@ export function TransactionForm({
           disabled={Boolean(transaction && deleted)}
           onChange={setOccurredAt}
         />
+        {refundDraft && lockedOriginal ? (
+          <>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: theme.colors.content.primary }
+              ]}
+            >
+              {translate('coreFinance.transaction.information')}
+            </Text>
+            <GroupedList
+              label={translate('coreFinance.transaction.information')}
+            >
+              <NavigationRow
+                label={translate('coreFinance.transaction.original')}
+                value={lockedOriginal.title}
+                onPress={() =>
+                  router.push(`/transactions/${lockedOriginal.id}`)
+                }
+              />
+              <NavigationRow
+                label={translate('coreFinance.form.amount')}
+                value={formatMinorAmount(
+                  lockedOriginal.amountMinor,
+                  lockedOriginal.currencyCode,
+                  locale
+                )}
+              />
+            </GroupedList>
+          </>
+        ) : null}
         {error ? (
           <Text
             accessibilityRole="alert"

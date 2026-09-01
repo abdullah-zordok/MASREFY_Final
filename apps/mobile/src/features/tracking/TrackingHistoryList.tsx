@@ -12,6 +12,7 @@ import {
 import { translate } from '@/localization/i18n';
 import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
 import { trackingReasonSummary } from './tracking-display';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 import {
   invalidateTrackingScopes,
   useTrackingHistory
@@ -39,6 +40,7 @@ export function TrackingHistoryList() {
       <StyledText variant="title">
         {translate('tracking.action.history')}
       </StyledText>
+      <TrackingDemoNotice />
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
