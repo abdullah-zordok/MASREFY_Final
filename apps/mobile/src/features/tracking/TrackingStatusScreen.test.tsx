@@ -40,11 +40,10 @@ describe('TrackingStatusScreen', () => {
       activeSenderCount: 5,
       lastUpdatedAt: Date.now()
     });
-    await act(async () => {});
 
     // 1. Header & Status
     expect(
-      screen.getByText(translate('tracking.header.title'))
+      await screen.findByText(translate('tracking.header.title'))
     ).toBeOnTheScreen();
     expect(
       screen.getByText(translate('tracking.status.enabled'))
@@ -61,7 +60,9 @@ describe('TrackingStatusScreen', () => {
     // 3. Keywords section with real keywords
     await waitFor(() => {
       expect(
-        screen.getByText(new RegExp(translate('tracking.keywords.sectionTitle')))
+        screen.getByText(
+          new RegExp(translate('tracking.keywords.sectionTitle'))
+        )
       ).toBeOnTheScreen();
     });
 
@@ -84,15 +85,77 @@ describe('TrackingStatusScreen', () => {
       activeSenderCount: 0,
       lastUpdatedAt: Date.now()
     });
-    await act(async () => {});
 
     expect(
-      screen.getByTestId('tracking-permission-warning-banner')
+      await screen.findByTestId('tracking-permission-warning-banner')
     ).toBeOnTheScreen();
     expect(
       screen.getByText(translate('tracking.permission.warning'))
     ).toBeOnTheScreen();
   });
+
+  it.each(['ar', 'en'] as const)(
+    'labels unavailable tracking honestly and disables its controls in %s',
+    async (locale) => {
+      changeLocale(locale);
+      renderStatus({
+        platform: 'conservative',
+        mode: 'automatic_clear',
+        permissionStatus: 'unavailable',
+        serviceState: 'unavailable',
+        lastDetectedAt: null,
+        lastSuccessfulTransactionId: null,
+        detectedThisMonth: 0,
+        reviewCount: 0,
+        activeKeywordCount: 0,
+        activeSenderCount: 0,
+        lastUpdatedAt: Date.now()
+      });
+
+      expect(
+        await screen.findByText(translate('tracking.status.unavailable'))
+      ).toBeOnTheScreen();
+      expect(screen.getByTestId('tracking-mode-switch')).toBeDisabled();
+      expect(screen.getByTestId('tracking-add-keyword-toggle')).toBeDisabled();
+      const warning = screen.getByTestId('tracking-permission-warning-banner');
+      expect(warning).toBeDisabled();
+      expect(warning).toHaveProp(
+        'accessibilityLabel',
+        translate('tracking.permission.unavailableMessage')
+      );
+    }
+  );
+
+  it.each(['ar', 'en'] as const)(
+    'labels demo tracking as non-production in %s',
+    async (locale) => {
+      const previous = process.env.EXPO_PUBLIC_DEMO_MODE;
+      process.env.EXPO_PUBLIC_DEMO_MODE = '1';
+      changeLocale(locale);
+      try {
+        renderStatus({
+          platform: 'android',
+          mode: 'automatic_clear',
+          permissionStatus: 'granted',
+          serviceState: 'healthy',
+          lastDetectedAt: null,
+          lastSuccessfulTransactionId: null,
+          detectedThisMonth: 1,
+          reviewCount: 0,
+          activeKeywordCount: 1,
+          activeSenderCount: 1,
+          lastUpdatedAt: Date.now()
+        });
+
+        expect(
+          await screen.findByLabelText(translate('tracking.status.demo'))
+        ).toHaveTextContent(translate('tracking.status.demo'));
+      } finally {
+        if (previous === undefined) delete process.env.EXPO_PUBLIC_DEMO_MODE;
+        else process.env.EXPO_PUBLIC_DEMO_MODE = previous;
+      }
+    }
+  );
 
   it('allows adding and removing custom keywords', async () => {
     renderStatus({
@@ -108,11 +171,12 @@ describe('TrackingStatusScreen', () => {
       activeSenderCount: 0,
       lastUpdatedAt: Date.now()
     });
-    await act(async () => {});
 
     // Open add keyword draft input
     await waitFor(() => {
-      expect(screen.getByTestId('tracking-add-keyword-toggle')).toBeOnTheScreen();
+      expect(
+        screen.getByTestId('tracking-add-keyword-toggle')
+      ).toBeOnTheScreen();
     });
     await act(async () => {
       fireEvent.press(screen.getByTestId('tracking-add-keyword-toggle'));
@@ -147,7 +211,6 @@ describe('TrackingStatusScreen', () => {
       activeSenderCount: 0,
       lastUpdatedAt: Date.now()
     });
-    await act(async () => {});
 
     await waitFor(() => {
       expect(
@@ -180,9 +243,8 @@ describe('TrackingStatusScreen', () => {
         activeSenderCount: 5,
         lastUpdatedAt: Date.now()
       });
-      await act(async () => {});
 
-      expect(screen.getByTestId('tracking-keyword-header')).toHaveStyle({
+      expect(await screen.findByTestId('tracking-keyword-header')).toHaveStyle({
         alignItems: 'stretch',
         flexDirection: 'column'
       });

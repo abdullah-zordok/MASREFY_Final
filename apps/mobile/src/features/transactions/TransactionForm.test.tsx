@@ -43,7 +43,11 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/services/mocks/core-finance-service', () => ({
   coreFinanceService: {
+    listAccounts: jest.fn(),
+    listCategories: jest.fn(),
+    getTransaction: jest.fn(),
     loadDraft: jest.fn(async () => null),
+    getRemainingRefundableMinor: jest.fn(async () => Number.MAX_SAFE_INTEGER),
     saveDraft: jest.fn(async (draft: unknown) => draft),
     discardDraft: jest.fn(async () => undefined),
     createTransaction: jest.fn(),
@@ -54,10 +58,20 @@ jest.mock('@/services/mocks/core-finance-service', () => ({
 }));
 
 beforeEach(() => {
+  jest.useRealTimers();
   changeLocale('en');
   jest.clearAllMocks();
   mockFocusEffectCallback = undefined;
   jest.mocked(coreFinanceService.loadDraft).mockResolvedValue(null);
+  jest
+    .mocked(coreFinanceService.listAccounts)
+    .mockResolvedValue(fixtureAccounts);
+  jest
+    .mocked(coreFinanceService.listCategories)
+    .mockResolvedValue(fixtureCategories);
+  jest
+    .mocked(coreFinanceService.getRemainingRefundableMinor)
+    .mockResolvedValue(Number.MAX_SAFE_INTEGER);
   jest.mocked(router.canGoBack).mockReturnValue(true);
 });
 
@@ -71,10 +85,13 @@ it('keeps amount-first entry values and shows localized validation before save',
     [coreFinanceKeys.categories(false), fixtureCategories]
   ]);
   await waitFor(() =>
-    expect(
-      screen.getByLabelText(translate('coreFinance.form.amount'))
-    ).toBeTruthy()
+    expect(coreFinanceService.loadDraft).toHaveBeenCalledWith(
+      MANUAL_TRANSACTION_DRAFT_ID
+    )
   );
+  expect(
+    screen.getByLabelText(translate('coreFinance.form.amount'))
+  ).toBeTruthy();
   fireEvent.changeText(
     screen.getByLabelText(translate('coreFinance.form.title')),
     'Lunch'
@@ -338,6 +355,153 @@ it.each([
     expect(await screen.findByDisplayValue(expectedAmount)).toBeTruthy();
   }
 );
+
+it('submits a linked refund when the eligible original has no category', async () => {
+  const original = {
+    ...fixtureTransactions[0],
+    id: 'categoryless-refund-original',
+    type: 'expense' as const,
+    amountMinor: 10_000,
+    currencyCode: 'SAR',
+    accountId: 'account-bank',
+    categoryId: null,
+    status: 'posted' as const,
+    reviewStatus: 'none' as const,
+    syncStatus: 'synced' as const
+  };
+  jest.mocked(coreFinanceService.createTransaction).mockResolvedValue({
+    value: {
+      ...fixtureTransactions[0],
+      type: 'refund',
+      categoryId: null,
+      originalTransactionId: original.id
+    },
+    affectedScopes: []
+  });
+
+  renderWithQueryData(
+    <TransactionForm
+      initialType="refund"
+      originalTransactionId={original.id}
+    />,
+    [
+      [coreFinanceKeys.accounts(false), fixtureAccounts],
+      [coreFinanceKeys.categories(false), fixtureCategories],
+      [coreFinanceKeys.transaction(original.id), original]
+    ]
+  );
+
+  fireEvent.changeText(await screen.findByLabelText('Amount'), '25');
+  fireEvent.changeText(screen.getByLabelText('Description'), 'Refund');
+  fireEvent.press(screen.getByLabelText('Save transaction'));
+
+  await waitFor(() =>
+    expect(coreFinanceService.createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'refund',
+        categoryId: null,
+        originalTransactionId: original.id
+      }),
+      expect.stringMatching(/^manual-/)
+    )
+  );
+});
+
+it('waits for an uncached original before rendering an existing refund', async () => {
+  const original = {
+    ...fixtureTransactions[0],
+    id: 'uncached-refund-original',
+    type: 'expense' as const
+  };
+  const refund = {
+    ...fixtureTransactions[0],
+    id: 'uncached-refund',
+    type: 'refund' as const,
+    originalTransactionId: original.id
+  };
+  let resolveOriginal: (value: typeof original) => void = () => undefined;
+  jest.mocked(coreFinanceService.getTransaction).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveOriginal = resolve;
+      })
+  );
+
+  renderWithQueryData(<TransactionForm transaction={refund} />, [
+    [coreFinanceKeys.accounts(false), fixtureAccounts],
+    [coreFinanceKeys.categories(false), fixtureCategories]
+  ]);
+
+  expect(
+    await screen.findByText(translate('coreFinance.state.loading'))
+  ).toBeTruthy();
+  await act(async () => resolveOriginal(original));
+  expect(await screen.findByLabelText('Amount')).toBeTruthy();
+});
+
+it('retries a failed original lookup while editing a refund', async () => {
+  const original = {
+    ...fixtureTransactions[0],
+    id: 'retry-refund-original',
+    type: 'expense' as const
+  };
+  const refund = {
+    ...fixtureTransactions[0],
+    id: 'retry-refund',
+    type: 'refund' as const,
+    originalTransactionId: original.id
+  };
+  jest
+    .mocked(coreFinanceService.getTransaction)
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValue(original);
+
+  renderWithQueryData(<TransactionForm transaction={refund} />, [
+    [coreFinanceKeys.accounts(false), fixtureAccounts],
+    [coreFinanceKeys.categories(false), fixtureCategories]
+  ]);
+
+  fireEvent.press(
+    await screen.findByText(translate('coreFinance.action.retry'))
+  );
+
+  expect(await screen.findByLabelText('Amount')).toBeTruthy();
+  expect(coreFinanceService.getTransaction).toHaveBeenCalledTimes(2);
+});
+
+it('retries a failed refundable-capacity lookup', async () => {
+  const original = {
+    ...fixtureTransactions[0],
+    id: 'retry-capacity-original',
+    type: 'expense' as const
+  };
+  const refund = {
+    ...fixtureTransactions[0],
+    id: 'retry-capacity-refund',
+    type: 'refund' as const,
+    originalTransactionId: original.id
+  };
+  jest.mocked(coreFinanceService.getTransaction).mockResolvedValue(original);
+  jest
+    .mocked(coreFinanceService.getRemainingRefundableMinor)
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValue(10_000);
+
+  renderWithQueryData(<TransactionForm transaction={refund} />, [
+    [coreFinanceKeys.accounts(false), fixtureAccounts],
+    [coreFinanceKeys.categories(false), fixtureCategories],
+    [coreFinanceKeys.transaction(original.id), original]
+  ]);
+
+  fireEvent.press(
+    await screen.findByText(translate('coreFinance.action.retry'))
+  );
+
+  expect(await screen.findByLabelText('Amount')).toBeTruthy();
+  expect(coreFinanceService.getRemainingRefundableMinor).toHaveBeenCalledTimes(
+    2
+  );
+});
 
 it('preserves the transaction currency when its account is absent from the active query', async () => {
   const transaction = {
@@ -611,9 +775,11 @@ it('restores and saves the manual note and occurred-at date', async () => {
 it('bypasses the draft guard after creating a transaction', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   jest.mocked(router.replace).mockImplementation(() => {
-    jest.mocked(usePreventRemove).mock.calls.at(-1)?.[1]({
-      data: { action: { type: 'REPLACE' } }
-    });
+    jest
+      .mocked(usePreventRemove)
+      .mock.calls.at(-1)?.[1]({
+        data: { action: { type: 'REPLACE' } }
+      });
   });
   jest.mocked(coreFinanceService.loadDraft).mockResolvedValueOnce({
     id: MANUAL_TRANSACTION_DRAFT_ID,
@@ -762,6 +928,272 @@ it('opens existing relationships and exposes eligible secondary actions', async 
   expect(
     screen.getByText(translate('coreFinance.transaction.delete'))
   ).toBeTruthy();
+});
+
+it.each([
+  ['partial', '25', 2_500],
+  ['full', '100', 10_000]
+] as const)(
+  'submits a linked %s refund with the original relationship and fixed financial fields',
+  async (kind, amount, expectedMinor) => {
+    const original = {
+      ...fixtureTransactions[0],
+      id: `refund-original-${kind}`,
+      type: 'expense' as const,
+      amountMinor: 10_000,
+      title: `Original ${kind} purchase`,
+      currencyCode: 'SAR',
+      accountId: 'account-bank',
+      categoryId: 'food',
+      status: 'posted' as const,
+      reviewStatus: 'none' as const,
+      syncStatus: 'synced' as const
+    };
+    jest.mocked(coreFinanceService.createTransaction).mockResolvedValue({
+      value: {
+        ...fixtureTransactions[0],
+        type: 'refund',
+        originalTransactionId: original.id
+      },
+      affectedScopes: []
+    });
+
+    renderWithQueryData(
+      <TransactionForm
+        initialType="refund"
+        originalTransactionId={original.id}
+      />,
+      [
+        [coreFinanceKeys.accounts(false), fixtureAccounts],
+        [coreFinanceKeys.categories(false), fixtureCategories],
+        [coreFinanceKeys.transaction(original.id), original]
+      ]
+    );
+
+    expect(
+      await screen.findByText(translate('coreFinance.type.refund'))
+    ).toBeTruthy();
+    expect(await screen.findByText('Food')).toBeTruthy();
+    expect(screen.getByText('Daily account')).toBeTruthy();
+    expect(screen.getByText(original.title)).toBeTruthy();
+    expect(screen.getByText(/100\.00/)).toBeTruthy();
+    expect(screen.getByLabelText('Category, Food')).toHaveAccessibilityState({
+      disabled: true
+    });
+    expect(
+      screen.getByLabelText('Account, Daily account')
+    ).toHaveAccessibilityState({ disabled: true });
+    fireEvent.press(screen.getByText(original.title));
+    expect(router.push).toHaveBeenCalledWith(`/transactions/${original.id}`);
+    expect(screen.queryByTestId('transaction-edit-type-selector')).toBeNull();
+    expect(screen.queryByTestId('transaction-edit-type-expense')).toBeNull();
+    expect(screen.queryByTestId('transaction-edit-type-income')).toBeNull();
+    expect(screen.queryByTestId('transaction-edit-type-transfer')).toBeNull();
+
+    fireEvent.changeText(screen.getByLabelText('Amount'), amount);
+    fireEvent.changeText(
+      screen.getByLabelText('Description'),
+      `${kind} refund`
+    );
+    fireEvent.press(screen.getByLabelText('Save transaction'));
+
+    await waitFor(() =>
+      expect(coreFinanceService.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'refund',
+          amountMinor: expectedMinor,
+          currencyCode: original.currencyCode,
+          accountId: original.accountId,
+          categoryId: original.categoryId,
+          originalTransactionId: original.id,
+          title: `${kind} refund`
+        }),
+        expect.stringMatching(/^manual-/)
+      )
+    );
+  }
+);
+
+it.each([
+  ['excessive', {}, '101', 10_000],
+  ['ineligible', { reviewStatus: 'required' as const }, '25', 10_000]
+] as const)(
+  'rejects an %s linked refund with a corrective message and no mutation',
+  async (_case, originalPatch, amount, remainingMinor) => {
+    const original = {
+      ...fixtureTransactions[0],
+      id: `refund-invalid-${_case}`,
+      type: 'expense' as const,
+      amountMinor: 10_000,
+      currencyCode: 'SAR',
+      accountId: 'account-bank',
+      categoryId: 'food',
+      status: 'posted' as const,
+      reviewStatus: 'none' as const,
+      syncStatus: 'synced' as const,
+      ...originalPatch
+    };
+    jest
+      .mocked(coreFinanceService.getRemainingRefundableMinor)
+      .mockResolvedValue(remainingMinor);
+
+    renderWithQueryData(
+      <TransactionForm
+        initialType="refund"
+        originalTransactionId={original.id}
+      />,
+      [
+        [coreFinanceKeys.accounts(false), fixtureAccounts],
+        [coreFinanceKeys.categories(false), fixtureCategories],
+        [coreFinanceKeys.transaction(original.id), original]
+      ]
+    );
+
+    fireEvent.changeText(await screen.findByLabelText('Amount'), amount);
+    fireEvent.changeText(screen.getByLabelText('Description'), 'Refund');
+    fireEvent.press(screen.getByLabelText('Save transaction'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      translate('coreFinance.validation.refund')
+    );
+    expect(coreFinanceService.createTransaction).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+  }
+);
+
+it.each([
+  ['text edit', '50', 'Updated refund', 5_000],
+  ['allowed increase', '60', 'Refund', 6_000]
+] as const)(
+  'allows a linked refund %s within capacity that excludes itself',
+  async (_case, amount, title, expectedMinor) => {
+    const original = {
+      ...fixtureTransactions[0],
+      id: 'editable-refund-original',
+      type: 'expense' as const,
+      amountMinor: 10_000,
+      accountId: 'account-bank',
+      currencyCode: 'SAR',
+      categoryId: 'food',
+      status: 'posted' as const,
+      reviewStatus: 'none' as const,
+      syncStatus: 'synced' as const
+    };
+    const refund = {
+      ...fixtureTransactions[0],
+      id: `editable-refund-${_case}`,
+      type: 'refund' as const,
+      amountMinor: 5_000,
+      accountId: original.accountId,
+      currencyCode: original.currencyCode,
+      categoryId: original.categoryId,
+      title: 'Refund',
+      originalTransactionId: original.id
+    };
+    jest
+      .mocked(coreFinanceService.getRemainingRefundableMinor)
+      .mockResolvedValue(10_000);
+    jest.mocked(coreFinanceService.updateTransaction).mockResolvedValue({
+      value: { ...refund, amountMinor: expectedMinor, title },
+      affectedScopes: []
+    });
+
+    renderWithQueryData(<TransactionForm transaction={refund} />, [
+      [coreFinanceKeys.accounts(false), fixtureAccounts],
+      [coreFinanceKeys.categories(false), fixtureCategories],
+      [coreFinanceKeys.transaction(original.id), original]
+    ]);
+
+    fireEvent.changeText(await screen.findByLabelText('Amount'), amount);
+    fireEvent.changeText(screen.getByLabelText('Description'), title);
+    fireEvent.press(screen.getByLabelText('Save transaction'));
+
+    await waitFor(() =>
+      expect(coreFinanceService.updateTransaction).toHaveBeenCalledWith(
+        refund.id,
+        expect.objectContaining({ amountMinor: expectedMinor, title })
+      )
+    );
+    expect(coreFinanceService.getRemainingRefundableMinor).toHaveBeenCalledWith(
+      original.id,
+      refund.id
+    );
+  }
+);
+
+it('rejects an edited linked refund above capacity without mutation', async () => {
+  const original = {
+    ...fixtureTransactions[0],
+    id: 'edit-refund-limit-original',
+    type: 'expense' as const,
+    amountMinor: 10_000,
+    accountId: 'account-bank',
+    currencyCode: 'SAR',
+    categoryId: 'food'
+  };
+  const refund = {
+    ...fixtureTransactions[0],
+    id: 'edit-refund-limit',
+    type: 'refund' as const,
+    amountMinor: 5_000,
+    accountId: original.accountId,
+    currencyCode: original.currencyCode,
+    categoryId: original.categoryId,
+    originalTransactionId: original.id
+  };
+  jest
+    .mocked(coreFinanceService.getRemainingRefundableMinor)
+    .mockResolvedValue(10_000);
+
+  renderWithQueryData(<TransactionForm transaction={refund} />, [
+    [coreFinanceKeys.accounts(false), fixtureAccounts],
+    [coreFinanceKeys.categories(false), fixtureCategories],
+    [coreFinanceKeys.transaction(original.id), original]
+  ]);
+
+  fireEvent.changeText(await screen.findByLabelText('Amount'), '101');
+  fireEvent.press(screen.getByLabelText('Save transaction'));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    translate('coreFinance.validation.refund')
+  );
+  expect(coreFinanceService.updateTransaction).not.toHaveBeenCalled();
+});
+
+it('identifies and locks the linked refund flow accessibly in Arabic', async () => {
+  changeLocale('ar');
+  const original = {
+    ...fixtureTransactions[0],
+    id: 'refund-original-ar',
+    type: 'expense' as const,
+    title: 'مشتريات أصلية',
+    currencyCode: 'SAR',
+    accountId: 'account-bank',
+    categoryId: 'food'
+  };
+
+  renderWithQueryData(
+    <TransactionForm
+      initialType="refund"
+      originalTransactionId={original.id}
+    />,
+    [
+      [coreFinanceKeys.accounts(false), fixtureAccounts],
+      [coreFinanceKeys.categories(false), fixtureCategories],
+      [coreFinanceKeys.transaction(original.id), original]
+    ]
+  );
+
+  expect(await screen.findByText('استرداد')).toBeTruthy();
+  expect(screen.getByText(original.title)).toBeTruthy();
+  expect(screen.getByLabelText('الفئة, الطعام')).toHaveAccessibilityState({
+    disabled: true
+  });
+  expect(
+    screen.getByLabelText('الحساب, Daily account')
+  ).toHaveAccessibilityState({
+    disabled: true
+  });
 });
 
 it('disables editing after deletion and restores it after undo', async () => {

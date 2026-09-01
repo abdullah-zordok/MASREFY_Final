@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, screen } from '@testing-library/react-native';
+import { screen } from '@testing-library/react-native';
 
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 import { renderWithQueryData } from '@/test-utils/render';
@@ -32,10 +32,8 @@ describe('TrackingStatusJourney', () => {
     renderWithQueryData(<TrackingStatusScreen />, [
       [automaticTrackingKeys.status, status]
     ]);
-    await act(async () => {});
-
     expect(
-      screen.getByText(translate('tracking.status.disabled'))
+      await screen.findByText(translate('tracking.status.unavailable'))
     ).toBeOnTheScreen();
     expect(
       screen.getByText(translate('tracking.permission.unavailableMessage'))
@@ -67,10 +65,8 @@ describe('TrackingStatusJourney', () => {
     renderWithQueryData(<TrackingStatusScreen />, [
       [automaticTrackingKeys.status, status]
     ]);
-    await act(async () => {});
-
     expect(
-      screen.getByText(translate('tracking.status.enabled'))
+      await screen.findByText(translate('tracking.status.enabled'))
     ).toBeOnTheScreen();
     expect(
       screen.getByTestId('tracking-permission-warning-banner')

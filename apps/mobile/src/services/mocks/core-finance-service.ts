@@ -17,6 +17,7 @@ import {
 } from '@/domain/core-finance';
 import type {
   CoreFinanceService,
+  CardPayoffInput,
   DeleteResult,
   MutationResult
 } from '@/services/contracts/core-finance-service';
@@ -278,6 +279,14 @@ export function createMockCoreFinanceService(
     async getTransaction(id) {
       return read(() => repository.requireTransaction(id));
     },
+    async getRemainingRefundableMinor(originalTransactionId, excludedRefundId) {
+      return read(() =>
+        repository.getRemainingRefundableMinor(
+          originalTransactionId,
+          excludedRefundId
+        )
+      );
+    },
     async createTransaction(input: TransactionInput, operationId, source) {
       return mutate(
         () =>
@@ -290,6 +299,18 @@ export function createMockCoreFinanceService(
         (transaction) =>
           repository.persistTransaction(transaction, operationId),
         (transaction) => scopes.transaction(transaction.id)
+      );
+    },
+    async createCardPayoff(input: CardPayoffInput, operationId) {
+      return mutate(
+        () => repository.createCardPayoff(input, operationId),
+        (transaction) =>
+          repository.persistTransaction(transaction, operationId),
+        (transaction) => [
+          ...scopes.transaction(transaction.id),
+          ...scopes.account(transaction.accountId),
+          ...scopes.account(transaction.destinationAccountId!)
+        ]
       );
     },
     async createTransactionsAtomically(inputs, operationId, source) {
@@ -375,13 +396,10 @@ export function createProductionCoreFinanceService(locale: Locale = 'ar') {
   if (isDemoModeEnabled()) {
     const repository = createDemoCoreFinanceRepository(locale);
     demoCoreFinanceRepository = repository;
-    return createMockCoreFinanceService(
-      repository,
-      {
-        persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
-        registerForReset: true
-      }
-    );
+    return createMockCoreFinanceService(repository, {
+      persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
+      registerForReset: true
+    });
   }
   return createMockCoreFinanceService(
     new CoreFinanceRepository({

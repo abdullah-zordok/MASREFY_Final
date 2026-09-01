@@ -12,6 +12,7 @@ import { currentLocale, translate } from '@/localization/i18n';
 import { formatMinorAmount } from '@/utils/format-financial-value';
 import { trackingReasonSummary } from './tracking-display';
 import { useReviewItems } from './useAutomaticTracking';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 
 export function ReviewQueue() {
   const query = useReviewItems();
@@ -34,9 +35,12 @@ export function ReviewQueue() {
       data={items}
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
-        <StyledText variant="title">
-          {translate('tracking.review.title')}
-        </StyledText>
+        <>
+          <StyledText variant="title">
+            {translate('tracking.review.title')}
+          </StyledText>
+          <TrackingDemoNotice />
+        </>
       }
       ListEmptyComponent={
         <StateView state="empty" title={translate('tracking.review.empty')} />

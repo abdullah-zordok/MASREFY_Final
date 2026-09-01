@@ -651,6 +651,8 @@ const en = {
   'coreFinance.form.save': 'Save transaction',
   'coreFinance.validation.required': 'Enter the required transaction details',
   'coreFinance.validation.invalid': 'Review the transaction details',
+  'coreFinance.validation.refund':
+    'Enter an amount within the eligible remaining refund',
   'coreFinance.undo': 'Undo',
   'coreFinance.cancel': 'Cancel',
 
@@ -844,6 +846,8 @@ const en = {
   'tracking.status.label': 'Status',
   'tracking.status.enabled': 'Enabled',
   'tracking.status.disabled': 'Disabled',
+  'tracking.status.unavailable': 'Unavailable',
+  'tracking.status.demo': 'Demo tracking — not production data',
   'tracking.permission.warning':
     'Message permissions not granted. Tap to enable.',
   'tracking.permission.unavailableMessage':
@@ -1181,9 +1185,11 @@ const en = {
   'planning.salary.setupSubtitle':
     'Add these details once and Masarifi will calculate each salary cycle for you.',
   'planning.salary.detailsGroup': 'Salary details',
-  'planning.salary.detailsGroupSubtitle': 'The amount and timing you usually expect.',
+  'planning.salary.detailsGroupSubtitle':
+    'The amount and timing you usually expect.',
   'planning.salary.receivingGroup': 'Receiving and detection',
-  'planning.salary.receivingGroupSubtitle': 'Choose where the salary arrives and how to identify it.',
+  'planning.salary.receivingGroupSubtitle':
+    'Choose where the salary arrives and how to identify it.',
   'planning.salary.day': 'Expected salary day',
   'planning.salary.dayHelper': 'Enter a day from 1 to 31.',
   'planning.salary.source': 'Employer or salary source',
@@ -1364,7 +1370,8 @@ const en = {
   'reports.state.stale': 'Report may be stale',
   'reports.state.offline': 'Offline report',
   'reports.state.unavailable': 'Unavailable',
-  'reports.backendUnavailable': 'Report delivery is not configured for production.',
+  'reports.backendUnavailable':
+    'Report delivery is not configured for production.',
   'reports.insight.title': 'Period insights',
   'reports.insight.budget_performance': 'Budget remaining',
   'reports.insight.month_comparison': 'Expense change from the previous period',
@@ -1581,7 +1588,8 @@ const en = {
     'Assistant is unavailable offline. Your history is preserved.',
   'assistant.state.empty': 'No conversations yet.',
   'assistant.state.error': 'Assistant is temporarily unavailable.',
-  'assistant.backendUnavailable': 'Assistant service is not configured for production.',
+  'assistant.backendUnavailable':
+    'Assistant service is not configured for production.',
   'assistant.action.enable': 'Enable personalization',
   'assistant.consent.enabled': 'Smart personalization is active',
   'assistant.hero.title': 'AI Assistant',
@@ -1715,7 +1723,8 @@ const en = {
   'subscriptions.checkout.title': 'Confirm subscription',
   'subscriptions.state.error':
     'Subscription details are unavailable. Try again.',
-  'subscriptions.backendUnavailable': 'Billing is not configured for production.',
+  'subscriptions.backendUnavailable':
+    'Billing is not configured for production.',
   'subscriptions.state.expired': 'Subscription expired',
   'subscriptions.access.readOnly': 'Existing paid content remains read-only.',
   'subscriptions.access.editable': 'Content remains editable.',
@@ -1919,7 +1928,8 @@ const en = {
   'support.ticket.listTitle': 'Support tickets',
   'support.ticket.detailTitle': 'Ticket {{reference}}',
   'support.ticket.error': 'Tickets are unavailable. Try again.',
-  'support.backendUnavailable': 'Online support tickets are not configured for production.',
+  'support.backendUnavailable':
+    'Online support tickets are not configured for production.',
   'support.ticket.empty': 'No support tickets yet.',
   'support.ticket.open': 'Open ticket',
   'support.ticket.reply': 'Reply',

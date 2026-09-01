@@ -28,7 +28,7 @@ describe('automatic tracking accessibility', () => {
     ]);
 
     expect(
-      screen.getByLabelText(translate('tracking.status.mode'))
+      await screen.findByLabelText(translate('tracking.status.mode'))
     ).toBeOnTheScreen();
     expect(
       screen.getByText(translate('tracking.howItWorks.detection'))

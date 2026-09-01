@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { layoutDirectionStyle } from '@/design-system/direction';
+import { ChipSelector } from '@/design-system/components/forms/ChipControls';
 import { DesignIcon } from '@/design-system/icons';
 import { colorTokens, spacing } from '@/design-system/tokens';
 import type { Category } from '@/domain/core-finance';
@@ -44,18 +45,28 @@ export function CategoryForm({
     category ? (locale === 'ar' ? category.labelAr : category.labelEn) : ''
   );
   const [iconKey, setIconKey] = useState(category?.iconKey ?? 'food');
+  const [financialType, setFinancialType] = useState<
+    NonNullable<Category['financialType']>
+  >(category?.financialType ?? 'expense');
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const dirty =
-    name !== (category ? (locale === 'ar' ? category.labelAr : category.labelEn) : '') ||
-    iconKey !== (category?.iconKey ?? 'food');
+    name !==
+      (category
+        ? locale === 'ar'
+          ? category.labelAr
+          : category.labelEn
+        : '') ||
+    iconKey !== (category?.iconKey ?? 'food') ||
+    financialType !== (category?.financialType ?? 'expense');
 
   useEffect(() => {
     if (!category) return;
     setName(locale === 'ar' ? category.labelAr : category.labelEn);
     setIconKey(category.iconKey ?? 'food');
+    setFinancialType(category.financialType ?? 'expense');
     setError(undefined);
   }, [category, locale]);
 
@@ -97,6 +108,7 @@ export function CategoryForm({
           : category?.labelEn && category.labelEn !== category.labelAr
             ? category.labelEn
             : trimmedName,
+      financialType,
       parentId: category?.parentId ?? null,
       iconKey,
       colorKey: category?.colorKey ?? null,
@@ -180,10 +192,7 @@ export function CategoryForm({
             accessibilityLabel={translate('coreFinance.categories.save')}
             disabled={saving}
             onPress={() => void handleSave()}
-            style={[
-              styles.navBtn,
-              { opacity: saving ? 0.6 : 1 }
-            ]}
+            style={[styles.navBtn, { opacity: saving ? 0.6 : 1 }]}
             hitSlop={8}
           >
             <DesignIcon
@@ -205,8 +214,10 @@ export function CategoryForm({
             style={[
               styles.heroBadge,
               {
-                backgroundColor: theme.colors.surfaces?.grouped ?? colorTokens.raw["F1F5F3"],
-                borderColor: theme.colors.borders?.subtle ?? colorTokens.raw["E8EFEC"]
+                backgroundColor:
+                  theme.colors.surfaces?.grouped ?? colorTokens.raw['F1F5F3'],
+                borderColor:
+                  theme.colors.borders?.subtle ?? colorTokens.raw['E8EFEC']
               }
             ]}
           >
@@ -250,15 +261,17 @@ export function CategoryForm({
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder={translate('coreFinance.categories.categoryNamePlaceholder')}
+            placeholder={translate(
+              'coreFinance.categories.categoryNamePlaceholder'
+            )}
             placeholderTextColor={theme.colors.textSecondary}
             style={[
               styles.textInput,
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: error
-                  ? colorTokens.raw["C04B45"]
-                  : theme.colors.borders?.subtle ?? colorTokens.raw["E7E9E6"],
+                  ? colorTokens.raw['C04B45']
+                  : (theme.colors.borders?.subtle ?? colorTokens.raw['E7E9E6']),
                 color: theme.colors.textPrimary,
                 textAlign: isRtl ? 'right' : 'left',
                 writingDirection: direction
@@ -269,11 +282,40 @@ export function CategoryForm({
           {error ? (
             <Text
               accessibilityRole="alert"
-              style={[styles.errorText, { color: colorTokens.raw["C04B45"] }]}
+              style={[styles.errorText, { color: colorTokens.raw['C04B45'] }]}
             >
               {error}
             </Text>
           ) : null}
+        </View>
+
+        <View style={styles.fieldSection}>
+          <Text
+            style={[
+              styles.fieldLabel,
+              {
+                color: theme.colors.textSecondary,
+                textAlign: isRtl ? 'right' : 'left',
+                writingDirection: direction
+              }
+            ]}
+          >
+            {translate('coreFinance.filters.type')}
+          </Text>
+          <ChipSelector
+            options={[
+              translate('coreFinance.type.expense'),
+              translate('coreFinance.type.income')
+            ]}
+            selected={[translate(`coreFinance.type.${financialType}` as never)]}
+            onToggle={(value) =>
+              setFinancialType(
+                value === translate('coreFinance.type.income')
+                  ? 'income'
+                  : 'expense'
+              )
+            }
+          />
         </View>
       </ScrollView>
 
@@ -289,7 +331,11 @@ export function CategoryForm({
 }
 
 const styles = StyleSheet.create({
-  physicalLtr: { ...layoutDirectionStyle('ltr'), display: 'flex', writingDirection: 'ltr' },
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    display: 'flex',
+    writingDirection: 'ltr'
+  },
   container: {
     gap: spacing.lg,
     paddingBottom: 48,
@@ -338,7 +384,7 @@ const styles = StyleSheet.create({
   },
   smileyBadge: {
     alignItems: 'center',
-    backgroundColor: colorTokens.raw["FFFFFF"],
+    backgroundColor: colorTokens.raw['FFFFFF'],
     borderRadius: 12,
     bottom: -4,
     height: 24,
@@ -347,7 +393,7 @@ const styles = StyleSheet.create({
     right: -4,
     width: 24,
     elevation: 2,
-    shadowColor: colorTokens.raw["000"],
+    shadowColor: colorTokens.raw['000'],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2

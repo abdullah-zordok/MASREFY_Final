@@ -2,8 +2,16 @@ import React from 'react';
 
 import { changeLocale } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
+import { useReportsViewState } from '@/state/reports-view-state';
 import { renderWithProviders } from '@/test-utils/render';
 import { ReportsScreen } from './ReportsScreen';
+
+beforeEach(() => {
+  useReportsViewState.setState({
+    anchorDate: '2026-08-08',
+    selectedKind: 'monthly'
+  });
+});
 
 test('report primary controls expose button roles', async () => {
   changeLocale('en');

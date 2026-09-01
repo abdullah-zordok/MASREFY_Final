@@ -15,6 +15,7 @@ import {
   invalidateTrackingScopes,
   useSenderRules
 } from './useAutomaticTracking';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 
 export function SenderRuleList() {
   const client = useQueryClient();
@@ -26,6 +27,7 @@ export function SenderRuleList() {
       <StyledText variant="title">
         {translate('tracking.senders.title')}
       </StyledText>
+      <TrackingDemoNotice />
       <FormField
         label={translate('tracking.senders.search')}
         value={search}
@@ -47,9 +49,7 @@ export function SenderRuleList() {
               : 'tracking.senders.disabled'
           );
           const action = translate(
-            item.enabled
-              ? 'tracking.action.disable'
-              : 'tracking.action.enable'
+            item.enabled ? 'tracking.action.disable' : 'tracking.action.enable'
           );
           return (
             <GroupedList label={item.displayLabel}>
@@ -58,17 +58,17 @@ export function SenderRuleList() {
                 description={state}
                 status={action}
                 onPress={async () => {
-                const result = await automaticTrackingService.saveSenderRule({
-                  id: item.id,
-                  sender: item.normalizedSender,
-                  displayLabel: item.displayLabel,
-                  institutionKey: item.institutionKey,
-                  origin: item.origin,
-                  enabled: !item.enabled,
-                  trusted: item.trusted
-                });
-                await invalidateTrackingScopes(client, result.affectedScopes);
-              }}
+                  const result = await automaticTrackingService.saveSenderRule({
+                    id: item.id,
+                    sender: item.normalizedSender,
+                    displayLabel: item.displayLabel,
+                    institutionKey: item.institutionKey,
+                    origin: item.origin,
+                    enabled: !item.enabled,
+                    trusted: item.trusted
+                  });
+                  await invalidateTrackingScopes(client, result.affectedScopes);
+                }}
               />
             </GroupedList>
           );

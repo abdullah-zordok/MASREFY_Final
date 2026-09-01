@@ -24,10 +24,17 @@ export const coreFinanceKeys = {
   account: (id: string) => ['core-finance', 'account', id] as const,
   transactions: (filters: TransactionFilterSet = emptyTransactionFilters) =>
     ['core-finance', 'transactions', filters] as const,
-  transactionPages: (
-    filters: TransactionFilterSet = emptyTransactionFilters
-  ) => ['core-finance', 'transactions', 'pages', filters] as const,
+  transactionPages: (filters: TransactionFilterSet = emptyTransactionFilters) =>
+    ['core-finance', 'transactions', 'pages', filters] as const,
   transaction: (id: string) => ['core-finance', 'transaction', id] as const,
+  refundable: (id: string, excludedRefundId?: string) =>
+    [
+      'core-finance',
+      'transactions',
+      'refundable',
+      id,
+      excludedRefundId ?? null
+    ] as const,
   categories: (archived = false) =>
     ['core-finance', 'categories', archived] as const,
   conflict: (id: string) => ['core-finance', 'conflict', id] as const
@@ -92,6 +99,19 @@ export function useTransaction(id: string) {
     queryKey: coreFinanceKeys.transaction(id),
     queryFn: () => coreFinanceService.getTransaction(id),
     enabled: Boolean(id)
+  });
+}
+
+export function useRemainingRefundableMinor(
+  id: string,
+  enabled = true,
+  excludedRefundId?: string
+) {
+  return useQuery({
+    queryKey: coreFinanceKeys.refundable(id, excludedRefundId),
+    queryFn: () =>
+      coreFinanceService.getRemainingRefundableMinor(id, excludedRefundId),
+    enabled: Boolean(id) && enabled
   });
 }
 

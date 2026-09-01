@@ -430,6 +430,7 @@ export class CoreFinanceSyncAdapter {
 
   private category(value: Record<string, unknown>, id: string) {
     const active = value.active === true;
+    const transfer = value.kind === 'transfer';
     const merged = value.merged_into_id ?? value.mergedIntoId;
     return {
       id,
@@ -437,17 +438,21 @@ export class CoreFinanceSyncAdapter {
         (value.system_key ?? value.systemKey)
           ? ('system' as const)
           : ('custom' as const),
+      financialType:
+        value.kind === 'income' ? ('income' as const) : ('expense' as const),
       parentId: this.nullable(value.parent_id ?? value.parentId),
       labelAr: this.text(value.label_ar ?? value.labelAr),
       labelEn: this.text(value.label_en ?? value.labelEn),
       iconKey: this.nullable(value.icon ?? value.iconKey),
       colorKey: this.nullable(value.color ?? value.colorKey),
       isFavorite: false,
-      status: merged
-        ? ('merged' as const)
-        : active
-          ? ('active' as const)
-          : ('archived' as const),
+      status: transfer
+        ? ('archived' as const)
+        : merged
+          ? ('merged' as const)
+          : active
+            ? ('active' as const)
+            : ('archived' as const),
       mergedIntoId: this.nullable(merged),
       createdAt: this.time(value.created_at ?? value.createdAt),
       updatedAt: this.time(value.updated_at ?? value.updatedAt)
@@ -465,10 +470,12 @@ export class CoreFinanceSyncAdapter {
       (posting) => posting.posting_role === 'destination'
     );
     const kind = this.text(value.kind ?? value.type);
+    const type = kind === 'opening' ? ('adjustment' as const) : kind;
+    const transferPurpose = value.transfer_purpose ?? value.transferPurpose;
     const status = this.text(value.status);
     return {
       id,
-      type: kind === 'opening' ? ('adjustment' as const) : kind,
+      type,
       amountMinor: Number(value.amount_minor ?? value.amountMinor),
       currencyCode: this.text(value.currency_code ?? value.currencyCode).trim(),
       accountId: this.text(
@@ -480,7 +487,16 @@ export class CoreFinanceSyncAdapter {
           value.destinationAccountId
       ),
       feeMinor: Number(value.fee_minor ?? value.feeMinor ?? 0),
-      categoryId: this.nullable(value.category_id ?? value.categoryId),
+      transferPurpose:
+        type === 'transfer'
+          ? transferPurpose === 'card_payoff'
+            ? ('card_payoff' as const)
+            : ('internal' as const)
+          : null,
+      categoryId:
+        type === 'transfer'
+          ? null
+          : this.nullable(value.category_id ?? value.categoryId),
       title: this.text(value.title),
       merchant: this.nullable(value.merchant),
       paymentMethod: this.nullable(value.payment_method ?? value.paymentMethod),

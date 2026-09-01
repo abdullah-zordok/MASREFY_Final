@@ -8,6 +8,7 @@ import type {
   ObligationLifecycle,
   ObligationPayment,
   ObligationScheduleItem,
+  ObligationStatus,
   PaymentAllocation,
   PaymentMatch,
   PlanningConflict,
@@ -117,6 +118,7 @@ export interface ObligationDetail {
   obligation: Obligation;
   schedule: ObligationScheduleItem[];
   payments: ObligationPayment[];
+  status: ObligationStatus;
 }
 
 export interface ObligationQuery {
@@ -130,8 +132,9 @@ export interface ObligationPage {
 }
 
 export interface ObligationsOverview {
-  payablesMinor: number;
-  receivablesMinor: number;
+  payablesByCurrency: Record<string, number | null>;
+  receivablesByCurrency: Record<string, number | null>;
+  remainingByObligationId: Record<string, number | null>;
   nextDueDate: LocalDate | null;
   items: Obligation[];
 }

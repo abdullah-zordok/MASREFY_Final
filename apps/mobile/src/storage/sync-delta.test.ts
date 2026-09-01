@@ -130,4 +130,119 @@ describe('transactional Mobile delta apply', () => {
       runAsync.mock.calls.some(([sql]) => String(sql).includes('sync_state'))
     ).toBe(false);
   });
+
+  it.each([
+    ['income', 'income', 'active'],
+    ['expense', 'expense', 'active'],
+    ['transfer', 'expense', 'archived']
+  ] as const)(
+    'persists synced %s categories with a valid %s financial type and %s status',
+    async (kind, financialType, status) => {
+      const transaction = {
+        getFirstAsync: jest.fn(async () => null),
+        runAsync: jest.fn(async (..._args: unknown[]) => undefined)
+      };
+      const database = {
+        ...transaction,
+        withExclusiveTransactionAsync: jest.fn(
+          async (action: (value: unknown) => Promise<void>) =>
+            action(transaction)
+        )
+      };
+
+      await new CoreFinanceSyncAdapter(database as never).applyDelta(
+        'categories',
+        [
+          {
+            resourceId: `category-${kind}`,
+            operation: 'upsert',
+            version: 1,
+            deletedAt: null,
+            snapshot: {
+              id: `category-${kind}`,
+              kind,
+              label_ar: 'فئة',
+              label_en: 'Category',
+              active: true,
+              created_at: '2026-08-31T00:00:00.000Z',
+              updated_at: '2026-08-31T00:00:00.000Z'
+            }
+          }
+        ],
+        `cursor-${kind}`,
+        null
+      );
+
+      const categoryWrite = transaction.runAsync.mock.calls.find(([sql]) =>
+        String(sql).includes('finance_categories')
+      );
+      expect(JSON.parse(String(categoryWrite?.[2]))).toMatchObject({
+        financialType,
+        status
+      });
+    }
+  );
+
+  it.each([
+    [undefined, 'internal'],
+    ['card_payoff', 'card_payoff']
+  ] as const)(
+    'normalizes synced transfers to no category and %s purpose',
+    async (serverPurpose, expectedPurpose) => {
+      const transaction = {
+        getFirstAsync: jest.fn(async () => null),
+        runAsync: jest.fn(async (..._args: unknown[]) => undefined)
+      };
+      const database = {
+        ...transaction,
+        withExclusiveTransactionAsync: jest.fn(
+          async (action: (value: unknown) => Promise<void>) =>
+            action(transaction)
+        )
+      };
+      const snapshot = {
+        id: `transfer-${expectedPurpose}`,
+        kind: 'transfer',
+        transfer_purpose: serverPurpose,
+        amount_minor: 1_000,
+        currency_code: 'SAR',
+        category_id: 'legacy-transfer-category',
+        title: 'Transfer',
+        source: 'manual',
+        status: 'confirmed',
+        postings: [
+          { posting_role: 'source', account_id: 'source-account' },
+          { posting_role: 'destination', account_id: 'card-account' }
+        ],
+        version: 1,
+        occurred_at: '2026-08-31T00:00:00.000Z',
+        created_at: '2026-08-31T00:00:00.000Z',
+        updated_at: '2026-08-31T00:00:00.000Z'
+      };
+
+      await new CoreFinanceSyncAdapter(database as never).applyDelta(
+        'transactions',
+        [
+          {
+            resourceId: snapshot.id,
+            operation: 'upsert',
+            version: 1,
+            deletedAt: null,
+            snapshot
+          }
+        ],
+        `cursor-${expectedPurpose}`,
+        null
+      );
+
+      const write = transaction.runAsync.mock.calls.find(([sql]) =>
+        String(sql).includes('finance_transactions')
+      );
+      expect(JSON.parse(String(write?.[2]))).toMatchObject({
+        categoryId: null,
+        transferPurpose: expectedPurpose
+      });
+      expect(write?.[5]).toBeNull();
+    }
+  );
 });

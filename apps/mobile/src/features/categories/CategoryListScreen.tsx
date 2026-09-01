@@ -20,7 +20,11 @@ import {
   useCategories,
   useTransactions
 } from '@/features/core-finance/core-finance-queries';
-import { currentLocale, translate, translateDynamic } from '@/localization/i18n';
+import {
+  currentLocale,
+  translate,
+  translateDynamic
+} from '@/localization/i18n';
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { spacing, colorTokens } from '@/design-system/tokens';
 import { usePreferenceStore } from '@/state/preferences';
@@ -71,7 +75,8 @@ export function CategoryListScreen() {
   );
 
   const byId = useMemo(
-    () => new Map<string, Category>(allCategories.map((item) => [item.id, item])),
+    () =>
+      new Map<string, Category>(allCategories.map((item) => [item.id, item])),
     [allCategories]
   );
 
@@ -117,7 +122,10 @@ export function CategoryListScreen() {
                   cat.id,
                   'archived'
                 );
-                await invalidateCoreFinanceScopes(client, result.affectedScopes);
+                await invalidateCoreFinanceScopes(
+                  client,
+                  result.affectedScopes
+                );
               } catch (e) {
                 console.error('Failed to delete category', e);
               }
@@ -130,19 +138,18 @@ export function CategoryListScreen() {
 
   // Move category to group
   const handleSelectGroup = async (groupId: string | null) => {
-    if (!targetCategoryForGroup) return;
+    const target = targetCategoryForGroup;
+    if (!target?.financialType) return;
     try {
-      const result = await coreFinanceService.updateCategory(
-        targetCategoryForGroup.id,
-        {
-          labelAr: targetCategoryForGroup.labelAr,
-          labelEn: targetCategoryForGroup.labelEn,
-          parentId: groupId,
-          iconKey: targetCategoryForGroup.iconKey,
-          colorKey: targetCategoryForGroup.colorKey,
-          isFavorite: targetCategoryForGroup.isFavorite
-        }
-      );
+      const result = await coreFinanceService.updateCategory(target.id, {
+        labelAr: target.labelAr,
+        labelEn: target.labelEn,
+        financialType: target.financialType,
+        parentId: groupId,
+        iconKey: target.iconKey,
+        colorKey: target.colorKey,
+        isFavorite: target.isFavorite
+      });
       await invalidateCoreFinanceScopes(client, result.affectedScopes);
     } catch (e) {
       console.error('Failed to update category group', e);
@@ -153,19 +160,18 @@ export function CategoryListScreen() {
 
   // When a new group is created, if there was a targetCategoryForGroup, move it in!
   const handleGroupCreated = async (newGroup: Category) => {
-    if (targetCategoryForGroup) {
+    const target = targetCategoryForGroup;
+    if (target?.financialType) {
       try {
-        const result = await coreFinanceService.updateCategory(
-          targetCategoryForGroup.id,
-          {
-            labelAr: targetCategoryForGroup.labelAr,
-            labelEn: targetCategoryForGroup.labelEn,
-            parentId: newGroup.id,
-            iconKey: targetCategoryForGroup.iconKey,
-            colorKey: targetCategoryForGroup.colorKey,
-            isFavorite: targetCategoryForGroup.isFavorite
-          }
-        );
+        const result = await coreFinanceService.updateCategory(target.id, {
+          labelAr: target.labelAr,
+          labelEn: target.labelEn,
+          financialType: target.financialType,
+          parentId: newGroup.id,
+          iconKey: target.iconKey,
+          colorKey: target.colorKey,
+          isFavorite: target.isFavorite
+        });
         await invalidateCoreFinanceScopes(client, result.affectedScopes);
       } catch (e) {
         console.error('Failed to assign category to newly created group', e);
@@ -197,7 +203,9 @@ export function CategoryListScreen() {
       <FlatList
         data={items}
         keyExtractor={(item, index) =>
-          item.category.id ? `category-item-${item.category.id}` : `cat-item-index-${index}`
+          item.category.id
+            ? `category-item-${item.category.id}`
+            : `cat-item-index-${index}`
         }
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -223,7 +231,8 @@ export function CategoryListScreen() {
                 styles.searchContainer,
                 {
                   backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.borders?.subtle ?? colorTokens.raw["E8EFEC"],
+                  borderColor:
+                    theme.colors.borders?.subtle ?? colorTokens.raw['E8EFEC'],
                   flexDirection: isRtl ? 'row-reverse' : 'row'
                 }
               ]}
@@ -269,7 +278,7 @@ export function CategoryListScreen() {
                   {
                     backgroundColor: pressed
                       ? colorTokens.teal[100]
-                      : colorTokens.raw["EEF2FF"],
+                      : colorTokens.raw['EEF2FF'],
                     flexDirection: isRtl ? 'row-reverse' : 'row',
                     justifyContent: 'center'
                   }
@@ -304,7 +313,7 @@ export function CategoryListScreen() {
                   {
                     backgroundColor: pressed
                       ? colorTokens.teal[100]
-                      : colorTokens.raw["EEF2FF"],
+                      : colorTokens.raw['EEF2FF'],
                     flexDirection: isRtl ? 'row-reverse' : 'row',
                     justifyContent: 'center'
                   }
@@ -364,7 +373,12 @@ export function CategoryListScreen() {
         <View
           testID="category-form-modal-content"
           accessibilityViewIsModal
-          style={{ flex: 1, backgroundColor: theme.colors.background ?? colorTokens.raw["F6F8F7"], paddingTop: 20 }}
+          style={{
+            flex: 1,
+            backgroundColor:
+              theme.colors.background ?? colorTokens.raw['F6F8F7'],
+            paddingTop: 20
+          }}
         >
           <CategoryForm
             category={editingCategory ?? undefined}

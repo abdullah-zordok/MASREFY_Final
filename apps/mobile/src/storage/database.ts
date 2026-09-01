@@ -9,7 +9,7 @@
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'masarifi.db';
-const CURRENT_SCHEMA_VERSION = 10;
+const CURRENT_SCHEMA_VERSION = 11;
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let databaseWriteQueue: Promise<void> = Promise.resolve();
@@ -593,6 +593,85 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_support_operations_lifecycle
       ON support_operations(kind, status, requested_at DESC);
+
+    -- migration:11
+    UPDATE finance_transactions
+    SET category_id = NULL
+    WHERE type = 'transfer' AND category_id IS NOT NULL;
+
+    UPDATE finance_transactions
+    SET payload = json_set(payload, '$.categoryId', NULL)
+    WHERE type = 'transfer'
+      AND json_extract(payload, '$.categoryId') IS NOT NULL;
+
+    UPDATE offline_entries
+    SET amount_minor = CAST(round(amount * 100) AS INTEGER),
+        last_error_key = CASE
+          WHEN last_error_key = 'legacy_amount_review_required' THEN NULL
+          ELSE last_error_key
+        END
+    WHERE currency_code IN ('SAR', 'AED', 'QAR', 'EGP', 'USD', 'EUR', 'GBP')
+      AND abs(amount) <= 90071992547409.91
+      AND abs(amount * 100 - round(amount * 100)) < 0.000001;
+
+    UPDATE offline_entries
+    SET amount_minor = NULL,
+        last_error_key = CASE
+          WHEN last_error_key IS NULL OR last_error_key = 'legacy_amount_review_required'
+            THEN 'legacy_amount_review_required'
+          ELSE last_error_key
+        END
+    WHERE currency_code IN ('SAR', 'AED', 'QAR', 'EGP', 'USD', 'EUR', 'GBP')
+      AND (
+        abs(amount) > 90071992547409.91
+        OR abs(amount * 100 - round(amount * 100)) >= 0.000001
+      );
+
+    UPDATE offline_entries
+    SET amount_minor = CAST(round(amount * 1000) AS INTEGER),
+        last_error_key = CASE
+          WHEN last_error_key = 'legacy_amount_review_required' THEN NULL
+          ELSE last_error_key
+        END
+    WHERE currency_code IN ('KWD', 'BHD', 'OMR', 'JOD')
+      AND abs(amount) <= 9007199254740.991
+      AND abs(amount * 1000 - round(amount * 1000)) < 0.000001;
+
+    UPDATE offline_entries
+    SET amount_minor = NULL,
+        last_error_key = CASE
+          WHEN last_error_key IS NULL OR last_error_key = 'legacy_amount_review_required'
+            THEN 'legacy_amount_review_required'
+          ELSE last_error_key
+        END
+    WHERE currency_code IN ('KWD', 'BHD', 'OMR', 'JOD')
+      AND (
+        abs(amount) > 9007199254740.991
+        OR abs(amount * 1000 - round(amount * 1000)) >= 0.000001
+      );
+
+    UPDATE offline_entries
+    SET amount_minor = CAST(round(amount) AS INTEGER),
+        last_error_key = CASE
+          WHEN last_error_key = 'legacy_amount_review_required' THEN NULL
+          ELSE last_error_key
+        END
+    WHERE currency_code = 'JPY'
+      AND abs(amount) <= 9007199254740991
+      AND abs(amount - round(amount)) < 0.000001;
+
+    UPDATE offline_entries
+    SET amount_minor = NULL,
+        last_error_key = CASE
+          WHEN last_error_key IS NULL OR last_error_key = 'legacy_amount_review_required'
+            THEN 'legacy_amount_review_required'
+          ELSE last_error_key
+        END
+    WHERE currency_code = 'JPY'
+      AND (
+        abs(amount) > 9007199254740991
+        OR abs(amount - round(amount)) >= 0.000001
+      );
   `);
 
     const applied = await transaction.getAllAsync<{ version: number }>(

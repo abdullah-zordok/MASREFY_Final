@@ -15,14 +15,15 @@ it('creates, favorites, selects, merges, and reclassifies historical records', (
   const custom = repo.saveCategory({
     labelAr: 'Custom',
     labelEn: 'Custom',
+    financialType: 'expense',
     parentId: 'food',
     isFavorite: true
   });
   repo.mergeCategory('food', custom.id);
   expect(repo.requireCategory('food').mergedIntoId).toBe(custom.id);
   expect(
-    repo.listTransactions(emptyTransactionFilters).items.some(
-      (item) => item.categoryId === 'food'
-    )
+    repo
+      .listTransactions(emptyTransactionFilters)
+      .items.some((item) => item.categoryId === 'food')
   ).toBe(false);
 });

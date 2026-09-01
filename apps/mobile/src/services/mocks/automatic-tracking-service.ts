@@ -86,7 +86,8 @@ export function createMockAutomaticTrackingService({
   const ensureReady = async () => {
     if (persistent) hydration ??= repository.hydrate();
     await hydration;
-    repository.purgeExpiredSourceText();
+    const purged = repository.purgeExpiredSourceText();
+    if (persistent && purged) await repository.persistAll();
   };
   const undoResults = new Map<
     string,
@@ -171,6 +172,8 @@ export function createMockAutomaticTrackingService({
     },
     async processMockEvent(input: MockFinancialEventInput) {
       await ensureReady();
+      const selectedMode = await mode();
+      if (selectedMode === 'paused') throw new TrackingError('paused');
       const prior = repository.findByFingerprint(input.sourceFingerprint);
       if (prior)
         return {
@@ -178,7 +181,7 @@ export function createMockAutomaticTrackingService({
           feedback: null,
           affectedScopes: ['tracking.status']
         };
-      const decision = decideAutomaticTracking(await mode(), input);
+      const decision = decideAutomaticTracking(selectedMode, input);
       const status =
         decision.status === 'auto_add'
           ? 'analyzing'
@@ -370,24 +373,63 @@ export function createMockAutomaticTrackingService({
 
 let demoAutomaticTrackingRepository: AutomaticTrackingRepository | null = null;
 
-function createProductionAutomaticTrackingService(locale: Locale = 'ar') {
+export function createProductionAutomaticTrackingService(
+  locale: Locale = 'ar'
+) {
+  const demoMode = isDemoModeEnabled();
   const repository = new AutomaticTrackingRepository(
-    isDemoModeEnabled()
+    demoMode
       ? createClientDemoData(Date.now(), 'Asia/Riyadh', locale).tracking
       : {}
   );
-  if (isDemoModeEnabled()) demoAutomaticTrackingRepository = repository;
-  return createMockAutomaticTrackingService({
+  if (demoMode) demoAutomaticTrackingRepository = repository;
+  const service = createMockAutomaticTrackingService({
     repository,
-    persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
+    persistent:
+      !demoMode && Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
     notificationService: assistantNotificationsService,
     permissionService: createTrackingPermissionService(),
     registerForReset: true
   });
+  if (demoMode)
+    return {
+      ...service,
+      metadata: { ...service.metadata, id: 'demo-automatic-tracking' }
+    };
+  const rejectMutation = async () => {
+    throw new TrackingError('permission_required');
+  };
+  const unavailableStatus = async () => ({
+    ...(await service.getStatus()),
+    permissionStatus: 'unavailable' as const,
+    serviceState: 'unavailable' as const
+  });
+  return {
+    ...service,
+    metadata: {
+      ...service.metadata,
+      id: 'unavailable-automatic-tracking',
+      availability: 'unavailable'
+    },
+    getStatus: unavailableStatus,
+    refreshStatus: unavailableStatus,
+    setMode: rejectMutation,
+    processMockEvent: rejectMutation,
+    resolveReview: rejectMutation,
+    resolveDuplicate: rejectMutation,
+    saveKeywordRules: rejectMutation,
+    restoreDefaultKeywords: rejectMutation,
+    saveSenderRule: rejectMutation,
+    removeCustomSender: rejectMutation,
+    undoAutomaticAddition: rejectMutation,
+    reportWrongDetection: rejectMutation
+  };
 }
 
 export const automaticTrackingService =
-  createProductionAutomaticTrackingService();
+  process.env.NODE_ENV === 'test'
+    ? createMockAutomaticTrackingService()
+    : createProductionAutomaticTrackingService();
 
 export function relocalizeDemoAutomaticTrackingRepository(
   locale: Locale

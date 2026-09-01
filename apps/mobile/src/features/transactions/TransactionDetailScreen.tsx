@@ -11,7 +11,12 @@ import {
   NavigationRow
 } from '@/design-system/components/navigation/GroupedList';
 import type { Account, Category } from '@/domain/core-finance';
-import { useAccounts, useCategories, useTransaction } from '@/features/core-finance/core-finance-queries';
+import {
+  useAccounts,
+  useCategories,
+  useRemainingRefundableMinor,
+  useTransaction
+} from '@/features/core-finance/core-finance-queries';
 import { currentLocale, translate } from '@/localization/i18n';
 import { useTheme } from '@/state/theme-context';
 import { formatDate } from '@/utils/format-financial-value';
@@ -22,6 +27,13 @@ import { TransactionActions } from './TransactionActions';
 export function TransactionDetailScreen({ id }: { id: string }) {
   const theme = useTheme();
   const query = useTransaction(id);
+  const originalQuery = useTransaction(query.data?.originalTransactionId ?? '');
+  const refundCandidate =
+    query.data?.type === 'expense' &&
+    query.data.status === 'posted' &&
+    query.data.reviewStatus !== 'required' &&
+    query.data.syncStatus !== 'conflict';
+  const refundable = useRemainingRefundableMinor(id, refundCandidate);
   const accounts = useAccounts(true);
   const categories = useCategories(true);
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
@@ -70,6 +82,7 @@ export function TransactionDetailScreen({ id }: { id: string }) {
         : item.type === 'refund'
           ? 'refund'
           : 'expense';
+  const refundEligible = refundCandidate && (refundable.data ?? 0) > 0;
   return (
     <ScrollView contentContainerStyle={styles.stack}>
       <SurfaceCard>
@@ -125,7 +138,10 @@ export function TransactionDetailScreen({ id }: { id: string }) {
         {item.originalTransactionId ? (
           <NavigationRow
             label={translate('coreFinance.transaction.original')}
-            value={item.originalTransactionId}
+            value={originalQuery.data?.title ?? item.originalTransactionId}
+            onPress={() =>
+              router.push(`/transactions/${item.originalTransactionId}`)
+            }
           />
         ) : null}
         {item.obligationId ? (
@@ -140,6 +156,15 @@ export function TransactionDetailScreen({ id }: { id: string }) {
         variant="secondary"
         onPress={() => router.push(`/transactions/${id}/edit`)}
       />
+      {refundEligible ? (
+        <ActionButton
+          label={translate('coreFinance.type.refund')}
+          variant="secondary"
+          onPress={() =>
+            router.push(`/(tabs)/add?type=refund&originalTransactionId=${id}`)
+          }
+        />
+      ) : null}
       <TransactionActions transaction={item} />
     </ScrollView>
   );

@@ -72,6 +72,26 @@ class StatefulSqliteFake {
       throw new Error('injected DDL failure');
     }
     this.events.push('ddl');
+    if (sql.includes('UPDATE finance_transactions')) {
+      const transactions = this.rows.get('finance_transactions') ?? [];
+      this.rows.set(
+        'finance_transactions',
+        transactions.map((row) => {
+          if (row.type !== 'transfer') return row;
+          const payload = JSON.parse(String(row.payload)) as {
+            categoryId?: string | null;
+          };
+          return {
+            ...row,
+            category_id: null,
+            payload:
+              payload.categoryId == null
+                ? row.payload
+                : JSON.stringify({ ...payload, categoryId: null })
+          };
+        })
+      );
+    }
     for (const match of sql.matchAll(
       /CREATE TABLE IF NOT EXISTS (\w+) \(([\s\S]*?)\n    \);/g
     )) {
@@ -222,12 +242,15 @@ it('migrates retained v1-v6 data through each pending schema in order', async ()
     { version: 7, applied_at: expect.any(Number) },
     { version: 8, applied_at: expect.any(Number) },
     { version: 9, applied_at: expect.any(Number) },
-    { version: 10, applied_at: expect.any(Number) }
+    { version: 10, applied_at: expect.any(Number) },
+    { version: 11, applied_at: expect.any(Number) }
   ]);
   expect(mockDatabase.events).toEqual([
     'pragma',
     'begin',
     'ddl',
+    'ddl',
+    'migration',
     'ddl',
     'migration',
     'ddl',
@@ -245,7 +268,7 @@ it('migrates retained v1-v6 data through each pending schema in order', async ()
     await database.getAllAsync(
       'SELECT version FROM schema_migrations ORDER BY version'
     )
-  ).toHaveLength(10);
+  ).toHaveLength(11);
   expect(mockDatabase.events.slice(-4)).toEqual([
     'pragma',
     'begin',
@@ -266,7 +289,7 @@ it('applies every migration to a fresh database', async () => {
         'SELECT version FROM schema_migrations ORDER BY version'
       )
     ).map((row) => row.version)
-  ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   expect(
     (
       await database.getAllAsync<{ name: string }>(
@@ -450,4 +473,83 @@ it('serializes exclusive database writes', async () => {
   releaseFirst();
   await Promise.all([first, second]);
   expect(order).toEqual(['first-start', 'first-end', 'second']);
+});
+
+it('repairs only legacy transfer category links once in shadow and JSON data', async () => {
+  mockDatabase = new StatefulSqliteFake();
+  mockDatabase.seed(
+    'schema_migrations',
+    Array.from({ length: 10 }, (_, index) => ({
+      version: index + 1,
+      applied_at: index + 1
+    }))
+  );
+  const legacyTransfer = {
+    id: 'legacy-transfer',
+    type: 'transfer',
+    categoryId: 'transfers',
+    title: 'Move funds'
+  };
+  const cleanTransfer = {
+    id: 'clean-transfer',
+    type: 'transfer',
+    categoryId: null,
+    title: 'Clean move'
+  };
+  const expense = {
+    id: 'expense',
+    type: 'expense',
+    categoryId: 'food',
+    title: 'Groceries'
+  };
+  mockDatabase.seed('finance_transactions', [
+    {
+      id: legacyTransfer.id,
+      type: legacyTransfer.type,
+      category_id: legacyTransfer.categoryId,
+      payload: JSON.stringify(legacyTransfer)
+    },
+    {
+      id: cleanTransfer.id,
+      type: cleanTransfer.type,
+      category_id: cleanTransfer.categoryId,
+      payload: JSON.stringify(cleanTransfer)
+    },
+    {
+      id: expense.id,
+      type: expense.type,
+      category_id: expense.categoryId,
+      payload: JSON.stringify(expense)
+    }
+  ]);
+  resetDatabaseForTests();
+
+  const database = await openDatabase();
+  const repaired = await database.getAllAsync<Row>(
+    'SELECT * FROM finance_transactions'
+  );
+  const legacy = repaired.find((row) => row.id === legacyTransfer.id)!;
+  expect(legacy.category_id).toBeNull();
+  expect(JSON.parse(String(legacy.payload))).toEqual({
+    ...legacyTransfer,
+    categoryId: null
+  });
+  expect(repaired.find((row) => row.id === cleanTransfer.id)).toEqual({
+    id: cleanTransfer.id,
+    type: cleanTransfer.type,
+    category_id: null,
+    payload: JSON.stringify(cleanTransfer)
+  });
+  expect(repaired.find((row) => row.id === expense.id)).toEqual({
+    id: expense.id,
+    type: expense.type,
+    category_id: expense.categoryId,
+    payload: JSON.stringify(expense)
+  });
+
+  resetDatabaseForTests();
+  await openDatabase();
+  expect(
+    await database.getAllAsync<Row>('SELECT * FROM finance_transactions')
+  ).toEqual(repaired);
 });
