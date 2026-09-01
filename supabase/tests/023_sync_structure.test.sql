@@ -1,8 +1,13 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(56);
+select plan(61);
 
 select has_column('private','idempotency_keys','lease_token','idempotency fence exists');
+select has_table('private','sync_cursor_positions','durable sync cursor high-water exists');
+select has_pk('private','sync_cursor_positions','sync cursor high-water PK exists');
+select has_column('private','sync_cursor_positions','last_cursor','sync cursor high-water value exists');
+select col_is_fk('private','sync_cursor_positions','user_id','sync cursor high-water owner FK exists');
+select has_function('private','next_sync_cursor',array['text','text'],'atomic sync cursor allocator exists');
 select has_table('public','client_sync_state','client checkpoints exist');
 select has_table('public','client_mutations','durable mutation receipts exist');
 select has_table('public','transaction_conflicts','financial conflicts exist');

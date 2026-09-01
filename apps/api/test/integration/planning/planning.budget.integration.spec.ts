@@ -143,6 +143,11 @@ describeLiveDatabase('budget planning live invariants', () => {
         categoryB,
         expense,
       ]);
+      await client.query(
+        `insert into public.salary_profiles(user_id,name,amount_minor,currency_code,frequency,expected_day)
+         values($1,'Salary',1000,'SAR','monthly',1)`,
+        [owner],
+      );
       await client.query('commit');
     });
     const rows = await api<{ category_id: string; spent_minor: string; remaining_minor: string }>(
@@ -153,6 +158,13 @@ describeLiveDatabase('budget planning live invariants', () => {
     const byCategory = new Map(rows.rows.map((row) => [row.category_id, row]));
     expect(byCategory.get(categoryA)?.spent_minor).toBe('0');
     expect(byCategory.get(categoryB)?.spent_minor).toBe('250');
+    await expect(
+      repository.getPlanningSummary(
+        { userId: owner, sessionId: 'session', factorAgeSeconds: 0 },
+        { key: '2026-09', start: '2026-09-01', end: '2026-09-30' },
+        'budget-refund-summary',
+      ),
+    ).resolves.toMatchObject({ salary: { actualExpenseMinor: '250' } });
   });
 
   it('marks utilization partial when categorized spend needs a missing FX rate', async () => {

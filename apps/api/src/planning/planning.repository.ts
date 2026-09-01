@@ -849,7 +849,7 @@ export class PlanningRepository {
           await client.query<PlanningSalarySummaryRow>(
             `select p.id,p.name,p.currency_code,p.amount_minor expected_minor,
           coalesce(sum(t.amount_minor) filter(where t.kind='income'),0)::bigint actual_income_minor,
-          coalesce(sum(t.amount_minor) filter(where t.kind='expense'),0)::bigint actual_expense_minor,
+          coalesce(sum(case when t.kind='expense' then t.amount_minor when t.kind='refund' then -t.amount_minor else 0 end),0)::bigint actual_expense_minor,
           coalesce((select sum(greatest(i.amount_minor-i.paid_minor,0)) from public.obligation_schedule_items i
             join public.obligations o on o.id=i.obligation_id where i.user_id=p.user_id
             and o.currency_code=p.currency_code and i.due_at>=$2::date and i.due_at<($3::date+1)),0)::bigint reserved_obligation_minor,
@@ -857,7 +857,7 @@ export class PlanningRepository {
             and r.status in ('expected','received','corrected') and r.expected_at>=$2::date) next_expected_at
          from public.salary_profiles p left join public.transactions t on t.user_id=p.user_id
           and t.currency_code=p.currency_code and t.status='confirmed'
-          and t.kind in ('income','expense') and t.occurred_at>=$2::date and t.occurred_at<($3::date+1)
+          and t.kind in ('income','expense','refund') and t.occurred_at>=$2::date and t.occurred_at<($3::date+1)
          where p.user_id=$1 and p.status='active' group by p.id order by p.updated_at desc,p.id limit 1`,
             [principal.userId, period.start, period.end],
           )

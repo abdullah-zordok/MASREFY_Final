@@ -23,7 +23,7 @@ describe('Phase 04 client mapping', () => {
       resolve(__dirname, '../../../../mobile/src/domain/core-finance-seeds.ts'),
       'utf8',
     );
-    const keys = [...seedSource.matchAll(/^ {2}\['([^']+)',/gm)].map((match) => match[1]);
+    const keys = [...seedSource.matchAll(/^ {2}\[\s*'([^']+)'/gm)].map((match) => match[1]);
     expect(keys).toHaveLength(19);
     expect(keys).toContain('salary');
   });

@@ -64,6 +64,11 @@ describeLiveDatabase('sync migration and recovery', () => {
           ) values($1,$2,'accounts',1,1,clock_timestamp(),$3)`,
           [ownerId, deviceId, mutationId],
         );
+        await client.query(
+          `insert into private.sync_cursor_positions(user_id,domain,last_cursor)
+           values($1,'accounts',1)`,
+          [ownerId],
+        );
         await client.query('reset role');
         await client.query("set local session_replication_role='replica'");
         await client.query(
@@ -99,10 +104,15 @@ describeLiveDatabase('sync migration and recovery', () => {
           "create temporary table sync_outbox_backup on commit drop as select * from private.outbox_events where payload#>>'{sync,userId}'=$1",
           [ownerId],
         );
+        await client.query(
+          'create temporary table sync_cursor_backup on commit drop as select * from private.sync_cursor_positions where user_id=$1',
+          [ownerId],
+        );
         await client.query('reset role');
         await client.query("set local session_replication_role='replica'");
         await client.query('delete from public.client_sync_state where user_id=$1', [ownerId]);
         await client.query('delete from public.client_mutations where user_id=$1', [ownerId]);
+        await client.query('delete from private.sync_cursor_positions where user_id=$1', [ownerId]);
         await client.query("delete from private.outbox_events where payload#>>'{sync,userId}'=$1", [
           ownerId,
         ]);
@@ -110,16 +120,28 @@ describeLiveDatabase('sync migration and recovery', () => {
           'insert into public.client_mutations select * from sync_mutation_backup',
         );
         await client.query('insert into public.client_sync_state select * from sync_state_backup');
+        await client.query('insert into private.sync_cursor_positions select * from sync_cursor_backup');
         await client.query('insert into private.outbox_events select * from sync_outbox_backup');
         await client.query("set local session_replication_role='origin'");
-        const restored = await client.query<{ mutations: string; states: string; events: string }>(
+        const restored = await client.query<{
+          mutations: string;
+          states: string;
+          cursors: string;
+          events: string;
+        }>(
           `select
             (select count(*)::text from public.client_mutations where user_id=$1) mutations,
             (select count(*)::text from public.client_sync_state where user_id=$1) states,
+            (select count(*)::text from private.sync_cursor_positions where user_id=$1) cursors,
             (select count(*)::text from private.outbox_events where payload#>>'{sync,userId}'=$1) events`,
           [ownerId],
         );
-        expect(restored.rows[0]).toEqual({ mutations: '1', states: '1', events: '1' });
+        expect(restored.rows[0]).toEqual({
+          mutations: '1',
+          states: '1',
+          cursors: '1',
+          events: '1',
+        });
         await client.query('rollback');
       } catch (error) {
         await client.query('rollback');

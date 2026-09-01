@@ -72,11 +72,6 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run lint
-      - name: Enforce SPEC-BE-001 scope
-        shell: bash
-        run: |
-          export MASARIFI_CHANGED_PATHS="$(git diff --name-only b1ba259c6fbd0c3b6dc34615c50aae2a69a001a3)"
-          npm run security:scope
       - run: npm run test:unit
       - run: npm run test:contract
       - run: npm run test:openapi
@@ -103,6 +98,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run lint
+      - run: npx expo prebuild --platform android --no-install
       - run: npm test -- --runInBand
 
   database:

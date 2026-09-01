@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(16);
 
 select has_index('private','outbox_events','outbox_events_sync_cursor_uq','sync cursor uniqueness exists');
 select has_index('private','outbox_events','outbox_events_sync_delta_idx','sync delta keyset index exists');
@@ -33,6 +33,28 @@ select is((select count(distinct payload#>>'{sync,domain}')::integer from privat
 select is((select payload#>>'{sync,snapshot,name}' from private.outbox_events where event_type='account.created' and payload#>>'{sync,userId}'='sync_outbox_owner'),'Cash','snapshot is captured at insertion');
 select throws_ok($$update private.outbox_events set payload=jsonb_set(payload,'{sync,cursor}','99') where payload#>>'{sync,userId}'='sync_outbox_owner'$$,
   '42501','OUTBOX_PAYLOAD_IMMUTABLE','published sync payload cannot be rewritten');
+
+insert into public.user_devices(
+  id,user_id,device_fingerprint,clerk_session_id,platform,app_version
+) values(
+  '61000000-0000-4000-8000-000000000009','sync_outbox_owner',
+  'h1:'||repeat('d',64),'sync-session','ios','1.0.0'
+);
+insert into public.client_sync_state(user_id,device_id,domain,last_cursor,last_issued_cursor)
+values('sync_outbox_owner','61000000-0000-4000-8000-000000000009','accounts',2,2);
+alter table private.outbox_events disable trigger outbox_events_payload_immutable;
+update private.outbox_events
+set published_at=clock_timestamp(),created_at=clock_timestamp()-interval '31 days'
+where payload#>>'{sync,userId}'='sync_outbox_owner';
+alter table private.outbox_events enable trigger outbox_events_payload_immutable;
+select is(private.run_sync_maintenance('sync-state.cleanup',30),2,
+  'acknowledged retained outbox events are removed');
+select lives_ok($$select private.enqueue_outbox_event(
+  'account.updated','account','61000000-0000-4000-8000-000000000001',
+  '{"accountId":"61000000-0000-4000-8000-000000000001","userId":"sync_outbox_owner","version":1,"occurredAt":"2026-08-31T00:00:02Z"}')$$,
+  'new owner event is enriched after retention cleanup');
+select is((select payload#>>'{sync,cursor}' from private.outbox_events where payload#>>'{sync,userId}'='sync_outbox_owner'),
+  '3','owner cursor high-water survives retention cleanup');
 
 select lives_ok($$select private.enqueue_outbox_event(
   'exchange-rate.refreshed','exchange-rate',null,
