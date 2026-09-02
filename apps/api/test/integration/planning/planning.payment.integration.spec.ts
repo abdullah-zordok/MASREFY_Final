@@ -19,7 +19,12 @@ describeLiveDatabase('obligation payment live invariants', () => {
       [userId, JSON.stringify(body)],
     );
   }
-  async function seedLinkedPayment(label: string) {
+  async function seedLinkedPayment(
+    label: string,
+    options: { transactionAmount?: string; allocationIntent?: 'current' | 'prepayment' } = {},
+  ) {
+    const transactionAmount = options.transactionAmount ?? '100';
+    const allocationIntent = options.allocationIntent ?? 'current';
     const linkedObligationId = randomUUID();
     const linkedScheduleItemId = randomUUID();
     const linkedPaymentId = randomUUID();
@@ -29,7 +34,7 @@ describeLiveDatabase('obligation payment live invariants', () => {
         owner,
         JSON.stringify({
           kind: 'expense',
-          amountMinor: '100',
+          amountMinor: transactionAmount,
           currency: 'SAR',
           accountId,
           categoryId: null,
@@ -67,10 +72,10 @@ describeLiveDatabase('obligation payment live invariants', () => {
       transactionId: linkedTransactionId,
       expectedVersion: 1,
       paymentMethod: null,
-      paymentCase: 'full',
-      allocationIntent: 'current',
+      paymentCase: transactionAmount === '100' ? 'full' : 'over',
+      allocationIntent,
       source: 'manual',
-      allocations: [{ scheduleItemId: linkedScheduleItemId, amountMinor: '100' }],
+      allocations: [{ scheduleItemId: linkedScheduleItemId, amountMinor: transactionAmount }],
       operationId: randomUUID(),
       requestId: `payment-ledger-${label}`,
     });
@@ -374,6 +379,43 @@ describeLiveDatabase('obligation payment live invariants', () => {
     },
   );
 
+  it('restores a deleted linked prepayment within its persisted authorized excess', async () => {
+    const { linkedPaymentId, linkedTransactionId } = await seedLinkedPayment(
+      'authorized-prepayment-restore',
+      { transactionAmount: '150', allocationIntent: 'prepayment' },
+    );
+    await pool.query('select private.soft_delete_transaction($1,$2::uuid,1,$3)', [
+      owner,
+      linkedTransactionId,
+      'Delete authorized prepayment',
+    ]);
+    await pool.query('select private.restore_transaction($1,$2::uuid,2)', [
+      owner,
+      linkedTransactionId,
+    ]);
+
+    const state = await pool.query<{
+      transaction_status: string;
+      payment_status: string;
+      principal_reduction_minor: string;
+      paid_minor: string;
+    }>(
+      `select t.status transaction_status,p.status payment_status,
+         p.principal_reduction_minor::text,i.paid_minor::text
+       from public.transactions t
+       join public.obligation_payments p on p.transaction_id=t.id
+       join public.obligation_schedule_items i on i.obligation_id=p.obligation_id
+       where p.id=$1`,
+      [linkedPaymentId],
+    );
+    expect(state.rows[0]).toEqual({
+      transaction_status: 'confirmed',
+      payment_status: 'confirmed',
+      principal_reduction_minor: '50',
+      paid_minor: '100',
+    });
+  });
+
   it('does not restore a payment that was reversed manually before transaction undo', async () => {
     const { linkedObligationId, linkedPaymentId, linkedTransactionId } = await seedLinkedPayment(
       'manual-reversal-before-undo',
@@ -411,6 +453,80 @@ describeLiveDatabase('obligation payment live invariants', () => {
       transaction_status: 'confirmed',
       payment_status: 'reversed',
       ledger_invalidation_status: null,
+    });
+  });
+
+  it('rejects transaction undo atomically when another payment consumed the released schedule', async () => {
+    const { linkedObligationId, linkedScheduleItemId, linkedTransactionId } =
+      await seedLinkedPayment('restore-conflict');
+    await pool.query('select private.soft_delete_transaction($1,$2::uuid,1,$3)', [
+      owner,
+      linkedTransactionId,
+      'Delete before replacement payment',
+    ]);
+    const replacement = await pool.query<{ result: { transactionId: string } }>(
+      'select private.post_transaction($1,$2::jsonb) result',
+      [
+        owner,
+        JSON.stringify({
+          kind: 'expense',
+          amountMinor: '100',
+          currency: 'SAR',
+          accountId,
+          categoryId: null,
+          title: 'Replacement obligation payment',
+          merchant: null,
+          paymentMethod: null,
+          note: null,
+          occurredAt: new Date().toISOString(),
+          source: 'manual',
+          externalRef: null,
+        }),
+      ],
+    );
+    const replacementPaymentId = randomUUID();
+    const obligationVersion = await pool.query<{ version: string }>(
+      'select version::text from public.obligations where id=$1',
+      [linkedObligationId],
+    );
+    await command(owner, {
+      operation: 'record',
+      obligationId: linkedObligationId,
+      paymentId: replacementPaymentId,
+      transactionId: replacement.rows[0]?.result.transactionId,
+      expectedVersion: Number(obligationVersion.rows[0]?.version),
+      paymentMethod: null,
+      paymentCase: 'full',
+      allocationIntent: 'current',
+      source: 'manual',
+      allocations: [{ scheduleItemId: linkedScheduleItemId, amountMinor: '100' }],
+      operationId: randomUUID(),
+      requestId: 'payment-ledger-restore-conflict-replacement',
+    });
+
+    await expect(
+      pool.query('select private.restore_transaction($1,$2::uuid,2)', [owner, linkedTransactionId]),
+    ).rejects.toThrow(/TRANSACTION_INELIGIBLE/);
+    const state = await pool.query<{
+      transaction_status: string;
+      original_payment_status: string;
+      replacement_payment_status: string;
+      paid_minor: string;
+    }>(
+      `select t.status transaction_status,original.status original_payment_status,
+         replacement.status replacement_payment_status,i.paid_minor::text
+       from public.transactions t
+       join public.obligation_payments original on original.transaction_id=t.id
+       join public.obligation_payments replacement on replacement.id=$2
+       join public.obligation_schedule_items i on i.id=$3
+       where t.id=$1`,
+      [linkedTransactionId, replacementPaymentId, linkedScheduleItemId],
+    );
+    expect(state.rows[0]).toEqual({
+      transaction_status: 'deleted',
+      original_payment_status: 'reversed',
+      replacement_payment_status: 'confirmed',
+      paid_minor: '100',
     });
   });
 

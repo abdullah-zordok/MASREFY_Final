@@ -177,6 +177,24 @@ begin
     order by p.id
     for update
   loop
+    perform i.id
+    from public.obligation_schedule_items i
+    join public.obligation_payment_allocations a on a.schedule_item_id=i.id
+    where a.payment_id=payment.id
+    order by i.id
+    for update of i;
+
+    if (
+      select coalesce(sum(greatest(
+        a.amount_minor-greatest(i.amount_minor-i.paid_minor,0),0
+      )),0)
+      from public.obligation_payment_allocations a
+      join public.obligation_schedule_items i on i.id=a.schedule_item_id
+      where a.payment_id=payment.id
+    )>payment.principal_reduction_minor+payment.settlement_adjustment_minor then
+      raise exception using errcode='P0001',message='TRANSACTION_INELIGIBLE';
+    end if;
+
     update public.obligation_payments p
     set status='confirmed',ledger_invalidation_status=null
     where p.id=payment.id and p.status='reversed' and p.ledger_invalidation_status='deleted'
