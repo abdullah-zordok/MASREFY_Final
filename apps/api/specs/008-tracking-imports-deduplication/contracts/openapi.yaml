@@ -1,0 +1,859 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Tracking, Imports, Parsers and Deduplication API
+  version: 0.8.0
+  description: SPEC-BE-008 owner and Admin contracts. Raw payloads are never returned.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/tracking/preferences:
+    get:
+      operationId: getTrackingPreferences
+      tags: [Tracking]
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      operationId: updateTrackingPreferences
+      tags: [Tracking]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled, reviewRequired, expectedVersion]
+              properties:
+                enabled: { type: boolean }
+                reviewRequired: { type: boolean }
+                rawRetentionDays: { type: integer, minimum: 0, maximum: 30 }
+                historyRetentionDays: { type: integer, minimum: 30, maximum: 730 }
+                expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/tracking/status:
+    get:
+      operationId: getTrackingStatus
+      tags: [Tracking]
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+  /api/v1/tracking/keyword-rules:
+    get:
+      operationId: listKeywordRules
+      tags: [Tracking Rules]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createKeywordRule
+      tags: [Tracking Rules]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
+      responses:
+        '201': { $ref: '#/components/responses/Resource' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/tracking/keyword-rules/{ruleId}:
+    parameters: [{ $ref: '#/components/parameters/RuleId' }]
+    patch:
+      operationId: updateKeywordRule
+      tags: [Tracking Rules]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+    delete:
+      operationId: deleteKeywordRule
+      tags: [Tracking Rules]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses: { '204': { description: Rule deleted. } }
+  /api/v1/tracking/keyword-rules/restore-defaults:
+    post:
+      operationId: restoreDefaultKeywordRules
+      tags: [Tracking Rules]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/tracking/sender-rules:
+    get:
+      operationId: listSenderRules
+      tags: [Tracking Rules]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createSenderRule
+      tags: [Tracking Rules]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/tracking/sender-rules/{ruleId}:
+    parameters: [{ $ref: '#/components/parameters/RuleId' }]
+    patch:
+      operationId: updateSenderRule
+      tags: [Tracking Rules]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+    delete:
+      operationId: deleteSenderRule
+      tags: [Tracking Rules]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses: { '204': { description: Rule deleted. } }
+  /api/v1/imports:
+    get:
+      operationId: listImportSessions
+      tags: [Imports]
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createImport
+      tags: [Imports]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NormalizedImportRequest' }
+          text/csv:
+            schema: { type: string, contentMediaType: text/csv, maxLength: 6291456 }
+      responses:
+        '202': { $ref: '#/components/responses/Resource' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/Unsupported' }
+  /api/v1/imports/{sessionId}:
+    get:
+      operationId: getImportSession
+      tags: [Imports]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/imports/{sessionId}/items:
+    get:
+      operationId: listImportItems
+      tags: [Imports]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/imports/{sessionId}/items/{itemId}:
+    get:
+      operationId: getImportItem
+      tags: [Imports]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/reviews:
+    get:
+      operationId: listTrackingReviews
+      tags: [Review]
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/reviews/{reviewId}:
+    get:
+      operationId: getTrackingReview
+      tags: [Review]
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }]
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/reviews/{reviewId}/decision:
+    post:
+      operationId: decideTrackingReview
+      tags: [Review]
+      parameters:
+        - $ref: '#/components/parameters/ReviewId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/ReviewDecision' }
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/duplicates:
+    get:
+      operationId: listDuplicateCandidates
+      tags: [Duplicates]
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/duplicates/{candidateId}:
+    get:
+      operationId: getDuplicateCandidate
+      tags: [Duplicates]
+      parameters: [{ $ref: '#/components/parameters/CandidateId' }]
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/duplicates/{candidateId}/decision:
+    post:
+      operationId: decideDuplicateCandidate
+      tags: [Duplicates]
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/DuplicateDecision' }
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/tracking/history:
+    get:
+      operationId: listTrackingHistory
+      tags: [Tracking]
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    delete:
+      operationId: clearTrackingHistory
+      tags: [Tracking]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses: { '204': { description: Eligible nonfinancial history detail compacted. } }
+  /api/v1/tracking/feedback:
+    post:
+      operationId: createTrackingFeedback
+      tags: [Tracking]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [historyId, kind]
+              properties:
+                historyId: { $ref: '#/components/schemas/Uuid' }
+                kind: { type: string, enum: [wrong_detection, wrong_category, wrong_merchant, duplicate_missed, other] }
+                comment: { type: string, minLength: 1, maxLength: 500 }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/overview:
+    get:
+      operationId: getAdminImportsOverview
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/sessions:
+    get:
+      operationId: listAdminImportSessions
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/imports/sessions/{sessionId}:
+    get:
+      operationId: getAdminImportSession
+      tags: [Admin Imports]
+      x-admin-permission: imports.detail.read
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/sessions/{sessionId}/retry-handoff:
+    post:
+      operationId: retryAdminImportSession
+      tags: [Admin Imports]
+      x-admin-permission: imports.failures.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '202': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/failures:
+    get:
+      operationId: listAdminImportFailures
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/imports/failures/{itemId}/action:
+    post:
+      operationId: actOnAdminImportFailure
+      tags: [Admin Imports]
+      x-admin-permission: imports.failures.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/ItemId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/low-confidence:
+    get:
+      operationId: listAdminLowConfidence
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/imports/low-confidence/{reviewId}/review:
+    post:
+      operationId: reviewAdminLowConfidence
+      tags: [Admin Imports]
+      x-admin-permission: imports.confidence.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/duplicates:
+    get:
+      operationId: listAdminDuplicates
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/imports/duplicates/{candidateId}/resolve:
+    post:
+      operationId: resolveAdminDuplicate
+      tags: [Admin Imports]
+      x-admin-permission: imports.duplicates.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/CandidateId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/unsupported-formats:
+    get:
+      operationId: listAdminUnsupportedFormats
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/imports/unsupported-formats/{formatId}/action:
+    post:
+      operationId: actOnUnsupportedFormat
+      tags: [Admin Imports]
+      x-admin-permission: imports.unsupported.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - name: formatId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/institutions:
+    get:
+      operationId: listParserInstitutions
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.coverage.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createParserInstitution
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.senders.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/institutions/{institutionId}:
+    get:
+      operationId: getParserInstitution
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.coverage.read
+      parameters: [{ $ref: '#/components/parameters/InstitutionId' }]
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+    patch:
+      operationId: updateParserInstitution
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.senders.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/InstitutionId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/senders:
+    get:
+      operationId: listInstitutionSenders
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.coverage.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createParserSender
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.senders.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/senders/{senderId}/action:
+    post:
+      operationId: mutateInstitutionSender
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.senders.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - name: senderId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/rules:
+    get:
+      operationId: listParserRules
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createParserRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/rules/{ruleId}:
+    get:
+      operationId: getParserRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.read
+      parameters: [{ $ref: '#/components/parameters/RuleId' }]
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+    patch:
+      operationId: updateParserRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/rules/{ruleId}/test-preview:
+    post:
+      operationId: previewParserRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.manage
+      parameters: [{ $ref: '#/components/parameters/RuleId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sample]
+              properties: { sample: { type: string, minLength: 1, maxLength: 2000 } }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/test-cases:
+    get:
+      operationId: listParserTestCases
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: createParserTestCase
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.versions.manage
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/test-cases/run:
+    post:
+      operationId: runParserCorpus
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.tests.run
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '202': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/versions:
+    get:
+      operationId: listParserVersions
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/parsers/versions/{versionId}/action:
+    post:
+      operationId: mutateParserVersion
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.versions.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/merchant-rules:
+    get:
+      operationId: listMerchantRules
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: mutateMerchantRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.merchants.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/category-rules:
+    get:
+      operationId: listCategoryRules
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.rules.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+    post:
+      operationId: mutateCategoryRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.categories.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/{sessionId}/retry:
+    post:
+      operationId: retryImportSession
+      tags: [Admin Imports]
+      x-admin-permission: imports.failures.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '202': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/{sessionId}/cancel:
+    post:
+      operationId: cancelImportSession
+      tags: [Admin Imports]
+      x-admin-permission: imports.failures.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/imports/unsupported:
+    get:
+      operationId: listUnsupportedFormats
+      tags: [Admin Imports]
+      x-admin-permission: imports.read
+      responses: { '200': { $ref: '#/components/responses/Page' } }
+  /api/v1/admin/imports/unsupported/{formatId}:
+    patch:
+      operationId: updateUnsupportedFormat
+      tags: [Admin Imports]
+      x-admin-permission: imports.unsupported.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - name: formatId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/senders/{senderId}:
+    patch:
+      operationId: updateParserSender
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.senders.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - name: senderId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/rules/{ruleId}/versions:
+    post:
+      operationId: createParserVersion
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.versions.manage
+      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '201': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/versions/{versionId}/corpus-runs:
+    post:
+      operationId: runParserVersionCorpus
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.tests.run
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses: { '202': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/versions/{versionId}/publish:
+    post:
+      operationId: publishParserVersion
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.versions.manage
+      x-requires-recent-mfa: true
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/test-cases/{caseId}:
+    patch:
+      operationId: updateParserTestCase
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.versions.manage
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/merchant-rules/{ruleId}:
+    patch:
+      operationId: updateMerchantRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.merchants.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/parsers/category-rules/{ruleId}:
+    patch:
+      operationId: updateCategoryRule
+      tags: [Admin Parsers]
+      x-admin-permission: parsers.categories.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+  /api/v1/admin/settings/imports:
+    get:
+      operationId: getImportSettings
+      tags: [Admin Imports]
+      x-admin-permission: settings.imports.read
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+    patch:
+      operationId: updateImportSettings
+      tags: [Admin Imports]
+      x-admin-permission: settings.imports.manage
+      x-requires-recent-mfa: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
+      responses: { '200': { $ref: '#/components/responses/Resource' } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 200 }
+    ExpectedVersion:
+      name: expectedVersion
+      in: query
+      required: true
+      schema: { type: integer, minimum: 1 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    RuleId: { name: ruleId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    SessionId: { name: sessionId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    ItemId: { name: itemId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    ReviewId: { name: reviewId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    CandidateId: { name: candidateId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    InstitutionId: { name: institutionId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+  requestBodies:
+    AdminCreate:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [reason, value]
+            properties:
+              reason: { type: string, minLength: 10, maxLength: 500 }
+              value: { type: object, minProperties: 1, maxProperties: 12 }
+    RuleMutation:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [value, enabled]
+            properties:
+              value: { type: string, minLength: 1, maxLength: 200 }
+              displayLabel: { type: string, minLength: 1, maxLength: 200 }
+              group: { type: string, minLength: 1, maxLength: 80 }
+              language: { type: string, enum: [ar, en] }
+              trusted: { type: boolean }
+              enabled: { type: boolean }
+              expectedVersion: { type: integer, minimum: 1 }
+    ReviewDecision:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [decision, expectedVersion]
+            properties:
+              decision: { type: string, enum: [accept, reject, edit_accept] }
+              expectedVersion: { type: integer, minimum: 1 }
+              edit:
+                type: object
+                additionalProperties: false
+                properties:
+                  title: { type: string, minLength: 1, maxLength: 200 }
+                  merchant: { type: string, maxLength: 200 }
+                  categoryId: { $ref: '#/components/schemas/Uuid' }
+                  occurredAt: { type: string, format: date-time }
+    DuplicateDecision:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [resolution, expectedVersion]
+            properties:
+              resolution: { type: string, enum: [keep_existing, keep_new, keep_both, merge_details] }
+              expectedVersion: { type: integer, minimum: 1 }
+              merge:
+                type: object
+                additionalProperties: false
+                properties:
+                  title: { type: string, minLength: 1, maxLength: 200 }
+                  merchant: { type: string, maxLength: 200 }
+                  categoryId: { $ref: '#/components/schemas/Uuid' }
+                  occurredAt: { type: string, format: date-time }
+    AdminMutation:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [action, reason, expectedVersion]
+            properties:
+              action: { type: string, minLength: 1, maxLength: 64 }
+              reason: { type: string, minLength: 10, maxLength: 500 }
+              expectedVersion: { type: integer, minimum: 1 }
+              patch: { type: object, maxProperties: 12 }
+  schemas:
+    Uuid: { type: string, format: uuid }
+    NormalizedImportRequest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, sourceType, events]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        sourceType: { type: string, enum: [sms, manual] }
+        sourceChannel: { type: string, enum: [android_sms, android_notification, ios_shortcut, ios_app_intent, ios_share_extension, manual] }
+        events:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [sourceItemKey, receivedAt]
+            properties:
+              sourceItemKey: { type: string, minLength: 1, maxLength: 200 }
+              sender: { type: string, maxLength: 200 }
+              body: { type: string, minLength: 1, maxLength: 2000 }
+              amountMinor: { type: integer, minimum: -9007199254740991, maximum: 9007199254740991 }
+              currency: { type: string, pattern: '^[A-Z]{3}$' }
+              merchant: { type: string, minLength: 1, maxLength: 200 }
+              receivedAt: { type: string, format: date-time }
+              occurredAt: { type: string, format: date-time }
+              metadata:
+                type: object
+                maxProperties: 12
+                additionalProperties: { type: [string, number, boolean, 'null'] }
+    ResourceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties: { data: { $ref: '#/components/schemas/Phase08Resource' } }
+    PageEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Phase08Resource' } }
+        page:
+          type: object
+          additionalProperties: false
+          required: [hasMore]
+          properties:
+            nextCursor: { type: [string, 'null'] }
+            hasMore: { type: boolean }
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }
+    Phase08Resource:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, maxLength: 64 }
+        key: { type: string, maxLength: 120 }
+        name: { type: string, maxLength: 200 }
+        displayLabel: { type: string, maxLength: 200 }
+        status: { type: string, maxLength: 64 }
+        action: { type: string, maxLength: 64 }
+        resolution: { type: [string, 'null'], maxLength: 64 }
+        reasonCode: { type: [string, 'null'], maxLength: 64 }
+        reasonCodes: { type: array, maxItems: 12, items: { type: string, maxLength: 64 } }
+        enabled: { type: boolean }
+        reviewRequired: { type: boolean }
+        trusted: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        sourceType: { type: string, maxLength: 32 }
+        sessionId: { $ref: '#/components/schemas/Uuid' }
+        itemId: { $ref: '#/components/schemas/Uuid' }
+        transactionId: { type: [string, 'null'], format: uuid }
+        existingTransactionId: { type: [string, 'null'], format: uuid }
+        parserVersionId: { type: [string, 'null'], format: uuid }
+        confidenceBasisPoints: { type: integer, minimum: 0, maximum: 10000 }
+        scoreBasisPoints: { type: integer, minimum: 0, maximum: 10000 }
+        itemCount: { type: integer, minimum: 0 }
+        acceptedCount: { type: integer, minimum: 0 }
+        rejectedCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        occurredAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+  responses:
+    Resource:
+      description: Owner- or permission-scoped resource with no raw payload.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ResourceEnvelope' } } }
+    Page:
+      description: Cursor-paginated bounded resource list.
+      content: { application/json: { schema: { $ref: '#/components/schemas/PageEnvelope' } } }
+    BadRequest:
+      description: Invalid or hostile input.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Unauthorized:
+      description: Authentication required.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    NotFound:
+      description: Resource absent or outside the caller ownership boundary.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Conflict:
+      description: Expected-version or idempotency conflict.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    PayloadTooLarge:
+      description: Bounded payload limit exceeded.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Unsupported:
+      description: Media type or format is not supported by Phase 08.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
