@@ -319,7 +319,7 @@ const phase8Retry = [
   'jobs.runs.retry',
   'jobs.schedules.read',
 ] as const;
-const backendOnlyPermissions = ['reference.read', 'reference.write'] as const;
+const backendOnlyPermissions = ['reference.read', 'reference.write', 'planning.read'] as const;
 const rawRolePermissions: Record<SystemRole, readonly string[]> = {
   'super-admin': [...CLIENT_PERMISSION_KEYS, ...backendOnlyPermissions],
   'support-agent': [

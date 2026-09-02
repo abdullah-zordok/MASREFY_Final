@@ -68,6 +68,7 @@ export interface Account {
 export interface Category {
   id: string;
   kind: 'system' | 'custom';
+  financialType: 'income' | 'expense' | null;
   parentId: string | null;
   labelAr: string;
   labelEn: string;
@@ -87,6 +88,7 @@ export interface Transaction {
   currencyCode: string;
   accountId: string;
   destinationAccountId: string | null;
+  transferPurpose?: 'internal' | 'card_payoff' | null;
   feeMinor: number;
   categoryId: string | null;
   title: string;
@@ -197,6 +199,7 @@ export interface TransactionEffectProjection {
 interface TransactionProjectionContext {
   accountId: string | null;
   transactionById: ReadonlyMap<string, Transaction>;
+  activeRefundIds: ReadonlySet<string>;
   activeReversalIds: ReadonlySet<string>;
 }
 
@@ -244,6 +247,7 @@ export const categoryInputSchema = z
     id: z.string().optional(),
     labelAr: z.string().trim().min(1),
     labelEn: z.string().trim().min(1),
+    financialType: z.enum(['income', 'expense']),
     parentId: z.string().nullable().default(null),
     iconKey: z.string().nullable().default(null),
     colorKey: z.string().nullable().default(null),
@@ -266,6 +270,10 @@ export const transactionInputSchema = z
     currencyCode: currencyCodeSchema,
     accountId: z.string().min(1),
     destinationAccountId: z.string().nullable().default(null),
+    transferPurpose: z
+      .enum(['internal', 'card_payoff'])
+      .nullable()
+      .default(null),
     feeMinor: safeMinorSchema.nonnegative().default(0),
     categoryId: z.string().nullable().default(null),
     title: z.string().trim().min(1),
@@ -276,6 +284,30 @@ export const transactionInputSchema = z
     obligationId: z.string().nullable().default(null)
   })
   .superRefine((value, context) => {
+    if (value.type !== 'transfer' && value.transferPurpose) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['transferPurpose'],
+        message: 'coreFinance.validation.transferPurpose'
+      });
+    }
+    if (value.type === 'transfer' && value.categoryId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['categoryId'],
+        message: 'coreFinance.validation.transferCategory'
+      });
+    }
+    if (
+      value.type === 'transfer' &&
+      safeMinorSum(value.amountMinor, value.feeMinor) === null
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['feeMinor'],
+        message: 'coreFinance.validation.amount'
+      });
+    }
     if (
       value.type === 'transfer' &&
       (!value.destinationAccountId ||
@@ -290,6 +322,7 @@ export const transactionInputSchema = z
     if (
       value.type !== 'transfer' &&
       value.type !== 'adjustment' &&
+      value.type !== 'refund' &&
       !value.categoryId
     ) {
       context.addIssue({
@@ -350,6 +383,11 @@ export function parseAmountToMinor(
   return Number.isSafeInteger(value) ? value : null;
 }
 
+export function safeMinorSum(left: number, right: number): number | null {
+  const total = left + right;
+  return Number.isSafeInteger(total) ? total : null;
+}
+
 export function transactionEffectForAccount(
   transaction: Transaction,
   accountId: string,
@@ -388,7 +426,23 @@ export function projectTransactionEffects(
     transactions,
     transactionById
   );
-  const context = { accountId, transactionById, activeReversalIds };
+  const reversedOriginalIds = new Set(
+    [...activeReversalIds].flatMap((reversalId) => {
+      const originalId = transactionById.get(reversalId)?.originalTransactionId;
+      return originalId ? [originalId] : [];
+    })
+  );
+  const activeRefundIds = selectActiveRefundIds(
+    transactions,
+    transactionById,
+    reversedOriginalIds
+  );
+  const context = {
+    accountId,
+    transactionById,
+    activeRefundIds,
+    activeReversalIds
+  };
   return new Map(
     transactions.map((transaction) => [
       transaction.id,
@@ -405,10 +459,15 @@ function projectAggregateTransaction(
     ? (context.transactionById.get(transaction.originalTransactionId) ?? null)
     : null;
   const eligibleOriginal =
-    transaction.type !== 'reversal' ||
-    context.activeReversalIds.has(transaction.id)
-      ? original
-      : null;
+    transaction.type === 'reversal'
+      ? context.activeReversalIds.has(transaction.id)
+        ? original
+        : null
+      : transaction.type === 'refund'
+        ? context.activeRefundIds.has(transaction.id)
+          ? original
+          : null
+        : original;
   return projectTransactionEffect(
     transaction,
     context.accountId,
@@ -470,7 +529,7 @@ function refundValues(
   accountId: string | null,
   originalTransaction: Transaction | null
 ): TransactionEffect {
-  if (!hasEligibleOriginal(transaction, originalTransaction)) {
+  if (!hasEligibleRefundOriginal(transaction, originalTransaction)) {
     return emptyTransactionEffect();
   }
   return effect(
@@ -484,9 +543,14 @@ function transferValues(
   transaction: Transaction,
   accountId: string | null
 ): TransactionEffect {
+  const sourceDebitMinor = safeMinorSum(
+    transaction.amountMinor,
+    transaction.feeMinor
+  );
+  if (sourceDebitMinor === null) throw new RangeError('unsafe_minor_total');
   const accountDeltaMinor =
     transaction.accountId === accountId
-      ? -(transaction.amountMinor + transaction.feeMinor)
+      ? -sourceDebitMinor
       : transaction.destinationAccountId === accountId
         ? transaction.amountMinor
         : 0;
@@ -521,6 +585,52 @@ function hasEligibleOriginal(
   );
 }
 
+function hasEligibleRefundOriginal(
+  refund: Transaction,
+  original: Transaction | null
+): original is Transaction {
+  return (
+    hasEligibleOriginal(refund, original) &&
+    original.type === 'expense' &&
+    original.id !== refund.id &&
+    original.accountId === refund.accountId &&
+    original.currencyCode === refund.currencyCode
+  );
+}
+
+function selectActiveRefundIds(
+  transactions: readonly Transaction[],
+  transactionById: ReadonlyMap<string, Transaction>,
+  reversedOriginalIds: ReadonlySet<string>
+): Set<string> {
+  const refundedByOriginal = new Map<string, number>();
+  const selected = new Set<string>();
+  const candidates = transactions
+    .filter(
+      (transaction) =>
+        transaction.type === 'refund' &&
+        (isConfirmedTransaction(transaction) ||
+          isPendingTransaction(transaction))
+    )
+    .sort(compareLinkedPriority);
+  for (const refund of candidates) {
+    const original = refund.originalTransactionId
+      ? (transactionById.get(refund.originalTransactionId) ?? null)
+      : null;
+    if (
+      !hasEligibleRefundOriginal(refund, original) ||
+      reversedOriginalIds.has(original.id) ||
+      reversedOriginalIds.has(refund.id)
+    )
+      continue;
+    const refunded = refundedByOriginal.get(original.id) ?? 0;
+    if (refund.amountMinor > original.amountMinor - refunded) continue;
+    refundedByOriginal.set(original.id, refunded + refund.amountMinor);
+    selected.add(refund.id);
+  }
+  return selected;
+}
+
 function selectActiveReversalIds(
   transactions: readonly Transaction[],
   transactionById: ReadonlyMap<string, Transaction>
@@ -547,7 +657,7 @@ function activeReversalCandidates(
         (isConfirmedTransaction(transaction) ||
           isPendingTransaction(transaction))
     )
-    .sort(compareReversalPriority);
+    .sort(compareLinkedPriority);
 }
 
 function eligibleOriginalId(
@@ -563,10 +673,7 @@ function eligibleOriginalId(
     : null;
 }
 
-function compareReversalPriority(
-  left: Transaction,
-  right: Transaction
-): number {
+function compareLinkedPriority(left: Transaction, right: Transaction): number {
   return (
     reversalStatusPriority(left) - reversalStatusPriority(right) ||
     left.occurredAt - right.occurredAt ||
@@ -602,10 +709,12 @@ export function deriveAccountBalance(
 ): number {
   const projections = projectTransactionEffects(transactions, account.id);
   return transactions.reduce((total, transaction) => {
-    return (
-      total +
-      (projections.get(transaction.id)?.confirmed.accountDeltaMinor ?? 0)
+    const next = safeMinorSum(
+      total,
+      projections.get(transaction.id)?.confirmed.accountDeltaMinor ?? 0
     );
+    if (next === null) throw new RangeError('unsafe_minor_total');
+    return next;
   }, account.openingBalanceMinor);
 }
 

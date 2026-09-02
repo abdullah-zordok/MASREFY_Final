@@ -65,6 +65,32 @@ const noEffect = {
 };
 
 describe('canonical transaction effects', () => {
+  it('rejects an unsafe account total instead of rounding minor units', () => {
+    expect(() =>
+      deriveAccountBalance(
+        { ...account, openingBalanceMinor: Number.MAX_SAFE_INTEGER },
+        [transaction({ type: 'income', amountMinor: 1 })]
+      )
+    ).toThrow('unsafe_minor_total');
+  });
+
+  it('rejects a persisted transfer whose principal and fee are unsafe', () => {
+    expect(() =>
+      projectTransactionEffects(
+        [
+          transaction({
+            type: 'transfer',
+            amountMinor: Number.MAX_SAFE_INTEGER,
+            feeMinor: 1,
+            categoryId: null,
+            destinationAccountId: 'destination'
+          })
+        ],
+        null
+      )
+    ).toThrow('unsafe_minor_total');
+  });
+
   it.each([
     [
       'posted income is confirmed and positive',
@@ -426,6 +452,61 @@ describe('canonical transaction effects', () => {
       pending: noEffect
     });
     expect(deriveAccountBalance(account, [original, refund])).toBe(940);
+  });
+
+  it.each([
+    ['income original', { type: 'income' as const }, {}],
+    ['different account', {}, { accountId: 'other' }],
+    ['different currency', {}, { currencyCode: 'AED' }]
+  ])(
+    'keeps a persisted refund with an invalid %s informational',
+    (_case, originalPatch, refundPatch) => {
+      const original = transaction({ id: 'original', ...originalPatch });
+      const refund = transaction({
+        id: 'refund',
+        type: 'refund',
+        amountMinor: 40,
+        originalTransactionId: original.id,
+        ...refundPatch
+      });
+
+      expect(
+        projectTransactionEffects([original, refund], refund.accountId).get(
+          refund.id
+        )
+      ).toEqual({ confirmed: noEffect, pending: noEffect });
+    }
+  );
+
+  it('applies only deterministic refunds that fit the original amount', () => {
+    const original = transaction({ id: 'original', amountMinor: 100 });
+    const first = transaction({
+      id: 'refund-first',
+      type: 'refund',
+      amountMinor: 60,
+      originalTransactionId: original.id,
+      occurredAt: 2
+    });
+    const overflow = transaction({
+      id: 'refund-overflow',
+      type: 'refund',
+      amountMinor: 50,
+      originalTransactionId: original.id,
+      occurredAt: 3
+    });
+
+    const projections = projectTransactionEffects(
+      [overflow, original, first],
+      'source'
+    );
+    expect(projections.get(first.id)?.confirmed.expenseMinor).toBe(-60);
+    expect(projections.get(overflow.id)).toEqual({
+      confirmed: noEffect,
+      pending: noEffect
+    });
+    expect(deriveAccountBalance(account, [overflow, original, first])).toBe(
+      960
+    );
   });
 
   it('applies only one active reversal for the same original', () => {

@@ -1,13 +1,108 @@
 import { createMockTrackingPermissionService } from './tracking-permission-service';
-import { createMockAutomaticTrackingService } from './automatic-tracking-service';
+import {
+  createMockAutomaticTrackingService,
+  createProductionAutomaticTrackingService
+} from './automatic-tracking-service';
 import { makeMockEvent } from '@/test-utils/automatic-tracking-fixtures';
 import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
 import type {
   NotificationService,
   NotificationSourceEvent
 } from '@/services/contracts/assistant-notifications-service';
+import { coreFinanceService } from './core-finance-service';
+import { AutomaticTrackingRepository } from '@/storage/automatic-tracking-repository';
 
 describe('mock automatic tracking service', () => {
+  it('does not record an event while tracking is paused', async () => {
+    const service = createMockAutomaticTrackingService({
+      storage: {
+        loadTrackingPreference: async () => ({
+          mode: 'paused',
+          selectedAt: 1,
+          isRecommended: false
+        }),
+        saveTrackingPreference: async () => undefined,
+        loadKeywords: async () => [],
+        saveKeywords: async () => undefined
+      } as never
+    });
+
+    await expect(
+      service.processMockEvent(makeMockEvent('paused'))
+    ).rejects.toMatchObject({
+      code: 'paused'
+    });
+    await expect(service.listHistory()).resolves.toMatchObject({ total: 0 });
+  });
+
+  it('fails closed outside demo mode without creating tracking history', async () => {
+    const previous = process.env.EXPO_PUBLIC_DEMO_MODE;
+    const createTransaction = jest.spyOn(
+      coreFinanceService,
+      'createTransaction'
+    );
+    delete process.env.EXPO_PUBLIC_DEMO_MODE;
+    try {
+      const service = createProductionAutomaticTrackingService('en');
+      expect(service.metadata).toMatchObject({
+        id: 'unavailable-automatic-tracking',
+        availability: 'unavailable'
+      });
+      await expect(service.getStatus()).resolves.toMatchObject({
+        permissionStatus: 'unavailable',
+        serviceState: 'unavailable'
+      });
+      await expect(service.refreshStatus()).resolves.toMatchObject({
+        permissionStatus: 'unavailable',
+        serviceState: 'unavailable'
+      });
+      await expect(
+        service.processMockEvent(makeMockEvent('production'))
+      ).rejects.toMatchObject({ code: 'permission_required' });
+      await expect(service.setMode('paused')).rejects.toMatchObject({
+        code: 'permission_required'
+      });
+      await expect(service.clearHistory()).resolves.toMatchObject({ value: 0 });
+      await expect(service.purgeExpiredSourceText()).resolves.toBe(0);
+      await expect(service.saveKeywordRules([])).rejects.toMatchObject({
+        code: 'permission_required'
+      });
+      await expect(service.listHistory()).resolves.toMatchObject({ total: 0 });
+      expect(createTransaction).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_DEMO_MODE;
+      else process.env.EXPO_PUBLIC_DEMO_MODE = previous;
+    }
+  });
+
+  it('durably purges expired source text even when capture is unavailable', async () => {
+    const repository = new AutomaticTrackingRepository();
+    const event = repository.createEvent(
+      makeMockEvent('expired-source'),
+      'review_required',
+      ['low_confidence'],
+      1
+    );
+    repository.updateEvent(event.id, { sourceTextExpiresAt: 2 });
+    jest.spyOn(repository, 'hydrate').mockResolvedValue();
+    const persist = jest.spyOn(repository, 'persistAll').mockResolvedValue();
+    const service = createMockAutomaticTrackingService({
+      repository,
+      persistent: true,
+      permissionService: createMockTrackingPermissionService('unavailable')
+    });
+
+    await service.getStatus();
+
+    expect(repository.requireEvent(event.id).sourceText).toBeNull();
+    expect(persist).toHaveBeenCalled();
+    const historyCount = (await service.listHistory()).total;
+    await expect(service.clearHistory()).resolves.toMatchObject({
+      value: historyCount
+    });
+    await expect(service.listHistory()).resolves.toMatchObject({ total: 0 });
+  });
+
   it('reports automatic tracking unavailable when platform ingestion is unavailable', async () => {
     const service = createMockAutomaticTrackingService({
       persistent: false,
@@ -25,7 +120,8 @@ describe('mock automatic tracking service', () => {
     const previous = process.env.EXPO_PUBLIC_DEMO_MODE;
     process.env.EXPO_PUBLIC_DEMO_MODE = '1';
     try {
-      const service = createMockAutomaticTrackingService();
+      const service = createProductionAutomaticTrackingService('en');
+      expect(service.metadata.id).toBe('demo-automatic-tracking');
       expect((await service.listHistory()).total).toBeGreaterThan(0);
       expect((await service.listReviewItems()).total).toBeGreaterThan(0);
       expect((await service.listSenderRules()).length).toBeGreaterThan(0);

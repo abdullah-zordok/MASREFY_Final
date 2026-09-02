@@ -1,3 +1,14 @@
 # Known non-secret detector fixtures in Mobile quality-boundary tests.
 93c3ad80343e71e46d1471eeb444f1fe0c4e4fc8:apps/mobile/scripts/check-frontend-quality-boundaries.test.mjs:stripe-access-token:22
 93c3ad80343e71e46d1471eeb444f1fe0c4e4fc8:apps/mobile/scripts/check-frontend-quality-secrets.test.mjs:generic-api-key:10
+
+# Known non-secret idempotency fixtures in Phase 07 planning tests.
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/integration/planning/planning.savings.integration.spec.ts:generic-api-key:59
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.obligation.spec.ts:generic-api-key:100
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.obligation.spec.ts:generic-api-key:182
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.obligation.spec.ts:generic-api-key:219
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.savings.spec.ts:generic-api-key:69
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.savings.spec.ts:generic-api-key:93
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.savings.spec.ts:generic-api-key:118
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.savings.spec.ts:generic-api-key:136
+c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.salary.spec.ts:generic-api-key:156

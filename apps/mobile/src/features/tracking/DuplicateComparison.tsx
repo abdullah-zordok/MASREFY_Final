@@ -13,6 +13,7 @@ import { translate } from '@/localization/i18n';
 import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
 import type { DuplicateResolution } from '@/services/contracts/automatic-tracking-service';
 import { trackingReasonSummary } from './tracking-display';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 import {
   invalidateTrackingScopes,
   useDuplicateCandidate
@@ -59,6 +60,7 @@ export function DuplicateComparison({ id }: { id: string }) {
       <StyledText variant="title">
         {translate('tracking.duplicate.title')}
       </StyledText>
+      <TrackingDemoNotice />
       <SurfaceCard>
         <View style={styles.stack}>
           <StyledText>{translate('tracking.duplicate.existing')}</StyledText>

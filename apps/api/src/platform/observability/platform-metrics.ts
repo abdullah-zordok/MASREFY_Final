@@ -78,13 +78,29 @@ export const LEDGER_METRICS = {
   reconciliationDuration: 'masarifi_ledger_reconciliation_duration_ms',
 } as const;
 
+export const SYNC_METRICS = {
+  mutation: 'masarifi_sync_mutation_total',
+  replay: 'masarifi_sync_replay_total',
+  conflict: 'masarifi_sync_conflict_total',
+  worker: 'masarifi_sync_worker_total',
+  cursorLag: 'masarifi_sync_cursor_lag',
+  retry: 'masarifi_sync_retry_total',
+} as const;
+
+export const PLANNING_METRICS = {
+  job: 'masarifi_planning_job_total',
+  reconciliation: 'masarifi_planning_reconciliation_total',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
   | (typeof IDENTITY_METRICS)[keyof typeof IDENTITY_METRICS]
   | (typeof SECURITY_METRICS)[keyof typeof SECURITY_METRICS]
   | (typeof REFERENCE_METRICS)[keyof typeof REFERENCE_METRICS]
-  | (typeof LEDGER_METRICS)[keyof typeof LEDGER_METRICS];
+  | (typeof LEDGER_METRICS)[keyof typeof LEDGER_METRICS]
+  | (typeof SYNC_METRICS)[keyof typeof SYNC_METRICS]
+  | (typeof PLANNING_METRICS)[keyof typeof PLANNING_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -135,6 +151,13 @@ const counterNames = new Set<MetricName>([
   LEDGER_METRICS.reconciliationMismatch,
   LEDGER_METRICS.reconciliationFailure,
   LEDGER_METRICS.reconciliationRetry,
+  SYNC_METRICS.mutation,
+  SYNC_METRICS.replay,
+  SYNC_METRICS.conflict,
+  SYNC_METRICS.worker,
+  SYNC_METRICS.retry,
+  PLANNING_METRICS.job,
+  PLANNING_METRICS.reconciliation,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

@@ -26,7 +26,9 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const correlationPattern = /^[A-Za-z0-9._:-]{1,128}$/;
 
 export function buildEventEnvelope(row: OutboxEnvelopeRow, correlationId: string): EventEnvelope {
-  validateOutboxInput(row.eventType, row.aggregateType, row.payload);
+  const payload = { ...row.payload };
+  delete payload.sync;
+  validateOutboxInput(row.eventType, row.aggregateType, payload);
   if (
     !uuidPattern.test(row.id) ||
     (row.aggregateId !== null && !uuidPattern.test(row.aggregateId))
@@ -46,6 +48,6 @@ export function buildEventEnvelope(row: OutboxEnvelopeRow, correlationId: string
     aggregate: { type: row.aggregateType, id: row.aggregateId },
     correlationId,
     attempt: row.attemptCount + 1,
-    payload: row.payload,
+    payload,
   };
 }

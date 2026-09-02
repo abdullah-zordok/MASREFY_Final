@@ -4,6 +4,7 @@ import { fireEvent } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { changeLocale } from '@/localization/i18n';
 import { useCoreFinanceViewState } from '@/state/core-finance-view-state';
+import { useReportsViewState } from '@/state/reports-view-state';
 import { renderWithProviders } from '@/test-utils/render';
 import { ReportDrillDownScreen } from './ReportDrillDownScreen';
 
@@ -11,7 +12,16 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn() }
 }));
 
-afterEach(() => jest.restoreAllMocks());
+beforeEach(() => {
+  useReportsViewState.setState({
+    anchorDate: '2026-08-08',
+    selectedKind: 'monthly'
+  });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 test('drill-down applies visible report filters before opening transactions', async () => {
   changeLocale('en');

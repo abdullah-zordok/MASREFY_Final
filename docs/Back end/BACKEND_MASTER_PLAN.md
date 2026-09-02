@@ -1643,6 +1643,11 @@ user-facing absolute amount; signed postings remain internal.
 
 ### Phase 06 - SPEC-BE-006: Offline Sync, Idempotency & Conflict Resolution
 
+**Delivery status (2026-08-31):** implemented and locally verified. Retained
+specification, review, release, recovery, and acceptance evidence lives in
+`apps/api/specs/006-offline-sync-idempotency/`. External provider/registry gates
+remain explicitly pending and require separate authorization.
+
 #### Objective and Scope
 
 Provide the only client synchronization protocol and mutation replay contract.
@@ -1663,9 +1668,9 @@ for money.
 | Table | Complete columns | Keys, constraints, indexes, defaults |
 |---|---|---|
 | `private.idempotency_keys` | `I`; `actor_id text`; `scope text`; `key_hash text`; `request_hash text`; `response_status int?`; `response_body jsonb?`; `resource_ref text?`; `state text='claimed'`; `locked_until timestamptz`; `expires_at timestamptz` | state `claimed/completed/failed`; response status 100..599 when set; UQ `(actor_id,scope,key_hash)`; indexes `(expires_at)`, `(state,locked_until)`; request hash immutable |
-| `public.transaction_conflicts` | `M+U`; `transaction_id uuid FK transactions`; `client_mutation_id uuid FK client_mutations`; `server_version bigint`; `client_version bigint`; `conflict_fields text[]`; `server_snapshot jsonb`; `client_snapshot jsonb`; `status text='open'`; `resolution text?`; `resolved_by text?`; `resolved_at timestamptz?` | status `open/resolved/rejected`; resolution `server/client/merged/duplicate/keep_both` only for nonfinancial duplication; versions>=0; UQ transaction/client mutation; index user/status/time |
-| `public.client_sync_state` | `M+U`; `device_id uuid FK user_devices`; `domain text`; `last_cursor bigint=0`; `last_synced_at timestamptz?`; `last_acknowledged_mutation_id uuid?` | cursor>=0; UQ `(user_id,device_id,domain)`; index user/device/time |
-| `public.client_mutations` | `I+U`; `device_id uuid FK user_devices`; `operation_id uuid`; `domain text`; `resource_type text`; `resource_id uuid?`; `base_version bigint?`; `payload_hash text`; `payload jsonb`; `status text='received'`; `result_ref text?`; `error_code text?`; `processed_at timestamptz?` | status `received/processing/applied/conflict/rejected`; base>=0; UQ `(user_id,operation_id)`; indexes status/created, user/device/created |
+| `public.transaction_conflicts` | `M+U`; transaction/client-mutation FKs; server/client versions; fields; redacted snapshots; status/resolution; optional resolution payload and idempotency hashes; resolved/created/updated times | status `open/resolved/rejected`; resolution `server/client/merged/duplicate`; bounded snapshots; one open conflict per mutation; owner/status and transaction indexes |
+| `public.client_sync_state` | `M+U`; device FK; domain; acknowledged and last-issued cursors; last sync time; last acknowledged mutation FK | `last_issued_cursor>=last_cursor>=0`; UQ `(user_id,device_id,domain)` |
+| `public.client_mutations` | `I+U`; device FK; operation/domain/resource/schema/dependency envelope; resource/base version; hashes/payload; status/result/error; retry/lease/fence fields; processed/created/updated times | status `received/processing/applied/conflict/rejected`; schema version 1; bounded payload/outcome/lease invariants; UQ `(user_id,operation_id)`; claim and device-cursor indexes |
 
 #### Dedicated ERD
 
@@ -1696,13 +1701,13 @@ erDiagram
 
 | Route | Request | Response |
 |---|---|---|
-| `GET /api/v1/sync/bootstrap` | `deviceId`, optional domain list | reference versions, per-domain cursors, bounded initial snapshot URLs/pages, server time |
-| `GET /api/v1/sync/delta` | `deviceId`, `domain`, `cursor>=0`, `limit<=500` | `{changes:[{cursor,resourceType,resourceId,operation,version,payload?,deletedAt?}],nextCursor,hasMore}` |
-| `POST /api/v1/sync/mutations` | `Idempotency-Key`; `{deviceId,mutations:[1..100 MutationEnvelope]}` | per-operation `{operationId,status,resourceId?,version?,conflictId?,error?}`, server cursors |
-| `POST /api/v1/sync/ack` | `{deviceId,domain,cursor,lastMutationId?}` | `{acknowledgedCursor,serverCursor}` |
-| `GET /api/v1/conflicts` | cursor/status/domain | owner conflict summaries |
-| `GET /api/v1/conflicts/:id` | owner | redacted server/client snapshots and allowed resolutions |
-| `POST /api/v1/conflicts/:id/resolve` | key; `{expectedVersion,resolution,mergedPatch?}` | applied resource/version or rejected result |
+| `GET /api/v1/sync/bootstrap` | `X-Device-ID`; optional domain list | reference versions, per-domain cursors, bounded deterministic snapshots, server time |
+| `GET /api/v1/sync/delta` | `X-Device-ID`; `domain`, opaque cursor, `limit<=500` | `{changes:[{cursor,resourceType,resourceId,operation,version,payload?,deletedAt?}],nextCursor,hasMore}` |
+| `POST /api/v1/sync/mutations` | `X-Device-ID`, `Idempotency-Key`; `{mutations:[1..100 MutationEnvelope]}` | ordered per-operation receipts and server cursors |
+| `POST /api/v1/sync/ack` | `X-Device-ID`; `{domain,cursor,lastMutationId?}` | `{acknowledgedCursor,serverCursor}` |
+| `GET /api/v1/conflicts` | `X-Device-ID`; cursor/status | owner conflict summaries |
+| `GET /api/v1/conflicts/:id` | `X-Device-ID`; owner | redacted server/client snapshots and allowed resolutions |
+| `PATCH /api/v1/conflicts/:id` | `X-Device-ID`, `Idempotency-Key`; `{expectedVersion,resolution,mergedPatch?}` | applied resource/version or rejected result |
 
 `MutationEnvelope` is `{operationId:uuid,domain,resourceType,resourceId?,
 baseVersion?,operation:'create'|'update'|'delete'|'restore',payload,schemaVersion}`.
@@ -1710,14 +1715,17 @@ Unknown domains/resources/schema versions are rejected before persistence.
 
 #### Functions, Triggers, Jobs, and Events
 
-- `private.claim_idempotency_key(actor,scope,key,request_hash,ttl)` returns
+- `private.claim_sync_idempotency_key(actor,scope,key,request_hash,ttl)` returns
   `new/replay/in_progress/hash_mismatch`; completed response is immutable.
-- `private.complete_idempotency_key(...)` records safe response/resource reference
+- `private.complete_sync_idempotency_key(...)` records safe response/resource reference
   in the same transaction as mutation completion.
-- `private.next_sync_cursor(user_id,domain)` allocates monotonic domain cursor;
-  every sync-visible domain event stores it in outbox payload.
-- `private.apply_client_mutation(...)` dispatches only to registered domain
-  commands; it never performs generic dynamic SQL.
+- `private.attach_outbox_sync_metadata()` allocates monotonic owner/domain
+  cursors and stores allowlisted snapshots/tombstones in the existing outbox.
+- Receive/claim/complete/retry functions enforce dependency, lease, fence, and
+  terminal receipt invariants; TypeScript handlers dispatch only to registered
+  Phase 04/05 commands and never use generic dynamic SQL.
+- `private.check_sync_reconciliation()` detects checkpoint, retained cursor, and
+  conflict/receipt drift and is invoked by bounded maintenance.
 - Jobs: `idempotency.cleanup`, `sync-mutations.retry`, `sync-state.cleanup` for
   long-revoked devices, and `conflicts.expire` for resolved snapshot minimization.
 - Events: `sync.mutation_applied/rejected`, `sync.cursor_advanced`,
@@ -1733,8 +1741,7 @@ Unknown domains/resources/schema versions are rejected before persistence.
   validated topological order; unsupported cross-operation references reject the
   dependent operation, not unrelated mutations.
 - Money conflicts allow server/reject/explicit corrected command; `keep_both` is
-  allowed only for a confirmed nonduplicate business record with a new operation
-  ID and never as automatic conflict resolution.
+  not a Phase 06 financial resolution.
 - Tombstones contain ID, type, version, deletedAt only and persist long enough for
   the documented maximum offline window.
 
@@ -1800,17 +1807,22 @@ replace, ledger truth.
 
 | Table | Complete columns | Keys, constraints, indexes, defaults |
 |---|---|---|
-| `public.salary_profiles` | `M+U`; `name text`; `amount_minor bigint`; `currency_code char(3) FK currencies`; `frequency text`; `expected_day smallint?`; `account_id uuid? FK accounts`; `active boolean=true` | amount>0; frequency `monthly/weekly/biweekly/custom`; expected day 1..31 when monthly; indexes user/active |
-| `public.salary_receipts` | `M+U`; `salary_profile_id uuid FK salary_profiles`; `transaction_id uuid? FK transactions`; `expected_at timestamptz`; `received_at timestamptz?`; `amount_minor bigint`; `status text='expected'` | amount>0; status `expected/received/missed/ignored`; UQ profile/expected_at; indexes user/status/expected |
-| `public.budgets` | `M+U`; `name text`; `currency_code char(3) FK currencies`; `period_start date`; `period_end date`; `total_minor bigint`; `status text='active'`; `deleted_at timestamptz?` | end>=start; total>=0; status `draft/active/closed/deleted`; indexes user/period/status |
-| `public.budget_categories` | `M+U`; `budget_id uuid FK budgets cascade`; `category_id uuid FK categories`; `limit_minor bigint`; `rollover_minor bigint=0` | limit/rollover>=0; UQ budget/category; indexes category, user/budget |
-| `public.obligations` | `M+U`; `name text`; `type text`; `currency_code char(3) FK currencies`; `principal_minor bigint`; `frequency text`; `start_date date`; `end_date date?`; `status text='active'`; `default_account_id uuid? FK accounts`; `deleted_at timestamptz?` | principal>=0; type `bill/debt/installment/subscription/other`; frequency supported set; end>=start; indexes user/status, user/end |
-| `public.obligation_schedule_items` | `M+U`; `obligation_id uuid FK obligations cascade`; `due_at timestamptz`; `amount_minor bigint`; `status text='due'`; `sequence_no int` | amount>0; sequence>0; status `due/partial/paid/overdue/skipped`; UQ obligation/sequence; indexes user/status/due, obligation/due |
-| `public.obligation_payments` | `M+U`; `obligation_id uuid FK obligations`; `transaction_id uuid FK transactions`; `paid_at timestamptz`; `amount_minor bigint`; `payment_method text?`; `status text='confirmed'` | amount>0; status `pending/confirmed/reversed`; UQ transaction; indexes obligation/paid, user/status |
+| `public.salary_profiles` | `M+U`; `name text`; `amount_minor bigint`; `currency_code char(3) FK currencies`; `frequency text`; `expected_day smallint?`; `custom_interval_days smallint?`; `account_id uuid? FK accounts`; `automatic_detection_enabled boolean=false`; `status text='active'`; `deleted_at timestamptz?` | amount>0; frequency `monthly/weekly/biweekly/custom`; frequency-specific day/interval; status `active/paused/archived`; indexes user/status, user/account |
+| `public.salary_receipts` | `M+U`; `salary_profile_id uuid FK salary_profiles`; `transaction_id uuid? FK transactions`; `expected_at timestamptz`; `received_at timestamptz?`; `amount_minor bigint`; `status text='expected'`; `operation_id uuid?`; `replaces_receipt_id uuid? self FK` | amount>0; status `expected/received/missed/ignored/corrected/undone`; UQ profile/expected; active transaction and operation partial UQs; indexes user/status/expected |
+| `public.budgets` | `M+U`; `name text`; `currency_code char(3) FK currencies`; `period_start date`; `period_end date`; `total_minor bigint`; `income_target_minor bigint=0`; `savings_target_minor bigint=0`; `rollover_enabled boolean=false`; `rollover_minor bigint=0`; `status text='draft'`; `copied_from_budget_id uuid? self FK`; `deleted_at timestamptz?` | valid bounded period; totals>=0; status `draft/active/paused/closed/deleted`; overlaps allowed; indexes user/period/status |
+| `public.budget_categories` | `M+U`; `budget_id uuid FK budgets cascade`; `category_id uuid FK categories`; `limit_minor bigint`; `rollover_minor bigint=0`; `alert_thresholds smallint[]`; `status text='active'` | limit/rollover>=0; bounded unique thresholds; active sum<=budget total; UQ budget/category; indexes category, user/budget/status |
+| `public.obligations` | `M+U`; `name text`; `direction text='payable'`; `type text`; `schedule_kind text`; `currency_code char(3) FK currencies`; `principal_minor bigint`; `opening_paid_minor bigint=0`; installment amount/count; `frequency text`; expected day/custom interval; start/end dates; `status text='active'`; default account; matching/provider/keywords/reminder/notes; `deleted_at timestamptz?` | exact Phase 07 allowlists; nonnegative compatible amounts; frequency/schedule fields consistent; end>=start; indexes user/status/direction/end/matching |
+| `public.obligation_schedule_items` | `M+U`; `obligation_id uuid FK obligations cascade`; `due_at timestamptz`; `amount_minor bigint`; `paid_minor bigint=0`; `status text='due'`; `sequence_no int`; `kind text='installment'` | amount>0; 0<=paid<=amount; sequence>0; status `due/partial/paid/overdue/skipped/cancelled`; UQ obligation/sequence; indexes user/status/due, obligation/due |
+| `public.obligation_payments` | `M+U`; obligation/transaction FKs; paid time/amount/method; payment case/allocation intent/source/transaction ownership; principal reduction/settlement adjustment; `status text='confirmed'`; operation/replacement IDs | amount>0; exact allowlists; one active transaction; operation partial UQ; indexes obligation/paid, user/status |
 | `public.obligation_payment_allocations` | `I+U`; `payment_id uuid FK obligation_payments cascade`; `schedule_item_id uuid FK obligation_schedule_items`; `amount_minor bigint` | amount>0; UQ payment/schedule; indexes schedule_item |
-| `public.payment_matches` | `M+U`; `transaction_id uuid FK transactions`; `obligation_id uuid FK obligations`; `schedule_item_id uuid? FK obligation_schedule_items`; `confidence numeric(5,4)`; `status text='proposed'`; `reviewed_by text?`; `reviewed_at timestamptz?` | confidence 0..1; status `proposed/accepted/rejected`; UQ transaction/obligation; indexes user/status, obligation/status |
-| `public.savings_goals` | `M+U`; `name text`; `currency_code char(3) FK currencies`; `target_minor bigint`; `target_date date?`; `status text='active'`; `linked_account_id uuid? FK accounts`; `deleted_at timestamptz?` | target>0; status `active/paused/completed/deleted`; indexes user/status/target_date |
-| `public.savings_goal_movements` | `I+U`; `goal_id uuid FK savings_goals`; `transaction_id uuid FK transactions`; `amount_minor bigint`; `occurred_at timestamptz`; `kind text` | amount<>0; kind `contribution/withdrawal/adjustment`; UQ goal/transaction/kind; indexes goal/time, user/time |
+| `public.payment_matches` | `M+U`; transaction/obligation/schedule FKs; `confidence numeric(5,4)`; bounded allowlisted `evidence jsonb`; `status text='proposed'`; reviewer/time | confidence 0..1; status `proposed/accepted/rejected`; UQ transaction/obligation; indexes user/status, obligation/status, transaction/status |
+| `public.savings_goals` | `M+U`; `name text`; `currency_code char(3) FK currencies`; `target_minor bigint`; `opening_tracked_minor bigint=0`; `target_date date?`; `status text='active'`; linked account/icon/emergency flag; `deleted_at timestamptz?` | target>0; opening>=0; status `active/paused/completed/deleted`; indexes user/status/target, account, emergency |
+| `public.savings_goal_movements` | `I+U`; goal/transaction FKs; signed `amount_minor bigint`; `occurred_at timestamptz`; `kind text`; operation/replacement IDs | amount<>0; kind `contribution/withdrawal/adjustment/reversal`; UQ goal/transaction/kind and operation; indexes goal/time, user/time; reversal is compensating immutable row |
+
+The exact Phase 07 column types, nullability, checks, indexes, transitions, and
+current-client field mappings are authoritative in
+`apps/api/specs/007-financial-planning/data-model.md`; the rows above are its
+compressed ownership inventory and do not authorize extra tables.
 
 #### Dedicated ERD
 
@@ -1909,6 +1921,25 @@ minor-unit integer and currency-compatible with referenced transaction/account.
 - All current planning workflows and fields are represented; every derived value
   reconciles to ledger; contracts, schema/RLS, jobs/views/events, mocks, tests,
   performance/cache, migration/rollback, alerts, and runbooks pass.
+
+#### Phase 07 Implementation Status (2026-09-01)
+
+- Locally complete on `main`: all SPEC-BE-007 tasks, FRs, acceptance scenarios,
+  success criteria, release gates, non-root image checks, and recovery rehearsals
+  are retained under `apps/api/specs/007-financial-planning/evidence/`.
+- Primary evidence: `acceptance.md`, `definition-of-done.md`,
+  `local-feature-gates.md`, `local-release.md`, `recovery.md`, and `remote.md`.
+- Remote workflow, registry publication, SBOM publication, image signature, and
+  provenance remain explicitly pending because push/remote activity was
+  prohibited; none is represented as passing.
+
+#### Prerequisite Gap Notes
+
+- No unresolved Phase 01-06 prerequisite gap remains for local Phase 07
+  completion. Phase 06 continues to own generic sync/idempotency primitives.
+- Phase 11 delivery and Phase 14 live Mobile/Admin provider cutover remain
+  downstream ownership boundaries, not Phase 07 completion claims. No Phase 08+
+  resource or implementation is claimed by this status update.
 
 ### Phase 08 - SPEC-BE-008: Tracking, Imports, Parsers & Deduplication
 

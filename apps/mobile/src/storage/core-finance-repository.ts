@@ -2,8 +2,10 @@ import {
   accountInputSchema,
   categoryInputSchema,
   deriveAccountBalance,
+  isConfirmedTransaction,
   matchesFilters,
   normalizeSearch,
+  projectTransactionEffects,
   transactionInputSchema,
   type Account,
   type AccountInput,
@@ -16,12 +18,14 @@ import {
   type TransactionInput
 } from '@/domain/core-finance';
 import {
+  createDefaultCategories,
   isLegacyFixtureAccount,
   isLegacyFixtureTransaction
 } from '@/domain/core-finance-seeds';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   CoreFinanceError,
+  type CardPayoffInput,
   type TransactionPage
 } from '@/services/contracts/core-finance-service';
 import { openDatabase, runExclusiveDatabaseTransaction } from './database';
@@ -73,7 +77,9 @@ export class CoreFinanceRepository {
   }
 
   relocalizeDemoFixtures(seed: CoreFinanceSeed): void {
-    const accounts = new Map(seed.accounts?.map((account) => [account.id, account]));
+    const accounts = new Map(
+      seed.accounts?.map((account) => [account.id, account])
+    );
     const transactions = new Map(
       seed.transactions?.map((transaction) => [transaction.id, transaction])
     );
@@ -106,35 +112,44 @@ export class CoreFinanceRepository {
     const seededCategories = this.categories.map(copy);
     const seededTransactions = this.transactions.map(copy);
     const database = await openDatabase();
-    const [accounts, categories, transactions, drafts, conflicts, corrections, operations] =
-      await Promise.all([
-        database.getAllAsync<{ payload: string }>(
-          'SELECT payload FROM finance_accounts'
-        ),
-        database.getAllAsync<{ payload: string }>(
-          'SELECT payload FROM finance_categories'
-        ),
-        database.getAllAsync<{ payload: string }>(
-          'SELECT payload FROM finance_transactions'
-        ),
-        database.getAllAsync<{ payload: string }>(
-          'SELECT payload FROM finance_drafts'
-        ),
-        database.getAllAsync<{ transaction_id: string; payload: string }>(
-          'SELECT transaction_id, payload FROM finance_sync_conflicts'
-        ),
-        database.getAllAsync<{
-          transaction_id: string;
-          payload: string;
-          status: string;
-        }>('SELECT transaction_id, payload, status FROM finance_corrections'),
-        database.getAllAsync<{
-          operation_id: string;
-          transaction_id: string;
-          payload: string;
-          status: string;
-        }>('SELECT operation_id, transaction_id, payload, status FROM finance_operations')
-      ]);
+    const [
+      accounts,
+      categories,
+      transactions,
+      drafts,
+      conflicts,
+      corrections,
+      operations
+    ] = await Promise.all([
+      database.getAllAsync<{ payload: string }>(
+        'SELECT payload FROM finance_accounts'
+      ),
+      database.getAllAsync<{ payload: string }>(
+        'SELECT payload FROM finance_categories'
+      ),
+      database.getAllAsync<{ payload: string }>(
+        'SELECT payload FROM finance_transactions'
+      ),
+      database.getAllAsync<{ payload: string }>(
+        'SELECT payload FROM finance_drafts'
+      ),
+      database.getAllAsync<{ transaction_id: string; payload: string }>(
+        'SELECT transaction_id, payload FROM finance_sync_conflicts'
+      ),
+      database.getAllAsync<{
+        transaction_id: string;
+        payload: string;
+        status: string;
+      }>('SELECT transaction_id, payload, status FROM finance_corrections'),
+      database.getAllAsync<{
+        operation_id: string;
+        transaction_id: string;
+        payload: string;
+        status: string;
+      }>(
+        'SELECT operation_id, transaction_id, payload, status FROM finance_operations'
+      )
+    ]);
     if (!accounts.length && !categories.length && !transactions.length) {
       await this.persistAll();
       return;
@@ -147,23 +162,30 @@ export class CoreFinanceRepository {
     );
     this.conflicts = parseRows<SyncConflict>(conflicts);
     this.deletedPriorStatus = new Map(
-      corrections.filter((row) => row.status === 'undoable').map((row) => [
-        row.transaction_id,
-        JSON.parse(row.payload).priorStatus as Transaction['status']
-      ])
+      corrections
+        .filter((row) => row.status === 'undoable')
+        .map((row) => [
+          row.transaction_id,
+          JSON.parse(row.payload).priorStatus as Transaction['status']
+        ])
     );
     this.operationResults = new Map(
-      operations.filter((row) => row.status === 'succeeded').map((row) => [
-        row.operation_id,
-        JSON.parse(row.payload) as Transaction
-      ])
+      operations
+        .filter((row) => row.status === 'succeeded')
+        .map((row) => [
+          row.operation_id,
+          JSON.parse(row.payload) as Transaction
+        ])
     );
     if (
       this.shouldReplaceEmptyDefaultLedger(
         seededAccounts,
         seededCategories,
         seededTransactions,
-        drafts.length + conflicts.length + corrections.length + operations.length
+        drafts.length +
+          conflicts.length +
+          corrections.length +
+          operations.length
       )
     ) {
       this.accounts = seededAccounts;
@@ -179,11 +201,23 @@ export class CoreFinanceRepository {
         ...conflicts.map((row) => row.transaction_id),
         ...(await this.persistedDependentTransactionIds(database))
       ]);
-      await this.removePersistedLegacyFixtures(database, referencedTransactionIds);
+      await this.removePersistedLegacyFixtures(
+        database,
+        referencedTransactionIds
+      );
     }
     if (!this.accounts.length && seededAccounts.length) {
       this.accounts = seededAccounts;
       await this.persistAccounts();
+    }
+    const normalized = this.normalizeLegacyTransferData();
+    if (normalized.categories.length || normalized.transactions.length) {
+      await runExclusiveDatabaseTransaction(database, async (transaction) => {
+        for (const category of normalized.categories)
+          await persistCategory(transaction, category);
+        for (const ledgerEntry of normalized.transactions)
+          await persistTransaction(transaction, ledgerEntry);
+      });
     }
   }
 
@@ -222,9 +256,15 @@ export class CoreFinanceRepository {
     transaction: Transaction,
     operationId?: string
   ): Promise<void> {
-    await persistTransaction(await openDatabase(), transaction);
-    if (operationId)
-      await persistOperation(await openDatabase(), operationId, transaction);
+    const database = await openDatabase();
+    if (!operationId) return persistTransaction(database, transaction);
+    await runExclusiveDatabaseTransaction(
+      database,
+      async (sqliteTransaction) => {
+        await persistTransaction(sqliteTransaction, transaction);
+        await persistOperation(sqliteTransaction, operationId, transaction);
+      }
+    );
   }
 
   async persistDraft(draft: TransactionDraft): Promise<void> {
@@ -436,9 +476,9 @@ export class CoreFinanceRepository {
       return copy(next);
     }
     const next: Category = {
-      id: this.nextId('category'),
       kind: 'custom',
       ...value,
+      id: this.nextId('category'),
       status: 'active',
       mergedIntoId: null,
       createdAt: now,
@@ -518,6 +558,18 @@ export class CoreFinanceRepository {
     return copy(transaction);
   }
 
+  getRemainingRefundableMinor(
+    originalTransactionId: string,
+    excludedRefundId?: string
+  ): number {
+    const original = this.transactions.find(
+      (transaction) => transaction.id === originalTransactionId
+    );
+    return original
+      ? this.remainingRefundableMinor(original, excludedRefundId)
+      : 0;
+  }
+
   saveTransaction(
     input: TransactionInput,
     id?: string,
@@ -534,11 +586,13 @@ export class CoreFinanceRepository {
       : undefined;
     this.assertSelectable(
       value.accountId,
-      value.categoryId,
+      value.type === 'refund' ? null : value.categoryId,
       value.destinationAccountId,
       value.currencyCode,
       current
     );
+    if (value.type === 'refund') this.assertRefund(value, id);
+    if (id) this.assertRefundedOriginalUpdate(id, value);
     const now = Date.now();
     if (id) {
       const index = this.transactions.findIndex((item) => item.id === id);
@@ -570,6 +624,74 @@ export class CoreFinanceRepository {
     this.transactions.push(next);
     if (operationId) this.operationResults.set(operationId, next);
     return copy(next);
+  }
+
+  createCardPayoff(input: CardPayoffInput, operationId: string): Transaction {
+    if (!operationId.trim()) throw new CoreFinanceError('validation');
+    const transfer = this.parseCardPayoff(input);
+    const existing = this.operationResults.get(operationId);
+    if (existing) {
+      if (
+        existing.type !== 'transfer' ||
+        existing.transferPurpose !== 'card_payoff' ||
+        existing.accountId !== transfer.accountId ||
+        existing.destinationAccountId !== transfer.destinationAccountId ||
+        existing.amountMinor !== transfer.amountMinor ||
+        existing.currencyCode !== transfer.currencyCode ||
+        existing.occurredAt !== transfer.occurredAt ||
+        existing.title !== transfer.title ||
+        existing.notes !== transfer.notes
+      )
+        throw new CoreFinanceError('validation');
+      return copy(existing);
+    }
+    this.assertSelectable(
+      transfer.accountId,
+      null,
+      transfer.destinationAccountId ?? null,
+      transfer.currencyCode
+    );
+    const card = this.requireAccount(input.cardAccountId);
+    let fundingBalance: number;
+    let cardBalance: number;
+    try {
+      fundingBalance = this.accountBalance(input.fundingAccountId);
+      cardBalance = this.accountBalance(input.cardAccountId);
+    } catch (error) {
+      if (error instanceof RangeError) throw new CoreFinanceError('validation');
+      throw error;
+    }
+    if (
+      card.type !== 'credit_card' ||
+      cardBalance >= 0 ||
+      transfer.amountMinor > fundingBalance ||
+      transfer.amountMinor > -cardBalance
+    )
+      throw new CoreFinanceError('validation');
+    return this.saveTransaction(transfer, undefined, operationId);
+  }
+
+  private parseCardPayoff(input: CardPayoffInput): TransactionInput {
+    try {
+      return transactionInputSchema.parse({
+        type: 'transfer',
+        transferPurpose: 'card_payoff',
+        amountMinor: input.amountMinor,
+        currencyCode: input.currencyCode,
+        accountId: input.fundingAccountId,
+        destinationAccountId: input.cardAccountId,
+        categoryId: null,
+        feeMinor: 0,
+        title: input.title,
+        merchant: null,
+        occurredAt: input.occurredAt,
+        notes: input.notes ?? null,
+        originalTransactionId: null,
+        obligationId: null
+      });
+    } catch {
+      throw new CoreFinanceError('validation');
+    }
   }
 
   async saveTransactionsAtomically(
@@ -744,7 +866,8 @@ export class CoreFinanceRepository {
       this.transactions,
       referencedTransactionIds
     );
-    const { accounts, removedAccounts, removedTransactions, transactions } = cleanup;
+    const { accounts, removedAccounts, removedTransactions, transactions } =
+      cleanup;
     if (!removedTransactions.length && !removedAccounts.length) return;
     await runExclusiveDatabaseTransaction(database, async (transaction) => {
       for (const item of removedTransactions)
@@ -753,7 +876,10 @@ export class CoreFinanceRepository {
           item.id
         );
       for (const item of removedAccounts)
-        await transaction.runAsync('DELETE FROM finance_accounts WHERE id = ?', item.id);
+        await transaction.runAsync(
+          'DELETE FROM finance_accounts WHERE id = ?',
+          item.id
+        );
     });
     this.transactions = transactions;
     this.accounts = accounts;
@@ -764,19 +890,19 @@ export class CoreFinanceRepository {
   ): Promise<string[]> {
     const [salaryReceipts, obligationPayments, goalMovements, feedback] =
       await Promise.all([
-      database.getAllAsync<{ transaction_id: string }>(
-        'SELECT transaction_id FROM planning_salary_receipts'
-      ),
-      database.getAllAsync<{ transaction_id: string }>(
-        'SELECT transaction_id FROM planning_obligation_payments'
-      ),
-      database.getAllAsync<{ linked_transaction_id: string }>(
-        'SELECT linked_transaction_id FROM planning_goal_movements WHERE linked_transaction_id IS NOT NULL'
-      ),
-      database.getAllAsync<{ transaction_id: string }>(
-        'SELECT transaction_id FROM tracking_feedback'
-      )
-    ]);
+        database.getAllAsync<{ transaction_id: string }>(
+          'SELECT transaction_id FROM planning_salary_receipts'
+        ),
+        database.getAllAsync<{ transaction_id: string }>(
+          'SELECT transaction_id FROM planning_obligation_payments'
+        ),
+        database.getAllAsync<{ linked_transaction_id: string }>(
+          'SELECT linked_transaction_id FROM planning_goal_movements WHERE linked_transaction_id IS NOT NULL'
+        ),
+        database.getAllAsync<{ transaction_id: string }>(
+          'SELECT transaction_id FROM tracking_feedback'
+        )
+      ]);
     return [
       ...salaryReceipts.map((item) => item.transaction_id),
       ...obligationPayments.map((item) => item.transaction_id),
@@ -819,26 +945,193 @@ export class CoreFinanceRepository {
   ): void {
     const preservesLegacyBoundary = Boolean(
       current &&
-        current.accountId === accountId &&
-        current.destinationAccountId === destinationId &&
-        current.currencyCode === currencyCode
+      current.accountId === accountId &&
+      current.destinationAccountId === destinationId &&
+      current.currencyCode === currencyCode
     );
     const account = this.requireAccount(accountId);
-    if (account.status !== 'active')
-      throw new CoreFinanceError('archived');
+    if (account.status !== 'active') throw new CoreFinanceError('archived');
     if (account.currencyCode !== currencyCode && !preservesLegacyBoundary)
       throw new CoreFinanceError('validation');
     if (destinationId) {
       const destination = this.requireAccount(destinationId);
-      if (destination.status !== 'active') throw new CoreFinanceError('archived');
-      if (
-        destination.currencyCode !== currencyCode &&
-        !preservesLegacyBoundary
-      )
+      if (destination.status !== 'active')
+        throw new CoreFinanceError('archived');
+      if (destination.currencyCode !== currencyCode && !preservesLegacyBoundary)
         throw new CoreFinanceError('validation');
     }
     if (categoryId && this.requireCategory(categoryId).status !== 'active')
       throw new CoreFinanceError('archived');
+  }
+
+  private assertRefund(value: TransactionInput, currentId?: string): void {
+    const original = this.transactions.find(
+      (transaction) => transaction.id === value.originalTransactionId
+    );
+    if (
+      !original ||
+      original.id === currentId ||
+      original.type !== 'expense' ||
+      !isConfirmedTransaction(original) ||
+      original.accountId !== value.accountId ||
+      original.currencyCode !== value.currencyCode ||
+      original.categoryId !== value.categoryId ||
+      value.amountMinor > this.remainingRefundableMinor(original, currentId)
+    )
+      throw new CoreFinanceError('validation');
+  }
+
+  private assertRefundedOriginalUpdate(
+    id: string,
+    value: TransactionInput
+  ): void {
+    const linkedRefunds = this.activeRefundsFor(id);
+    if (!linkedRefunds.length) return;
+    const refundedMinor = linkedRefunds.reduce(
+      (total, refund) => total + refund.amountMinor,
+      0
+    );
+    if (
+      value.type !== 'expense' ||
+      linkedRefunds.some(
+        (refund) =>
+          refund.accountId !== value.accountId ||
+          refund.currencyCode !== value.currencyCode ||
+          refund.categoryId !== value.categoryId
+      ) ||
+      value.amountMinor < refundedMinor
+    )
+      throw new CoreFinanceError('validation');
+  }
+
+  private remainingRefundableMinor(
+    original: Transaction,
+    excludedRefundId?: string
+  ): number {
+    if (original.type !== 'expense' || !isConfirmedTransaction(original))
+      return 0;
+    if (this.hasActiveReversal(original.id)) return 0;
+    const refunded = this.activeRefundsFor(
+      original.id,
+      excludedRefundId
+    ).reduce((total, transaction) => total + transaction.amountMinor, 0);
+    return Math.max(0, original.amountMinor - refunded);
+  }
+
+  private activeRefundsFor(
+    originalId: string,
+    excludedRefundId?: string
+  ): Transaction[] {
+    const transactions = excludedRefundId
+      ? this.transactions.filter(
+          (transaction) => transaction.id !== excludedRefundId
+        )
+      : this.transactions;
+    const projections = projectTransactionEffects(transactions, null);
+    return transactions.filter((transaction) => {
+      if (
+        transaction.type !== 'refund' ||
+        transaction.originalTransactionId !== originalId
+      )
+        return false;
+      const projection = projections.get(transaction.id);
+      return Boolean(
+        projection &&
+        (projection.confirmed.expenseMinor !== 0 ||
+          projection.pending.expenseMinor !== 0)
+      );
+    });
+  }
+
+  private hasActiveReversal(originalId: string): boolean {
+    const projections = projectTransactionEffects(this.transactions, null);
+    return this.transactions.some((transaction) => {
+      if (
+        transaction.type !== 'reversal' ||
+        transaction.originalTransactionId !== originalId
+      )
+        return false;
+      const projection = projections.get(transaction.id);
+      return Boolean(
+        projection &&
+        (projection.confirmed.expenseMinor !== 0 ||
+          projection.pending.expenseMinor !== 0)
+      );
+    });
+  }
+
+  private normalizeLegacyTransferData(): {
+    categories: Category[];
+    transactions: Transaction[];
+  } {
+    const categories: Category[] = [];
+    const transactions: Transaction[] = [];
+    const defaultCategories = createDefaultCategories();
+    const remittance = defaultCategories.find(
+      (category) => category.id === 'remittance'
+    )!;
+    const remittanceIndex = this.categories.findIndex(
+      (category) => category.id === remittance.id
+    );
+    if (remittanceIndex === -1) {
+      this.categories.push(copy(remittance));
+      categories.push(remittance);
+    } else if (
+      JSON.stringify(this.categories[remittanceIndex]) !==
+      JSON.stringify(remittance)
+    ) {
+      this.categories[remittanceIndex] = copy(remittance);
+      categories.push(remittance);
+    }
+    this.categories = this.categories.map((category) => {
+      const linkedTypes = new Set(
+        this.transactions.flatMap((transaction) =>
+          transaction.categoryId === category.id &&
+          (transaction.type === 'income' || transaction.type === 'expense')
+            ? [transaction.type]
+            : []
+        )
+      );
+      const inferredFinancialType =
+        (category.kind === 'system'
+          ? defaultCategories.find((item) => item.id === category.id)
+              ?.financialType
+          : undefined) ??
+        (category.kind === 'custom' && linkedTypes.size === 1
+          ? linkedTypes.values().next().value
+          : undefined);
+      let normalized = category.financialType
+        ? category
+        : inferredFinancialType
+          ? { ...category, financialType: inferredFinancialType }
+          : {
+              ...category,
+              financialType: null,
+              status:
+                category.status === 'active'
+                  ? ('archived' as const)
+                  : category.status
+            };
+      if (
+        category.id !== 'transfers' ||
+        category.kind !== 'system' ||
+        category.status === 'archived'
+      ) {
+        if (normalized !== category) categories.push(normalized);
+        return normalized;
+      }
+      normalized = { ...normalized, status: 'archived' as const };
+      categories.push(normalized);
+      return normalized;
+    });
+    this.transactions = this.transactions.map((transaction) => {
+      if (transaction.type !== 'transfer' || transaction.categoryId === null)
+        return transaction;
+      const repaired = { ...transaction, categoryId: null };
+      transactions.push(repaired);
+      return repaired;
+    });
+    return { categories, transactions };
   }
 
   private assertCategoryParent(
@@ -1014,12 +1307,14 @@ function separateLegacyFixtures(
       !isLegacyFixtureTransaction(transaction) ||
       referencedTransactionIds.has(transaction.id)
   );
-  const retainedAccounts = accounts.filter(
-    (account) => retainsLegacyAccount(account, retainedTransactions)
+  const retainedAccounts = accounts.filter((account) =>
+    retainsLegacyAccount(account, retainedTransactions)
   );
   return {
     accounts: retainedAccounts,
-    removedAccounts: accounts.filter((account) => !retainedAccounts.includes(account)),
+    removedAccounts: accounts.filter(
+      (account) => !retainedAccounts.includes(account)
+    ),
     removedTransactions: transactions.filter(
       (transaction) => !retainedTransactions.includes(transaction)
     ),

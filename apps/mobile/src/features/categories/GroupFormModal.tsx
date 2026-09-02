@@ -11,6 +11,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 
 import { layoutDirectionStyle } from '@/design-system/direction';
+import { ChipSelector } from '@/design-system/components/forms/ChipControls';
 import { DesignIcon } from '@/design-system/icons';
 import { colorTokens, spacing } from '@/design-system/tokens';
 import type { Category } from '@/domain/core-finance';
@@ -25,14 +26,14 @@ import {
 } from './CategoryIconPickerSheet';
 
 const PALETTE_COLORS = [
-  colorTokens.raw["E91E63"], // Pink
-  colorTokens.raw["5C6BC0"], // Indigo
-  colorTokens.raw["FFA726"], // Amber / Orange
-  colorTokens.raw["AB47BC"], // Purple
-  colorTokens.raw["EF5350"], // Red
-  colorTokens.raw["42A5F5"], // Blue
-  colorTokens.raw["FF7043"], // Deep Orange
-  colorTokens.raw["103F37"]  // Teal
+  colorTokens.raw['E91E63'], // Pink
+  colorTokens.raw['5C6BC0'], // Indigo
+  colorTokens.raw['FFA726'], // Amber / Orange
+  colorTokens.raw['AB47BC'], // Purple
+  colorTokens.raw['EF5350'], // Red
+  colorTokens.raw['42A5F5'], // Blue
+  colorTokens.raw['FF7043'], // Deep Orange
+  colorTokens.raw['103F37'] // Teal
 ];
 
 export function GroupFormModal({
@@ -53,8 +54,10 @@ export function GroupFormModal({
   const [name, setName] = useState('');
   const [iconKey, setIconKey] = useState('housing');
   const [selectedColor, setSelectedColor] = useState<string>(
-    colorTokens.raw["103F37"]
+    colorTokens.raw['103F37']
   );
+  const [financialType, setFinancialType] =
+    useState<NonNullable<Category['financialType']>>('expense');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -74,6 +77,7 @@ export function GroupFormModal({
       const result = await coreFinanceService.createCategory({
         labelAr: name.trim(),
         labelEn: name.trim(),
+        financialType,
         iconKey,
         colorKey: selectedColor,
         parentId: null,
@@ -170,7 +174,7 @@ export function GroupFormModal({
               <DesignIcon
                 name="check"
                 label={translate('coreFinance.categories.save')}
-                color={colorTokens.raw["FFFFFF"]}
+                color={colorTokens.raw['FFFFFF']}
                 size="sm"
                 decorative
               />
@@ -190,8 +194,11 @@ export function GroupFormModal({
                 style={[
                   styles.heroBadge,
                   {
-                    backgroundColor: theme.colors.surfaces?.grouped ?? colorTokens.raw["EAF5F0"],
-                    borderColor: theme.colors.borders?.subtle ?? colorTokens.raw["E8EFEC"]
+                    backgroundColor:
+                      theme.colors.surfaces?.grouped ??
+                      colorTokens.raw['EAF5F0'],
+                    borderColor:
+                      theme.colors.borders?.subtle ?? colorTokens.raw['E8EFEC']
                   }
                 ]}
               >
@@ -235,15 +242,18 @@ export function GroupFormModal({
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder={translate('coreFinance.categories.groupNamePlaceholder')}
+                placeholder={translate(
+                  'coreFinance.categories.groupNamePlaceholder'
+                )}
                 placeholderTextColor={theme.colors.textSecondary}
                 style={[
                   styles.textInput,
                   {
                     backgroundColor: theme.colors.surface,
                     borderColor: error
-                      ? colorTokens.raw["C04B45"]
-                      : theme.colors.borders?.subtle ?? colorTokens.raw["E7E9E6"],
+                      ? colorTokens.raw['C04B45']
+                      : (theme.colors.borders?.subtle ??
+                        colorTokens.raw['E7E9E6']),
                     color: theme.colors.textPrimary,
                     textAlign: isRtl ? 'right' : 'left',
                     writingDirection: direction
@@ -251,9 +261,7 @@ export function GroupFormModal({
                 ]}
               />
 
-              {error ? (
-                <Text style={styles.errorText}>{error}</Text>
-              ) : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <Text
                 style={[
@@ -267,6 +275,37 @@ export function GroupFormModal({
               >
                 {translate('coreFinance.categories.groupHelper')}
               </Text>
+            </View>
+
+            <View style={styles.fieldSection}>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    color: theme.colors.textSecondary,
+                    textAlign: isRtl ? 'right' : 'left',
+                    writingDirection: direction
+                  }
+                ]}
+              >
+                {translate('coreFinance.filters.type')}
+              </Text>
+              <ChipSelector
+                options={[
+                  translate('coreFinance.type.expense'),
+                  translate('coreFinance.type.income')
+                ]}
+                selected={[
+                  translate(`coreFinance.type.${financialType}` as never)
+                ]}
+                onToggle={(value) =>
+                  setFinancialType(
+                    value === translate('coreFinance.type.income')
+                      ? 'income'
+                      : 'expense'
+                  )
+                }
+              />
             </View>
 
             {/* Color Palette */}
@@ -297,10 +336,7 @@ export function GroupFormModal({
                       key={c}
                       accessibilityRole="button"
                       onPress={() => setSelectedColor(c)}
-                      style={[
-                        styles.colorDot,
-                        { backgroundColor: c }
-                      ]}
+                      style={[styles.colorDot, { backgroundColor: c }]}
                     >
                       {isSelected ? (
                         <Text style={styles.checkIcon}>✓</Text>
@@ -326,7 +362,11 @@ export function GroupFormModal({
 }
 
 const styles = StyleSheet.create({
-  physicalLtr: { ...layoutDirectionStyle('ltr'), display: 'flex', writingDirection: 'ltr' },
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    display: 'flex',
+    writingDirection: 'ltr'
+  },
   backdrop: {
     backgroundColor: 'rgba(6, 29, 25, 0.52)',
     flex: 1
@@ -387,7 +427,7 @@ const styles = StyleSheet.create({
   },
   smileyBadge: {
     alignItems: 'center',
-    backgroundColor: colorTokens.raw["FFFFFF"],
+    backgroundColor: colorTokens.raw['FFFFFF'],
     borderRadius: 12,
     bottom: -4,
     height: 24,
@@ -396,7 +436,7 @@ const styles = StyleSheet.create({
     right: -4,
     width: 24,
     elevation: 2,
-    shadowColor: colorTokens.raw["000"],
+    shadowColor: colorTokens.raw['000'],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2
@@ -433,7 +473,7 @@ const styles = StyleSheet.create({
     opacity: 0.7
   },
   errorText: {
-    color: colorTokens.raw["C04B45"],
+    color: colorTokens.raw['C04B45'],
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2
@@ -451,7 +491,7 @@ const styles = StyleSheet.create({
     width: 38
   },
   checkIcon: {
-    color: colorTokens.raw["FFFFFF"],
+    color: colorTokens.raw['FFFFFF'],
     fontSize: 16,
     fontWeight: '700'
   }

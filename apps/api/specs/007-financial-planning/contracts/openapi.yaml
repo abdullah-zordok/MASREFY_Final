@@ -1,0 +1,783 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Financial Planning API
+  version: 1.0.0
+  description: SPEC-BE-007 owner and read-only planning contracts.
+servers:
+  - url: /
+security:
+  - ClerkBearer: []
+tags:
+  - name: Salary
+  - name: Budgets
+  - name: Obligations
+  - name: PaymentMatches
+  - name: Savings
+  - name: Planning
+paths:
+  /api/v1/salary-profiles:
+    get:
+      tags: [Salary]
+      operationId: listSalaryProfiles
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [Salary]
+      operationId: createSalaryProfile
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalaryProfileCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/salary-profiles/{profileId}:
+    parameters: [{ $ref: '#/components/parameters/ProfileId' }]
+    get:
+      tags: [Salary]
+      operationId: getSalaryProfile
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Salary]
+      operationId: updateSalaryProfile
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalaryProfilePatch' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Salary]
+      operationId: archiveSalaryProfile
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/salary-profiles/{profileId}/receipts:
+    parameters: [{ $ref: '#/components/parameters/ProfileId' }]
+    get:
+      tags: [Salary]
+      operationId: listSalaryReceipts
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+        - name: transactionId
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+    post:
+      tags: [Salary]
+      operationId: linkSalaryReceipt
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [transactionId, expectedAt]
+              properties:
+                transactionId: { $ref: '#/components/schemas/Uuid' }
+                expectedAt: { $ref: '#/components/schemas/DateTime' }
+                replacesReceiptId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/salary-profiles/{profileId}/receipts/{receiptId}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/ReceiptId'
+    delete:
+      tags: [Salary]
+      operationId: unlinkSalaryReceipt
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/budgets:
+    get:
+      tags: [Budgets]
+      operationId: listBudgets
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+        - name: period
+          in: query
+          schema: { $ref: '#/components/schemas/Period' }
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+    post:
+      tags: [Budgets]
+      operationId: createBudget
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BudgetCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/budgets/{budgetId}:
+    parameters: [{ $ref: '#/components/parameters/BudgetId' }]
+    get:
+      tags: [Budgets]
+      operationId: getBudget
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Budgets]
+      operationId: updateBudget
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BudgetPatch' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Budgets]
+      operationId: deleteBudget
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/budgets/{budgetId}/categories:
+    parameters: [{ $ref: '#/components/parameters/BudgetId' }]
+    put:
+      tags: [Budgets]
+      operationId: replaceBudgetCategories
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BudgetAllocations' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/budgets/{budgetId}/summary:
+    parameters: [{ $ref: '#/components/parameters/BudgetId' }]
+    get:
+      tags: [Budgets]
+      operationId: getBudgetSummary
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/obligations:
+    get:
+      tags: [Obligations]
+      operationId: listObligations
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, paused, completed, closed, archived] }
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+    post:
+      tags: [Obligations]
+      operationId: createObligation
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObligationCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/obligations/{obligationId}:
+    parameters: [{ $ref: '#/components/parameters/ObligationId' }]
+    get:
+      tags: [Obligations]
+      operationId: getObligation
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Obligations]
+      operationId: updateObligation
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObligationPatch' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Obligations]
+      operationId: archiveObligation
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/obligations/{obligationId}/schedule:
+    parameters: [{ $ref: '#/components/parameters/ObligationId' }]
+    get:
+      tags: [Obligations]
+      operationId: listObligationSchedule
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+  /api/v1/obligations/{obligationId}/payments:
+    parameters: [{ $ref: '#/components/parameters/ObligationId' }]
+    post:
+      tags: [Obligations]
+      operationId: allocateObligationPayment
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/obligations/{obligationId}/payments/{paymentId}/reverse:
+    parameters:
+      - $ref: '#/components/parameters/ObligationId'
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Obligations]
+      operationId: reverseObligationPayment
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/payment-matches:
+    get:
+      tags: [PaymentMatches]
+      operationId: listPaymentMatches
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+        - name: status
+          in: query
+          schema: { type: string, enum: [proposed, accepted, rejected] }
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+  /api/v1/payment-matches/{matchId}:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    get:
+      tags: [PaymentMatches]
+      operationId: getPaymentMatch
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [PaymentMatches]
+      operationId: decidePaymentMatch
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [decision, expectedVersion]
+              properties:
+                decision: { type: string, enum: [accepted, rejected] }
+                expectedVersion: { type: integer, minimum: 1 }
+                allocation: { oneOf: [{ $ref: '#/components/schemas/PaymentCreate' }, { type: 'null' }] }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/savings-goals:
+    get:
+      tags: [Savings]
+      operationId: listSavingsGoals
+      parameters:
+        - $ref: '#/components/parameters/PlanningCursor'
+        - $ref: '#/components/parameters/PlanningLimit'
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, paused, completed, deleted] }
+      responses:
+        '200': { $ref: '#/components/responses/ResourcePage' }
+    post:
+      tags: [Savings]
+      operationId: createSavingsGoal
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SavingsGoalCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/savings-goals/{goalId}:
+    parameters: [{ $ref: '#/components/parameters/GoalId' }]
+    get:
+      tags: [Savings]
+      operationId: getSavingsGoal
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Savings]
+      operationId: updateSavingsGoal
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SavingsGoalPatch' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Savings]
+      operationId: deleteSavingsGoal
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/savings-goals/{goalId}/movements:
+    parameters: [{ $ref: '#/components/parameters/GoalId' }]
+    post:
+      tags: [Savings]
+      operationId: recordSavingsMovement
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MovementCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/savings-goals/{goalId}/movements/{movementId}/reverse:
+    parameters:
+      - $ref: '#/components/parameters/GoalId'
+      - $ref: '#/components/parameters/MovementId'
+    post:
+      tags: [Savings]
+      operationId: reverseSavingsMovement
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/VersionOnly' }
+      responses:
+        '200': { $ref: '#/components/responses/Mutation' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/planning/summary:
+    get:
+      tags: [Planning]
+      operationId: getPlanningSummary
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Period' }
+      responses:
+        '200':
+          description: Bounded salary, budgets, obligations, savings, and ledger version aggregate.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanningSummary' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/admin/planning/summary:
+    get:
+      tags: [Planning]
+      operationId: getAdminPlanningSummary
+      description: Requires planning.read and an authorized Admin purpose.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: period
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Period' }
+      responses:
+        '200':
+          description: Read-only bounded aggregate for the authorized user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanningSummary' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    ClerkBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    PlanningCursor:
+      name: cursor
+      in: query
+      schema: { type: string, minLength: 1, maxLength: 512 }
+    PlanningLimit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    ProfileId: { name: profileId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    ReceiptId: { name: receiptId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    BudgetId: { name: budgetId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    ObligationId: { name: obligationId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    PaymentId: { name: paymentId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    MatchId: { name: matchId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    GoalId: { name: goalId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    MovementId: { name: movementId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+  requestBodies:
+    VersionOnly:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [expectedVersion]
+            properties:
+              expectedVersion: { type: integer, minimum: 1 }
+  responses:
+    Resource:
+      description: Owner-visible resource.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Resource' }
+    ResourcePage:
+      description: Bounded keyset page.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResourcePage' }
+    Mutation:
+      description: Durable mutation result or replay.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlanningMutationResponse' }
+    Error:
+      description: Safe stable error envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    Uuid: { type: string, format: uuid }
+    Date: { type: string, format: date }
+    DateTime: { type: string, format: date-time }
+    Period: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+    Minor:
+      type: string
+      pattern: '^-?(0|[1-9]\d{0,18})$'
+      maxLength: 20
+      description: Canonical signed PostgreSQL-int8 minor units; runtime bounds to int8 and HTTP never uses a JSON number.
+    PositiveMinor:
+      type: string
+      pattern: '^[1-9]\d{0,18}$'
+      maxLength: 19
+      description: Canonical positive PostgreSQL-int8 minor units.
+    NonnegativeMinor:
+      type: string
+      pattern: '^(0|[1-9]\d{0,18})$'
+      maxLength: 19
+      description: Canonical nonnegative PostgreSQL-int8 minor units.
+    SignedNonzeroMinor:
+      type: string
+      pattern: '^-?[1-9]\d{0,18}$'
+      maxLength: 20
+      description: Canonical nonzero signed PostgreSQL-int8 minor units.
+    CurrencyCode: { type: string, pattern: '^[A-Z]{3}$' }
+    Metadata:
+      type: object
+      required: [id, version, createdAt, updatedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        version: { type: integer, minimum: 1 }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    Resource:
+      allOf:
+        - $ref: '#/components/schemas/Metadata'
+        - type: object
+          additionalProperties: true
+    ResourcePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Resource' } }
+        nextCursor: { oneOf: [{ type: string }, { type: 'null' }] }
+    PlanningMutationResponse:
+      type: object
+      additionalProperties: false
+      required: [operationId, replayed, resource]
+      properties:
+        operationId: { $ref: '#/components/schemas/Uuid' }
+        replayed: { type: boolean }
+        resource: { $ref: '#/components/schemas/Resource' }
+    SalaryProfileCreate:
+      type: object
+      additionalProperties: false
+      required: [name, amountMinor, currencyCode, frequency]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+        frequency: { type: string, enum: [monthly, weekly, biweekly, custom] }
+        expectedDay: { oneOf: [{ type: integer, minimum: 0, maximum: 31 }, { type: 'null' }] }
+        customIntervalDays: { oneOf: [{ type: integer, minimum: 1, maximum: 366 }, { type: 'null' }] }
+        accountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        automaticDetectionEnabled: { type: boolean, default: false }
+    BudgetCreate:
+      type: object
+      additionalProperties: false
+      required: [name, currencyCode, periodStart, periodEnd, totalMinor]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+        periodStart: { $ref: '#/components/schemas/Date' }
+        periodEnd: { $ref: '#/components/schemas/Date' }
+        totalMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        incomeTargetMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        savingsTargetMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        rolloverEnabled: { type: boolean, default: false }
+        rolloverMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        copiedFromBudgetId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+    BudgetAllocations:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, allocations]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        allocations:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [categoryId, limitMinor, rolloverMinor, alertThresholds, status]
+            properties:
+              categoryId: { $ref: '#/components/schemas/Uuid' }
+              limitMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+              rolloverMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+              alertThresholds: { type: array, maxItems: 8, uniqueItems: true, items: { type: integer, minimum: 1, maximum: 200 } }
+              status: { type: string, enum: [active, paused, deleted] }
+    ObligationCreate:
+      type: object
+      additionalProperties: false
+      required: [name, direction, type, scheduleKind, currencyCode, principalMinor, frequency, startDate]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        direction: { type: string, enum: [payable, receivable] }
+        type: { type: string, enum: [bill, debt, installment, subscription, other, car_installment, personal_loan, buy_now_pay_later, credit_card_installment, rent, utility, custom] }
+        scheduleKind: { type: string, enum: [fixed_term, open_ended, irregular] }
+        currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+        principalMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        openingPaidMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        installmentAmountMinor: { oneOf: [{ $ref: '#/components/schemas/PositiveMinor' }, { type: 'null' }] }
+        installmentCount: { oneOf: [{ type: integer, minimum: 1, maximum: 1200 }, { type: 'null' }] }
+        frequency: { type: string, enum: [monthly, weekly, biweekly, quarterly, yearly, custom, irregular] }
+        expectedDay: { oneOf: [{ type: integer, minimum: 0, maximum: 31 }, { type: 'null' }] }
+        customIntervalDays: { oneOf: [{ type: integer, minimum: 1, maximum: 366 }, { type: 'null' }] }
+        startDate: { $ref: '#/components/schemas/Date' }
+        endDate: { oneOf: [{ $ref: '#/components/schemas/Date' }, { type: 'null' }] }
+        defaultAccountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        automaticMatchingEnabled: { type: boolean, default: false }
+        provider: { oneOf: [{ type: string, maxLength: 120 }, { type: 'null' }] }
+        providerKeywords: { type: array, maxItems: 20, uniqueItems: true, items: { type: string, minLength: 1, maxLength: 80 } }
+        reminderTiming: { oneOf: [{ type: string, maxLength: 80 }, { type: 'null' }] }
+        notes: { oneOf: [{ type: string, maxLength: 1000 }, { type: 'null' }] }
+    PaymentCreate:
+      type: object
+      additionalProperties: false
+      required: [transactionId, expectedVersion, paymentCase, allocationIntent, source, allocations]
+      properties:
+        transactionId: { $ref: '#/components/schemas/Uuid' }
+        expectedVersion: { type: integer, minimum: 1 }
+        paymentMethod: { oneOf: [{ type: string, maxLength: 80 }, { type: 'null' }] }
+        paymentCase: { type: string, enum: [partial, full, over, early, settlement, correction] }
+        allocationIntent: { type: string, enum: [current, later_installments, principal, correction, settlement, prepayment] }
+        source: { type: string, enum: [manual, automatic, voice, platform_assisted] }
+        allocations:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [scheduleItemId, amountMinor]
+            properties:
+              scheduleItemId: { $ref: '#/components/schemas/Uuid' }
+              amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+    SavingsGoalCreate:
+      type: object
+      additionalProperties: false
+      required: [name, targetMinor, currencyCode]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        targetMinor: { $ref: '#/components/schemas/PositiveMinor' }
+        openingTrackedMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+        targetDate: { oneOf: [{ $ref: '#/components/schemas/Date' }, { type: 'null' }] }
+        linkedAccountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        iconKey: { oneOf: [{ type: string, maxLength: 80 }, { type: 'null' }] }
+        emergencyFund: { type: boolean, default: false }
+    MovementCreate:
+      type: object
+      additionalProperties: false
+      required: [transactionId, expectedVersion, kind, amountMinor]
+      properties:
+        transactionId: { $ref: '#/components/schemas/Uuid' }
+        expectedVersion: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [contribution, withdrawal, adjustment] }
+        amountMinor: { $ref: '#/components/schemas/SignedNonzeroMinor' }
+        replacesMovementId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+    SalaryProfilePatch:
+      type: object
+      required: [expectedVersion, patch]
+      additionalProperties: false
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        patch:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            name: { type: string, minLength: 1, maxLength: 120 }
+            amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+            currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+            frequency: { type: string, enum: [monthly, weekly, biweekly, custom] }
+            expectedDay: { oneOf: [{ type: integer, minimum: 0, maximum: 31 }, { type: 'null' }] }
+            customIntervalDays: { oneOf: [{ type: integer, minimum: 1, maximum: 366 }, { type: 'null' }] }
+            accountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+            automaticDetectionEnabled: { type: boolean }
+            status: { type: string, enum: [active, paused, archived] }
+    BudgetPatch:
+      type: object
+      required: [expectedVersion, patch]
+      additionalProperties: false
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        patch:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            name: { type: string, minLength: 1, maxLength: 120 }
+            periodStart: { $ref: '#/components/schemas/Date' }
+            periodEnd: { $ref: '#/components/schemas/Date' }
+            totalMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+            incomeTargetMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+            savingsTargetMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+            rolloverEnabled: { type: boolean }
+            rolloverMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+            status: { type: string, enum: [draft, active, paused, closed, deleted] }
+    ObligationPatch:
+      type: object
+      required: [expectedVersion, patch]
+      additionalProperties: false
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        patch:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            name: { type: string, minLength: 1, maxLength: 160 }
+            direction: { type: string, enum: [payable, receivable] }
+            type: { type: string, enum: [bill, debt, installment, subscription, other, car_installment, personal_loan, buy_now_pay_later, credit_card_installment, rent, utility, custom] }
+            scheduleKind: { type: string, enum: [fixed_term, open_ended, irregular] }
+            principalMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+            openingPaidMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+            installmentAmountMinor: { oneOf: [{ $ref: '#/components/schemas/PositiveMinor' }, { type: 'null' }] }
+            installmentCount: { oneOf: [{ type: integer, minimum: 1, maximum: 1200 }, { type: 'null' }] }
+            frequency: { type: string, enum: [monthly, weekly, biweekly, quarterly, yearly, custom, irregular] }
+            expectedDay: { oneOf: [{ type: integer, minimum: 0, maximum: 31 }, { type: 'null' }] }
+            customIntervalDays: { oneOf: [{ type: integer, minimum: 1, maximum: 366 }, { type: 'null' }] }
+            startDate: { $ref: '#/components/schemas/Date' }
+            endDate: { oneOf: [{ $ref: '#/components/schemas/Date' }, { type: 'null' }] }
+            defaultAccountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+            automaticMatchingEnabled: { type: boolean }
+            provider: { oneOf: [{ type: string, maxLength: 120 }, { type: 'null' }] }
+            providerKeywords: { type: array, maxItems: 20, uniqueItems: true, items: { type: string, minLength: 1, maxLength: 80 } }
+            reminderTiming: { oneOf: [{ type: string, maxLength: 80 }, { type: 'null' }] }
+            notes: { oneOf: [{ type: string, maxLength: 1000 }, { type: 'null' }] }
+            status: { type: string, enum: [active, paused, completed, closed, archived] }
+    SavingsGoalPatch:
+      type: object
+      required: [expectedVersion, patch]
+      additionalProperties: false
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        patch:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            name: { type: string, minLength: 1, maxLength: 160 }
+            targetMinor: { $ref: '#/components/schemas/PositiveMinor' }
+            targetDate: { oneOf: [{ $ref: '#/components/schemas/Date' }, { type: 'null' }] }
+            linkedAccountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+            iconKey: { oneOf: [{ type: string, maxLength: 80 }, { type: 'null' }] }
+            emergencyFund: { type: boolean }
+            status: { type: string, enum: [active, paused, completed, deleted] }
+    PlanningSummary:
+      type: object
+      additionalProperties: false
+      required: [period, dataState, ledgerVersion, salary, budgets, obligations, savings]
+      properties:
+        period: { $ref: '#/components/schemas/Period' }
+        dataState: { type: string, enum: [ready, empty, partial, stale] }
+        ledgerVersion: { type: integer, minimum: 0 }
+        salary: { oneOf: [{ type: object }, { type: 'null' }] }
+        budgets: { type: array, maxItems: 100, items: { type: object } }
+        obligations: { type: object }
+        savings: { type: array, maxItems: 100, items: { type: object } }
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        requestId: { type: string }
+        fieldErrors:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/FieldError' }
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, code, message]
+      properties:
+        field: { type: string }
+        code: { type: string }
+        message: { type: string }

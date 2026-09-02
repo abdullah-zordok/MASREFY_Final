@@ -14,6 +14,31 @@ export class QueueHealthIndicator {
         `select (
           exists(select 1 from pg_extension where extname = 'pgmq')
         and to_regclass('pgmq."q_platform-events"') is not null
+        and to_regclass('public.client_mutations') is not null
+        and not exists(
+          select 1 from public.client_mutations
+          where status='processing' and locked_until<clock_timestamp()-interval '5 minutes'
+          limit 1
+        )
+        and (
+          select count(*) from (
+            select 1 from public.client_mutations
+            where status='rejected' and updated_at>=clock_timestamp()-interval '5 minutes'
+            limit 101
+          ) recent_sync_failures
+        )<=100
+        and not exists(
+          select 1 from private.planning_job_claims
+          where status='running' and locked_until<clock_timestamp()-interval '5 minutes'
+          limit 1
+        )
+        and (
+          select count(*) from (
+            select 1 from private.planning_job_claims
+            where status='exhausted' and updated_at>=clock_timestamp()-interval '5 minutes'
+            limit 101
+          ) recent_planning_failures
+        )<=100
         ) as healthy`,
         [],
         timeoutMs,

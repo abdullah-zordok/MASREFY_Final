@@ -10,6 +10,7 @@ import type { AutomaticFeedback as AutomaticFeedbackValue } from '@/domain/autom
 import { translate } from '@/localization/i18n';
 import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
 import { invalidateTrackingScopes } from './useAutomaticTracking';
+import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 
 export function AutomaticFeedback({
   feedback,
@@ -25,6 +26,7 @@ export function AutomaticFeedback({
   return (
     <SurfaceCard>
       <View style={styles.stack}>
+        <TrackingDemoNotice />
         <StyledText variant="subtitle">
           {translate('tracking.feedback.added')}
         </StyledText>

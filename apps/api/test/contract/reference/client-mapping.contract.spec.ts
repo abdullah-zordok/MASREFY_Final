@@ -6,16 +6,16 @@ import { supportedCurrencies } from '../../../../mobile/src/domain/currencies';
 describe('Phase 04 client mapping', () => {
   it('pins executable Mobile reference keys without importing fixtures into production', () => {
     expect(supportedCurrencies.map(({ code }) => code)).toEqual([
+      'SAR',
+      'AED',
+      'KWD',
+      'QAR',
+      'BHD',
+      'OMR',
       'EGP',
       'USD',
       'EUR',
       'GBP',
-      'AED',
-      'SAR',
-      'OMR',
-      'KWD',
-      'QAR',
-      'BHD',
       'JOD',
       'JPY',
     ]);
@@ -23,7 +23,7 @@ describe('Phase 04 client mapping', () => {
       resolve(__dirname, '../../../../mobile/src/domain/core-finance-seeds.ts'),
       'utf8',
     );
-    const keys = [...seedSource.matchAll(/^ {2}\['([^']+)',/gm)].map((match) => match[1]);
+    const keys = [...seedSource.matchAll(/^ {2}\[\s*'([^']+)'/gm)].map((match) => match[1]);
     expect(keys).toHaveLength(19);
     expect(keys).toContain('salary');
   });

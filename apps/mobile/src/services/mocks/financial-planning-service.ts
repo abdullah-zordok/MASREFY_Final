@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { getCurrencyMinorUnitScale } from '@/domain/currencies';
 import {
   emptyTransactionFilters,
+  safeMinorSum,
   type Transaction
 } from '@/domain/core-finance';
 import { isDemoModeEnabled } from '@/config/demo-mode';
@@ -497,8 +498,9 @@ export function createMockFinancialPlanningService(
       await ensureReady();
       const items = repository.listObligations(input.status);
       const overview: ObligationsOverview = {
-        payablesMinor: 0,
-        receivablesMinor: 0,
+        payablesByCurrency: {},
+        receivablesByCurrency: {},
+        remainingByObligationId: {},
         nextDueDate: null,
         items
       };
@@ -509,13 +511,24 @@ export function createMockFinancialPlanningService(
           payments: repository.listPayments(obligation.id),
           today: localDateFromTimestamp(now())
         });
-        const remaining =
+        overview.remainingByObligationId[obligation.id] =
           status.remainingMinor.status === 'available'
             ? status.remainingMinor.value
-            : 0;
-        if (obligation.direction === 'payable')
-          overview.payablesMinor += remaining;
-        else overview.receivablesMinor += remaining;
+            : null;
+        if (obligation.status !== 'active') continue;
+        const totals =
+          obligation.direction === 'payable'
+            ? overview.payablesByCurrency
+            : overview.receivablesByCurrency;
+        const current = totals[obligation.currencyCode];
+        if (status.remainingMinor.status !== 'available') {
+          totals[obligation.currencyCode] = null;
+        } else if (current !== null) {
+          totals[obligation.currencyCode] = safeMinorSum(
+            current ?? 0,
+            status.remainingMinor.value
+          );
+        }
         if (
           status.nextDueDate &&
           (!overview.nextDueDate || status.nextDueDate < overview.nextDueDate)
@@ -532,7 +545,7 @@ export function createMockFinancialPlanningService(
     },
     async getObligation(id): Promise<ObligationDetail> {
       await ensureReady();
-      return obligationDetail(repository, id);
+      return obligationDetail(repository, id, localDateFromTimestamp(now()));
     },
     async createObligation(input: ObligationInput, operationId: string) {
       await ensureReady();
@@ -649,7 +662,7 @@ export function createMockFinancialPlanningService(
         obligation,
         schedule: repository.listSchedule(obligationId),
         payments: repository.listPayments(obligationId),
-          today: localDateFromTimestamp(now())
+        today: localDateFromTimestamp(now())
       });
       if (status.remainingMinor.status !== 'available')
         throw new FinancialPlanningError('validation');
@@ -667,8 +680,7 @@ export function createMockFinancialPlanningService(
     async confirmEarlySettlement(previewId, operationId) {
       await ensureReady();
       const preview = previews.get(previewId) as
-        | (EarlySettlementPreview & { expectedVersion: number })
-        | undefined;
+        (EarlySettlementPreview & { expectedVersion: number }) | undefined;
       if (!preview) throw new FinancialPlanningError('stale_preview');
       const obligationId = preview.obligationId;
       const obligation = repository.setObligationStatus(
@@ -951,12 +963,17 @@ function budgetDetail(
 
 function obligationDetail(
   repository: FinancialPlanningRepository,
-  id: string
+  id: string,
+  today: LocalDate
 ): ObligationDetail {
+  const obligation = repository.requireObligation(id);
+  const schedule = repository.listSchedule(id);
+  const payments = repository.listPayments(id);
   return {
-    obligation: repository.requireObligation(id),
-    schedule: repository.listSchedule(id),
-    payments: repository.listPayments(id)
+    obligation,
+    schedule,
+    payments,
+    status: deriveObligationStatus({ obligation, schedule, payments, today })
   };
 }
 

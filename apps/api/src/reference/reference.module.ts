@@ -12,5 +12,6 @@ import { ReferenceService } from './reference.service';
   imports: [DatabaseModule, IdentityModule, SecurityModule, LedgerModule],
   controllers: [ReferenceController],
   providers: [ReferenceRepository, ReferenceService],
+  exports: [ReferenceRepository, ReferenceService],
 })
 export class ReferenceModule {}

@@ -5,6 +5,7 @@ import { localDateInTimeZone } from './financial-period';
 
 import {
   projectTransactionEffects,
+  safeMinorSum,
   type MoneyValue,
   type SyncStatus,
   type Transaction,
@@ -25,7 +26,7 @@ export type Calculation<T> =
   | { status: 'available'; value: T; estimated: boolean; asOf: number | null }
   | { status: 'unavailable'; reason: CalculationReason };
 export type PlanningLifecycle = 'active' | 'paused' | 'archived';
-export type BudgetLifecycle = 'draft' | 'active' | 'paused' | 'deleted';
+export type BudgetLifecycle = 'draft' | 'active' | 'paused' | 'closed' | 'deleted';
 export type ObligationLifecycle =
   'active' | 'paused' | 'completed' | 'closed' | 'archived';
 export type SavingsLifecycle = 'active' | 'paused' | 'completed' | 'archived';
@@ -54,7 +55,7 @@ export interface SalaryProfile extends RecordMetadata {
   currencyCode: string;
   salaryDay: number;
   sourceName: string;
-  receivingAccountId: string;
+  receivingAccountId: string | null;
   nextExpectedDate: LocalDate;
   automaticDetectionEnabled: boolean;
   status: PlanningLifecycle;
@@ -191,6 +192,13 @@ export interface ObligationPayment extends RecordMetadata {
   status: 'pending' | 'posted' | 'reversed' | 'undone' | 'conflict';
   operationId: string;
   replacesPaymentId: string | null;
+}
+
+export interface ObligationStatus {
+  paidMinor: number | null;
+  remainingMinor: Calculation<number>;
+  nextDueDate: LocalDate | null;
+  overdue: boolean;
 }
 
 export interface PaymentMatch {
@@ -503,7 +511,9 @@ export function calculateBudgetProgress(input: {
           categoryIds.has(transaction.categoryId!)
       )
     : periodTransactions;
-  const transactionIds = new Set(transactions.map((transaction) => transaction.id));
+  const transactionIds = new Set(
+    transactions.map((transaction) => transaction.id)
+  );
   const excludedTransactionIds = (input.missingRateTransactionIds ?? []).filter(
     (id) => !categoryIds || transactionIds.has(id)
   );
@@ -570,10 +580,7 @@ export function frozenPositiveRollover(
 }
 
 export function validateCategoryBudgets(
-  budget: Pick<
-    Budget,
-    'configuredExpenseLimitMinor' | 'rolloverCreditMinor'
-  >,
+  budget: Pick<Budget, 'configuredExpenseLimitMinor' | 'rolloverCreditMinor'>,
   categories: readonly CategoryBudget[]
 ): void {
   const effectiveLimit =
@@ -636,31 +643,31 @@ export function deriveObligationStatus(input: {
   schedule: readonly ObligationScheduleItem[];
   payments: readonly ObligationPayment[];
   today: LocalDate;
-}): {
-  paidMinor: number;
-  remainingMinor: Calculation<number>;
-  nextDueDate: LocalDate | null;
-  overdue: boolean;
-} {
-  const paidMinor =
-    input.obligation.openingPaidMinor +
-    input.payments
-      .filter((payment) => payment.status === 'posted')
-      .reduce(
-        (sum, payment) =>
-          sum + payment.amountMinor + payment.settlementAdjustmentMinor,
-        0
+}): ObligationStatus {
+  const paidMinor = input.payments
+    .filter((payment) => payment.status === 'posted')
+    .reduce<number | null>((sum, payment) => {
+      if (sum === null) return null;
+      const paymentTotal = safeMinorSum(
+        payment.amountMinor,
+        payment.settlementAdjustmentMinor
       );
+      return paymentTotal === null ? null : safeMinorSum(sum, paymentTotal);
+    }, input.obligation.openingPaidMinor);
   const total = input.obligation.contractedTotalMinor;
+  const remaining =
+    total === null || paidMinor === null
+      ? null
+      : safeMinorSum(total, -paidMinor);
   const unpaidSchedule = input.schedule
     .filter((item) => item.status !== 'paid' && item.status !== 'cancelled')
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   return {
     paidMinor,
     remainingMinor:
-      total === null
+      remaining === null
         ? unavailable('missing_data')
-        : available(Math.max(0, total - paidMinor)),
+        : available(Math.max(0, remaining)),
     nextDueDate: unpaidSchedule[0]?.dueDate ?? null,
     overdue: unpaidSchedule.some((item) => item.dueDate < input.today)
   };

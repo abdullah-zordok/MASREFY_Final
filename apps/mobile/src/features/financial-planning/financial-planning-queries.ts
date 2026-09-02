@@ -101,7 +101,8 @@ export function useObligations() {
 export function useObligationsOverview() {
   return useQuery({
     queryKey: [...financialPlanningKeys.obligations(), 'overview'],
-    queryFn: () => financialPlanningService.getObligationsOverview({})
+    queryFn: () =>
+      financialPlanningService.getObligationsOverview({ status: 'active' })
   });
 }
 

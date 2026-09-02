@@ -67,42 +67,50 @@ const demoCopy = {
 } as const;
 
 export const defaultCategorySeeds = [
-  ['housing', 'السكن', 'Housing'],
-  ['food', 'الطعام', 'Food'],
-  ['restaurants', 'المطاعم', 'Restaurants'],
-  ['transportation', 'المواصلات', 'Transportation'],
-  ['fuel', 'الوقود', 'Fuel'],
-  ['shopping', 'التسوق', 'Shopping'],
-  ['health', 'الصحة', 'Health'],
-  ['education', 'التعليم', 'Education'],
-  ['entertainment', 'الترفيه', 'Entertainment'],
-  ['subscriptions', 'الاشتراكات الرقمية', 'Digital subscriptions'],
-  ['utilities', 'الخدمات', 'Utilities'],
-  ['communication', 'الاتصالات والإنترنت', 'Communication and internet'],
-  ['travel', 'السفر', 'Travel'],
-  ['charity', 'الصدقة', 'Charity'],
-  ['fees', 'الرسوم', 'Fees'],
-  ['salary', 'الراتب', 'Salary'],
-  ['other-income', 'دخل آخر', 'Other income'],
-  ['transfers', 'التحويلات', 'Transfers'],
-  ['obligations', 'الالتزامات', 'Obligations']
+  ['housing', 'السكن', 'Housing', 'expense'],
+  ['food', 'الطعام', 'Food', 'expense'],
+  ['restaurants', 'المطاعم', 'Restaurants', 'expense'],
+  ['transportation', 'المواصلات', 'Transportation', 'expense'],
+  ['fuel', 'الوقود', 'Fuel', 'expense'],
+  ['shopping', 'التسوق', 'Shopping', 'expense'],
+  ['health', 'الصحة', 'Health', 'expense'],
+  ['education', 'التعليم', 'Education', 'expense'],
+  ['entertainment', 'الترفيه', 'Entertainment', 'expense'],
+  ['subscriptions', 'الاشتراكات الرقمية', 'Digital subscriptions', 'expense'],
+  ['utilities', 'الخدمات', 'Utilities', 'expense'],
+  [
+    'communication',
+    'الاتصالات والإنترنت',
+    'Communication and internet',
+    'expense'
+  ],
+  ['travel', 'السفر', 'Travel', 'expense'],
+  ['charity', 'الصدقة', 'Charity', 'expense'],
+  ['fees', 'الرسوم', 'Fees', 'expense'],
+  ['salary', 'الراتب', 'Salary', 'income'],
+  ['other-income', 'دخل آخر', 'Other income', 'income'],
+  ['remittance', 'الحوالات المالية', 'Remittances', 'expense'],
+  ['obligations', 'الالتزامات', 'Obligations', 'expense']
 ] as const;
 
 export function createDefaultCategories(): Category[] {
-  return defaultCategorySeeds.map(([id, labelAr, labelEn], index) => ({
-    id,
-    kind: 'system',
-    parentId: null,
-    labelAr,
-    labelEn,
-    iconKey: id,
-    colorKey: `category-${index % 8}`,
-    isFavorite: index < 4,
-    status: 'active',
-    mergedIntoId: null,
-    createdAt: FIXTURE_NOW,
-    updatedAt: FIXTURE_NOW
-  }));
+  return defaultCategorySeeds.map(
+    ([id, labelAr, labelEn, financialType], index) => ({
+      id,
+      kind: 'system',
+      financialType,
+      parentId: null,
+      labelAr,
+      labelEn,
+      iconKey: id === 'remittance' ? 'transfers' : id,
+      colorKey: `category-${index % 8}`,
+      isFavorite: index < 4,
+      status: 'active',
+      mergedIntoId: null,
+      createdAt: FIXTURE_NOW,
+      updatedAt: FIXTURE_NOW
+    })
+  );
 }
 
 export function createDefaultAccount(now = Date.now()): Account {
@@ -227,7 +235,7 @@ export function createDemoTransactions(
       amountMinor: 500_00,
       accountId: 'account-default',
       destinationAccountId: 'demo-account-cash',
-      categoryId: 'transfers',
+      categoryId: null,
       title: copy.titles[5],
       merchant: null,
       occurredAt: at(12, 11)

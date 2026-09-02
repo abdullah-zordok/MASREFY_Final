@@ -14,6 +14,6 @@ describeLiveDatabase('Admin access integration', () => {
       (select count(*)::int from public.permissions) permissions,
       (select count(*)::int from public.role_permissions rp left join public.roles r on r.id=rp.role_id
         left join public.permissions p on p.id=rp.permission_id where r.id is null or p.id is null) invalid`);
-    expect(result.rows[0]).toEqual({ roles: 7, permissions: 153, invalid: 0 });
+    expect(result.rows[0]).toEqual({ roles: 7, permissions: 154, invalid: 0 });
   });
 });
