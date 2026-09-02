@@ -102,7 +102,10 @@ function claim(leaseSeconds, phase) {
     claimDuration.add(Date.now() - started, { phase });
     claimFailure.add(false);
     return rows;
-  } catch (_) {
+  } catch (error) {
+    if (__ITER === 0) {
+      console.error(String(error).replace(/postgres(?:ql)?:\/\/[^@\s]+@/g, 'postgresql://[redacted]@'));
+    }
     claimFailure.add(true);
     return [];
   }
