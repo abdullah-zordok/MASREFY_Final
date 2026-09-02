@@ -145,6 +145,8 @@ describeLiveDatabase('migration application', () => {
       'resolve_category',
       'resolve_exchange_rate',
       'resolve_transaction_conflict',
+      'restore_linked_obligation_payments',
+      'restore_linked_obligation_payments_after_ledger_status',
       'restore_transaction',
       'retry_client_mutation',
       'reverse_savings_movement',

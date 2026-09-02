@@ -316,8 +316,103 @@ describeLiveDatabase('obligation payment live invariants', () => {
         remaining_minor: '100',
         allocation_count: '1',
       });
+
+      if (transactionStatus === 'deleted') {
+        await pool.query('select private.restore_transaction($1,$2::uuid,2)', [
+          owner,
+          linkedTransactionId,
+        ]);
+        const restored = await pool.query<{
+          transaction_status: string;
+          payment_status: string;
+          paid_minor: string;
+          schedule_status: string;
+          remaining_minor: string;
+          restored_outbox_events: string;
+          restored_audit_events: string;
+          restored_sync_operation: string;
+          restored_snapshot_status: string;
+          restored_audit_marker: string;
+        }>(
+          `select t.status transaction_status,p.status payment_status,i.paid_minor::text,
+             i.status schedule_status,s.remaining_minor::text,
+             (select count(*)::text from private.outbox_events o
+              where o.aggregate_id=p.id and o.event_type='planning.obligation_payment_recorded'
+                and o.payload->>'requestId'='ledger-transaction-restored') restored_outbox_events,
+             (select count(*)::text from audit.audit_events e
+              where e.resource_id=p.id::text and e.action='planning.obligation-payment-recorded'
+                and e.request_id='ledger-transaction-restored') restored_audit_events,
+             (select o.payload#>>'{sync,operation}' from private.outbox_events o
+              where o.aggregate_id=p.id and o.event_type='planning.obligation_payment_recorded'
+                and o.payload->>'requestId'='ledger-transaction-restored') restored_sync_operation,
+             (select o.payload#>>'{sync,snapshot,status}' from private.outbox_events o
+              where o.aggregate_id=p.id and o.event_type='planning.obligation_payment_recorded'
+                and o.payload->>'requestId'='ledger-transaction-restored') restored_snapshot_status,
+             (select e.metadata->>'restoredFromTransactionDeletion' from audit.audit_events e
+              where e.resource_id=p.id::text and e.action='planning.obligation-payment-recorded'
+                and e.request_id='ledger-transaction-restored') restored_audit_marker
+           from public.transactions t
+           join public.obligation_payments p on p.transaction_id=t.id
+           join public.obligation_schedule_items i on i.obligation_id=p.obligation_id
+           join public.v_obligation_status s on s.obligation_id=p.obligation_id
+           where t.id=$1`,
+          [linkedTransactionId],
+        );
+        expect(restored.rows[0]).toEqual({
+          transaction_status: 'confirmed',
+          payment_status: 'confirmed',
+          paid_minor: '100',
+          schedule_status: 'paid',
+          remaining_minor: '0',
+          restored_outbox_events: '1',
+          restored_audit_events: '1',
+          restored_sync_operation: 'upsert',
+          restored_snapshot_status: 'confirmed',
+          restored_audit_marker: 'true',
+        });
+      }
     },
   );
+
+  it('does not restore a payment that was reversed manually before transaction undo', async () => {
+    const { linkedObligationId, linkedPaymentId, linkedTransactionId } = await seedLinkedPayment(
+      'manual-reversal-before-undo',
+    );
+    await command(owner, {
+      operation: 'reverse',
+      obligationId: linkedObligationId,
+      paymentId: linkedPaymentId,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+      requestId: 'payment-manual-before-transaction-undo',
+    });
+    await pool.query('select private.soft_delete_transaction($1,$2::uuid,1,$3)', [
+      owner,
+      linkedTransactionId,
+      'Delete after manual payment reversal',
+    ]);
+    await pool.query('select private.restore_transaction($1,$2::uuid,2)', [
+      owner,
+      linkedTransactionId,
+    ]);
+
+    const state = await pool.query<{
+      transaction_status: string;
+      payment_status: string;
+      ledger_invalidation_status: string | null;
+    }>(
+      `select t.status transaction_status,p.status payment_status,p.ledger_invalidation_status
+       from public.transactions t
+       join public.obligation_payments p on p.transaction_id=t.id
+       where t.id=$1`,
+      [linkedTransactionId],
+    );
+    expect(state.rows[0]).toEqual({
+      transaction_status: 'confirmed',
+      payment_status: 'reversed',
+      ledger_invalidation_status: null,
+    });
+  });
 
   it('uses one lock order for concurrent ledger and manual payment reversal', async () => {
     const { linkedObligationId, linkedPaymentId, linkedTransactionId } =

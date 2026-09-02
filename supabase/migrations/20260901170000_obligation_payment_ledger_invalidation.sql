@@ -1,6 +1,13 @@
 grant masarifi_migration to current_user with set true,inherit false;
 set local role masarifi_migration;
 
+alter table public.obligation_payments
+add column ledger_invalidation_status text,
+add constraint obligation_payments_ledger_invalidation_check check(
+  ledger_invalidation_status is null
+  or (status='reversed' and ledger_invalidation_status in ('reversed','deleted'))
+);
+
 create function private.recompute_obligation_schedule_item(p_schedule_item_id uuid)
 returns void language plpgsql security definer set search_path='' as $$
 declare
@@ -73,7 +80,7 @@ begin
     for update
   loop
     update public.obligation_payments p
-    set status='reversed'
+    set status='reversed',ledger_invalidation_status=transaction_row.status
     where p.id=payment.id and p.status='confirmed'
     returning * into payment;
 
@@ -138,6 +145,104 @@ alter function private.invalidate_linked_obligation_payments(uuid) owner to masa
 revoke all on function private.invalidate_linked_obligation_payments(uuid)
 from public,anon,authenticated,service_role,masarifi_api,masarifi_worker;
 
+create function private.restore_linked_obligation_payments(p_transaction_id uuid)
+returns integer language plpgsql security definer set search_path='' as $$
+declare
+  transaction_row public.transactions;
+  payment public.obligation_payments;
+  schedule_item_id uuid;
+  restored_count integer:=0;
+  request_id text:='ledger-transaction-restored';
+begin
+  select * into transaction_row
+  from public.transactions t
+  where t.id=p_transaction_id
+  for update;
+
+  if transaction_row.id is null or transaction_row.status<>'confirmed' then return 0; end if;
+
+  perform o.id
+  from public.obligations o
+  join public.obligation_payments p on p.obligation_id=o.id
+  where p.transaction_id=transaction_row.id
+    and p.status='reversed' and p.ledger_invalidation_status='deleted'
+  order by o.id
+  for update of o;
+
+  for payment in
+    select p.*
+    from public.obligation_payments p
+    where p.transaction_id=transaction_row.id
+      and p.status='reversed' and p.ledger_invalidation_status='deleted'
+    order by p.id
+    for update
+  loop
+    update public.obligation_payments p
+    set status='confirmed',ledger_invalidation_status=null
+    where p.id=payment.id and p.status='reversed' and p.ledger_invalidation_status='deleted'
+    returning * into payment;
+
+    if payment.id is null then continue; end if;
+
+    for schedule_item_id in
+      select distinct a.schedule_item_id
+      from public.obligation_payment_allocations a
+      where a.payment_id=payment.id
+      order by a.schedule_item_id
+    loop
+      perform private.recompute_obligation_schedule_item(schedule_item_id);
+    end loop;
+
+    update public.obligations o
+    set updated_at=o.updated_at
+    where o.id=payment.obligation_id;
+
+    perform private.enqueue_outbox_event(
+      'planning.obligation_payment_recorded',
+      'obligation-payment',
+      payment.id,
+      jsonb_build_object(
+        'obligationId',payment.obligation_id,
+        'paymentId',payment.id,
+        'transactionId',payment.transaction_id,
+        'userId',payment.user_id,
+        'aggregateVersion',payment.version,
+        'status',payment.status,
+        'ledgerVersion',coalesce((
+          select max(ab.ledger_version)
+          from public.account_balances ab
+          join public.accounts a on a.id=ab.account_id
+          where a.user_id=payment.user_id
+        ),0),
+        'requestId',request_id
+      )
+    );
+    perform audit.append_event(
+      payment.user_id,
+      'system',
+      'planning.obligation-payment-recorded',
+      'obligation_payment',
+      payment.id::text,
+      null,
+      null,
+      null,
+      request_id,
+      jsonb_build_object(
+        'version',payment.version,
+        'obligationId',payment.obligation_id,
+        'transactionId',payment.transaction_id,
+        'restoredFromTransactionDeletion',true
+      )
+    );
+    restored_count=restored_count+1;
+  end loop;
+
+  return restored_count;
+end $$;
+alter function private.restore_linked_obligation_payments(uuid) owner to masarifi_migration;
+revoke all on function private.restore_linked_obligation_payments(uuid)
+from public,anon,authenticated,service_role,masarifi_api,masarifi_worker;
+
 create function private.invalidate_linked_obligation_payments_after_ledger_status()
 returns trigger language plpgsql security definer set search_path='' as $$
 begin
@@ -153,6 +258,22 @@ after update of status on public.transactions
 for each row
 when (old.status='confirmed' and new.status in ('reversed','deleted'))
 execute function private.invalidate_linked_obligation_payments_after_ledger_status();
+
+create function private.restore_linked_obligation_payments_after_ledger_status()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  perform private.restore_linked_obligation_payments(new.id);
+  return new;
+end $$;
+alter function private.restore_linked_obligation_payments_after_ledger_status() owner to masarifi_migration;
+revoke all on function private.restore_linked_obligation_payments_after_ledger_status()
+from public,anon,authenticated,service_role,masarifi_api,masarifi_worker;
+
+create trigger transactions_restore_linked_obligation_payments
+after update of status on public.transactions
+for each row
+when (old.status='deleted' and new.status='confirmed')
+execute function private.restore_linked_obligation_payments_after_ledger_status();
 
 do $$
 declare transaction_id uuid;
