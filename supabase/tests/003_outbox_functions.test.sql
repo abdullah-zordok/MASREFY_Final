@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(19);
 
 grant masarifi_api, masarifi_worker to current_user with inherit true, set false;
 
@@ -13,6 +13,9 @@ select function_owner_is('private', 'claim_outbox_batch', array['text','integer'
 select is((select proconfig[1] from pg_proc where oid = 'private.set_updated_at_and_version()'::regprocedure), 'search_path=pg_catalog', 'trigger helper search path fixed');
 select is((select proconfig[1] from pg_proc where oid = 'private.enqueue_outbox_event(text,text,uuid,jsonb)'::regprocedure), 'search_path=pg_catalog', 'enqueue search path fixed');
 select is((select proconfig[1] from pg_proc where oid = 'private.claim_outbox_batch(text,integer,integer)'::regprocedure), 'search_path=pg_catalog', 'claim search path fixed');
+select ok(has_table_privilege('masarifi_worker','pgmq."q_platform-events"','select'), 'worker can read platform event queue rows');
+select ok(has_table_privilege('masarifi_worker','pgmq."q_platform-events"','insert'), 'worker can publish platform event queue rows');
+select ok(has_sequence_privilege('masarifi_worker','pgmq."q_platform-events_msg_id_seq"','usage'), 'worker can allocate platform event queue ids');
 set local synchronous_commit = on;
 do $$ begin
   perform * from private.claim_outbox_batch('commit-mode-test', 1, 1);
