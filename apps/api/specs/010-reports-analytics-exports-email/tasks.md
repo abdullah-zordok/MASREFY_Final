@@ -46,20 +46,20 @@ independent of incomplete tasks. Story labels appear only in story phases.
 
 ### Tests
 
-- [ ] T016 [US1] Add pgTAP failures for exact view columns, security-invoker behavior, owner scoping, zero-transaction periods, refunds/transfers, and multi-currency grouping in `supabase/tests/041_phase10_reports_schema.sql`; verify the database test fails before migration.
-- [ ] T017 [P] [US1] Add failing repository integration tests for snapshot-consistent summary reads, reused balance/planning contracts, stable ordering, and query bounds in `test/integration/reports/reports-summary.integration.spec.ts`; verify the targeted Jest command fails.
-- [ ] T018 [P] [US1] Add failing HTTP contract tests for dashboard/report authentication, validation, envelopes, empty periods, currency separation, pagination, ETag, and conditional GET in `test/contract/reports/reports-http.contract.spec.ts`; verify the targeted Jest command fails.
-- [ ] T019 [P] [US1] Add failing cache tests proving namespace/version/user/period key isolation and bounded invalidation in `test/unit/reports/reports-cache.spec.ts`; verify the targeted Jest command fails.
+- [X] T016 [US1] Add pgTAP failures for exact view columns, security-invoker behavior, owner scoping, zero-transaction periods, refunds/transfers, and multi-currency grouping in `supabase/tests/041_phase10_reports_schema.test.sql`; verify the database test fails before migration.
+- [X] T017 [P] [US1] Add failing repository integration tests for snapshot-consistent summary reads, reused balance/planning contracts, stable ordering, and query bounds in `test/integration/reports/reports-summary.integration.spec.ts`; verify the targeted Jest command fails.
+- [X] T018 [P] [US1] Add failing HTTP contract tests for dashboard/report authentication, validation, envelopes, empty periods, currency separation, pagination, ETag, and conditional GET in `test/contract/reports/reports-http.contract.spec.ts`; verify the targeted Jest command fails.
+- [X] T019 [P] [US1] Add failing cache tests proving namespace/version/user/period key isolation and bounded invalidation in `test/unit/reports/reports-cache.spec.ts`; verify the targeted Jest command fails.
 
 ### Implementation
 
-- [ ] T020 [US1] Add the two owned security-invoker aggregate views, explicit grants, comments, constraints, and covering indexes in `supabase/migrations/20260904010000_phase10_reports_schema.sql`; verify T016 passes.
-- [ ] T021 [US1] Implement bounded repository queries that reuse ledger balance and planning sources in `src/reports/reports.repository.ts`; verify T017 passes and the query count stays constant as categories grow.
-- [ ] T022 [US1] Implement dashboard/report summary orchestration and existing cache integration in `src/reports/reports.service.ts`; verify T019 passes.
-- [ ] T023 [US1] Implement authenticated summary/dashboard routes, DTO validation, ETag, and keyset pagination in `src/reports/reports.controller.ts`; verify T018 passes.
-- [ ] T024 [US1] Add EXPLAIN fixtures and p95 query-budget checks for both views and dashboard reads in `test/performance/reports/reports-summary.performance.spec.ts`; verify thresholds and index usage with the performance test command.
-- [ ] T025 [US1] Record SQL-vs-API reconciliation fixtures and results in `specs/010-reports-analytics-exports-email/evidence/summary-reconciliation.md`; verify identical literal totals for each currency and period.
-- [ ] T026 [US1] Commit the independently passing summary story directly on `main`; verify the staged diff contains only US1-owned paths and the Phase 10 docs/task checkmarks.
+- [X] T020 [US1] Add the two owned security-invoker aggregate views, explicit grants, comments, constraints, and covering indexes in `supabase/migrations/20260904010000_phase10_report_views.sql`; verify T016 passes.
+- [X] T021 [US1] Implement bounded repository queries that reuse ledger balance and planning sources in `src/reports/reports.repository.ts`; verify T017 passes and the query count stays constant as categories grow.
+- [X] T022 [US1] Implement dashboard/report summary orchestration and existing cache integration in `src/reports/reports.service.ts`; verify T019 passes.
+- [X] T023 [US1] Implement authenticated summary/dashboard routes, DTO validation, ETag, and keyset pagination in `src/reports/reports.controller.ts`; verify T018 passes.
+- [X] T024 [US1] Add EXPLAIN fixtures and p95 query-budget checks for both views and dashboard reads in `test/performance/reports/reports-summary.performance.spec.ts`; verify thresholds and index usage with the performance test command.
+- [X] T025 [US1] Record SQL-vs-API reconciliation fixtures and results in `specs/010-reports-analytics-exports-email/evidence/summary-reconciliation.md`; verify identical literal totals for each currency and period.
+- [X] T026 [US1] Commit the independently passing summary story directly on `main`; verify the staged diff contains only US1-owned paths and the Phase 10 docs/task checkmarks.
 
 **Checkpoint**: User Story 1 contract, integration, pgTAP, and performance checks pass independently.
 
@@ -73,7 +73,7 @@ independent of incomplete tasks. Story labels appear only in story phases.
 
 ### Tests
 
-- [ ] T027 [US2] Add pgTAP failures for `private.report_output_attempts`, snapshot capture, legal transitions, duplicate request uniqueness, retry lineage, claim behavior, grants, and denial from exposed roles in `supabase/tests/043_phase10_reports_functions.sql`; verify the database test fails.
+- [ ] T027 [US2] Add pgTAP failures for `private.report_output_attempts`, snapshot capture, legal transitions, duplicate request uniqueness, retry lineage, claim behavior, grants, and denial from exposed roles in `supabase/tests/043_phase10_reports_functions.test.sql`; verify the database test fails.
 - [ ] T028 [P] [US2] Add failing renderer tests for literal JSON/CSV/PDF content, Arabic glyph embedding, CSV formula neutralization, filename/header injection, large streaming output, and no secret leakage in `test/unit/reports/reports-renderer.spec.ts`; verify the targeted Jest command fails.
 - [ ] T029 [P] [US2] Add failing private Storage tests for owner-scoped keys, content types, upload/delete, 60-900 second signed URL TTL, deleted objects, and traversal rejection in `test/security/reports/reports-storage.security.spec.ts`; verify the targeted Jest command fails.
 - [ ] T030 [P] [US2] Add failing generation-worker tests for idempotent claims, immutable snapshots, terminal-state preservation, transient retry bounds, poison payload failure, and no raw financial log fields in `test/integration/reports/reports-generation.integration.spec.ts`; verify the targeted Jest command fails.
@@ -104,7 +104,7 @@ independent of incomplete tasks. Story labels appear only in story phases.
 
 ### Tests
 
-- [ ] T042 [US3] Add pgTAP failures for exact schedule columns, check/unique/FK constraints, owner-only RLS, grants, due-schedule claims with `SKIP LOCKED`, and monotonic next-run updates in `supabase/tests/042_phase10_reports_rls.sql`; verify the database test fails.
+- [ ] T042 [US3] Add pgTAP failures for exact schedule columns, check/unique/FK constraints, owner-only RLS, grants, due-schedule claims with `SKIP LOCKED`, and monotonic next-run updates in `supabase/tests/042_phase10_reports_rls.test.sql`; verify the database test fails.
 - [ ] T043 [P] [US3] Add failing schedule service tests for monthly/yearly boundaries, disabled schedules, recipient normalization, verification expiry, compare-and-set updates, and duplicate enqueue prevention in `test/integration/reports/report-schedules.integration.spec.ts`; verify the targeted Jest command fails.
 - [ ] T044 [P] [US3] Add failing schedule HTTP tests for CRUD, auth, ownership, validation, optimistic version conflicts, verification, and keyset pagination in `test/contract/reports/report-schedules-http.contract.spec.ts`; verify the targeted Jest command fails.
 - [ ] T045 [P] [US3] Add failing worker concurrency tests for due claims, advisory locking, crash recovery, replay safety, and bounded batches in `test/integration/reports/report-schedule-worker.integration.spec.ts`; verify the targeted Jest command fails.

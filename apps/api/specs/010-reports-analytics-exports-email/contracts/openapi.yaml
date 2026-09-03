@@ -20,6 +20,7 @@ paths:
       operationId: getDashboardHome
       parameters:
         - $ref: '#/components/parameters/Period'
+        - $ref: '#/components/parameters/Currency'
       responses:
         '200':
           description: Owner home summary from one financial version.
@@ -38,6 +39,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ReportType'
         - $ref: '#/components/parameters/Period'
+        - $ref: '#/components/parameters/Currency'
       responses:
         '200':
           description: Versioned owner report summary.
@@ -434,6 +436,12 @@ components:
       name: locale
       in: query
       schema: {type: string, enum: [ar, en], default: ar}
+    Currency:
+      name: currency
+      in: query
+      required: false
+      description: Optional ISO currency filter; omission returns separately grouped currencies.
+      schema: {type: string, pattern: '^[A-Z]{3}$'}
 
   responses:
     SafeError:
@@ -505,7 +513,7 @@ components:
     HomeResponse:
       type: object
       additionalProperties: false
-      required: [metadata, balances, summary, planning, recentItems]
+      required: [metadata, balances, summaries, planning, recentItems]
       properties:
         metadata: {$ref: '#/components/schemas/ReportMetadata'}
         balances:
@@ -519,16 +527,22 @@ components:
               accountId: {$ref: '#/components/schemas/Uuid'}
               confirmed: {$ref: '#/components/schemas/Money'}
               pending: {$ref: '#/components/schemas/Money'}
-        summary: {$ref: '#/components/schemas/SummaryValues'}
+        summaries:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/SummaryValues'}
         planning: {type: object, additionalProperties: true, maxProperties: 20}
         recentItems: {type: array, maxItems: 25, items: {type: object, additionalProperties: true, maxProperties: 20}}
     ReportSummaryResponse:
       type: object
       additionalProperties: false
-      required: [metadata, summary, breakdowns]
+      required: [metadata, summaries, breakdowns]
       properties:
         metadata: {$ref: '#/components/schemas/ReportMetadata'}
-        summary: {$ref: '#/components/schemas/SummaryValues'}
+        summaries:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/SummaryValues'}
         breakdowns:
           type: array
           maxItems: 100

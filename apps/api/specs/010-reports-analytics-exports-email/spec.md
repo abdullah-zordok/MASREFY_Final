@@ -312,8 +312,8 @@ for customers and default 50/max 200 for Admin).
 
 | Method | Path | Auth | Request | Success response | Errors |
 |---|---|---|---|---|---|
-| GET | `/api/v1/dashboard/home?period` | owner | supported period | balances, income/expense, budget/obligation/savings, recent items, `ledgerVersion`, `schemaVersion`, `generatedAt`, evidence | invalid period, unauthorized, too large |
-| GET | `/api/v1/reports/summary?type&period` | owner | supported type/period | versioned aggregate, data state, evidence/source versions | invalid type/period, unavailable |
+| GET | `/api/v1/dashboard/home?period&currency?` | owner | supported period and optional currency | balances and separately grouped income/expense, budget/obligation/savings, recent items, `ledgerVersion`, `schemaVersion`, `generatedAt`, evidence | invalid period/currency, unauthorized, too large |
+| GET | `/api/v1/reports/summary?type&period&currency?` | owner | supported type/period and optional currency | versioned per-currency aggregates, data state, evidence/source versions | invalid type/period/currency, unavailable |
 | POST | `/api/v1/reports` | owner + recent auth for sensitive export/email | `{type,periodStart,periodEnd,format,delivery,recipient?}` | `202 {attemptId,status,ledgerVersion,schemaVersion,generatedAt}` | idempotency, bounds, recipient/auth/config |
 | GET | `/api/v1/reports/:attemptId` | owner | attempt UUID | safe status/metadata/error and fresh short-lived URL only when authorized/ready | not found, expired, recent auth |
 | GET | `/api/v1/report-schedules` | owner | cursor/limit | safe schedule page | validation |

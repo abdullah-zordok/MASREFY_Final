@@ -10,7 +10,7 @@ provider selector or remove mocks; final cutover belongs to SPEC-BE-014.
 
 | Current method | Backend mapping | Adapter rule |
 |---|---|---|
-| `getReport(query)` | `GET /reports/summary?type=financial_summary&period=...` | map four period kinds/timezone/currency; preserve data state/evidence |
+| `getReport(query)` | `GET /reports/summary?type=financial_summary&period=...&currency=...` | map four period kinds/timezone/currency; select only the requested currency group and preserve data state/evidence |
 | `getBreakdown(query)` | same summary with requested supported breakdown or bounded detail query | never fetch all transactions; preserve drill-down filters |
 | `getSchedule()` | `GET /report-schedules?limit=1` | return first owned supported schedule or null |
 | `verifyRecipient(email, operationId)` | `POST /report-schedules/verify-recipient` | normalize safely; no deliverability/account enumeration claim |

@@ -88,6 +88,22 @@ function optionalUuid(value: unknown): string | null {
   return value.toLowerCase();
 }
 
+export function normalizeSummaryQuery(
+  value: unknown,
+  requireType: boolean,
+): { type: ReportType; period: (typeof REPORT_PERIODS)[number]; currency: string | null } {
+  const input = record(value);
+  exact(input, requireType ? ['type', 'period', 'currency'] : ['period', 'currency']);
+  if (requireType && input.type === undefined) invalid();
+  const currency = input.currency === undefined ? null : text(input.currency, 3, 3);
+  if (currency !== null && !/^[A-Z]{3}$/.test(currency)) invalid();
+  return {
+    type: requireType ? oneOf(input.type, REPORT_TYPES) : 'financial_summary',
+    period: oneOf(input.period, REPORT_PERIODS),
+    currency,
+  };
+}
+
 export function normalizeCreateReport(value: unknown): {
   type: ReportType;
   periodStart: string;

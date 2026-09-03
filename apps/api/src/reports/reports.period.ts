@@ -77,6 +77,11 @@ function localDate(parts: Pick<LocalParts, 'year' | 'month' | 'day'>): string {
   return `${String(parts.year).padStart(4, '0')}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
+export function localDateAt(instant: Date, timezone: string): string {
+  if (!Number.isFinite(instant.getTime())) throw new Error('REPORT_PERIOD_INVALID');
+  return localDate(partsAt(instant, timezone));
+}
+
 function parseDate(value: string): Pick<LocalParts, 'year' | 'month' | 'day'> {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) throw new Error('REPORT_PERIOD_INVALID');

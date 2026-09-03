@@ -3,6 +3,7 @@ import {
   normalizeAdminExportRequest,
   normalizeCreateReport,
   normalizeReportList,
+  normalizeSummaryQuery,
   normalizeScheduleCreate,
   normalizeSchedulePatch,
   normalizeVerifyRecipient,
@@ -127,6 +128,21 @@ describe('Phase 10 report schemas', () => {
       'VALIDATION_FAILED',
     );
     expect(() => normalizeReportList({ limit: 101 })).toThrow('VALIDATION_FAILED');
+  });
+
+  it('normalizes exact report and dashboard summary queries', () => {
+    expect(normalizeSummaryQuery({ type: 'financial_summary', period: 'monthly', currency: 'SAR' }, true)).toEqual({
+      type: 'financial_summary',
+      period: 'monthly',
+      currency: 'SAR',
+    });
+    expect(normalizeSummaryQuery({ period: 'annual' }, false)).toEqual({
+      type: 'financial_summary',
+      period: 'annual',
+      currency: null,
+    });
+    expect(() => normalizeSummaryQuery({ period: 'monthly', currency: 'sar' }, false)).toThrow('VALIDATION_FAILED');
+    expect(() => normalizeSummaryQuery({ type: 'financial_summary', period: 'monthly', extra: true }, true)).toThrow('VALIDATION_FAILED');
   });
 
   it('normalizes recipient and versioned schedule mutations without extra fields', () => {

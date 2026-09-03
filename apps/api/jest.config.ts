@@ -25,5 +25,6 @@ export default {
     project('e2e', 'e2e'),
     project('security', 'security'),
     project('container', 'container'),
+    project('performance', 'performance'),
   ],
 } satisfies Config;
