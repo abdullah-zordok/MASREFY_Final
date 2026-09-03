@@ -776,27 +776,27 @@ never cross public response boundaries.
 
 ## Definition of Done
 
-- [ ] Specification, plan, tasks, research, data model, contracts, quickstart,
+- [x] Specification, plan, tasks, research, data model, contracts, quickstart,
       checklists, dependency evidence, and analyze/converge results are complete.
-- [ ] Every owned database resource, seed, constraint, index, trigger, function,
+- [x] Every owned database resource, seed, constraint, index, trigger, function,
       RLS policy, grant, permission, API, job, event, and audit flow is implemented.
-- [ ] Tracking preferences/rules, intake, parsing, unsupported handling, review,
+- [x] Tracking preferences/rules, intake, parsing, unsupported handling, review,
       edited acceptance, deduplication, explanations, history, and feedback pass.
-- [ ] Hostile input, raw retention, parser corpus/publication/rollback, retries,
+- [x] Hostile input, raw retention, parser corpus/publication/rollback, retries,
       idempotency, SPEC-BE-005/006 integration, and no-bypass proofs pass.
-- [ ] Mobile/Admin production fixture replacement required by Phase 08 passes
+- [x] Mobile/Admin production fixture replacement required by Phase 08 passes
       contract, typecheck, lint, unit, integration, and journey tests.
-- [ ] Observability, alerts, retention, recovery, reconciliation, and runbooks are
+- [x] Observability, alerts, retention, recovery, reconciliation, and runbooks are
       implemented and exercised wherever no genuine external dependency exists.
-- [ ] All verification categories and acceptance criteria pass from fresh exact
+- [x] All verification categories and acceptance criteria pass from fresh exact
       evidence; skipped/partial/stale/external results are not counted as pass.
-- [ ] Clean/repeat/N-1/failed-forward/rollback/restore migrations and checksums pass.
-- [ ] Changed code/tests pass clean-code, security, test-quality, scope, and final
+- [x] Clean/repeat/N-1/failed-forward/rollback/restore migrations and checksums pass.
+- [x] Changed code/tests pass clean-code, security, test-quality, scope, and final
       review with zero unresolved release-blocking finding.
-- [ ] Scoped commits are pushed directly to `origin/main`; the required workflow,
+- [x] Scoped commits are pushed directly to `origin/main`; the required workflow,
       image, vulnerability, SBOM, signature, provenance, and branch gates pass or
       are proven genuinely external and impossible without unavailable authority.
-- [ ] SPEC-BE-009 and later implementation is absent and unrelated work/worktrees
+- [x] SPEC-BE-009 and later implementation is absent and unrelated work/worktrees
       remain preserved.
 
 Verification listed here is required evidence, not a claim that it has run.

@@ -287,10 +287,10 @@ reclaimable and idempotent; retention/recovery preserve required financial trace
 - [x] T133 Commit database migrations/tests/checksums on `main` with a narrow message after reset/lint/pgTAP/recovery pass; record SHA in `apps/api/specs/008-tracking-imports-deduplication/evidence/commits.md`
 - [x] T134 Commit API/workers/contracts/tests on `main` with a narrow message after focused API gates pass; record SHA in `apps/api/specs/008-tracking-imports-deduplication/evidence/commits.md`
 - [x] T135 Commit Mobile/Admin cutover and tests on `main` with a narrow message after client gates pass; record SHA in `apps/api/specs/008-tracking-imports-deduplication/evidence/commits.md`
-- [ ] T136 Fetch origin, verify zero-behind and clean tracked state while preserving `.agents/plugins/` and existing worktrees, then push commits directly to `origin/main`
-- [ ] T137 Monitor the pushed main workflow to terminal success; diagnose and fix forward every required failure, rerun local affected/full gates, commit/push narrowly, and update `apps/api/specs/008-tracking-imports-deduplication/evidence/remote.md`
+- [x] T136 Fetch origin, verify zero-behind and clean tracked state while preserving `.agents/plugins/` and existing worktrees, then push commits directly to `origin/main`
+- [x] T137 Monitor the pushed main workflow to terminal success; diagnose and fix forward every required failure, rerun local affected/full gates, commit/push narrowly, and update `apps/api/specs/008-tracking-imports-deduplication/evidence/remote.md`
 - [x] T138 Record any genuinely external provider/account/hosted/live-alert evidence gates separately without blocking locally executable work in `apps/api/specs/008-tracking-imports-deduplication/evidence/external-gates.md`
-- [ ] T139 Verify all task checkboxes and acceptance criteria are evidenced, capture final SHA/push/CI/counts in `apps/api/specs/008-tracking-imports-deduplication/evidence/final-summary.md`, and mark the goal complete only after all required local/remote gates succeed
+- [x] T139 Verify all task checkboxes and acceptance criteria are evidenced, capture final SHA/push/CI/counts in `apps/api/specs/008-tracking-imports-deduplication/evidence/final-summary.md`, and mark the goal complete only after all required local/remote gates succeed
 
 ## Dependencies
 

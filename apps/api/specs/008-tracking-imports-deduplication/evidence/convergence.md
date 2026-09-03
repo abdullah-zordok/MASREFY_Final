@@ -34,9 +34,9 @@ Convergence findings:
 | --- | -------- | -------: | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | G1  | resolved |        - | AC-018 / SC-010 / DoD   | Docker/Supabase recovered; fresh reset, lint, 36-file/1,304-assertion pgTAP, live integration, and live E2E passed.                                       | None.                                                                    |
 | G2  | scoped   |        - | AC-016 / scope boundary | Phase 08 Admin Playwright passed 14 tests; broad failures belong to unrelated earlier/later route families. Implementing SPEC-BE-009+ here is prohibited. | Keep the broad result with its owner Specs; no Phase 08 task is missing. |
-| G3  | pending  |     High | AC-018 / SC-010 / DoD   | Every executable local Phase 08 gate is green. Narrow commits, direct push, and remote workflow monitoring are the only remaining delivery work.          | Commit, push, and monitor the required workflow to success.              |
+| G3  | resolved |        - | AC-018 / SC-010 / DoD   | Scoped commits were pushed directly to `origin/main`; workflow `33744378707` completed successfully across all required jobs.                           | None.                                                                    |
 
 No missing Phase 08-owned schema/API/parser/worker/client behavior was found in
 the implemented code paths. Independent review also found no remaining
-P0/P1/P2. Because the sole remaining finding is delivery rather than unbuilt
-behavior, no new task IDs were appended.
+P0/P1/P2. All findings are resolved or explicitly scoped to their owning Specs, so
+no new task IDs were appended.

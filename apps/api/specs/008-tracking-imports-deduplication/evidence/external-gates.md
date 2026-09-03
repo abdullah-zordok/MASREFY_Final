@@ -8,8 +8,9 @@ Genuinely external gates remaining:
      account checks as external gates.
    - No secret was invented or embedded to satisfy these gates.
 
-2. Remote CI.
-   - Local gates are green; the workflow awaits the authorized direct push.
+2. Tag-only release evidence.
+   - SBOM, signature, and provenance proof requires an authorized release tag and
+     is correctly skipped by the successful normal `main` workflow.
 
 Non-external, but out-of-scope for Phase 08:
 
@@ -19,3 +20,6 @@ Non-external, but out-of-scope for Phase 08:
 
 Docker/Supabase is no longer a blocker: fresh reset, lint, pgTAP, live
 integration, and live E2E all passed on this host.
+
+Remote CI is no longer a blocker: required pushed-main workflow `33744378707`
+completed successfully.

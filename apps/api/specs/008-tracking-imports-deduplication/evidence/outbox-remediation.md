@@ -45,4 +45,6 @@ pgTAP assertion, checksum, and sanitized first-error performance diagnostic.
 
 The fresh repair workflow `33610290411` passed all database steps through ledger
 performance but stopped at an unrelated sync latency threshold before reaching the
-Outbox step. Phase 08 delivery must rerun the whole workflow and prove both suites.
+Outbox step. Final pushed-main workflow `33744378707` subsequently passed the full
+database job, including the Outbox performance and stress steps, without changing
+the 50 ms P95 or 100 ms P99 thresholds.

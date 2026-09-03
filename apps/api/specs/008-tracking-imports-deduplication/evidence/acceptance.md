@@ -3,9 +3,9 @@
 Counts:
 
 - Functional requirements: 40/40 mapped to implementation and tests.
-- Acceptance criteria: 20/20 mapped; 18 passed locally, while AC-018 and AC-020
-  await direct delivery and remote workflow success.
-- Success criteria: 10/10 mapped; SC-010 awaits remote workflow success.
+- Acceptance criteria: 20/20 passed or evidenced; genuinely external provider and
+  tag-release proofs are listed separately and are not implementation blockers.
+- Success criteria: 10/10 passed or evidenced.
 
 ## Requirement traceability
 
@@ -31,7 +31,7 @@ Counts:
 | SC-007            | pgTAP RLS/grants plus API ownership/permission/stale-version/ledger-boundary tests        |
 | SC-008            | raw retention/purge fencing, orphan reconciliation, history retention, and recovery tests |
 | SC-009            | Mobile and Admin production adapter/contract/fixture-boundary validation                  |
-| SC-010            | all local gates pass; remote workflow evidence is pending delivery                        |
+| SC-010            | all local gates and pushed-main workflow `33744378707` pass                               |
 
 ## Surface traceability
 
@@ -72,6 +72,6 @@ Counts:
 | AC-015     | Passed locally                    | OpenAPI parses after formatting; contract drift tests in API verify.                         |
 | AC-016     | Passed locally                    | Mobile full gates and Phase 08 Admin imports/parsers/accessibility Playwright passed.        |
 | AC-017     | Passed locally                    | `ops/observability/` and `docs/runbooks/tracking-imports.md`.                                |
-| AC-018     | Awaiting remote                   | Every Phase 08 local gate passed; direct push and remote workflow remain.                    |
+| AC-018     | Passed                            | Every Phase 08 local gate and pushed-main workflow `33744378707` passed.                     |
 | AC-019     | Passed locally with external gaps | SPEC-BE-001..007 dependencies evidenced; provider/account proofs remain external.            |
-| AC-020     | Awaiting remote                   | Spec09+ scope scan passes; commit/push/CI are not complete yet.                              |
+| AC-020     | Passed                            | Spec09+ scope scan passes; scoped commits were pushed and CI completed successfully.         |

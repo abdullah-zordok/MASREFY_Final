@@ -1,7 +1,6 @@
 # Definition Of Done Evidence
 
-Current status: local implementation and verification complete; delivery and
-remote workflow pending.
+Current status: complete.
 
 Completed or locally evidenced:
 
@@ -18,10 +17,10 @@ Completed or locally evidenced:
   rollback/forward, migration concurrency, recovery, and backup/restore pass.
 - Independent review reports no remaining P0/P1/P2 issue.
 
-Not complete:
-
-- Scoped commits, direct push to `origin/main`, and remote CI monitoring have not
-  happened and must not be represented as complete.
+- Scoped commits were pushed directly to `origin/main`; workflow `33744378707`
+  completed successfully across secrets, application, mobile, redaction, database,
+  and image jobs. Tag-only signed-release evidence remains an explicitly external
+  release gate.
 
 The broad Admin Playwright command still exposes failures owned by unrelated
 earlier/later route families. The Phase 08 Playwright surface is green, and
