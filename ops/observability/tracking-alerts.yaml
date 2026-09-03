@@ -1,0 +1,33 @@
+groups:
+  - name: masarifi-tracking
+    rules:
+      - alert: TrackingImportBacklogHigh
+        expr: max_over_time(masarifi_tracking_backlog{job="import.parse"}[10m]) > 1000
+        for: 10m
+        labels: { severity: warning }
+        annotations: { runbook: docs/runbooks/tracking-imports.md#import-backlog-and-stuck-workers }
+      - alert: TrackingImportOldestAgeHigh
+        expr: max_over_time(masarifi_tracking_oldest_age_seconds{job="import.parse"}[10m]) > 900
+        for: 10m
+        labels: { severity: critical }
+        annotations: { runbook: docs/runbooks/tracking-imports.md#import-backlog-and-stuck-workers }
+      - alert: TrackingReviewBacklogHigh
+        expr: max_over_time(masarifi_tracking_backlog{job="review"}[30m]) > 5000
+        for: 30m
+        labels: { severity: warning }
+        annotations: { runbook: docs/runbooks/tracking-imports.md#review-and-duplicate-backlogs }
+      - alert: TrackingDuplicateBacklogHigh
+        expr: max_over_time(masarifi_tracking_backlog{job="duplicate"}[30m]) > 5000
+        for: 30m
+        labels: { severity: warning }
+        annotations: { runbook: docs/runbooks/tracking-imports.md#review-and-duplicate-backlogs }
+      - alert: TrackingRawPurgeLagHigh
+        expr: max_over_time(masarifi_tracking_raw_purge_lag_seconds{job="raw.purge"}[15m]) > 3600
+        for: 15m
+        labels: { severity: critical }
+        annotations: { runbook: docs/runbooks/tracking-imports.md#raw-retention-and-storage-outage }
+      - alert: TrackingWorkerFailures
+        expr: sum(rate(masarifi_tracking_job_total{outcome="failure"}[10m])) by (job) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { runbook: docs/runbooks/tracking-imports.md#import-backlog-and-stuck-workers }

@@ -30,10 +30,16 @@ export async function bootstrapApi(): Promise<INestApplication> {
   app.useLogger(logger);
   configureRequestDrain(app, shutdown);
   const syncBodyLimit = config.get('MASARIFI_SYNC_PAYLOAD_LIMIT_BYTES');
-  configureValidation(app, config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'), ['/webhooks/clerk'], {
-    '/api/v1/sync/mutations': syncBodyLimit,
-    '/api/v1/conflicts/:conflictId': syncBodyLimit,
-  });
+  configureValidation(
+    app,
+    config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'),
+    ['/webhooks/clerk'],
+    {
+      '/api/v1/sync/mutations': syncBodyLimit,
+      '/api/v1/conflicts/:conflictId': syncBodyLimit,
+    },
+    { '/api/v1/imports': 6 * 1024 * 1024 },
+  );
   configureHttpSecurity(app, config);
   app.useGlobalFilters(new SafeExceptionFilter());
   app.useGlobalInterceptors(

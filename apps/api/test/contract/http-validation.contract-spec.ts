@@ -23,6 +23,11 @@ class ProbeController {
   create(@Body() body: ProbeDto): ProbeDto {
     return body;
   }
+
+  @Post('raw')
+  raw(@Body() body: unknown): { bytes: number } {
+    return { bytes: Buffer.isBuffer(body) ? body.length : -1 };
+  }
 }
 
 describe('HTTP validation contract', () => {
@@ -34,7 +39,7 @@ describe('HTTP validation contract', () => {
     }).compile();
     const expressApp = module.createNestApplication<NestExpressApplication>();
     expressApp.use(new RequestIdMiddleware().use);
-    configureValidation(expressApp, 1_024);
+    configureValidation(expressApp, 1_024, [], {}, { '/probe/raw': 1_024 });
     expressApp.useGlobalFilters(new SafeExceptionFilter());
     await expressApp.listen(0);
     app = expressApp;
@@ -61,6 +66,16 @@ describe('HTTP validation contract', () => {
     const body = response.body as { code: string; requestId: string };
     expect(body).toMatchObject({ code: 'UNSUPPORTED_MEDIA_TYPE' });
     expect(body.requestId).toMatch(/^[A-Za-z0-9._:-]{1,128}$/);
+  });
+
+  it('admits bounded opaque bodies only on an explicitly configured route', async () => {
+    const response = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      .post('/probe/raw')
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.from('%PDF-fictional'))
+      .expect(201);
+
+    expect(response.body).toEqual({ bytes: 14 });
   });
 
   it.each([

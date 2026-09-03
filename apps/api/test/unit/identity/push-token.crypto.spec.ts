@@ -33,7 +33,12 @@ describe('push token protection', () => {
   });
 
   it.each([
-    (value: string) => `${value.slice(0, -1)}A`,
+    (value: string) => {
+      const parts = value.split('.');
+      const ciphertext = parts[4] ?? '';
+      parts[4] = `${ciphertext.startsWith('A') ? 'B' : 'A'}${ciphertext.slice(1)}`;
+      return parts.join('.');
+    },
     (value: string) => value.replace('.active.', '.missing.'),
   ])('fails closed for tampered or unknown-key envelopes', (tamper) => {
     const envelope = tamper(crypto.encrypt('private-push-value', aad));

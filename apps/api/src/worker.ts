@@ -13,6 +13,7 @@ import { startTelemetry } from './platform/observability/telemetry';
 import { SecurityWorkerService } from './security/security.worker';
 import { SyncWorker } from './sync/sync.worker';
 import { PlanningWorker } from './planning/planning.worker';
+import { TrackingWorker } from './tracking/tracking.worker';
 
 export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const { WorkerModule } = await import('./worker.module');
@@ -30,6 +31,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const ledgerWorker = app.get(LedgerWorker);
   const syncWorker = app.get(SyncWorker);
   const planningWorker = app.get(PlanningWorker);
+  const trackingWorker = app.get(TrackingWorker);
   app.useLogger(logger);
 
   process.once('SIGTERM', () => {
@@ -40,6 +42,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
       await ledgerWorker.stop();
       await syncWorker.stop();
       await planningWorker.stop();
+      await trackingWorker.stop();
       await app.close();
       await telemetry.shutdown();
     });
@@ -50,6 +53,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   ledgerWorker.start();
   syncWorker.start();
   planningWorker.start();
+  trackingWorker.start();
   logger.info('platform.started', {
     context: 'Bootstrap',
     processKind: 'worker',

@@ -63,6 +63,15 @@ const normalScenarios = {
   },
 };
 
+function asWorker(operation) {
+  db.exec('set role masarifi_worker');
+  try {
+    return operation();
+  } finally {
+    db.exec('reset role');
+  }
+}
+
 export const options = {
   scenarios: stress
     ? {
@@ -91,20 +100,22 @@ export const options = {
 function claim(leaseSeconds, phase) {
   const started = Date.now();
   try {
-    const rows = [
+    const rows = asWorker(() => [
       ...db.query(
         'select * from private.claim_outbox_batch($1, $2, $3)',
         `k6-${__VU}`,
         claimBatchSize,
         leaseSeconds,
       ),
-    ];
+    ]);
     claimDuration.add(Date.now() - started, { phase });
     claimFailure.add(false);
     return rows;
   } catch (error) {
     if (__ITER === 0) {
-      console.error(String(error).replace(/postgres(?:ql)?:\/\/[^@\s]+@/g, 'postgresql://[redacted]@'));
+      console.error(
+        String(error).replace(/postgres(?:ql)?:\/\/[^@\s]+@/g, 'postgresql://[redacted]@'),
+      );
     }
     claimFailure.add(true);
     return [];
@@ -135,15 +146,17 @@ function publish(rows, delaySeconds) {
   for (const row of rows) {
     if (delaySeconds) sleep(delaySeconds);
     const started = Date.now();
-    db.exec(
-      "select pgmq.send('platform-events', $1::jsonb, 0)",
-      JSON.stringify({ eventId: row.id, schemaVersion: 1 }),
-    );
-    const result = db.exec(
-      'update private.outbox_events set published_at=now(), locked_by=null, locked_until=null where id=$1 and locked_by=$2 and published_at is null',
-      row.id,
-      `k6-${__VU}`,
-    );
+    const result = asWorker(() => {
+      db.exec(
+        "select pgmq.send('platform-events', $1::jsonb, 0)",
+        JSON.stringify({ eventId: row.id, schemaVersion: 1 }),
+      );
+      return db.exec(
+        'update private.outbox_events set published_at=now(), locked_by=null, locked_until=null where id=$1 and locked_by=$2 and published_at is null',
+        row.id,
+        `k6-${__VU}`,
+      );
+    });
     publicationDuration.add(Date.now() - started);
     throughput.add(result.rowsAffected());
     check(result, {

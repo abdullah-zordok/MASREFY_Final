@@ -8,6 +8,8 @@ import { ExportStorage } from './export-storage';
 import { SecurityRepository } from './security.repository';
 import { SecurityService } from './security.service';
 import { SecurityWorkerService } from './security.worker';
+import { TrackingPrivacyHandler } from '../tracking/tracking-privacy.handler';
+import { TrackingStorage } from '../tracking/tracking.storage';
 
 @Module({
   imports: [DatabaseModule, IdentityModule],
@@ -19,7 +21,13 @@ export class SecurityModule {}
 
 @Module({
   imports: [DatabaseModule, IdentityWorkerModule],
-  providers: [SecurityRepository, ExportStorage, SecurityWorkerService],
+  providers: [
+    SecurityRepository,
+    ExportStorage,
+    TrackingStorage,
+    TrackingPrivacyHandler,
+    SecurityWorkerService,
+  ],
   exports: [SecurityWorkerService],
 })
 export class SecurityWorkerModule {}

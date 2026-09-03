@@ -135,9 +135,7 @@ export class IdentityPrivacyHandler implements PrivacyDomainHandler {
   async applyRetention(
     candidate: RetentionCandidate,
     mode: 'delete' | 'anonymize' | 'archive',
-    _evidence: PrivacyEvidence,
   ): Promise<DeletionOutcome> {
-    void _evidence;
     if (mode === 'archive')
       return { deletedCount: 0, anonymizedCount: 0, retainedCount: 1, policyIds: [] };
     const affected = await this.workerTransaction(async (client) => {

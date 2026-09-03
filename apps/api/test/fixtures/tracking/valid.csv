@@ -1,0 +1,3 @@
+sourceItemKey,receivedAt,body,amountMinor,currency,merchant,occurredAt
+fictional-1,2026-09-02T08:00:00Z,Fictional purchase,1250,SAR,Fictional Market,2026-09-02T07:59:00Z
+fictional-2,2026-09-02T09:00:00Z,Fictional salary,500000,SAR,Fictional Employer,2026-09-02T08:59:00Z

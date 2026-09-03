@@ -11,6 +11,7 @@ import { ReferenceModule } from './reference/reference.module';
 import { SecurityModule } from './security/security.module';
 import { SyncModule } from './sync/sync.module';
 import { PlanningModule } from './planning/planning.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PlanningModule } from './planning/planning.module';
     LedgerModule,
     SyncModule,
     PlanningModule,
+    TrackingModule,
   ],
   providers: [RequestIdMiddleware],
 })

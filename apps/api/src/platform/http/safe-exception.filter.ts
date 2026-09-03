@@ -116,6 +116,15 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   },
   PLANNING_REVIEW_REQUIRED: { status: 409, message: 'Planning review is required' },
   PLANNING_RATE_LIMITED: { status: 409, message: 'Planning operation is rate limited' },
+  TRACKING_VERSION_CONFLICT: { status: 409, message: 'Tracking preferences changed' },
+  TRACKING_RULE_CONFLICT: { status: 409, message: 'Tracking rule changed' },
+  REVIEW_VERSION_CONFLICT: { status: 409, message: 'Review item changed' },
+  DUPLICATE_VERSION_CONFLICT: { status: 409, message: 'Duplicate candidate changed' },
+  IMPORT_LEASE_STALE: { status: 409, message: 'Import lease is stale' },
+  ADMIN_VERSION_CONFLICT: { status: 409, message: 'Admin resource changed' },
+  UNSAFE_IMPORT: { status: 400, message: 'Import content is unsafe' },
+  IMPORT_LIMIT_EXCEEDED: { status: 413, message: 'Import payload exceeds its limit' },
+  TRACKING_STORAGE_UNAVAILABLE: { status: 503, message: 'Import storage is unavailable' },
 };
 
 type FieldError = { field: string; code: string; message: string };

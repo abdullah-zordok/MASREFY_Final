@@ -7,6 +7,7 @@ import { OutboxModule } from './platform/outbox/outbox.module';
 import { SecurityWorkerModule } from './security/security.module';
 import { SyncWorkerModule } from './sync/sync.module';
 import { PlanningWorkerModule } from './planning/planning.module';
+import { TrackingWorkerModule } from './tracking/tracking.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PlanningWorkerModule } from './planning/planning.module';
     LedgerWorkerModule,
     SyncWorkerModule,
     PlanningWorkerModule,
+    TrackingWorkerModule,
   ],
 })
 export class WorkerModule {}

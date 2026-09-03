@@ -98,6 +98,9 @@ describe('OpenAPI drift', () => {
     );
     const sync = loadContract('../../specs/006-offline-sync-idempotency/contracts/openapi.yaml');
     const planning = loadContract('../../specs/007-financial-planning/contracts/openapi.yaml');
+    const tracking = loadContract(
+      '../../specs/008-tracking-imports-deduplication/contracts/openapi.yaml',
+    );
     const generated = generateOpenApi(app, [
       identity,
       security,
@@ -105,6 +108,7 @@ describe('OpenAPI drift', () => {
       ledger,
       sync,
       planning,
+      tracking,
     ]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
@@ -116,6 +120,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(ledger).paths,
         ...contractSurface(sync).paths,
         ...contractSurface(planning).paths,
+        ...contractSurface(tracking).paths,
       },
       schemas: {
         ...contractSurface(foundation).schemas,
@@ -125,6 +130,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(ledger).schemas,
         ...contractSurface(sync).schemas,
         ...contractSurface(planning).schemas,
+        ...contractSurface(tracking).schemas,
       },
     });
   });
@@ -143,6 +149,9 @@ describe('OpenAPI drift', () => {
     );
     const sync = loadContract('../../specs/006-offline-sync-idempotency/contracts/openapi.yaml');
     const planning = loadContract('../../specs/007-financial-planning/contracts/openapi.yaml');
+    const tracking = loadContract(
+      '../../specs/008-tracking-imports-deduplication/contracts/openapi.yaml',
+    );
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
@@ -154,6 +163,7 @@ describe('OpenAPI drift', () => {
       ledger,
       sync,
       planning,
+      tracking,
     ]);
     const foundationSurface = contractSurface(foundation);
     const identitySurface = contractSurface(identity);
@@ -162,6 +172,7 @@ describe('OpenAPI drift', () => {
     const ledgerSurface = contractSurface(ledger);
     const syncSurface = contractSurface(sync);
     const planningSurface = contractSurface(planning);
+    const trackingSurface = contractSurface(tracking);
 
     expect(contractSurface(generated)).toEqual({
       paths: {
@@ -172,6 +183,7 @@ describe('OpenAPI drift', () => {
         ...ledgerSurface.paths,
         ...syncSurface.paths,
         ...planningSurface.paths,
+        ...trackingSurface.paths,
       },
       schemas: {
         ...foundationSurface.schemas,
@@ -181,6 +193,7 @@ describe('OpenAPI drift', () => {
         ...ledgerSurface.schemas,
         ...syncSurface.schemas,
         ...planningSurface.schemas,
+        ...trackingSurface.schemas,
       },
     });
     expect(
@@ -206,6 +219,10 @@ describe('OpenAPI drift', () => {
         'getSyncDelta',
         'getPlanningSummary',
         'getAdminPlanningSummary',
+        'createImport',
+        'decideTrackingReview',
+        'decideDuplicateCandidate',
+        'publishParserVersion',
       ]),
     );
   });

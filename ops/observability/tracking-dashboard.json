@@ -1,0 +1,13 @@
+{
+  "title": "Masarifi Phase 08 Tracking",
+  "schemaVersion": 39,
+  "tags": ["masarifi", "tracking", "phase08"],
+  "panels": [
+    { "title": "Import backlog", "type": "timeseries", "targets": [{ "expr": "masarifi_tracking_backlog{job=\"import.parse\"}" }] },
+    { "title": "Review and duplicate backlog", "type": "timeseries", "targets": [{ "expr": "masarifi_tracking_backlog{job=~\"review|duplicate\"}" }] },
+    { "title": "Oldest import age", "type": "timeseries", "targets": [{ "expr": "masarifi_tracking_oldest_age_seconds{job=\"import.parse\"}" }] },
+    { "title": "Raw purge lag", "type": "timeseries", "targets": [{ "expr": "masarifi_tracking_raw_purge_lag_seconds{job=\"raw.purge\"}" }] },
+    { "title": "Job outcomes", "type": "timeseries", "targets": [{ "expr": "sum(rate(masarifi_tracking_job_total[5m])) by (job, outcome)" }] },
+    { "title": "Intake outcomes", "type": "timeseries", "targets": [{ "expr": "sum(rate(masarifi_tracking_intake_total[5m])) by (source_type, outcome)" }] }
+  ]
+}

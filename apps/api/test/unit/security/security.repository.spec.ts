@@ -43,10 +43,9 @@ describe('SecurityRepository cursor boundary', () => {
   });
 
   it('rejects malformed and excessive cursors before issuing the list query', async () => {
-    const query = jest.fn((sql: string) => {
-      void sql;
-      return Promise.resolve({ rows: [] });
-    });
+    const query = jest.fn<Promise<{ rows: never[] }>, [string]>(() =>
+      Promise.resolve({ rows: [] }),
+    );
     const repository = repositoryWith(query);
     for (const cursor of ['e30', Buffer.from('1000001').toString('base64url'), '***']) {
       await expect(

@@ -86,7 +86,7 @@ export class MigrationRunner {
   ) {}
 
   async run(
-    repositoryRoot = existsSync(resolve(process.cwd(), 'supabase'))
+    repositoryRoot = existsSync(resolve(process.cwd(), 'supabase', 'migration-checksums.sha256'))
       ? process.cwd()
       : resolve(process.cwd(), '..', '..'),
   ): Promise<void> {

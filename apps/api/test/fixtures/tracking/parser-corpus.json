@@ -1,0 +1,26 @@
+{
+  "definition": {
+    "matches": [
+      {
+        "field": "body",
+        "operator": "safe_pattern",
+        "value": "^Fictional paid {amount} {currency}$"
+      }
+    ],
+    "captures": [
+      { "field": "amount", "sourceGroup": "amount" },
+      { "field": "currency", "sourceGroup": "currency" }
+    ],
+    "normalizations": [
+      { "field": "amount", "operation": "localized_digits" },
+      { "field": "amount", "operation": "minor_units" },
+      { "field": "currency", "operation": "uppercase" }
+    ],
+    "mappings": [
+      { "sourceField": "amount", "targetField": "amount" },
+      { "sourceField": "currency", "targetField": "currency" }
+    ]
+  },
+  "input": { "sender": "FICTIONAL", "body": "Fictional paid 12 SAR" },
+  "expected": { "amountMinor": 1200, "currency": "SAR" }
+}

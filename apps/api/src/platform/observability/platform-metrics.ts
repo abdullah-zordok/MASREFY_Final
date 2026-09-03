@@ -92,6 +92,17 @@ export const PLANNING_METRICS = {
   reconciliation: 'masarifi_planning_reconciliation_total',
 } as const;
 
+export const TRACKING_METRICS = {
+  job: 'masarifi_tracking_job_total',
+  intake: 'masarifi_tracking_intake_total',
+  reconciliation: 'masarifi_tracking_reconciliation_total',
+  duration: 'masarifi_tracking_job_duration_ms',
+  confidence: 'masarifi_tracking_confidence_basis_points',
+  backlog: 'masarifi_tracking_backlog',
+  oldestAge: 'masarifi_tracking_oldest_age_seconds',
+  rawPurgeLag: 'masarifi_tracking_raw_purge_lag_seconds',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
@@ -100,7 +111,8 @@ type MetricName =
   | (typeof REFERENCE_METRICS)[keyof typeof REFERENCE_METRICS]
   | (typeof LEDGER_METRICS)[keyof typeof LEDGER_METRICS]
   | (typeof SYNC_METRICS)[keyof typeof SYNC_METRICS]
-  | (typeof PLANNING_METRICS)[keyof typeof PLANNING_METRICS];
+  | (typeof PLANNING_METRICS)[keyof typeof PLANNING_METRICS]
+  | (typeof TRACKING_METRICS)[keyof typeof TRACKING_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -117,6 +129,7 @@ const allowedLabels = new Set([
   'severity',
   'job',
   'mismatch_kind',
+  'source_type',
 ]);
 const safeLabelValue = /^[A-Za-z0-9_./:-]{1,128}$/;
 const counterNames = new Set<MetricName>([
@@ -158,6 +171,9 @@ const counterNames = new Set<MetricName>([
   SYNC_METRICS.retry,
   PLANNING_METRICS.job,
   PLANNING_METRICS.reconciliation,
+  TRACKING_METRICS.job,
+  TRACKING_METRICS.intake,
+  TRACKING_METRICS.reconciliation,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();
