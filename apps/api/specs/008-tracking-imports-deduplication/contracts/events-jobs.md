@@ -5,19 +5,21 @@
 All events use the existing platform envelope and contain identifiers, versions,
 bounded status/reason codes, and timestamps only.
 
-| Event | Trigger | Safe payload fields |
-|---|---|---|
-| `tracking.preference.updated.v1` | owner preference changed | preferenceId, version, enabled, reviewRequired, occurredAt |
-| `tracking.rule.changed.v1` | owner rule changed/restored | ruleKind, ruleId, action, version, occurredAt |
-| `import.session.changed.v1` | session state transition | sessionId, status, itemCount, failedCount, version, occurredAt |
-| `import.item.changed.v1` | item state transition | sessionId, itemId, status, parserVersionId, reasonCode, version, occurredAt |
-| `tracking.review.requested.v1` | review created | reviewId, itemId, reasonCode, version, occurredAt |
-| `tracking.review.resolved.v1` | owner/admin resolves review | reviewId, itemId, resolution, version, occurredAt |
-| `tracking.duplicate.detected.v1` | duplicate candidate created | candidateId, itemId, existingTransactionId, scoreBand, version, occurredAt |
-| `tracking.duplicate.resolved.v1` | duplicate decision committed | candidateId, resolution, version, occurredAt |
-| `tracking.feedback.recorded.v1` | feedback recorded | feedbackId, historyId, kind, occurredAt |
-| `parser.rule.version.changed.v1` | version published/retired/rolled back | ruleId, versionId, status, versionNumber, occurredAt |
-| `unsupported.format.recorded.v1` | unsupported fingerprint observed | unsupportedFormatId, reasonCode, occurrenceCount, occurredAt |
+| Event                            | Trigger                               | Safe payload fields                                                         |
+| -------------------------------- | ------------------------------------- | --------------------------------------------------------------------------- |
+| `tracking.preference.updated.v1` | owner preference changed              | preferenceId, version, enabled, reviewRequired, occurredAt                  |
+| `tracking.rule.changed.v1`       | owner rule changed/restored           | ruleKind, ruleId, action, version, occurredAt                               |
+| `import.session.changed.v1`      | session state transition              | sessionId, status, itemCount, failedCount, version, occurredAt              |
+| `import.item.changed.v1`         | item state transition                 | sessionId, itemId, status, parserVersionId, reasonCode, version, occurredAt |
+| `tracking.review.requested.v1`   | review created                        | reviewId, itemId, reasonCode, version, occurredAt                           |
+| `tracking.review.resolved.v1`    | owner/admin resolves review           | reviewId, itemId, resolution, version, occurredAt                           |
+| `tracking.duplicate.detected.v1` | duplicate candidate created           | candidateId, itemId, existingTransactionId, scoreBand, version, occurredAt  |
+| `tracking.duplicate.resolved.v1` | duplicate decision committed          | candidateId, resolution, version, occurredAt                                |
+| `tracking.feedback.recorded.v1`  | feedback recorded                     | feedbackId, historyId, kind, occurredAt                                     |
+| `parser.rule.version.changed.v1` | version published/retired/rolled back | ruleId, versionId, status, versionNumber, occurredAt                        |
+| `parser.corpus.completed.v1`     | leased corpus run completed           | versionId, status, passed, failed, attempt, occurredAt                      |
+| `unsupported.format.recorded.v1` | unsupported fingerprint observed      | unsupportedFormatId, reasonCode, occurrenceCount, occurredAt                |
+| `tracking.admin.action.v1`       | bounded Admin mutation committed      | resourceId, resourceKind, action, version, occurredAt                       |
 
 Forbidden payload fields include raw bytes, message/source text, filenames, object
 keys, keywords, rule documents, parser evidence, merchant/title, amount, tokens,
@@ -25,15 +27,15 @@ provider content, request/response bodies, and secrets.
 
 ## Worker jobs
 
-| Job | Claim order | Success | Retry/terminal behavior |
-|---|---|---|---|
-| import parse | createdAt, id | parsed/review/unsupported item | deterministic exponential delay with jitter; terminal review after max attempts |
-| duplicate evaluate | createdAt, id | candidate or no-candidate decision | retry transient DB fault; terminal review on invariant failure |
-| ledger accept | createdAt, id | ledger transaction linked | same ledger idempotency key forever; conflict to review; bounded retry |
-| parser corpus run | requestedAt, id | immutable run summary | failure retains version as draft and records safe diagnostics |
-| raw purge | expiresAt, id | object absent and row marked purged | missing object is success; transient Storage failure retries |
-| retention compact | retention cutoff, id | expired nonfinancial detail removed | bounded batches and resumable cursor |
-| reconciliation | oldest unresolved first | drift repaired or safe alert emitted | never creates a second ledger transaction |
+| Job                | Claim order             | Success                              | Retry/terminal behavior                                                         |
+| ------------------ | ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| import parse       | createdAt, id           | parsed/review/unsupported item       | deterministic exponential delay with jitter; terminal review after max attempts |
+| duplicate evaluate | createdAt, id           | candidate or no-candidate decision   | retry transient DB fault; terminal review on invariant failure                  |
+| ledger accept      | createdAt, id           | ledger transaction linked            | same ledger idempotency key forever; conflict to review; bounded retry          |
+| parser corpus run  | requestedAt, id         | immutable run summary                | failure retains version as draft and records safe diagnostics                   |
+| raw purge          | expiresAt, id           | object absent and row marked purged  | missing object is success; transient Storage failure retries                    |
+| retention compact  | retention cutoff, id    | expired nonfinancial detail removed  | bounded batches and resumable cursor                                            |
+| reconciliation     | oldest unresolved first | drift repaired or safe alert emitted | never creates a second ledger transaction                                       |
 
 Every claim function validates batch and lease bounds, uses `FOR UPDATE SKIP
 LOCKED`, creates a UUID token, and records worker ID and expiry. Execute/complete

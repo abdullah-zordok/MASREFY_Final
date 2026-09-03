@@ -5,13 +5,14 @@
 All accepted items invoke the existing ledger command service. The command uses:
 
 - `source = "tracking-import"`;
-- `externalRef = "import:<session UUID>:item:<item UUID>"`;
-- a stable hashed idempotency key scoped to the owner and item;
+- `externalRef = "tracking:<SHA-256(source type + source item key)>"`;
+- the same stable value is the SPEC-BE-006 idempotency key;
 - integer-safe `amountMinor`; unsafe or out-of-contract values enter review;
 - only fields accepted by the SPEC-BE-005 transaction command.
 
 The tracking transaction completes only after ledger success is known. A retry
-reuses the same source, external reference, and idempotency key. It treats the
+reuses the same source, external reference, and idempotency key across sessions.
+It treats the
 existing transaction as success only when the normalized command hash matches.
 Conflicts become review items and are never silently overwritten.
 
@@ -34,17 +35,17 @@ transaction synchronization observes ledger changes caused by accepted items.
 
 Routes use the existing exact permissions:
 
-| Surface | Read permission | Mutation permission |
-|---|---|---|
-| imports overview/sessions | `imports.read`, detail uses `imports.detail.read` | failures use `imports.failures.manage` |
-| low confidence | `imports.read` | `imports.confidence.manage` |
-| duplicates | `imports.read` | `imports.duplicates.manage` |
-| unsupported | `imports.read` | `imports.unsupported.manage` |
-| institutions/senders | `parsers.coverage.read` | `parsers.senders.manage` |
-| parser rules/versions | `parsers.rules.read` | `parsers.rules.manage`, `parsers.versions.manage` |
-| parser corpus | `parsers.rules.read` | `parsers.tests.run` |
-| merchant/category rules | `parsers.rules.read` | `parsers.merchants.manage`, `parsers.categories.manage` |
-| runtime settings | `settings.imports.read` | `settings.imports.manage` |
+| Surface                   | Read permission                                   | Mutation permission                                     |
+| ------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| imports overview/sessions | `imports.read`, detail uses `imports.detail.read` | failures use `imports.failures.manage`                  |
+| low confidence            | `imports.read`                                    | `imports.confidence.manage`                             |
+| duplicates                | `imports.read`                                    | `imports.duplicates.manage`                             |
+| unsupported               | `imports.read`                                    | `imports.unsupported.manage`                            |
+| institutions/senders      | `parsers.coverage.read`                           | `parsers.senders.manage`                                |
+| parser rules/versions     | `parsers.rules.read`                              | `parsers.rules.manage`, `parsers.versions.manage`       |
+| parser corpus             | `parsers.rules.read`                              | `parsers.tests.run`                                     |
+| merchant/category rules   | `parsers.rules.read`                              | `parsers.merchants.manage`, `parsers.categories.manage` |
+| runtime settings          | `settings.imports.read`                           | `settings.imports.manage`                               |
 
 Sensitive mutations also require recent MFA, a 10–500 character reason, expected
 version, and an idempotency key. A hard-coded confirmation token is not a contract.
@@ -65,7 +66,10 @@ message bodies, rules, tokens, amounts, merchant text, or parser evidence.
 
 Accepted text is written once to a generated private object path, content-hashed,
 and referenced by a private database row. A database transaction records the
-session/item metadata. Failed orchestration reconciles orphaned objects by hash and
-age. Retention jobs claim expired rows, delete the object idempotently, then mark
-the row purged. Backup/restore evidence excludes expired raw bodies and verifies
-referential metadata plus restoration of non-expired test objects.
+session/item metadata. If immediate compensation cannot delete an unregistered
+object, the API durably records a `cleanup` row and the existing retention worker
+retries it. Retention jobs lease expired registered rows and queued cleanup rows
+with a fence token, delete the object idempotently, then complete only the matching
+claim. Backup/restore evidence
+excludes expired raw bodies and verifies referential metadata plus restoration of
+non-expired test objects.

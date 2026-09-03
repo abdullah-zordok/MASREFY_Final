@@ -13,8 +13,8 @@ paths:
       operationId: getTrackingPreferences
       tags: [Tracking]
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
+        '401': { $ref: '#/components/responses/TrackingUnauthorized' }
     put:
       operationId: updateTrackingPreferences
       tags: [Tracking]
@@ -34,37 +34,37 @@ paths:
                 historyRetentionDays: { type: integer, minimum: 30, maximum: 730 }
                 expectedVersion: { type: integer, minimum: 1 }
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
+        '400': { $ref: '#/components/responses/TrackingBadRequest' }
+        '401': { $ref: '#/components/responses/TrackingUnauthorized' }
+        '409': { $ref: '#/components/responses/TrackingConflict' }
   /api/v1/tracking/status:
     get:
       operationId: getTrackingStatus
       tags: [Tracking]
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
   /api/v1/tracking/keyword-rules:
     get:
       operationId: listKeywordRules
       tags: [Tracking Rules]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createKeywordRule
       tags: [Tracking Rules]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
+      requestBody: { $ref: '#/components/requestBodies/KeywordRuleMutation' }
       responses:
-        '201': { $ref: '#/components/responses/Resource' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '201': { $ref: '#/components/responses/TrackingResource' }
+        '409': { $ref: '#/components/responses/TrackingConflict' }
   /api/v1/tracking/keyword-rules/{ruleId}:
     parameters: [{ $ref: '#/components/parameters/RuleId' }]
     patch:
       operationId: updateKeywordRule
       tags: [Tracking Rules]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      requestBody: { $ref: '#/components/requestBodies/KeywordRuleMutation' }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
     delete:
       operationId: deleteKeywordRule
       tags: [Tracking Rules]
@@ -77,26 +77,26 @@ paths:
       operationId: restoreDefaultKeywordRules
       tags: [Tracking Rules]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/tracking/sender-rules:
     get:
       operationId: listSenderRules
       tags: [Tracking Rules]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createSenderRule
       tags: [Tracking Rules]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      requestBody: { $ref: '#/components/requestBodies/SenderRuleMutation' }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/tracking/sender-rules/{ruleId}:
     parameters: [{ $ref: '#/components/parameters/RuleId' }]
     patch:
       operationId: updateSenderRule
       tags: [Tracking Rules]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/RuleMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      requestBody: { $ref: '#/components/requestBodies/SenderRuleMutation' }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
     delete:
       operationId: deleteSenderRule
       tags: [Tracking Rules]
@@ -108,8 +108,12 @@ paths:
     get:
       operationId: listImportSessions
       tags: [Imports]
-      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/SourceType'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createImport
       tags: [Imports]
@@ -118,23 +122,24 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/NormalizedImportRequest' }
+            schema: { $ref: '#/components/schemas/TrackingNormalizedImportRequest' }
           text/csv:
             schema: { type: string, contentMediaType: text/csv, maxLength: 6291456 }
       responses:
-        '202': { $ref: '#/components/responses/Resource' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '413': { $ref: '#/components/responses/PayloadTooLarge' }
-        '415': { $ref: '#/components/responses/Unsupported' }
+        '202': { $ref: '#/components/responses/TrackingResource' }
+        '400': { $ref: '#/components/responses/TrackingBadRequest' }
+        '409': { $ref: '#/components/responses/TrackingConflict' }
+        '413': { $ref: '#/components/responses/TrackingPayloadTooLarge' }
+        '415': { $ref: '#/components/responses/TrackingUnsupported' }
   /api/v1/imports/{sessionId}:
     get:
       operationId: getImportSession
       tags: [Imports]
-      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
+        '404': { $ref: '#/components/responses/TrackingNotFound' }
   /api/v1/imports/{sessionId}/items:
     get:
       operationId: listImportItems
@@ -143,7 +148,8 @@ paths:
         - $ref: '#/components/parameters/SessionId'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+        - $ref: '#/components/parameters/Status'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/imports/{sessionId}/items/{itemId}:
     get:
       operationId: getImportItem
@@ -152,20 +158,23 @@ paths:
         - $ref: '#/components/parameters/SessionId'
         - $ref: '#/components/parameters/ItemId'
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
+        '404': { $ref: '#/components/responses/TrackingNotFound' }
   /api/v1/reviews:
     get:
       operationId: listTrackingReviews
       tags: [Review]
-      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Status'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/reviews/{reviewId}:
     get:
       operationId: getTrackingReview
       tags: [Review]
       parameters: [{ $ref: '#/components/parameters/ReviewId' }]
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/reviews/{reviewId}/decision:
     post:
       operationId: decideTrackingReview
@@ -175,20 +184,24 @@ paths:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/ReviewDecision' }
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
+        '409': { $ref: '#/components/responses/TrackingConflict' }
   /api/v1/duplicates:
     get:
       operationId: listDuplicateCandidates
       tags: [Duplicates]
-      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/MinScore'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/duplicates/{candidateId}:
     get:
       operationId: getDuplicateCandidate
       tags: [Duplicates]
       parameters: [{ $ref: '#/components/parameters/CandidateId' }]
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/duplicates/{candidateId}/decision:
     post:
       operationId: decideDuplicateCandidate
@@ -198,14 +211,18 @@ paths:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/DuplicateDecision' }
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '200': { $ref: '#/components/responses/TrackingResource' }
+        '409': { $ref: '#/components/responses/TrackingConflict' }
   /api/v1/tracking/history:
     get:
       operationId: listTrackingHistory
       tags: [Tracking]
-      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Outcome'
+        - $ref: '#/components/parameters/SourceType'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     delete:
       operationId: clearTrackingHistory
       tags: [Tracking]
@@ -225,29 +242,45 @@ paths:
               additionalProperties: false
               required: [historyId, kind]
               properties:
-                historyId: { $ref: '#/components/schemas/Uuid' }
-                kind: { type: string, enum: [wrong_detection, wrong_category, wrong_merchant, duplicate_missed, other] }
+                historyId: { $ref: '#/components/schemas/TrackingUuid' }
+                kind:
+                  {
+                    type: string,
+                    enum:
+                      [wrong_detection, wrong_category, wrong_merchant, duplicate_missed, other],
+                  }
+                correctedCategoryId: { $ref: '#/components/schemas/TrackingUuid' }
                 comment: { type: string, minLength: 1, maxLength: 500 }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/overview:
     get:
       operationId: getAdminImportsOverview
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/sessions:
     get:
       operationId: listAdminImportSessions
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/SourceType'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/imports/sessions/{sessionId}:
     get:
       operationId: getAdminImportSession
       tags: [Admin Imports]
       x-admin-permission: imports.detail.read
-      parameters: [{ $ref: '#/components/parameters/SessionId' }]
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/AccessPurpose'
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/sessions/{sessionId}/retry-handoff:
     post:
       operationId: retryAdminImportSession
@@ -258,58 +291,97 @@ paths:
         - $ref: '#/components/parameters/SessionId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '202': { $ref: '#/components/responses/Resource' } }
+      responses: { '202': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/failures:
     get:
       operationId: listAdminImportFailures
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/imports/failures/{itemId}/action:
     post:
       operationId: actOnAdminImportFailure
       tags: [Admin Imports]
       x-admin-permission: imports.failures.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/ItemId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/ItemId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/low-confidence:
     get:
       operationId: listAdminLowConfidence
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/InstitutionFilter'
+        - $ref: '#/components/parameters/ParserVersionFilter'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/imports/low-confidence/{reviewId}/review:
     post:
       operationId: reviewAdminLowConfidence
       tags: [Admin Imports]
       x-admin-permission: imports.confidence.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/ReviewId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/duplicates:
     get:
       operationId: listAdminDuplicates
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/imports/duplicates/{candidateId}/resolve:
     post:
       operationId: resolveAdminDuplicate
       tags: [Admin Imports]
       x-admin-permission: imports.duplicates.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/CandidateId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/CandidateId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/unsupported-formats:
     get:
       operationId: listAdminUnsupportedFormats
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/imports/unsupported-formats/{formatId}/action:
     post:
       operationId: actOnUnsupportedFormat
@@ -320,16 +392,21 @@ paths:
         - name: formatId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/institutions:
     get:
       operationId: listParserInstitutions
       tags: [Admin Parsers]
       x-admin-permission: parsers.coverage.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createParserInstitution
       tags: [Admin Parsers]
@@ -337,28 +414,37 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/institutions/{institutionId}:
     get:
       operationId: getParserInstitution
       tags: [Admin Parsers]
       x-admin-permission: parsers.coverage.read
       parameters: [{ $ref: '#/components/parameters/InstitutionId' }]
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
     patch:
       operationId: updateParserInstitution
       tags: [Admin Parsers]
       x-admin-permission: parsers.senders.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/InstitutionId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/InstitutionId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/senders:
     get:
       operationId: listInstitutionSenders
       tags: [Admin Parsers]
       x-admin-permission: parsers.coverage.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/InstitutionFilter'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createParserSender
       tags: [Admin Parsers]
@@ -366,7 +452,7 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/senders/{senderId}/action:
     post:
       operationId: mutateInstitutionSender
@@ -377,16 +463,23 @@ paths:
         - name: senderId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/rules:
     get:
       operationId: listParserRules
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/SourceType'
+        - $ref: '#/components/parameters/InstitutionFilter'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createParserRule
       tags: [Admin Parsers]
@@ -394,22 +487,26 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/rules/{ruleId}:
     get:
       operationId: getParserRule
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.read
       parameters: [{ $ref: '#/components/parameters/RuleId' }]
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
     patch:
       operationId: updateParserRule
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/RuleId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/rules/{ruleId}/test-preview:
     post:
       operationId: previewParserRule
@@ -425,20 +522,26 @@ paths:
               additionalProperties: false
               required: [sample]
               properties: { sample: { type: string, minLength: 1, maxLength: 2000 } }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/test-cases:
     get:
       operationId: listParserTestCases
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/InstitutionFilter'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: createParserTestCase
       tags: [Admin Parsers]
       x-admin-permission: parsers.versions.manage
+      x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminCreate' }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/test-cases/run:
     post:
       operationId: runParserCorpus
@@ -447,13 +550,18 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '202': { $ref: '#/components/responses/Resource' } }
+      responses: { '202': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/versions:
     get:
       operationId: listParserVersions
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/InstitutionFilter'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/parsers/versions/{versionId}/action:
     post:
       operationId: mutateParserVersion
@@ -464,16 +572,21 @@ paths:
         - name: versionId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/merchant-rules:
     get:
       operationId: listMerchantRules
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: mutateMerchantRule
       tags: [Admin Parsers]
@@ -481,13 +594,18 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/category-rules:
     get:
       operationId: listCategoryRules
       tags: [Admin Parsers]
       x-admin-permission: parsers.rules.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
     post:
       operationId: mutateCategoryRule
       tags: [Admin Parsers]
@@ -495,31 +613,46 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/{sessionId}/retry:
     post:
       operationId: retryImportSession
       tags: [Admin Imports]
       x-admin-permission: imports.failures.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/SessionId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '202': { $ref: '#/components/responses/Resource' } }
+      responses: { '202': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/{sessionId}/cancel:
     post:
       operationId: cancelImportSession
       tags: [Admin Imports]
       x-admin-permission: imports.failures.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/SessionId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/imports/unsupported:
     get:
       operationId: listUnsupportedFormats
       tags: [Admin Imports]
       x-admin-permission: imports.read
-      responses: { '200': { $ref: '#/components/responses/Page' } }
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses: { '200': { $ref: '#/components/responses/TrackingPage' } }
   /api/v1/admin/imports/unsupported/{formatId}:
     patch:
       operationId: updateUnsupportedFormat
@@ -530,10 +663,10 @@ paths:
         - name: formatId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/senders/{senderId}:
     patch:
       operationId: updateParserSender
@@ -544,30 +677,36 @@ paths:
         - name: senderId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/rules/{ruleId}/versions:
     post:
       operationId: createParserVersion
       tags: [Admin Parsers]
       x-admin-permission: parsers.versions.manage
-      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      x-requires-recent-mfa: true
+      parameters:
+        [
+          { $ref: '#/components/parameters/RuleId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '201': { $ref: '#/components/responses/Resource' } }
+      responses: { '201': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/versions/{versionId}/corpus-runs:
     post:
       operationId: runParserVersionCorpus
       tags: [Admin Parsers]
       x-admin-permission: parsers.tests.run
+      x-requires-recent-mfa: true
       parameters:
         - name: versionId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
-      responses: { '202': { $ref: '#/components/responses/Resource' } }
+      responses: { '202': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/versions/{versionId}/publish:
     post:
       operationId: publishParserVersion
@@ -578,47 +717,56 @@ paths:
         - name: versionId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/test-cases/{caseId}:
     patch:
       operationId: updateParserTestCase
       tags: [Admin Parsers]
       x-admin-permission: parsers.versions.manage
+      x-requires-recent-mfa: true
       parameters:
         - name: caseId
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/Uuid' }
+          schema: { $ref: '#/components/schemas/TrackingUuid' }
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/merchant-rules/{ruleId}:
     patch:
       operationId: updateMerchantRule
       tags: [Admin Parsers]
       x-admin-permission: parsers.merchants.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/RuleId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/parsers/category-rules/{ruleId}:
     patch:
       operationId: updateCategoryRule
       tags: [Admin Parsers]
       x-admin-permission: parsers.categories.manage
       x-requires-recent-mfa: true
-      parameters: [{ $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/RuleId' },
+          { $ref: '#/components/parameters/IdempotencyKey' },
+        ]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
   /api/v1/admin/settings/imports:
     get:
       operationId: getImportSettings
       tags: [Admin Imports]
       x-admin-permission: settings.imports.read
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
     patch:
       operationId: updateImportSettings
       tags: [Admin Imports]
@@ -626,7 +774,7 @@ paths:
       x-requires-recent-mfa: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/AdminMutation' }
-      responses: { '200': { $ref: '#/components/responses/Resource' } }
+      responses: { '200': { $ref: '#/components/responses/TrackingResource' } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -635,7 +783,7 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      schema: { type: string, minLength: 16, maxLength: 200 }
+      schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
     ExpectedVersion:
       name: expectedVersion
       in: query
@@ -651,12 +799,100 @@ components:
       in: query
       required: false
       schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
-    RuleId: { name: ruleId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
-    SessionId: { name: sessionId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
-    ItemId: { name: itemId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
-    ReviewId: { name: reviewId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
-    CandidateId: { name: candidateId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
-    InstitutionId: { name: institutionId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    Search:
+      name: search
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    Status:
+      name: status
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 32 }
+    SourceType:
+      name: sourceType
+      in: query
+      required: false
+      schema: { type: string, enum: [sms, file, manual, provider] }
+    Outcome:
+      name: outcome
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [received, parsed, reviewed, accepted, rejected, duplicate, failed, purged, feedback]
+    MinScore:
+      name: minScore
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, maximum: 10000 }
+    InstitutionFilter:
+      name: institutionId
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/TrackingUuid' }
+    ParserVersionFilter:
+      name: parserVersionId
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/TrackingUuid' }
+    From:
+      name: from
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    To:
+      name: to
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    AccessPurpose:
+      name: X-Access-Purpose
+      in: header
+      required: true
+      schema: { type: string, minLength: 10, maxLength: 500 }
+    RuleId:
+      {
+        name: ruleId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/TrackingUuid' },
+      }
+    SessionId:
+      {
+        name: sessionId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/TrackingUuid' },
+      }
+    ItemId:
+      {
+        name: itemId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/TrackingUuid' },
+      }
+    ReviewId:
+      {
+        name: reviewId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/TrackingUuid' },
+      }
+    CandidateId:
+      {
+        name: candidateId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/TrackingUuid' },
+      }
+    InstitutionId:
+      {
+        name: institutionId,
+        in: path,
+        required: true,
+        schema: { $ref: '#/components/schemas/TrackingUuid' },
+      }
   requestBodies:
     AdminCreate:
       required: true
@@ -669,19 +905,41 @@ components:
             properties:
               reason: { type: string, minLength: 10, maxLength: 500 }
               value: { type: object, minProperties: 1, maxProperties: 12 }
-    RuleMutation:
+    KeywordRuleMutation:
       required: true
       content:
         application/json:
           schema:
             type: object
             additionalProperties: false
-            required: [value, enabled]
+            required: [value, group, language, enabled]
             properties:
-              value: { type: string, minLength: 1, maxLength: 200 }
-              displayLabel: { type: string, minLength: 1, maxLength: 200 }
-              group: { type: string, minLength: 1, maxLength: 80 }
+              value: { type: string, minLength: 1, maxLength: 120 }
+              group: { type: string, minLength: 1, maxLength: 40 }
               language: { type: string, enum: [ar, en] }
+              matchType: { type: string, enum: [exact, contains, safe_pattern] }
+              categoryId:
+                anyOf:
+                  - { $ref: '#/components/schemas/TrackingUuid' }
+                  - { type: 'null' }
+              priority: { type: integer, minimum: 0, maximum: 10000 }
+              enabled: { type: boolean }
+              expectedVersion: { type: integer, minimum: 1 }
+    SenderRuleMutation:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [value, displayLabel]
+            properties:
+              value: { type: string, minLength: 1, maxLength: 256 }
+              displayLabel: { type: string, minLength: 1, maxLength: 120 }
+              institutionId:
+                anyOf:
+                  - { $ref: '#/components/schemas/TrackingUuid' }
+                  - { type: 'null' }
               trusted: { type: boolean }
               enabled: { type: boolean }
               expectedVersion: { type: integer, minimum: 1 }
@@ -700,9 +958,17 @@ components:
                 type: object
                 additionalProperties: false
                 properties:
-                  title: { type: string, minLength: 1, maxLength: 200 }
-                  merchant: { type: string, maxLength: 200 }
-                  categoryId: { $ref: '#/components/schemas/Uuid' }
+                  amountMinor: { type: integer, minimum: 1, maximum: 9007199254740991 }
+                  currency: { type: string, pattern: '^[A-Z]{3}$' }
+                  accountId: { $ref: '#/components/schemas/TrackingUuid' }
+                  categoryId:
+                    anyOf:
+                      - { $ref: '#/components/schemas/TrackingUuid' }
+                      - { type: 'null' }
+                  title: { type: string, minLength: 1, maxLength: 160 }
+                  merchant: { type: [string, 'null'], minLength: 1, maxLength: 160 }
+                  paymentMethod: { type: [string, 'null'], minLength: 1, maxLength: 80 }
+                  note: { type: [string, 'null'], minLength: 1, maxLength: 500 }
                   occurredAt: { type: string, format: date-time }
     DuplicateDecision:
       required: true
@@ -713,7 +979,8 @@ components:
             additionalProperties: false
             required: [resolution, expectedVersion]
             properties:
-              resolution: { type: string, enum: [keep_existing, keep_new, keep_both, merge_details] }
+              resolution:
+                { type: string, enum: [keep_existing, keep_new, keep_both, merge_details] }
               expectedVersion: { type: integer, minimum: 1 }
               merge:
                 type: object
@@ -721,7 +988,7 @@ components:
                 properties:
                   title: { type: string, minLength: 1, maxLength: 200 }
                   merchant: { type: string, maxLength: 200 }
-                  categoryId: { $ref: '#/components/schemas/Uuid' }
+                  categoryId: { $ref: '#/components/schemas/TrackingUuid' }
                   occurredAt: { type: string, format: date-time }
     AdminMutation:
       required: true
@@ -737,15 +1004,27 @@ components:
               expectedVersion: { type: integer, minimum: 1 }
               patch: { type: object, maxProperties: 12 }
   schemas:
-    Uuid: { type: string, format: uuid }
-    NormalizedImportRequest:
+    TrackingUuid: { type: string, format: uuid }
+    TrackingNormalizedImportRequest:
       type: object
       additionalProperties: false
       required: [schemaVersion, sourceType, events]
       properties:
         schemaVersion: { type: integer, const: 1 }
         sourceType: { type: string, enum: [sms, manual] }
-        sourceChannel: { type: string, enum: [android_sms, android_notification, ios_shortcut, ios_app_intent, ios_share_extension, manual] }
+        sourceChannel:
+          {
+            type: string,
+            enum:
+              [
+                android_sms,
+                android_notification,
+                ios_shortcut,
+                ios_app_intent,
+                ios_share_extension,
+                manual,
+              ],
+          }
         events:
           type: array
           minItems: 1
@@ -767,25 +1046,33 @@ components:
                 type: object
                 maxProperties: 12
                 additionalProperties: { type: [string, number, boolean, 'null'] }
-    ResourceEnvelope:
+    TrackingResourceEnvelope:
       type: object
       additionalProperties: false
       required: [data]
-      properties: { data: { $ref: '#/components/schemas/Phase08Resource' } }
-    PageEnvelope:
+      properties: { data: { $ref: '#/components/schemas/TrackingPhase08Resource' } }
+    TrackingMutationEnvelope:
       type: object
       additionalProperties: false
-      required: [data, page]
+      required: [operationId, replayed, resource, requestId]
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/Phase08Resource' } }
-        page:
-          type: object
-          additionalProperties: false
-          required: [hasMore]
-          properties:
-            nextCursor: { type: [string, 'null'] }
-            hasMore: { type: boolean }
-    ErrorEnvelope:
+        operationId: { $ref: '#/components/schemas/TrackingUuid' }
+        replayed: { type: boolean }
+        resource: { $ref: '#/components/schemas/TrackingPhase08Resource' }
+        requestId: { type: string, minLength: 1, maxLength: 200 }
+    TrackingPageEnvelope:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          {
+            type: array,
+            maxItems: 100,
+            items: { $ref: '#/components/schemas/TrackingPhase08Resource' },
+          }
+        nextCursor: { type: [string, 'null'], maxLength: 512 }
+    TrackingErrorEnvelope:
       type: object
       additionalProperties: false
       required: [error]
@@ -798,12 +1085,12 @@ components:
             code: { type: string }
             message: { type: string }
             requestId: { type: string }
-    Phase08Resource:
+    TrackingPhase08Resource:
       type: object
       additionalProperties: false
       minProperties: 1
       properties:
-        id: { $ref: '#/components/schemas/Uuid' }
+        id: { $ref: '#/components/schemas/TrackingUuid' }
         kind: { type: string, maxLength: 64 }
         key: { type: string, maxLength: 120 }
         name: { type: string, maxLength: 200 }
@@ -818,8 +1105,8 @@ components:
         trusted: { type: boolean }
         version: { type: integer, minimum: 1 }
         sourceType: { type: string, maxLength: 32 }
-        sessionId: { $ref: '#/components/schemas/Uuid' }
-        itemId: { $ref: '#/components/schemas/Uuid' }
+        sessionId: { $ref: '#/components/schemas/TrackingUuid' }
+        itemId: { $ref: '#/components/schemas/TrackingUuid' }
         transactionId: { type: [string, 'null'], format: uuid }
         existingTransactionId: { type: [string, 'null'], format: uuid }
         parserVersionId: { type: [string, 'null'], format: uuid }
@@ -833,27 +1120,39 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
   responses:
-    Resource:
+    TrackingResource:
       description: Owner- or permission-scoped resource with no raw payload.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ResourceEnvelope' } } }
-    Page:
+      content:
+        application/json:
+          schema:
+            anyOf:
+              - $ref: '#/components/schemas/TrackingPhase08Resource'
+              - $ref: '#/components/schemas/TrackingMutationEnvelope'
+    TrackingPage:
       description: Cursor-paginated bounded resource list.
-      content: { application/json: { schema: { $ref: '#/components/schemas/PageEnvelope' } } }
-    BadRequest:
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingPageEnvelope' } } }
+    TrackingBadRequest:
       description: Invalid or hostile input.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
-    Unauthorized:
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingErrorEnvelope' } } }
+    TrackingUnauthorized:
       description: Authentication required.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
-    NotFound:
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingErrorEnvelope' } } }
+    TrackingNotFound:
       description: Resource absent or outside the caller ownership boundary.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
-    Conflict:
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingErrorEnvelope' } } }
+    TrackingConflict:
       description: Expected-version or idempotency conflict.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
-    PayloadTooLarge:
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingErrorEnvelope' } } }
+    TrackingPayloadTooLarge:
       description: Bounded payload limit exceeded.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
-    Unsupported:
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingErrorEnvelope' } } }
+    TrackingUnsupported:
       description: Media type or format is not supported by Phase 08.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/TrackingErrorEnvelope' } } }

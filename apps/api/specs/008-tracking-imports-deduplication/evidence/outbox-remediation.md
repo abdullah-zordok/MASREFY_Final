@@ -28,13 +28,17 @@ changed.
 ## Local verification
 
 - clean database reset applied the new migration;
-- database lint: zero errors;
-- pgTAP: 32 files and 1,023 assertions passed;
+- database lint: zero findings;
+- latest pgTAP: 36 files and 1,304 assertions passed;
 - focused unit tests: 3/3 passed;
 - checksum and whitespace checks passed;
 - one-million-row CI-style k6 run: 4,095 iterations, 201,000/201,000 checks, zero
   claim failures, steady P95 6 ms and P99 16.03 ms, overall claim P99 24 ms,
   publication P95 16 ms and P99 21 ms, maximum claim 100 ms, 198,125 published.
+- final clean CI-equivalent rerun: one-million-row indexed plan completed in
+  0.572 ms; all six claim/outage/restart/lease-churn/backlog scenarios and
+  167,100/167,100 checks passed; steady claim P95/P99 was 8/28 ms, overall claim
+  P99 30.84 ms, publication P95/P99 18/21 ms, and claim failures were 0%.
 
 Commit `49f38b72f230a317a6b271dde6612030eeaa7d55` contains only the migration,
 pgTAP assertion, checksum, and sanitized first-error performance diagnostic.

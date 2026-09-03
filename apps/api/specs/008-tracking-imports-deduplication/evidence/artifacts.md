@@ -6,7 +6,7 @@
 - Requirements checklist: all 16 specification-quality checks pass.
 - Planning set: `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, parser
   DSL, internal contracts, events/jobs, Mobile/Admin mapping, and OpenAPI exist.
-- OpenAPI YAML parsed successfully: 44 paths, 53 unique operation IDs.
+- OpenAPI YAML parsed successfully: 56 paths, 72 unique operation IDs.
 - Task ledger: 139 unique sequential tasks, all 139 match required checkbox/ID/
   optional-parallel/optional-story/path format.
 - Story task counts: US1 14, US2 16, US3 14, US4 13, US5 16, US6 16.
