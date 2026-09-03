@@ -333,8 +333,21 @@ export const aiActionContextSchema = z.object({
   reason: reasonTextSchema,
   expectedState: z.string().max(40),
   expectedRevision: z.number().int().positive(),
-  confirmationToken: z.literal("CONFIRM-SPEC-006"),
 }).strict();
+
+export const aiAdminResourceSchema = z.object({
+  id: z.uuid(),
+  kind: z.string().min(1).max(40),
+  version: z.number().int().positive(),
+  data: z.record(z.string(), z.unknown()),
+}).strict();
+
+export const aiAdminPageSchema = z.object({
+  items: z.array(aiAdminResourceSchema).max(100),
+  nextCursor: z.string().nullable(),
+}).strict();
+
+export type AiAdminResource = z.infer<typeof aiAdminResourceSchema>;
 
 export const providerActionRequestSchema = z.object({
   context: aiActionContextSchema,
@@ -347,9 +360,9 @@ export const aiActionResultSchema = z.object({
   previousState: z.string().max(40),
   currentState: z.string().max(40),
   outcome: z.enum(["success", "rejected", "conflict"]),
-  timestamp: z.iso.datetime({ offset: true }),
+  timestamp: z.iso.datetime({ offset: true }).optional(),
   message: z.string().max(240),
-  auditReference: auditReferenceSchema,
+  auditReference: auditReferenceSchema.optional(),
 }).strict();
 
 export const aiOperationalResourceSchema = z.enum([

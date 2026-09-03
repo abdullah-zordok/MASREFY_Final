@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   VOICE_MAX_DURATION_MS,
   proposalErrors,
-  proposalToTransactionInput,
   selectedProposals,
   type VoiceErrorCode,
   type VoiceProposalGroup,
@@ -17,7 +16,6 @@ import { invalidateCoreFinanceScopes } from '@/features/core-finance/core-financ
 import type { NotificationSourceEvent } from '@/services/contracts/assistant-notifications-service';
 import { VoiceCaptureError } from '@/services/contracts/voice-capture-service';
 import { assistantNotificationsService } from '@/services/mocks/assistant-notifications-service';
-import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { voiceAnalyzerService } from '@/services/voice-analyzer-service';
 import { voiceCategoryService } from '@/services/mocks/voice-category-service';
 import { voiceRecorderService } from '@/services/platform/voice-recorder-service';
@@ -147,18 +145,14 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
     proposals: VoiceTransactionProposal[],
     operationId: string
   ) => {
-    const mutation = await coreFinanceService.createTransactionsAtomically(
-      proposals.map(proposalToTransactionInput),
-      operationId,
-      'voice'
-    );
+    const mutation = await voiceAnalyzerService.confirm({ group, proposals, operationId });
     await saveCategoryPreferences(proposals);
     await emitVoiceNotification(
       { ...group, proposals },
       proposals.some(hasConfirmedObligationLink) ? 'obligation-link' : 'saved',
       emittedNotifications.current,
       pendingNotifications.current,
-      mutation.value[0]?.id
+      mutation.transactionIds[0]
     );
     await invalidateCoreFinanceScopes(client, mutation.affectedScopes);
   };

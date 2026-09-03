@@ -177,8 +177,9 @@ test("Spec 006 tables, cards, filters, confirmations, and mobile guidance are ac
   );
   await page.goto("/admin/ai/failures");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByLabel("عوامل تصفية الذكاء الاصطناعي")).toBeVisible();
-  await expect(page.getByLabel("بحث", { exact: true })).toBeVisible();
+  const filters = page.getByLabel("عوامل تصفية الذكاء الاصطناعي");
+  await expect(filters).toBeVisible();
+  await expect(filters.getByRole("textbox", { name: "بحث" })).toBeVisible();
 
   if (testInfo.project.name === "mobile-390") {
     await expect(page.locator(".mobile-data-card:visible")).toBeVisible();

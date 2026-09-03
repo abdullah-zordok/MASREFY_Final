@@ -12,7 +12,7 @@ describe('SecurityWorkerService', () => {
       ),
     };
     const config = {
-      get: jest.fn(() => ['identity@1', 'tracking@1']),
+      get: jest.fn(() => ['ai@1', 'identity@1', 'tracking@1']),
       getRequired: jest.fn(() => 25),
     };
     const identity = {
@@ -24,11 +24,13 @@ describe('SecurityWorkerService', () => {
       applyRetention: jest.fn(),
     };
     const tracking = { ...identity, resourceType: 'tracking' };
+    const ai = { ...identity, resourceType: 'ai' };
     const worker = new SecurityWorkerService(
       repository as never,
       { delete: jest.fn() } as never,
       identity as never,
       tracking as never,
+      ai as never,
       config as never,
     );
 

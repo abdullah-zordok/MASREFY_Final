@@ -2,6 +2,8 @@ import type { VoiceAnalyzerService } from '@/services/contracts/voice-capture-se
 import { VoiceCaptureError, voiceAnalyzerServiceCapability } from '@/services/contracts/voice-capture-service';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
 import { fixtureProposalGroup, fixtureTranscript } from './voice-fixtures';
+import { proposalToTransactionInput } from '@/domain/voice-capture';
+import { coreFinanceService } from './core-finance-service';
 
 const EMPTY_ANALYSIS_DELAY_MS = 1_500;
 
@@ -30,6 +32,10 @@ export function createMockVoiceAnalyzerService(): CapabilityProviderHandle<Voice
       } catch {
         throw new VoiceCaptureError('analysis_failed');
       }
+    },
+    async confirm(input) {
+      const result = await coreFinanceService.createTransactionsAtomically(input.proposals.map(proposalToTransactionInput), input.operationId, 'voice');
+      return { transactionIds: result.value.map(({ id }) => id), affectedScopes: result.affectedScopes };
     }
   };
 }

@@ -48,6 +48,8 @@ describe('backend workflow action pins', () => {
       'npm run test:performance:sync',
       'npm run test:performance:ledger',
       'npm run test:performance:platform',
+      'npm run test:performance:ai',
+      'npm run test:stress:ai',
       'npm run perf:seed:outbox',
       'npm run perf:explain:outbox',
       'npm run test:outbox:performance',
@@ -55,9 +57,14 @@ describe('backend workflow action pins', () => {
     ]) {
       expect(workflow).toContain(command);
     }
-    const loadIndex = workflow.indexOf('npm run test:outbox:performance');
-    const stressIndex = workflow.indexOf('npm run test:stress');
-    const stressSeedIndex = workflow.indexOf('npm run perf:seed:outbox', loadIndex);
+    const lines = workflow.split(/\r?\n/);
+    const loadIndex = lines.findIndex(
+      (line) => line.trim() === 'run: npm run test:outbox:performance',
+    );
+    const stressIndex = lines.findIndex((line) => line.trim() === 'run: npm run test:stress');
+    const stressSeedIndex = lines.findIndex(
+      (line, index) => index > loadIndex && line.trim() === 'run: npm run perf:seed:outbox',
+    );
     expect(stressSeedIndex).toBeGreaterThan(loadIndex);
     expect(stressSeedIndex).toBeLessThan(stressIndex);
     expect(workflow).toContain(

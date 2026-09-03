@@ -82,7 +82,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "validated action",
         expectedState: "healthy",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).resolves.toMatchObject({ affectedId: "AIP-OPENAI" });
   });
@@ -112,7 +111,6 @@ describe("Spec 006 shared AI repository boundary", () => {
     const context = {
       reason: "verified mock decision",
       expectedRevision: 1,
-      confirmationToken: "CONFIRM-SPEC-006" as const,
     };
     await expect(aiRepository.actOnModel("AIM-GPT-4O", {
       action: "deactivate",
@@ -157,7 +155,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "create a safe rollback draft",
         expectedState: "active",
         expectedRevision: 3,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).resolves.toMatchObject({ affectedId: "AIPR-ROLLBACK-0001", currentState: "draft" });
     const prompts = await aiRepository.listOperational("prompts", { page: 1, pageSize: 25 });
@@ -171,7 +168,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "would remove required coverage",
         expectedState: "active",
         expectedRevision: 5,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).rejects.toMatchObject({ code: "conflict", status: 409 });
     await expect(aiRepository.actOnOperational("safety-rules", "AIS-0002", {
@@ -180,7 +176,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "activate bounded declarative rule",
         expectedState: "draft",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).resolves.toMatchObject({ currentState: "active", outcome: "success" });
   });
@@ -192,7 +187,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "all required fictional tests passed",
         expectedState: "testing",
         expectedRevision: 2,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).resolves.toMatchObject({ currentState: "active", outcome: "success" });
     await expect(aiRepository.actOnOperational("prompts", "AIPR-VOICE-AR-V4", {
@@ -201,7 +195,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "required fictional test is failing",
         expectedState: "testing",
         expectedRevision: 4,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).rejects.toMatchObject({ code: "validation_error", status: 400 });
   });
@@ -220,7 +213,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "validated fallback priority change",
         expectedState: provider.health,
         expectedRevision: provider.revision,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).resolves.toMatchObject({ outcome: "success" });
     const updated = await aiRepository.getProvider(provider.id);
@@ -244,7 +236,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "must be denied",
         expectedState: "active",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).rejects.toMatchObject({ code: "forbidden", status: 403 });
     await expect(aiRepository.getPrompt("AIPR-RECEIPT-AR-V3"))
@@ -255,7 +246,6 @@ describe("Spec 006 shared AI repository boundary", () => {
         reason: "must be denied",
         expectedState: "healthy",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).rejects.toMatchObject({ code: "forbidden", status: 403 });
     for (const [resource, id, action, state, revision] of [
@@ -270,7 +260,6 @@ describe("Spec 006 shared AI repository boundary", () => {
           reason: "must be denied",
           expectedState: state,
           expectedRevision: revision,
-          confirmationToken: "CONFIRM-SPEC-006",
         },
       })).rejects.toMatchObject({ code: "forbidden", status: 403 });
     }

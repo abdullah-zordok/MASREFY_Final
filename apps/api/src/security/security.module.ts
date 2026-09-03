@@ -10,6 +10,8 @@ import { SecurityService } from './security.service';
 import { SecurityWorkerService } from './security.worker';
 import { TrackingPrivacyHandler } from '../tracking/tracking-privacy.handler';
 import { TrackingStorage } from '../tracking/tracking.storage';
+import { AiPrivacyHandler } from '../ai/ai-privacy.handler';
+import { AiStorage } from '../ai/ai.storage';
 
 @Module({
   imports: [DatabaseModule, IdentityModule],
@@ -26,6 +28,8 @@ export class SecurityModule {}
     ExportStorage,
     TrackingStorage,
     TrackingPrivacyHandler,
+    AiStorage,
+    AiPrivacyHandler,
     SecurityWorkerService,
   ],
   exports: [SecurityWorkerService],

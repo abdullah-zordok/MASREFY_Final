@@ -13,10 +13,10 @@ import {
 } from '../../../src/security/permission-manifest';
 
 describe('permission manifest contract', () => {
-  it('tracks all 151 unique Admin keys and seven unique roles', () => {
+  it('tracks all 156 unique Admin keys and seven unique roles', () => {
     expect(CLIENT_PERMISSION_KEYS).toEqual(ADMIN_PERMISSION_KEYS);
-    expect(CLIENT_PERMISSION_KEYS).toHaveLength(151);
-    expect(new Set(CLIENT_PERMISSION_KEYS).size).toBe(151);
+    expect(CLIENT_PERMISSION_KEYS).toHaveLength(156);
+    expect(new Set(CLIENT_PERMISSION_KEYS).size).toBe(156);
     expect(SYSTEM_ROLES).toEqual(ADMIN_ROLES);
     expect(new Set(SYSTEM_ROLES).size).toBe(7);
   });

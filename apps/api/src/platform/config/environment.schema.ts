@@ -55,6 +55,13 @@ const applicationKeys = new Set([
   'MASARIFI_SECURITY_WORKER_POLL_MS',
   'MASARIFI_SECURITY_JOB_BATCH_SIZE',
   'MASARIFI_PRIVACY_HANDLER_MANIFEST',
+  'OPENROUTER_API_KEY',
+  'MASARIFI_AI_PROVIDER_ENABLED',
+  'MASARIFI_AI_WORKER_POLL_MS',
+  'MASARIFI_AI_JOB_BATCH_SIZE',
+  'MASARIFI_AI_LEASE_SECONDS',
+  'MASARIFI_AI_MAX_CONCURRENCY',
+  'MASARIFI_AI_SIGNED_UPLOAD_SECONDS',
 ]);
 const testHarnessKeys = new Set(['MASARIFI_IMAGE_UNDER_TEST', 'MASARIFI_LIVE_DATABASE_TESTS']);
 
@@ -260,6 +267,13 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_PRIVACY_HANDLER_MANIFEST: Joi.string()
     .custom(parseHandlerManifest, 'privacy handler manifest parser')
     .optional(),
+  OPENROUTER_API_KEY: Joi.string().trim().min(24).max(512).optional(),
+  MASARIFI_AI_PROVIDER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  MASARIFI_AI_WORKER_POLL_MS: Joi.number().integer().min(100).max(10_000).default(500),
+  MASARIFI_AI_JOB_BATCH_SIZE: Joi.number().integer().min(1).max(25).default(25),
+  MASARIFI_AI_LEASE_SECONDS: Joi.number().integer().min(10).max(300).default(120),
+  MASARIFI_AI_MAX_CONCURRENCY: Joi.number().integer().min(1).max(16).default(4),
+  MASARIFI_AI_SIGNED_UPLOAD_SECONDS: Joi.number().integer().min(60).max(900).default(300),
 }).unknown(true);
 
 const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment)[]> = {
@@ -375,6 +389,17 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   }
   if (processKind === 'worker' && input.MASARIFI_ADMIN_ROUTES_ENABLED !== undefined) {
     invalidEnvironment(['MASARIFI_ADMIN_ROUTES_ENABLED']);
+  }
+  if (processKind !== 'worker' && input.OPENROUTER_API_KEY !== undefined) {
+    invalidEnvironment(['OPENROUTER_API_KEY']);
+  }
+  if (
+    processKind === 'worker' &&
+    (input.MASARIFI_AI_PROVIDER_ENABLED === true ||
+      input.MASARIFI_AI_PROVIDER_ENABLED === 'true') &&
+    !input.OPENROUTER_API_KEY
+  ) {
+    invalidEnvironment(['OPENROUTER_API_KEY']);
   }
   const unknownApplicationKeys = Object.keys(input).filter(
     (key) =>

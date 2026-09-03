@@ -12,6 +12,8 @@ export const aiCopy = {
       openUsage: "فتح الاستخدام",
     },
     filters: {
+      platform: "المنصة",
+      period: "الفترة",
       allPlatforms: "كل المنصات",
       unknown: "غير معروف",
     },
@@ -71,6 +73,8 @@ export const aiCopy = {
       openUsage: "Open usage",
     },
     filters: {
+      platform: "Platform",
+      period: "Period",
       allPlatforms: "All Platforms",
       unknown: "Unknown",
     },

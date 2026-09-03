@@ -35,7 +35,6 @@ describe("Spec 006 Phase 5 runtime state", () => {
         reason: "valid operational update",
         expectedState: "healthy",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
       fallbackRoutes: [],
     })).toMatchObject({ outcome: "rejected" });
@@ -46,7 +45,6 @@ describe("Spec 006 Phase 5 runtime state", () => {
         reason: "stale",
         expectedState: "unavailable",
         expectedRevision: 99,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).toMatchObject({ outcome: "conflict" });
   });
@@ -59,7 +57,6 @@ describe("Spec 006 Phase 5 runtime state", () => {
         reason: "triage decision",
         expectedState: "open",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).toMatchObject({ outcome: "success", previousState: "open", currentState: "acknowledged" });
     expect(phase5Record("AIF-0001")).toEqual({ status: "acknowledged", revision: 2 });
@@ -69,7 +66,6 @@ describe("Spec 006 Phase 5 runtime state", () => {
         reason: "stale decision",
         expectedState: "open",
         expectedRevision: 1,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     })).toThrowError(expect.objectContaining({ code: "conflict" }));
     resetPhase5AiState();
@@ -84,7 +80,6 @@ describe("Spec 006 Phase 5 runtime state", () => {
         reason: "restore historical behavior as a new draft",
         expectedState: "active",
         expectedRevision: 3,
-        confirmationToken: "CONFIRM-SPEC-006",
       },
     });
     expect(result).toMatchObject({ affectedId: "AIPR-ROLLBACK-0001", currentState: "draft" });

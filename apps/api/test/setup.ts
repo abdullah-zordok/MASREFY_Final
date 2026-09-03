@@ -23,7 +23,7 @@ process.env.MASARIFI_EXPORT_MAX_BYTES ??= '16777216';
 process.env.MASARIFI_EXPORT_MAX_ENTRIES ??= '100';
 process.env.MASARIFI_SECURITY_WORKER_POLL_MS ??= '500';
 process.env.MASARIFI_SECURITY_JOB_BATCH_SIZE ??= '25';
-process.env.MASARIFI_PRIVACY_HANDLER_MANIFEST ??= 'identity@1,tracking@1';
+process.env.MASARIFI_PRIVACY_HANDLER_MANIFEST ??= 'ai@1,identity@1,tracking@1';
 
 let liveDatabasePool: Pool | undefined;
 

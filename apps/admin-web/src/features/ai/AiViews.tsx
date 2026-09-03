@@ -112,6 +112,7 @@ export function AiModelListView({ models, actions, filters, pagination }: { mode
         ))}
       </ul>
       {actions}
+      {pagination}
     </div>
   );
 }
@@ -259,13 +260,12 @@ function ProviderActionButton({
               reason,
               expectedState: provider.health,
               expectedRevision: provider.revision,
-              confirmationToken: "CONFIRM-SPEC-006",
             },
           }),
         }, { onSuccess: () => setOpen(false) })}
         title={`تأكيد ${action}`}
         scope={provider.id}
-        consequence="يسجل قرار محاكاة فقط؛ لا يجري أي تغيير لدى المزود."
+        consequence="يطبّق التغيير على إعدادات المزود ويرفضه الخادم إذا أضعف مسارًا نشطًا."
         permission="ai.providers.manage"
         auditEvent="admin.ai.provider.action"
         pending={mutation.isPending}
@@ -309,7 +309,6 @@ function AiActionButton({
       reason,
       expectedState: record.status,
       expectedRevision: record.revision,
-      confirmationToken: "CONFIRM-SPEC-006",
     },
   };
   return (
@@ -331,7 +330,7 @@ function AiActionButton({
         } })}
         title={`تأكيد ${action}`}
         scope={record.id}
-        consequence="يسجل قرار محاكاة فقط؛ لا ينفذ مزوداً أو نموذجاً أو قاعدة حقيقية."
+        consequence="يطبّق التغيير على إعدادات الذكاء الاصطناعي ويسجله في سجل التدقيق."
         permission={permission}
         auditEvent={`admin.ai.${resource}.action`}
         pending={mutation.isPending}

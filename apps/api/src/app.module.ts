@@ -12,6 +12,7 @@ import { SecurityModule } from './security/security.module';
 import { SyncModule } from './sync/sync.module';
 import { PlanningModule } from './planning/planning.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TrackingModule } from './tracking/tracking.module';
     SyncModule,
     PlanningModule,
     TrackingModule,
+    AiModule,
   ],
   providers: [RequestIdMiddleware],
 })

@@ -5,7 +5,7 @@ test("AI overview route exposes safe operational summary", async ({ page }) => {
   await page.goto("/admin/ai");
   await expect(page.getByRole("heading", { name: "إدارة الذكاء الاصطناعي" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(page.getByRole("article").filter({ hasText: "Original requests" }).first()).toBeVisible();
+  await expect(page.getByRole("article").filter({ hasText: "الطلبات الأصلية" }).first()).toBeVisible();
   await page.getByLabel("المنصة").selectOption("ios");
   await expect(page.getByText("المنصة ios، الفترة 30d")).toBeAttached();
   await page.getByLabel("الفترة").selectOption("7d");
@@ -48,9 +48,10 @@ test("AI metadata filters remain usable without exposing content", async ({ page
   await page.goto("/admin/ai/usage");
   await page.getByLabel("المنصة").selectOption("ios");
   await expect(page.locator("td:visible, .mobile-data-card:visible").filter({ hasText: "AIU-0001" }).first()).toBeVisible();
-  await page.getByLabel("بحث", { exact: true }).fill("does-not-exist");
+  const filters = page.getByLabel("عوامل تصفية الذكاء الاصطناعي");
+  await filters.getByRole("textbox", { name: "بحث" }).fill("does-not-exist");
   await expect(page.getByRole("status")).toContainText("لا توجد سجلات مطابقة");
-  await page.getByLabel("بحث", { exact: true }).fill("");
+  await filters.getByRole("textbox", { name: "بحث" }).fill("");
   await page.getByLabel("الحالة").fill("succeeded");
   await expect(page.locator("td:visible, .mobile-data-card:visible").filter({ hasText: "AIU-0001" }).first()).toBeVisible();
   await expect(page.locator("body")).not.toContainText(/rawPrompt|rawResponse|providerPayload|apiKey|credential/i);
@@ -68,7 +69,7 @@ test("AI configuration and triage actions require scoped confirmation", async ({
   const providerDialog = page.getByRole("dialog");
   await expect(providerDialog).toContainText("AIP-OPENAI");
   await expect(providerDialog).toContainText("ai.providers.manage");
-  await expect(providerDialog).toContainText(/لا يجري أي تغيير لدى المزود/);
+  await expect(providerDialog).toContainText(/يطبّق التغيير على إعدادات المزود/);
   await providerDialog.getByLabel("سبب القرار").fill("تحديث مسار fallback التجريبي");
   await providerDialog.getByRole("button", { name: "تأكيد" }).click();
   await expect(providerDialog).not.toBeVisible();

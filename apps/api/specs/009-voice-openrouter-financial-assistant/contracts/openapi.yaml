@@ -1,0 +1,1205 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Phase 09 Voice and AI API
+  version: 1.0.0
+  description: Strict owner and Admin contracts for SPEC-BE-009 only.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: Voice
+  - name: Assistant
+  - name: Admin AI
+paths:
+  /api/v1/voice/sessions:
+    post:
+      tags: [Voice]
+      operationId: createVoiceSession
+      parameters:
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateVoiceSessionRequest' }
+      responses:
+        '201':
+          description: Private upload session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceUploadResponse' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+        '422': { $ref: '#/components/responses/AiValidationError' }
+        '429': { $ref: '#/components/responses/QuotaError' }
+  /api/v1/voice/sessions/{sessionId}:
+    get:
+      tags: [Voice]
+      operationId: getVoiceSession
+      parameters:
+        - $ref: '#/components/parameters/AiVoiceSessionId'
+      responses:
+        '200':
+          description: Owner-safe status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceSession' }
+        '404': { $ref: '#/components/responses/AiNotFound' }
+  /api/v1/voice/sessions/{sessionId}/process:
+    post:
+      tags: [Voice]
+      operationId: processVoiceSession
+      parameters:
+        - $ref: '#/components/parameters/AiVoiceSessionId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProcessVoiceRequest' }
+      responses:
+        '202':
+          description: Processing accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedWork' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+        '422': { $ref: '#/components/responses/AiValidationError' }
+        '429': { $ref: '#/components/responses/QuotaError' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+  /api/v1/voice/sessions/{sessionId}/proposal:
+    get:
+      tags: [Voice]
+      operationId: getVoiceProposal
+      parameters:
+        - $ref: '#/components/parameters/AiVoiceSessionId'
+      responses:
+        '200':
+          description: Reviewable proposal
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceProposal' }
+        '404': { $ref: '#/components/responses/AiNotFound' }
+  /api/v1/voice/proposals/{proposalId}/confirm:
+    post:
+      tags: [Voice]
+      operationId: confirmVoiceProposal
+      parameters:
+        - $ref: '#/components/parameters/ProposalId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmVoiceProposalRequest' }
+      responses:
+        '200':
+          description: Existing ledger command result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExecutedAction' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+        '410': { $ref: '#/components/responses/Expired' }
+        '422': { $ref: '#/components/responses/AiValidationError' }
+  /api/v1/voice/proposals/{proposalId}/reject:
+    post:
+      tags: [Voice]
+      operationId: rejectVoiceProposal
+      parameters:
+        - $ref: '#/components/parameters/ProposalId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VersionedReasonRequest' }
+      responses:
+        '200':
+          description: Proposal rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceProposal' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/voice/category-preferences:
+    get:
+      tags: [Voice]
+      operationId: listVoiceCategoryPreferences
+      responses:
+        '200':
+          description: Owner preferences
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items: { $ref: '#/components/schemas/VoiceCategoryPreference' }
+    post:
+      tags: [Voice]
+      operationId: upsertVoiceCategoryPreference
+      parameters:
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VoiceCategoryPreferenceInput' }
+      responses:
+        '200':
+          description: Preference created or updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceCategoryPreference' }
+        '422': { $ref: '#/components/responses/AiValidationError' }
+  /api/v1/voice/category-preferences/{preferenceId}:
+    delete:
+      tags: [Voice]
+      operationId: deleteVoiceCategoryPreference
+      parameters:
+        - $ref: '#/components/parameters/PreferenceId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      responses:
+        '204': { description: Preference deleted }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/assistant/consent:
+    get:
+      tags: [Assistant]
+      operationId: getAssistantConsent
+      responses:
+        '200':
+          description: Current policy and consent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantConsent' }
+    put:
+      tags: [Assistant]
+      operationId: grantAssistantConsent
+      parameters:
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [policyVersion, accepted]
+              properties:
+                policyVersion: { type: string, minLength: 1, maxLength: 64 }
+                accepted: { const: true }
+      responses:
+        '200':
+          description: Consent granted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantConsent' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+    delete:
+      tags: [Assistant]
+      operationId: revokeAssistantConsent
+      parameters:
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      responses:
+        '204': { description: Consent revoked }
+  /api/v1/assistant/conversations:
+    get:
+      tags: [Assistant]
+      operationId: listAssistantConversations
+      parameters:
+        - $ref: '#/components/parameters/AiCursor'
+        - $ref: '#/components/parameters/AiLimit'
+      responses:
+        '200':
+          description: Cursor page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationPage' }
+    post:
+      tags: [Assistant]
+      operationId: createAssistantConversation
+      parameters:
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                title: { type: [string, 'null'], maxLength: 120 }
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantConversation' }
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+  /api/v1/assistant/conversations/{conversationId}:
+    get:
+      tags: [Assistant]
+      operationId: getAssistantConversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Conversation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantConversation' }
+        '404': { $ref: '#/components/responses/AiNotFound' }
+    patch:
+      tags: [Assistant]
+      operationId: updateAssistantConversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 2
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+                title: { type: [string, 'null'], maxLength: 120 }
+                status: { enum: [active, archived] }
+      responses:
+        '200':
+          description: Conversation updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantConversation' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+    delete:
+      tags: [Assistant]
+      operationId: deleteAssistantConversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      responses:
+        '204': { description: Conversation hidden and deletion scheduled }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/assistant/conversations/{conversationId}/messages:
+    get:
+      tags: [Assistant]
+      operationId: listAssistantMessages
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/AiCursor'
+        - $ref: '#/components/parameters/AiLimit'
+      responses:
+        '200':
+          description: Message cursor page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessagePage' }
+    post:
+      tags: [Assistant]
+      operationId: createAssistantMessage
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAssistantMessageRequest' }
+      responses:
+        '202':
+          description: Response work accepted; clients may request SSE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedWork' }
+            text/event-stream:
+              schema: { type: string, description: 'meta/delta/preview/done/error SSE events' }
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '429': { $ref: '#/components/responses/QuotaError' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+  /api/v1/assistant/previews/{previewId}/confirm:
+    post:
+      tags: [Assistant]
+      operationId: confirmAssistantPreview
+      parameters:
+        - $ref: '#/components/parameters/PreviewId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiVersionRequest' }
+      responses:
+        '200':
+          description: Existing domain command result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExecutedAction' }
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+        '410': { $ref: '#/components/responses/Expired' }
+  /api/v1/assistant/previews/{previewId}/reject:
+    post:
+      tags: [Assistant]
+      operationId: rejectAssistantPreview
+      parameters:
+        - $ref: '#/components/parameters/PreviewId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VersionedReasonRequest' }
+      responses:
+        '200':
+          description: Preview rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActionPreview' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/assistant/messages/{messageId}/feedback:
+    put:
+      tags: [Assistant]
+      operationId: putAssistantFeedback
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [rating]
+              properties:
+                rating: { enum: [-1, 1] }
+                reason: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '200':
+          description: Feedback stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Feedback' }
+  /api/v1/assistant/messages/{messageId}/report:
+    post:
+      tags: [Assistant]
+      operationId: reportAssistantResponse
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateResponseReportRequest' }
+      responses:
+        '201':
+          description: Report opened
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResponseReport' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/admin/ai/probe:
+    get:
+      tags: [Admin AI]
+      operationId: probeAiAdministration
+      responses:
+        '200':
+          description: Safe domain availability only
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties: { status: { enum: [available, unavailable] } }
+  /api/v1/admin/ai/overview:
+    get:
+      tags: [Admin AI]
+      operationId: getAiOverview
+      parameters: [{ name: period, in: query, schema: { enum: [7d, 30d, 90d], default: 30d } }]
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/providers:
+    get:
+      tags: [Admin AI]
+      operationId: listAiProviders
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+  /api/v1/admin/ai/providers/{providerId}:
+    get:
+      tags: [Admin AI]
+      operationId: getAiProvider
+      parameters: [{ $ref: '#/components/parameters/ProviderId' }]
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '404': { $ref: '#/components/responses/AiNotFound' }
+    patch:
+      tags: [Admin AI]
+      operationId: updateAiProvider
+      parameters:
+        [
+          { $ref: '#/components/parameters/ProviderId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminVersionedMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/admin/ai/providers/{providerId}/actions:
+    post:
+      tags: [Admin AI]
+      operationId: actOnAiProvider
+      parameters:
+        [
+          { $ref: '#/components/parameters/ProviderId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminVersionedMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/admin/ai/models:
+    get:
+      tags: [Admin AI]
+      operationId: listAiModels
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+  /api/v1/admin/ai/models/{modelId}:
+    patch:
+      tags: [Admin AI]
+      operationId: updateAiModel
+      parameters:
+        [
+          { $ref: '#/components/parameters/ModelId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminVersionedMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/models/{modelId}/actions:
+    post:
+      tags: [Admin AI]
+      operationId: actOnAiModel
+      parameters:
+        [
+          { $ref: '#/components/parameters/ModelId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminVersionedMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/routes:
+    get:
+      tags: [Admin AI]
+      operationId: listAiRoutes
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+  /api/v1/admin/ai/routes/{routeId}:
+    patch:
+      tags: [Admin AI]
+      operationId: updateAiRoute
+      parameters:
+        [
+          { $ref: '#/components/parameters/RouteId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminRouteMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+        '422': { $ref: '#/components/responses/AiValidationError' }
+  /api/v1/admin/ai/prompts:
+    get:
+      tags: [Admin AI]
+      operationId: listAiPrompts
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+    post:
+      tags: [Admin AI]
+      operationId: createAiPromptVersion
+      parameters: [{ $ref: '#/components/parameters/AiIdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPromptCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/prompts/{promptVersionId}/test:
+    post:
+      tags: [Admin AI]
+      operationId: testAiPromptVersion
+      parameters:
+        [
+          { $ref: '#/components/parameters/PromptVersionId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminReason' }
+      responses:
+        '202':
+          description: Evaluation queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedWork' }
+  /api/v1/admin/ai/prompts/{promptVersionId}:
+    get:
+      tags: [Admin AI]
+      operationId: getAiPromptVersion
+      parameters: [{ $ref: '#/components/parameters/PromptVersionId' }]
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '404': { $ref: '#/components/responses/AiNotFound' }
+  /api/v1/admin/ai/prompts/{promptVersionId}/publish:
+    post:
+      tags: [Admin AI]
+      operationId: publishAiPromptVersion
+      parameters:
+        [
+          { $ref: '#/components/parameters/PromptVersionId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminVersionedReason' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/admin/ai/usage:
+    get:
+      tags: [Admin AI]
+      operationId: listAiUsage
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+  /api/v1/admin/ai/failures:
+    get:
+      tags: [Admin AI]
+      operationId: listAiFailures
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+  /api/v1/admin/ai/response-reports:
+    get:
+      tags: [Admin AI]
+      operationId: listAiResponseReports
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+  /api/v1/admin/ai/response-reports/{reportId}:
+    patch:
+      tags: [Admin AI]
+      operationId: reviewAiResponseReport
+      parameters:
+        [
+          { $ref: '#/components/parameters/ReportId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminReportMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/safety-rules:
+    get:
+      tags: [Admin AI]
+      operationId: listAiSafetyRules
+      parameters:
+        [{ $ref: '#/components/parameters/AiCursor' }, { $ref: '#/components/parameters/AiLimit' }]
+      responses:
+        '200': { $ref: '#/components/responses/AiAdminPage' }
+    post:
+      tags: [Admin AI]
+      operationId: createAiSafetyRule
+      parameters: [{ $ref: '#/components/parameters/AiIdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminSafetyRuleMutation' }
+      responses:
+        '201': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/safety-rules/{ruleId}:
+    patch:
+      tags: [Admin AI]
+      operationId: updateAiSafetyRule
+      parameters:
+        [
+          { $ref: '#/components/parameters/AiSafetyRuleId' },
+          { $ref: '#/components/parameters/AiIdempotencyKey' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminSafetyRuleMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+  /api/v1/admin/ai/{resource}/{resourceId}/actions:
+    post:
+      tags: [Admin AI]
+      operationId: actOnAiOperationalResource
+      parameters:
+        - name: resource
+          in: path
+          required: true
+          schema: { enum: [prompts, failures, response-reports, safety-rules] }
+        - name: resourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/AiIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminVersionedMutation' }
+      responses:
+        '200': { $ref: '#/components/responses/AdminResource' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    AiIdempotencyKey:
+      {
+        name: Idempotency-Key,
+        in: header,
+        required: true,
+        schema: { type: string, minLength: 16, maxLength: 128 },
+      }
+    ExpectedVersion:
+      { name: expectedVersion, in: query, required: true, schema: { type: integer, minimum: 1 } }
+    AiCursor: { name: cursor, in: query, required: false, schema: { type: string, maxLength: 512 } }
+    AiLimit:
+      {
+        name: limit,
+        in: query,
+        required: false,
+        schema: { type: integer, minimum: 1, maximum: 100, default: 25 },
+      }
+    AiVoiceSessionId:
+      { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+    ProposalId:
+      { name: proposalId, in: path, required: true, schema: { type: string, format: uuid } }
+    PreferenceId:
+      { name: preferenceId, in: path, required: true, schema: { type: string, format: uuid } }
+    ConversationId:
+      { name: conversationId, in: path, required: true, schema: { type: string, format: uuid } }
+    PreviewId: { name: previewId, in: path, required: true, schema: { type: string, format: uuid } }
+    MessageId: { name: messageId, in: path, required: true, schema: { type: string, format: uuid } }
+    ProviderId:
+      { name: providerId, in: path, required: true, schema: { type: string, format: uuid } }
+    ModelId: { name: modelId, in: path, required: true, schema: { type: string, format: uuid } }
+    RouteId: { name: routeId, in: path, required: true, schema: { type: string, format: uuid } }
+    PromptVersionId:
+      { name: promptVersionId, in: path, required: true, schema: { type: string, format: uuid } }
+    ReportId: { name: reportId, in: path, required: true, schema: { type: string, format: uuid } }
+    AiSafetyRuleId:
+      { name: ruleId, in: path, required: true, schema: { type: string, format: uuid } }
+  responses:
+    AiConflict:
+      {
+        description: Stale version,
+        replay hash mismatch,
+        or terminal state,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    AiValidationError:
+      {
+        description: Strict validation failed,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    AiNotFound:
+      {
+        description: Resource absent or not visible,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    Expired:
+      {
+        description: Proposal or preview expired,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    ConsentRequired:
+      {
+        description: Current assistant consent required,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    QuotaError:
+      {
+        description: Rolling quota exhausted,
+        content: { application/json: { schema: { $ref: '#/components/schemas/QuotaError' } } },
+      }
+    AiUnavailable:
+      {
+        description: No compliant provider route,
+        budget,
+        or circuit capacity,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    AiAdminPage:
+      {
+        description: Redacted bounded Admin page,
+        content: { application/json: { schema: { $ref: '#/components/schemas/AiAdminPage' } } },
+      }
+    AdminResource:
+      {
+        description: Redacted governed resource,
+        content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } },
+      }
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [statusCode, code, message, requestId]
+      properties:
+        statusCode: { type: integer }
+        code: { type: string, maxLength: 64 }
+        message: { type: string, maxLength: 256 }
+        requestId: { type: string, maxLength: 128 }
+    QuotaError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          required: [limit, used, resetsAt]
+          properties:
+            limit: { const: 5 }
+            used: { type: integer, minimum: 5 }
+            resetsAt: { type: string, format: date-time }
+    CreateVoiceSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [locale, durationMs, contentType, sizeBytes]
+      properties:
+        locale: { enum: [ar, en] }
+        durationMs: { type: integer, minimum: 1, maximum: 120000 }
+        contentType: { enum: [audio/m4a, audio/mp4, audio/mpeg, audio/ogg, audio/wav, audio/webm] }
+        sizeBytes: { type: integer, minimum: 1, maximum: 12582912 }
+    VoiceUploadResponse:
+      type: object
+      additionalProperties: false
+      required: [session, upload]
+      properties:
+        session: { $ref: '#/components/schemas/VoiceSession' }
+        upload:
+          type: object
+          additionalProperties: false
+          required: [url, token, expiresAt, headers]
+          properties:
+            url: { type: string, format: uri }
+            token: { type: string }
+            expiresAt: { type: string, format: date-time }
+            headers: { type: object, additionalProperties: { type: string } }
+    VoiceSession:
+      type: object
+      additionalProperties: false
+      required: [id, locale, status, durationMs, expiresAt, version, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        locale: { enum: [ar, en] }
+        status: { enum: [uploaded, processing, proposed, confirmed, expired, failed] }
+        durationMs: { type: integer, minimum: 1, maximum: 120000 }
+        expiresAt: { type: string, format: date-time }
+        confirmedAt: { type: [string, 'null'], format: date-time }
+        failureCode: { type: [string, 'null'], maxLength: 64 }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    ProcessVoiceRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadCompleted, expectedVersion, contentHash]
+      properties:
+        uploadCompleted: { const: true }
+        expectedVersion: { type: integer, minimum: 1 }
+        contentHash: { type: string, pattern: '^[0-9a-f]{64}$' }
+    AcceptedWork:
+      type: object
+      additionalProperties: false
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { enum: [queued, processing, completed, failed, cancelled] }
+    VoiceProposal:
+      type: object
+      additionalProperties: false
+      required:
+        [id, redactedTranscript, schemaVersion, type, payload, fields, status, expiresAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        redactedTranscript:
+          {
+            type: string,
+            maxLength: 16384,
+            description: 'Server-redacted transcript; raw voice content is never returned.',
+          }
+        schemaVersion: { const: 1 }
+        type: { const: transaction.create }
+        payload: { $ref: '#/components/schemas/TransactionProposalPayload' }
+        fields: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/ProposalField' } }
+        status: { enum: [draft, validated, confirmed, executed, rejected, expired] }
+        expiresAt: { type: string, format: date-time }
+        confirmedAt: { type: [string, 'null'], format: date-time }
+        executedTransactionId: { type: [string, 'null'], format: uuid }
+        version: { type: integer, minimum: 1 }
+    TransactionProposalPayload:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          type,
+          amountMinor,
+          currency,
+          categoryId,
+          accountId,
+          date,
+          merchant,
+          note,
+          confidence,
+        ]
+      properties:
+        schemaVersion: { const: 1 }
+        type: { const: transaction.create }
+        amountMinor: { type: string, pattern: '^-?[1-9][0-9]{0,18}$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        categoryId: { type: [string, 'null'], format: uuid }
+        accountId: { type: [string, 'null'], format: uuid }
+        date: { type: string, format: date }
+        merchant: { type: [string, 'null'], maxLength: 160 }
+        note: { type: [string, 'null'], maxLength: 500 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+    ProposalField:
+      type: object
+      additionalProperties: false
+      required: [name, value, confidence]
+      properties:
+        name: { enum: [amountMinor, currency, categoryId, accountId, date, merchant, note] }
+        value: {}
+        confidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        sourceSpan: { type: [string, 'null'], maxLength: 160 }
+    ConfirmVoiceProposalRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        editedFields:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            amountMinor: { type: string, pattern: '^-?[1-9][0-9]{0,18}$' }
+            currency: { type: string, pattern: '^[A-Z]{3}$' }
+            categoryId: { type: [string, 'null'], format: uuid }
+            accountId: { type: [string, 'null'], format: uuid }
+            date: { type: string, format: date }
+            merchant: { type: [string, 'null'], maxLength: 160 }
+            note: { type: [string, 'null'], maxLength: 500 }
+    AiVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties: { expectedVersion: { type: integer, minimum: 1 } }
+    VersionedReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: [string, 'null'], maxLength: 500 }
+    ExecutedAction:
+      type: object
+      additionalProperties: false
+      required: [sourceId, actionType, resourceId, status, replayed]
+      properties:
+        sourceId: { type: string, format: uuid }
+        actionType: { type: string, maxLength: 64 }
+        resourceId: { type: string, format: uuid }
+        status: { const: executed }
+        replayed: { type: boolean }
+    VoiceCategoryPreferenceInput:
+      type: object
+      additionalProperties: false
+      required: [merchantPattern, categoryId, confidence]
+      properties:
+        id: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        merchantPattern: { type: string, minLength: 1, maxLength: 160 }
+        categoryId: { type: string, format: uuid }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+    VoiceCategoryPreference:
+      allOf:
+        - $ref: '#/components/schemas/VoiceCategoryPreferenceInput'
+        - type: object
+          required: [id, version]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer, minimum: 1 }
+    AssistantConsent:
+      type: object
+      additionalProperties: false
+      required: [policyVersion, granted, grantedAt, revokedAt]
+      properties:
+        policyVersion: { type: string, maxLength: 64 }
+        granted: { type: boolean }
+        grantedAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+    AssistantConversation:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, lastMessageAt, version, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: [string, 'null'], maxLength: 120 }
+        status: { enum: [active, archived] }
+        lastMessageAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    ConversationPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          {
+            type: array,
+            maxItems: 100,
+            items: { $ref: '#/components/schemas/AssistantConversation' },
+          }
+        nextCursor: { type: [string, 'null'] }
+    AssistantMessage:
+      type: object
+      additionalProperties: false
+      required: [id, conversationId, role, content, snapshot, preview, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        role: { enum: [user, assistant] }
+        content: { type: string, maxLength: 16384 }
+        snapshot: { anyOf: [{ $ref: '#/components/schemas/ResponseSnapshot' }, { type: 'null' }] }
+        preview: { anyOf: [{ $ref: '#/components/schemas/ActionPreview' }, { type: 'null' }] }
+        createdAt: { type: string, format: date-time }
+    MessagePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          { type: array, maxItems: 100, items: { $ref: '#/components/schemas/AssistantMessage' } }
+        nextCursor: { type: [string, 'null'] }
+    ResponseSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, evidenceRefs, model, provider]
+      properties:
+        schemaVersion: { const: 1 }
+        evidenceRefs:
+          type: array
+          maxItems: 32
+          items:
+            type: object
+            additionalProperties: false
+            required: [kind, alias, version]
+            properties:
+              kind: { type: string, maxLength: 64 }
+              alias: { type: string, maxLength: 64 }
+              version: { type: integer, minimum: 0 }
+        model: { type: string, maxLength: 160 }
+        provider: { type: string, maxLength: 64 }
+    ActionPreview:
+      type: object
+      additionalProperties: false
+      required: [id, schemaVersion, actionType, payload, evidenceIds, status, expiresAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        schemaVersion: { const: 1 }
+        actionType:
+          {
+            enum:
+              [
+                transaction.create,
+                transaction.update,
+                budget.update,
+                savings_goal.create,
+                obligation.payment.record,
+                tracking.review.resolve,
+              ],
+          }
+        payload: { type: object, maxProperties: 16 }
+        evidenceIds:
+          { type: array, maxItems: 32, uniqueItems: true, items: { type: string, maxLength: 64 } }
+        status: { enum: [draft, validated, confirmed, executed, rejected, expired] }
+        expiresAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    CreateAssistantMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [content, contextScope, responseMode]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 8192 }
+        contextScope:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items:
+            {
+              enum: [accounts_summary, recent_transactions, budgets, obligations, tracking_reviews],
+            }
+        responseMode: { enum: [async, stream] }
+    Feedback:
+      type: object
+      additionalProperties: false
+      required: [messageId, rating, reason, createdAt]
+      properties:
+        messageId: { type: string, format: uuid }
+        rating: { enum: [-1, 1] }
+        reason: { type: [string, 'null'], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+    CreateResponseReportRequest:
+      type: object
+      additionalProperties: false
+      required: [reportType, reason]
+      properties:
+        reportType: { enum: [unsafe, inaccurate, irrelevant, privacy, other] }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+    ResponseReport:
+      type: object
+      additionalProperties: false
+      required: [id, messageId, reportType, reason, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
+        reportType: { enum: [unsafe, inaccurate, irrelevant, privacy, other] }
+        reason: { type: string, maxLength: 1000 }
+        status: { enum: [open, reviewed, actioned, dismissed] }
+        createdAt: { type: string, format: date-time }
+    AdminReason:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    AdminVersionedReason:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    AdminVersionedMutation:
+      allOf:
+        - $ref: '#/components/schemas/AdminVersionedReason'
+        - type: object
+          properties:
+            approved: { type: boolean }
+            enabled: { type: boolean }
+            trainingPolicy: { enum: [unknown, no_training, may_train] }
+            zdrCapable: { type: boolean }
+            costPolicy: { type: object, maxProperties: 8 }
+    AdminRouteMutation:
+      allOf:
+        - $ref: '#/components/schemas/AdminVersionedReason'
+        - type: object
+          properties:
+            primaryModelId: { type: string, format: uuid }
+            fallbackModelIds:
+              { type: array, maxItems: 4, uniqueItems: true, items: { type: string, format: uuid } }
+            providerAllowlist:
+              {
+                type: array,
+                minItems: 1,
+                maxItems: 8,
+                uniqueItems: true,
+                items: { type: string, maxLength: 64 },
+              }
+            enabled: { type: boolean }
+            maxPrice: { type: object, maxProperties: 4 }
+            limits: { type: object, maxProperties: 8 }
+    AdminPromptCreate:
+      type: object
+      additionalProperties: false
+      required: [workload, template, schemaVersion, reason]
+      properties:
+        workload: { type: string, maxLength: 64 }
+        template: { type: string, minLength: 1, maxLength: 32768 }
+        schemaVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    AdminReportMutation:
+      allOf:
+        - $ref: '#/components/schemas/AdminVersionedReason'
+        - type: object
+          required: [status]
+          properties: { status: { enum: [reviewed, actioned, dismissed] } }
+    AdminSafetyRuleMutation:
+      allOf:
+        - $ref: '#/components/schemas/AdminVersionedReason'
+        - type: object
+          required: [key, workload, ruleType, configuration, enabled]
+          properties:
+            key: { type: string, pattern: '^[a-z0-9_.-]{1,64}$' }
+            workload: { type: string, maxLength: 64 }
+            ruleType:
+              { enum: [input_block, output_block, field_limit, action_allowlist, evidence_limit] }
+            configuration: { type: object, maxProperties: 16 }
+            enabled: { type: boolean }
+    AdminResource:
+      type: object
+      additionalProperties: false
+      required: [id, kind, version, data]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, maxLength: 64 }
+        version: { type: integer, minimum: 1 }
+        data: { type: object, maxProperties: 32 }
+    AiAdminPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/AdminResource' } }
+        nextCursor: { type: [string, 'null'] }

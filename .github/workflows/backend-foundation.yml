@@ -182,6 +182,10 @@ jobs:
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:platform
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:performance:ai
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        run: npm run test:stress:ai
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run perf:seed:outbox
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         shell: bash

@@ -35,7 +35,7 @@ export function AiOverview({
       </div>
       <div className="toolbar" aria-label="AI overview filters">
         <label>
-          <span className="sr-only">{copy.page.title}</span>
+          <span className="sr-only">{copy.filters.platform}</span>
           <select
             className="select"
             name="platform"
@@ -49,7 +49,7 @@ export function AiOverview({
           </select>
         </label>
         <label>
-          <span className="sr-only">{copy.page.title}</span>
+          <span className="sr-only">{copy.filters.period}</span>
           <select
             className="select"
             name="period"

@@ -46,6 +46,11 @@ export interface VoiceAnalyzerService {
     recordedAt: number;
     timezoneOffsetMinutes: number;
   }): Promise<VoiceProposalGroup>;
+  confirm(input: {
+    group: VoiceProposalGroup;
+    proposals: readonly VoiceProposalGroup['proposals'][number][];
+    operationId: string;
+  }): Promise<{ transactionIds: string[]; affectedScopes: readonly string[] }>;
 }
 
 export class VoiceCaptureError extends Error {

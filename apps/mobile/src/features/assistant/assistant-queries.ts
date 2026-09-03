@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import { assistantService } from '@/services/mocks/assistant-service';
+import { assistantService } from '@/services/assistant-service';
 
 export type AssistantConversationQuery = {
   cursor?: string;

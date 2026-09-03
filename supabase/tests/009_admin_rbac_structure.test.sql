@@ -25,7 +25,7 @@ select has_function('private', 'assert_support_grant', array['text', 'text', 'te
 select has_function('audit', 'append_event', array['text','text','text','text','text','text','text','text','text','jsonb'], 'audit append exists');
 
 select is((select count(*)::integer from public.roles where system_role), 7, 'seven system roles seed');
-select is((select count(*)::integer from public.permissions), 154, '151 client plus three backend-only canonical permissions seeded');
+select is((select count(*)::integer from public.permissions), 159, '151 client, three existing backend-only, and five Phase 09 AI permissions seeded');
 select is((select count(*)::integer from public.roles where system_role and enabled), 7, 'all system roles start enabled');
 
 select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class where oid = any(array[
