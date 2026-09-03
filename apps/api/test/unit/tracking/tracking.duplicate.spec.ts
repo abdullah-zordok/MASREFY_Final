@@ -56,7 +56,7 @@ describe('tracking duplicate decisions', () => {
     await service.decideDuplicate(candidateId, {
       principal,
       body: { resolution: 'keep_existing', expectedVersion: 1 },
-      idempotencyKey: 'duplicate-key-1',
+      idempotencyKey: '000000000001',
       requestId: 'request-1',
     });
     expect(ledger.createTransaction).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe('tracking duplicate decisions', () => {
       expect.any(String),
       null,
       existingId,
-      'duplicate-key-1',
+      '000000000001',
       'request-1',
     );
   });
@@ -77,7 +77,7 @@ describe('tracking duplicate decisions', () => {
     await keep.service.decideDuplicate(candidateId, {
       principal,
       body: { resolution: 'keep_both', expectedVersion: 1 },
-      idempotencyKey: 'duplicate-key-2',
+      idempotencyKey: '000000000002',
       requestId: 'request-2',
     });
     const create = keep.ledger.createTransaction.mock.calls[0]?.[0] as
@@ -96,7 +96,7 @@ describe('tracking duplicate decisions', () => {
         expectedVersion: 1,
         merge: { merchant: 'Fictional' },
       },
-      idempotencyKey: 'duplicate-key-3',
+      idempotencyKey: '000000000003',
       requestId: 'request-3',
     });
     const revision = merge.ledger.reviseTransaction.mock.calls[0]?.[0] as
@@ -109,7 +109,7 @@ describe('tracking duplicate decisions', () => {
       merge.service.decideDuplicate(candidateId, {
         principal,
         body: { resolution: 'merge_details', expectedVersion: 1, merge: { amountMinor: 1 } },
-        idempotencyKey: 'duplicate-key-4',
+        idempotencyKey: '000000000004',
         requestId: 'request-4',
       }),
     ).rejects.toMatchObject({ status: 400 });
@@ -128,7 +128,7 @@ describe('tracking duplicate decisions', () => {
       service.decideDuplicate(candidateId, {
         principal,
         body: { resolution: 'keep_both', expectedVersion: 1 },
-        idempotencyKey: 'duplicate-key-5',
+        idempotencyKey: '000000000005',
         requestId: 'request-5',
       }),
     ).rejects.toThrow('DUPLICATE_VERSION_CONFLICT');

@@ -12,3 +12,10 @@ c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.sa
 c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.savings.spec.ts:generic-api-key:118
 c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.savings.spec.ts:generic-api-key:136
 c25fea0384176a89102dd27dcf8b3b5bf439dbfa:apps/api/test/unit/planning/planning.salary.spec.ts:generic-api-key:156
+
+# Known non-secret idempotency fixtures in Phase 08 duplicate-decision tests.
+a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:59
+a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:80
+a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:99
+a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:112
+a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:131
