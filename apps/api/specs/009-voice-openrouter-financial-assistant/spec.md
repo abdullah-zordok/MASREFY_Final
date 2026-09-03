@@ -5,7 +5,7 @@
 **Feature Directory**: `apps/api/specs/009-voice-openrouter-financial-assistant`
 **Base Revision**: `bdffc5a39dc4c863827dc750f464ddd844221425`
 **Created**: 2026-09-03
-**Status**: Approved for planning
+**Status**: Complete
 **Input**: Implement SPEC-BE-009 completely, including voice processing, the financial assistant, worker-only OpenRouter governance, deterministic confirmations, security, database controls, client integration, and evidence, without implementing SPEC-BE-010 or later.
 
 ## Objective and Scope
@@ -821,19 +821,19 @@ data-collection, price, token, or retry parameters.
 
 ## Definition of Done
 
-- [ ] All owned schema, application, worker, contract, client-adapter, security,
+- [x] All owned schema, application, worker, contract, client-adapter, security,
       privacy, quota/cost, performance, observability, migration, rollback,
       recovery, and acceptance scope is implemented.
-- [ ] All generated tasks are complete and marked `[x]`; SpecKit analysis and
+- [x] All generated tasks are complete and marked `[x]`; SpecKit analysis and
       convergence report no valid missing buildable work.
-- [ ] Clean-code and test-review findings are resolved; no Critical/High security
+- [x] Clean-code and test-review findings are resolved; no Critical/High security
       or correctness finding remains.
-- [ ] Every locally executable command in the quickstart and evidence plan has a
+- [x] Every locally executable command in the quickstart and evidence plan has a
       fresh passing result; external provider/host/release gates are named exactly.
-- [ ] Verified scoped commits are pushed directly to `origin/main`, every resulting
+- [x] Verified scoped commits are pushed directly to `origin/main`, every resulting
       remote workflow is monitored, and locally actionable failures are fixed
       forward without weakening gates.
-- [ ] Completion evidence records implementation/closeout SHAs, push/CI status,
+- [x] Completion evidence records implementation/closeout SHAs, push/CI status,
       task/requirement/acceptance/success counts, test results, security/privacy/
       quota/cost/performance/recovery proof, and confirms SPEC-BE-010+ exclusion.
 

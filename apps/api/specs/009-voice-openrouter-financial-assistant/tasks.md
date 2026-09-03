@@ -244,10 +244,10 @@ does not fail ledger/planning/tracking health or loosen privacy.
 - [x] T095 Run live OpenRouter evaluation only if a usable key and reviewed policy exist; otherwise record the provider gate pending without a pass in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/external-gates.md`
 - [x] T096 Audit the final diff for exact Phase 09 ownership, no SPEC-BE-010+ implementation, no protected untracked path, no secret, and no generated junk in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/final-audit.md`; verify `git diff --check`
 - [x] T097 Mark only evidence-backed DoD/spec/tasks checklist items complete and create `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/final-summary.md` with SHAs, counts, thresholds, known external gates, and rollback state
-- [ ] T098 Stage only reviewed Phase 09 paths, create the implementation commit on `main`, and record the SHA in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/commits.md`; verify protected paths remain untracked/unstaged
-- [ ] T099 Push the verified implementation commit directly to `origin/main`; verify local `main` equals `origin/main`
-- [ ] T100 Monitor the resulting remote workflow, fix actionable failures forward on `main` with a failing reproduction, rerun affected/full gates, push repairs, and record run/job links and final green status in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/remote.md`
-- [ ] T101 Create and push a scoped closeout commit only if post-push evidence changed, verify its remote workflow green, and record final local/origin SHAs in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/commits.md`
+- [x] T098 Stage only reviewed Phase 09 paths, create the implementation commit on `main`, and record the SHA in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/commits.md`; verify protected paths remain untracked/unstaged
+- [x] T099 Push the verified implementation commit directly to `origin/main`; verify local `main` equals `origin/main`
+- [x] T100 Monitor the resulting remote workflow, fix actionable failures forward on `main` with a failing reproduction, rerun affected/full gates, push repairs, and record run/job links and final green status in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/remote.md`
+- [x] T101 Create and push a scoped closeout commit only if post-push evidence changed, verify its remote workflow green, and record final local/origin SHAs in `apps/api/specs/009-voice-openrouter-financial-assistant/evidence/commits.md`
 
 ## Dependencies
 
