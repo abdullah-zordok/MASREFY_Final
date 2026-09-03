@@ -22,7 +22,10 @@ import {
   categoryRuleActionRequestSchema,
   sanitizedExtractionPreviewSchema,
 } from "./contracts";
-import { phase4OverviewFixtures, phase4Records } from "@/mocks/fixtures/imports";
+import {
+  phase4OverviewFixtures,
+  phase4Records,
+} from "@/mocks/fixtures/imports";
 
 describe("Spec 005 foundation contracts", () => {
   describe("SafeId validation", () => {
@@ -104,7 +107,12 @@ describe("Spec 005 foundation contracts", () => {
     test("uses default values for page and pageSize", () => {
       const result = paginationSchema.safeParse({});
       expect(result.success).toBe(true);
-      expect(result.data).toEqual({ page: 1, pageSize: 25, totalItems: 0, totalPages: 0 });
+      expect(result.data).toEqual({
+        page: 1,
+        pageSize: 25,
+        totalItems: 0,
+        totalPages: 0,
+      });
     });
 
     test.each([
@@ -115,10 +123,13 @@ describe("Spec 005 foundation contracts", () => {
       [75, false],
       [150, false],
       [-1, false],
-    ] as const)("allows page sizes %i and rejects others", (pageSize, shouldPass) => {
-      const result = paginationSchema.safeParse({ pageSize });
-      expect(result.success).toBe(shouldPass);
-    });
+    ] as const)(
+      "allows page sizes %i and rejects others",
+      (pageSize, shouldPass) => {
+        const result = paginationSchema.safeParse({ pageSize });
+        expect(result.success).toBe(shouldPass);
+      },
+    );
 
     test("requires positive page numbers", () => {
       expect(paginationSchema.safeParse({ page: 0 }).success).toBe(false);
@@ -131,15 +142,21 @@ describe("Spec 005 foundation contracts", () => {
   describe("UTF-8 byte boundaries", () => {
     test("enforces 120-byte limit on search names", () => {
       expect(searchNameValidator.safeParse("a".repeat(120)).success).toBe(true);
-      expect(searchNameValidator.safeParse("a".repeat(121)).success).toBe(false);
+      expect(searchNameValidator.safeParse("a".repeat(121)).success).toBe(
+        false,
+      );
       // Multi-byte characters count bytes, not characters
       expect(searchNameValidator.safeParse("🎉".repeat(30)).success).toBe(true); // 120 emojis = 120 bytes
-      expect(searchNameValidator.safeParse("🎉".repeat(31)).success).toBe(false); // 124 emojis = 124 bytes
+      expect(searchNameValidator.safeParse("🎉".repeat(31)).success).toBe(
+        false,
+      ); // 124 emojis = 124 bytes
     });
 
     test("enforces 500-byte limit on reason notes", () => {
       expect(reasonNoteValidator.safeParse("a".repeat(500)).success).toBe(true);
-      expect(reasonNoteValidator.safeParse("a".repeat(501)).success).toBe(false);
+      expect(reasonNoteValidator.safeParse("a".repeat(501)).success).toBe(
+        false,
+      );
     });
 
     test("enforces 256-byte limit on patterns", () => {
@@ -170,9 +187,16 @@ describe("Spec 005 foundation contracts", () => {
     });
 
     test("requires status, code, and message", () => {
-      expect(apiErrorSchema.safeParse({ code: "not_found", message: "not found" }).success).toBe(false);
-      expect(apiErrorSchema.safeParse({ status: 404, message: "not found" }).success).toBe(false);
-      expect(apiErrorSchema.safeParse({ status: 404, code: "not_found" }).success).toBe(false);
+      expect(
+        apiErrorSchema.safeParse({ code: "not_found", message: "not found" })
+          .success,
+      ).toBe(false);
+      expect(
+        apiErrorSchema.safeParse({ status: 404, message: "not found" }).success,
+      ).toBe(false);
+      expect(
+        apiErrorSchema.safeParse({ status: 404, code: "not_found" }).success,
+      ).toBe(false);
     });
   });
 
@@ -187,9 +211,17 @@ describe("Spec 005 foundation contracts", () => {
     });
 
     test("requires all fields", () => {
-      expect(auditReferenceSchema.safeParse({ eventId: "AUD-001" }).success).toBe(false);
-      expect(auditReferenceSchema.safeParse({ eventName: "test" }).success).toBe(false);
-      expect(auditReferenceSchema.safeParse({ timestamp: "2026-07-29T10:00:00.000Z" }).success).toBe(false);
+      expect(
+        auditReferenceSchema.safeParse({ eventId: "AUD-001" }).success,
+      ).toBe(false);
+      expect(
+        auditReferenceSchema.safeParse({ eventName: "test" }).success,
+      ).toBe(false);
+      expect(
+        auditReferenceSchema.safeParse({
+          timestamp: "2026-07-29T10:00:00.000Z",
+        }).success,
+      ).toBe(false);
     });
   });
 
@@ -224,8 +256,12 @@ describe("Spec 005 foundation contracts", () => {
     });
 
     test("enforces 120-character limit on search", () => {
-      expect(listQuerySchema.shape.search.safeParse("a".repeat(120)).success).toBe(true);
-      expect(listQuerySchema.shape.search.safeParse("a".repeat(121)).success).toBe(false);
+      expect(
+        listQuerySchema.shape.search.safeParse("a".repeat(120)).success,
+      ).toBe(true);
+      expect(
+        listQuerySchema.shape.search.safeParse("a".repeat(121)).success,
+      ).toBe(false);
     });
 
     test("accepts documented session filters, sort keys, and date bounds", () => {
@@ -241,8 +277,12 @@ describe("Spec 005 foundation contracts", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(listQuerySchema.safeParse({ dateFrom: "29-07-2026" }).success).toBe(false);
-      expect(listQuerySchema.safeParse({ sort: "rawPayload" }).success).toBe(false);
+      expect(
+        listQuerySchema.safeParse({ dateFrom: "29-07-2026" }).success,
+      ).toBe(false);
+      expect(listQuerySchema.safeParse({ sort: "rawPayload" }).success).toBe(
+        false,
+      );
     });
   });
 
@@ -296,45 +336,60 @@ describe("Spec 005 story contracts", () => {
     const ios = importOverviewSchema.parse(phase4OverviewFixtures.ios);
 
     expect(combined.uniqueCustomerSemantics).toBe("authoritative");
-    expect(combined.uniqueCustomers).not.toBe(android.uniqueCustomers + ios.uniqueCustomers);
+    expect(combined.uniqueCustomers).not.toBe(
+      android.uniqueCustomers + ios.uniqueCustomers,
+    );
     expect(combined.eventDeduplication).toBe("non_duplicated_events");
   });
 
   test("rejects value-bearing and unknown fields from sanitized previews", () => {
     const preview = phase4Records.sessions[0].preview;
-    expect(sanitizedExtractionPreviewSchema.safeParse(preview).success).toBe(true);
-    expect(sanitizedExtractionPreviewSchema.safeParse({
-      ...preview,
-      amount: 990,
-    }).success).toBe(false);
+    expect(sanitizedExtractionPreviewSchema.safeParse(preview).success).toBe(
+      true,
+    );
+    expect(
+      sanitizedExtractionPreviewSchema.safeParse({
+        ...preview,
+        amount: 990,
+      }).success,
+    ).toBe(false);
   });
 
   test("rejects executable and recursive parser definitions", () => {
     const definition = phase4Records["parser-rules"][0].definition;
     expect(parserRuleDefinitionSchema.safeParse(definition).success).toBe(true);
-    expect(parserRuleDefinitionSchema.safeParse({
-      ...definition,
-      execute: "fetch('https://example.test')",
-    }).success).toBe(false);
-    expect(parserRuleDefinitionSchema.safeParse({
-      matches: [{ field: "body", operator: "eval", value: "payload" }],
-      captures: [],
-      normalizations: [],
-      mappings: [{ sourceField: "merchant", targetField: "merchant" }],
-    }).success).toBe(false);
+    expect(
+      parserRuleDefinitionSchema.safeParse({
+        ...definition,
+        execute: "fetch('https://example.test')",
+      }).success,
+    ).toBe(false);
+    expect(
+      parserRuleDefinitionSchema.safeParse({
+        matches: [{ field: "body", operator: "eval", value: "payload" }],
+        captures: [],
+        normalizations: [],
+        mappings: [{ sourceField: "merchant", targetField: "merchant" }],
+      }).success,
+    ).toBe(false);
   });
 
   test("requires protected fields to be structurally absent outside full access", () => {
     const full = phase4Records.sessions[0];
     expect(operationalRecordSchema.safeParse(full).success).toBe(true);
-    expect(operationalRecordSchema.safeParse({ ...full, accessLevel: "limited" }).success).toBe(false);
+    expect(
+      operationalRecordSchema.safeParse({ ...full, accessLevel: "limited" })
+        .success,
+    ).toBe(false);
     const limited = { ...full };
     delete limited.preview;
-    expect(operationalRecordSchema.safeParse({
-      ...limited,
-      accessLevel: "limited",
-      actions: [],
-    }).success).toBe(true);
+    expect(
+      operationalRecordSchema.safeParse({
+        ...limited,
+        accessLevel: "limited",
+        actions: [],
+      }).success,
+    ).toBe(true);
   });
 
   test("enforces unique identifiers, page size, and total page arithmetic", () => {
@@ -347,11 +402,15 @@ describe("Spec 005 story contracts", () => {
       region: { availability: "available" as const },
     };
     expect(operationalListSchema.safeParse(base).success).toBe(true);
-    expect(operationalListSchema.safeParse({
-      ...base,
-      items: [phase4Records.sessions[0], phase4Records.sessions[0]],
-    }).success).toBe(false);
-    expect(operationalListSchema.safeParse({ ...base, totalPages: 2 }).success).toBe(false);
+    expect(
+      operationalListSchema.safeParse({
+        ...base,
+        items: [phase4Records.sessions[0], phase4Records.sessions[0]],
+      }).success,
+    ).toBe(false);
+    expect(
+      operationalListSchema.safeParse({ ...base, totalPages: 2 }).success,
+    ).toBe(false);
   });
 
   test("validates confirmed bounded action requests", () => {
@@ -360,11 +419,20 @@ describe("Spec 005 story contracts", () => {
       expectedState: "failed",
       expectedRevision: 1,
       reason: "مراجعة تشغيلية",
-      confirmationToken: "CONFIRM-SPEC-005",
     };
     expect(phase4ActionRequestSchema.safeParse(request).success).toBe(true);
-    expect(phase4ActionRequestSchema.safeParse({ ...request, reason: "x".repeat(501) }).success).toBe(false);
-    expect(phase4ActionRequestSchema.safeParse({ ...request, confirmationToken: "yes" }).success).toBe(false);
+    expect(
+      phase4ActionRequestSchema.safeParse({
+        ...request,
+        reason: "x".repeat(501),
+      }).success,
+    ).toBe(false);
+    expect(
+      phase4ActionRequestSchema.safeParse({
+        ...request,
+        confirmationToken: "fixture-only",
+      }).success,
+    ).toBe(false);
   });
 
   test("validates sender, merchant, and category action boundaries", () => {
@@ -373,25 +441,35 @@ describe("Spec 005 story contracts", () => {
       expectedState: "active",
       expectedRevision: 1,
       reason: "مراجعة تشغيلية",
-      confirmationToken: "CONFIRM-SPEC-005",
     } as const;
 
-    expect(senderActionRequestSchema.safeParse({
-      ...base,
-      proposal: { pattern: "^BANK-DEMO$" },
-    }).success).toBe(true);
-    expect(senderActionRequestSchema.safeParse({ ...base, action: "rollback" }).success).toBe(false);
-    expect(merchantRuleActionRequestSchema.safeParse({
-      ...base,
-      proposal: { aliases: ["DEMO", " demo "] },
-    }).success).toBe(false);
-    expect(categoryRuleActionRequestSchema.safeParse({
-      ...base,
-      proposal: { confidence: 0.82, categoryId: "CR-FOOD" },
-    }).success).toBe(true);
-    expect(categoryRuleActionRequestSchema.safeParse({
-      ...base,
-      proposal: { confidence: 1.2 },
-    }).success).toBe(false);
+    expect(
+      senderActionRequestSchema.safeParse({
+        ...base,
+        proposal: { pattern: "^BANK-DEMO$" },
+      }).success,
+    ).toBe(true);
+    expect(
+      senderActionRequestSchema.safeParse({ ...base, action: "rollback" })
+        .success,
+    ).toBe(false);
+    expect(
+      merchantRuleActionRequestSchema.safeParse({
+        ...base,
+        proposal: { aliases: ["DEMO", " demo "] },
+      }).success,
+    ).toBe(false);
+    expect(
+      categoryRuleActionRequestSchema.safeParse({
+        ...base,
+        proposal: { confidence: 0.82, categoryId: "CR-FOOD" },
+      }).success,
+    ).toBe(true);
+    expect(
+      categoryRuleActionRequestSchema.safeParse({
+        ...base,
+        proposal: { confidence: 1.2 },
+      }).success,
+    ).toBe(false);
   });
 });

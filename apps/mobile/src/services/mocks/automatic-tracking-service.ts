@@ -44,6 +44,7 @@ import { defaultKeywordRules } from './default-keywords';
 import { coreFinanceService } from './core-finance-service';
 import { createMockTrackingPermissionService } from './tracking-permission-service';
 import { assistantNotificationsService } from './assistant-notifications-service';
+import { createLiveAutomaticTrackingService } from '../live/automatic-tracking-service';
 
 const silentNotificationService: Pick<NotificationService, 'createFromSource'> =
   {
@@ -429,7 +430,9 @@ export function createProductionAutomaticTrackingService(
 export const automaticTrackingService =
   process.env.NODE_ENV === 'test'
     ? createMockAutomaticTrackingService()
-    : createProductionAutomaticTrackingService();
+    : isDemoModeEnabled()
+      ? createProductionAutomaticTrackingService()
+      : createLiveAutomaticTrackingService();
 
 export function relocalizeDemoAutomaticTrackingRepository(
   locale: Locale

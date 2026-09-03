@@ -27,16 +27,25 @@ export function useImports(input: ImportsQuery) {
 export function useRetryImport() {
   const client = useQueryClient();
   const mutation = useLockedMutation({
-    lockKey: (id: string) => `retry-import:${id}`,
-    mutationFn: (id: string) => importsRepository.retryImport(id),
-    onSuccess: () => client.invalidateQueries({ queryKey: importsQueryKeys.all }),
+    lockKey: ({ id }: { id: string; expectedRevision: number }) =>
+      `retry-import:${id}`,
+    mutationFn: ({
+      id,
+      expectedRevision,
+    }: {
+      id: string;
+      expectedRevision: number;
+    }) => importsRepository.retryImport(id, expectedRevision),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: importsQueryKeys.all }),
   });
   return mutation;
 }
 
 export const phase4QueryKeys = {
   all: ["phase4-imports-parsers"] as const,
-  overview: (platform: PlatformScope) => [...phase4QueryKeys.all, "overview", platform] as const,
+  overview: (platform: PlatformScope) =>
+    [...phase4QueryKeys.all, "overview", platform] as const,
   list: (resource: Phase4Resource, input: ListQuery) =>
     [...phase4QueryKeys.all, resource, input] as const,
   detail: (resource: Phase4Resource, id: string) =>
@@ -83,6 +92,8 @@ export function usePhase4Action() {
     mutationFn: ({ resource, id, request }: Phase4ActionVariables) =>
       phase4Repository.act(resource, id, request),
     onSuccess: (_response, variables) =>
-      client.invalidateQueries({ queryKey: [...phase4QueryKeys.all, variables.resource] }),
+      client.invalidateQueries({
+        queryKey: [...phase4QueryKeys.all, variables.resource],
+      }),
   });
 }

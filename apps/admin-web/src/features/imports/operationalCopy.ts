@@ -32,7 +32,8 @@ export const operationalCopy = {
       },
       unsupported: {
         title: "التنسيقات غير المدعومة",
-        description: "توجيه الحالات غير المدعومة دون كشف الرسائل أو الملفات الخام.",
+        description:
+          "توجيه الحالات غير المدعومة دون كشف الرسائل أو الملفات الخام.",
         permission: "imports.unsupported.manage",
       },
       banks: {
@@ -73,7 +74,7 @@ export const operationalCopy = {
     } as Record<Phase4Resource, ResourceCopy>,
     eyebrow: "العمليات / المرحلة الرابعة",
     searchPlaceholder: "المعرّف أو الاسم المنقح",
-    searchAria: "بحث",
+    searchAria: "بحث النتائج التشغيلية",
     allPlatforms: "كل المنصات",
     allSources: "كل المصادر",
     statusPlaceholder: "الحالة",
@@ -130,7 +131,8 @@ export const operationalCopy = {
       reasonLabel: "سبب الإجراء",
       defaultReason: "مراجعة تشغيلية ضمن المحاكاة",
       confirmTitle: "تأكيد الإجراء",
-      confirmConsequence: "سيتم تحديث حالة المحاكاة فقط، دون إنشاء معاملة أو تشغيل محلل أو خدمة خلفية.",
+      confirmConsequence:
+        "سيتم تحديث حالة المحاكاة فقط، دون إنشاء معاملة أو تشغيل محلل أو خدمة خلفية.",
       confirmSuccess: "اكتملت المحاكاة",
       confirmFailure: "فشلت المحاكاة",
       confirmConflict: "تعارضت الحالة أو المراجعة",
@@ -162,19 +164,22 @@ export const operationalCopy = {
       defaultReason: "مراجعة تفصيلية ضمن المحاكاة",
       detailActions: "إجراءات التفاصيل",
       errorMutation: "تعذر تنفيذ المحاكاة. حدث البيانات ثم حاول مرة أخرى.",
-      confirmConsequence: "سيتم تسجيل نتيجة محاكاة فقط مع مرجع تدقيق مخطط، ولن يتم تشغيل محلل أو طابور أو تكامل خلفي.",
-    }
+      confirmConsequence:
+        "سيتم تسجيل نتيجة محاكاة فقط مع مرجع تدقيق مخطط، ولن يتم تشغيل محلل أو طابور أو تكامل خلفي.",
+    },
   },
   en: {
     resources: {
       sessions: {
         title: "Import Sessions",
-        description: "Track sanitized sessions by platform, source, and status.",
+        description:
+          "Track sanitized sessions by platform, source, and status.",
         permission: "imports.read",
       },
       failures: {
         title: "Failed Imports",
-        description: "Handle failure cases without showing raw imported content.",
+        description:
+          "Handle failure cases without showing raw imported content.",
         permission: "imports.failures.manage",
       },
       "low-confidence": {
@@ -184,32 +189,38 @@ export const operationalCopy = {
       },
       duplicates: {
         title: "Duplicate Candidates",
-        description: "Compare sanitized summaries while preserving original event semantics.",
+        description:
+          "Compare sanitized summaries while preserving original event semantics.",
         permission: "imports.duplicates.manage",
       },
       unsupported: {
         title: "Unsupported Formats",
-        description: "Route unsupported cases without exposing raw messages or files.",
+        description:
+          "Route unsupported cases without exposing raw messages or files.",
         permission: "imports.unsupported.manage",
       },
       banks: {
         title: "Supported Banks",
-        description: "Monitor coverage across sources, senders, and parser rules.",
+        description:
+          "Monitor coverage across sources, senders, and parser rules.",
         permission: "parsers.coverage.read",
       },
       senders: {
         title: "Sender Management",
-        description: "Manage limited and safe sender patterns within simulation.",
+        description:
+          "Manage limited and safe sender patterns within simulation.",
         permission: "parsers.senders.manage",
       },
       "parser-rules": {
         title: "Parser Rules",
-        description: "Limited declarative rules without code execution or network connections.",
+        description:
+          "Limited declarative rules without code execution or network connections.",
         permission: "parsers.rules.read",
       },
       "test-cases": {
         title: "Parser Test Cases",
-        description: "Local fictional samples only, not linked to customer data.",
+        description:
+          "Local fictional samples only, not linked to customer data.",
         permission: "parsers.tests.run",
       },
       versions: {
@@ -219,18 +230,20 @@ export const operationalCopy = {
       },
       "merchant-rules": {
         title: "Merchant Rules",
-        description: "Experimental name standardization with clear alias limits.",
+        description:
+          "Experimental name standardization with clear alias limits.",
         permission: "parsers.merchants.manage",
       },
       "category-rules": {
         title: "Category Rules",
-        description: "Safe patterns, confidence, and scoped ranges for simulation.",
+        description:
+          "Safe patterns, confidence, and scoped ranges for simulation.",
         permission: "parsers.categories.manage",
       },
     } as Record<Phase4Resource, ResourceCopy>,
     eyebrow: "Operations / Parsers",
     searchPlaceholder: "Search by identifier or bank name",
-    searchAria: "Search",
+    searchAria: "Search operational results",
     allPlatforms: "All platforms",
     allSources: "All sources",
     statusPlaceholder: "Status",
@@ -283,11 +296,13 @@ export const operationalCopy = {
     },
     actions: {
       sectionTitle: "Available Actions",
-      sectionDescription: "Each action is a UI simulation and requires explicit confirmation.",
+      sectionDescription:
+        "Each action is a UI simulation and requires explicit confirmation.",
       reasonLabel: "Action reason",
       defaultReason: "Operational review within simulation",
       confirmTitle: "Confirm action",
-      confirmConsequence: "Only the simulation state will be updated. No transaction, parser, or backend service will be triggered.",
+      confirmConsequence:
+        "Only the simulation state will be updated. No transaction, parser, or backend service will be triggered.",
       confirmSuccess: "Simulation completed",
       confirmFailure: "Simulation failed",
       confirmConflict: "State or revision conflict",
@@ -314,12 +329,14 @@ export const operationalCopy = {
     } as Record<Phase4ActionRequest["action"], string>,
     detail: {
       eyebrow: "Sanitized Details",
-      description: "Response is restricted to view permissions and contains no raw payload.",
+      description:
+        "Response is restricted to view permissions and contains no raw payload.",
       backToList: "Back to list",
       defaultReason: "Detailed review within simulation",
       detailActions: "Detail Actions",
       errorMutation: "Unable to execute simulation. Refresh and try again.",
-      confirmConsequence: "Only a simulation result with a planned audit reference will be recorded. No parser, queue, or backend integration will be triggered.",
-    }
-  }
+      confirmConsequence:
+        "Only a simulation result with a planned audit reference will be recorded. No parser, queue, or backend integration will be triggered.",
+    },
+  },
 } as const;

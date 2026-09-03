@@ -1,5 +1,9 @@
 import { http, HttpResponse } from "msw";
-import { ADMIN_ROLES, type AdminRole, type PermissionKey } from "@/core/permissions/permissions";
+import {
+  ADMIN_ROLES,
+  type AdminRole,
+  type PermissionKey,
+} from "@/core/permissions/permissions";
 import { hasPermission } from "@/core/permissions/role-map";
 import {
   categoryRuleActionRequestSchema,
@@ -80,20 +84,25 @@ function denied(request: Request, permission: PermissionKey): Response | null {
     : HttpResponse.json({ code: "forbidden" }, { status: 403 });
 }
 
-function projectedRecord(record: OperationalRecord, role: AdminRole): OperationalRecord {
+function projectedRecord(
+  record: OperationalRecord,
+  role: AdminRole,
+): OperationalRecord {
   const current = phase4ImportState.applyRuntimeState(record);
-  const fullRecord = current.kind === "versions"
-    ? {
-        ...current,
-        actions: current.status === "draft"
-          ? ["test"]
-          : current.status === "testing"
-            ? ["release"]
-            : current.status === "active"
-              ? ["retire", "rollback"]
-              : ["rollback"],
-      }
-    : current;
+  const fullRecord =
+    current.kind === "versions"
+      ? {
+          ...current,
+          actions:
+            current.status === "draft"
+              ? ["test"]
+              : current.status === "testing"
+                ? ["release"]
+                : current.status === "active"
+                  ? ["retire", "rollback"]
+                  : ["rollback"],
+        }
+      : current;
   if (role === "super-admin" || role === "import-operator") {
     return fullRecord;
   }
@@ -128,7 +137,10 @@ function queryFrom(request: Request) {
   });
 }
 
-function expandedRecords(records: OperationalRecord[], large: boolean): OperationalRecord[] {
+function expandedRecords(
+  records: OperationalRecord[],
+  large: boolean,
+): OperationalRecord[] {
   if (!large || records.length === 0) return records;
   return Array.from({ length: 125 }, (_, index) => {
     const source = records[index % records.length];
@@ -160,25 +172,45 @@ async function listResponse(
   const role = simulatedRole(request);
   if (!role) return HttpResponse.json({ code: "forbidden" }, { status: 403 });
   const query = parsedQuery.data;
-  const candidates = scenario === "empty"
-    ? []
-    : expandedRecords(phase4Records[resource], scenario === "large");
+  const candidates =
+    scenario === "empty"
+      ? []
+      : expandedRecords(phase4Records[resource], scenario === "large");
   const search = query.search?.toLocaleLowerCase("ar");
-  const filtered = candidates.filter((record) =>
-    (!search || `${record.id} ${record.title} ${record.secondary}`.toLocaleLowerCase("ar").includes(search))
-    && (!query.platform || query.platform === "all" || record.platform === query.platform)
-    && (!query.source || record.source === query.source)
-    && (!query.status || record.status === query.status)
-    && (!query.bankId || record.id === query.bankId || record.bank === query.bankId)
-    && (!query.parserVersionId || record.version === query.parserVersionId)
-    && (!query.appVersion || record.appVersion === query.appVersion)
-    && (!query.dateFrom || record.updatedAt.slice(0, 10) >= query.dateFrom)
-    && (!query.dateTo || record.updatedAt.slice(0, 10) <= query.dateTo));
+  const filtered = candidates.filter(
+    (record) =>
+      (!search ||
+        `${record.id} ${record.title} ${record.secondary}`
+          .toLocaleLowerCase("ar")
+          .includes(search)) &&
+      (!query.platform ||
+        query.platform === "all" ||
+        record.platform === query.platform) &&
+      (!query.source || record.source === query.source) &&
+      (!query.status || record.status === query.status) &&
+      (!query.bankId ||
+        record.id === query.bankId ||
+        record.bank === query.bankId) &&
+      (!query.parserVersionId || record.version === query.parserVersionId) &&
+      (!query.appVersion || record.appVersion === query.appVersion) &&
+      (!query.dateFrom || record.updatedAt.slice(0, 10) >= query.dateFrom) &&
+      (!query.dateTo || record.updatedAt.slice(0, 10) <= query.dateTo),
+  );
   const sorted = [...filtered].sort((left, right) => {
     const order = query.order === "asc" ? 1 : -1;
     const sort = query.sort ?? "updatedAt";
-    const leftValue = sort === "bank" ? left.bank ?? "" : sort === "appVersion" ? left.appVersion ?? "" : String(left[sort] ?? "");
-    const rightValue = sort === "bank" ? right.bank ?? "" : sort === "appVersion" ? right.appVersion ?? "" : String(right[sort] ?? "");
+    const leftValue =
+      sort === "bank"
+        ? (left.bank ?? "")
+        : sort === "appVersion"
+          ? (left.appVersion ?? "")
+          : String(left[sort] ?? "");
+    const rightValue =
+      sort === "bank"
+        ? (right.bank ?? "")
+        : sort === "appVersion"
+          ? (right.appVersion ?? "")
+          : String(right[sort] ?? "");
     return leftValue.localeCompare(rightValue, "en") * order;
   });
   const start = (query.page - 1) * query.pageSize;
@@ -191,35 +223,54 @@ async function listResponse(
     page: query.page,
     pageSize: query.pageSize,
     totalItems: sorted.length,
-    totalPages: sorted.length === 0 ? 0 : Math.ceil(sorted.length / query.pageSize),
+    totalPages:
+      sorted.length === 0 ? 0 : Math.ceil(sorted.length / query.pageSize),
     region: {
-      availability: scenario === "partial" ? "partial" : items.length === 0 ? "empty" : "available",
-      ...(scenario === "partial" ? { message: "بعض المؤشرات غير متاحة مؤقتاً", retryable: true } : {}),
+      availability:
+        scenario === "partial"
+          ? "partial"
+          : items.length === 0
+            ? "empty"
+            : "available",
+      ...(scenario === "partial"
+        ? { message: "بعض المؤشرات غير متاحة مؤقتاً", retryable: true }
+        : {}),
     },
   });
 }
 
-const actionSchemas: Record<Phase4Resource, typeof phase4ActionRequestSchema> = {
-  sessions: phase4ActionRequestSchema,
-  failures: failedImportActionRequestSchema,
-  "low-confidence": lowConfidenceActionRequestSchema,
-  duplicates: duplicateActionRequestSchema,
-  unsupported: unsupportedFormatActionRequestSchema,
-  banks: phase4ActionRequestSchema,
-  senders: senderActionRequestSchema,
-  "parser-rules": parserRuleActionRequestSchema,
-  "test-cases": phase4ActionRequestSchema,
-  versions: parserVersionActionRequestSchema,
-  "merchant-rules": merchantRuleActionRequestSchema,
-  "category-rules": categoryRuleActionRequestSchema,
-};
+const actionSchemas: Record<Phase4Resource, typeof phase4ActionRequestSchema> =
+  {
+    sessions: phase4ActionRequestSchema,
+    failures: failedImportActionRequestSchema,
+    "low-confidence": lowConfidenceActionRequestSchema,
+    duplicates: duplicateActionRequestSchema,
+    unsupported: unsupportedFormatActionRequestSchema,
+    banks: phase4ActionRequestSchema,
+    senders: senderActionRequestSchema,
+    "parser-rules": parserRuleActionRequestSchema,
+    "test-cases": phase4ActionRequestSchema,
+    versions: parserVersionActionRequestSchema,
+    "merchant-rules": merchantRuleActionRequestSchema,
+    "category-rules": categoryRuleActionRequestSchema,
+  };
 
-function hasPatternOverlap(resource: Phase4Resource, id: string, pattern: string): boolean {
-  if (!["senders", "merchant-rules", "category-rules"].includes(resource)) return false;
+function hasPatternOverlap(
+  resource: Phase4Resource,
+  id: string,
+  pattern: string,
+): boolean {
+  if (!["senders", "merchant-rules", "category-rules"].includes(resource))
+    return false;
   const normalized = pattern.trim().normalize("NFKC").toLocaleLowerCase("en");
-  return phase4Records[resource].some((record) =>
-    record.id !== id
-    && (record.pattern ?? record.title).trim().normalize("NFKC").toLocaleLowerCase("en") === normalized);
+  return phase4Records[resource].some(
+    (record) =>
+      record.id !== id &&
+      (record.pattern ?? record.title)
+        .trim()
+        .normalize("NFKC")
+        .toLocaleLowerCase("en") === normalized,
+  );
 }
 
 async function detailResponse(
@@ -227,22 +278,27 @@ async function detailResponse(
   resource: Extract<Phase4Resource, "sessions" | "banks" | "parser-rules">,
   id: string,
 ): Promise<Response> {
-  const permission = resource === "sessions" ? "imports.detail.read" : listPermissions[resource];
+  const permission =
+    resource === "sessions" ? "imports.detail.read" : listPermissions[resource];
   const permissionError = denied(request, permission);
   if (permissionError) return permissionError;
   const scenario = readScenario(request);
   const scenarioError = await scenarioResponse(scenario);
   if (scenarioError) return scenarioError;
-  if (scenario === "unsafe-response") return HttpResponse.json({ rawPayload: "unsafe" });
+  if (scenario === "unsafe-response")
+    return HttpResponse.json({ rawPayload: "unsafe" });
 
   const role = simulatedRole(request);
   if (!role) return HttpResponse.json({ code: "forbidden" }, { status: 403 });
   if (resource === "sessions") {
     const detail = phase4SessionDetails[id];
-    if (!detail) return HttpResponse.json({ code: "not_found" }, { status: 404 });
+    if (!detail)
+      return HttpResponse.json({ code: "not_found" }, { status: 404 });
     return HttpResponse.json(projectedRecord(detail, role));
   }
-  const record = phase4Records[resource].find((candidate) => candidate.id === id);
+  const record = phase4Records[resource].find(
+    (candidate) => candidate.id === id,
+  );
   return record
     ? HttpResponse.json(projectedRecord(record, role))
     : HttpResponse.json({ code: "not_found" }, { status: 404 });
@@ -272,7 +328,9 @@ async function actionResponse(
   if (!parsed.success) {
     return HttpResponse.json({ code: "validation_error" }, { status: 400 });
   }
-  const record = phase4Records[resource].find((candidate) => candidate.id === id);
+  const record = phase4Records[resource].find(
+    (candidate) => candidate.id === id,
+  );
   if (!record) return HttpResponse.json({ code: "not_found" }, { status: 404 });
   if (!phase4ImportState.acquireRecordLock(id, parsed.data.action)) {
     return HttpResponse.json({ code: "conflict" }, { status: 409 });
@@ -281,17 +339,26 @@ async function actionResponse(
   try {
     const proposedPattern = parsed.data.proposal?.pattern;
     if (proposedPattern && hasPatternOverlap(resource, id, proposedPattern)) {
-      return HttpResponse.json({
-        code: "conflict",
-        message: "overlapping_pattern",
-      }, { status: 409 });
+      return HttpResponse.json(
+        {
+          code: "conflict",
+          message: "overlapping_pattern",
+        },
+        { status: 409 },
+      );
     }
     if (resource === "versions" && parsed.data.action === "release") {
       const current = phase4ImportState.applyRuntimeState(record);
       const activeInScope = phase4Records.versions
         .map((version) => phase4ImportState.applyRuntimeState(version))
-        .some((version) => version.id !== id && version.scope === current.scope && version.status === "active");
-      if (activeInScope) return HttpResponse.json({ code: "conflict" }, { status: 409 });
+        .some(
+          (version) =>
+            version.id !== id &&
+            version.scope === current.scope &&
+            version.status === "active",
+        );
+      if (activeInScope)
+        return HttpResponse.json({ code: "conflict" }, { status: 409 });
     }
     const transition = phase4ImportState.transitionRecord(record, parsed.data);
     const auditId = phase4ImportState.recordAuditEvent({
@@ -310,10 +377,15 @@ async function actionResponse(
         eventName: `admin.${resource}.${parsed.data.action}`,
         timestamp: "2026-07-29T10:00:00+03:00",
       },
-      ...(transition.createdDraftId ? { createdDraftId: transition.createdDraftId } : {}),
+      ...(transition.createdDraftId
+        ? { createdDraftId: transition.createdDraftId }
+        : {}),
     });
   } catch (error) {
-    if (error instanceof Error && ["conflict", "required_tests_failed"].includes(error.message)) {
+    if (
+      error instanceof Error &&
+      ["conflict", "required_tests_failed"].includes(error.message)
+    ) {
       return HttpResponse.json({ code: "conflict" }, { status: 409 });
     }
     throw error;
@@ -322,26 +394,46 @@ async function actionResponse(
   }
 }
 
-const listHandlers = (Object.entries(listPaths) as Array<[Phase4Resource, string]>)
-  .map(([resource, path]) => http.get(path, ({ request }) => listResponse(request, resource)));
+const listHandlers = (
+  Object.entries(listPaths) as Array<[Phase4Resource, string]>
+).map(([resource, path]) =>
+  http.get(path, ({ request }) => listResponse(request, resource)),
+);
 
-const actionHandlers = (Object.entries(listPaths) as Array<[Phase4Resource, string]>)
+const actionHandlers = (
+  Object.entries(listPaths) as Array<[Phase4Resource, string]>
+)
   .filter(([resource]) => !["banks", "test-cases"].includes(resource))
   .flatMap(([resource, path]) => {
-    const suffix = resource === "sessions"
-      ? "retry-handoff"
-      : resource === "low-confidence"
-        ? "review"
-        : resource === "duplicates"
-          ? "resolve"
-          : "action";
+    const suffix =
+      resource === "sessions"
+        ? "retry-handoff"
+        : resource === "low-confidence"
+          ? "review"
+          : resource === "duplicates"
+            ? "resolve"
+            : "action";
     const handlers = [
       http.post(`${path}/:id/${suffix}`, ({ request, params }) =>
-        actionResponse(request, resource, String(params.id))),
+        actionResponse(request, resource, String(params.id)),
+      ),
+      http.patch(`${path}/:id`, ({ request, params }) =>
+        actionResponse(request, resource, String(params.id)),
+      ),
     ];
     if (resource === "parser-rules") {
-      handlers.push(http.post(`${path}/:id/test-preview`, ({ request, params }) =>
-        actionResponse(request, resource, String(params.id))));
+      handlers.push(
+        http.post(`${path}/:id/test-preview`, ({ request, params }) =>
+          actionResponse(request, resource, String(params.id)),
+        ),
+      );
+    }
+    if (resource === "versions") {
+      handlers.push(
+        http.post(`${path}/:id/publish`, ({ request, params }) =>
+          actionResponse(request, resource, String(params.id)),
+        ),
+      );
     }
     return handlers;
   });
@@ -360,11 +452,19 @@ export const importsHandlers = [
     const source = url.searchParams.get("source");
     const platform = url.searchParams.get("platform");
     const severity = url.searchParams.get("severity");
-    const filtered = scenario === "empty" ? [] : failedImports.filter((record) =>
-      (!query || `${record.id} ${record.user} ${record.bank}`.toLocaleLowerCase("ar").includes(query))
-      && (!source || record.source === source)
-      && (!platform || record.platform.toLowerCase() === platform)
-      && (!severity || record.severity === severity));
+    const filtered =
+      scenario === "empty"
+        ? []
+        : failedImports.filter(
+            (record) =>
+              (!query ||
+                `${record.id} ${record.user} ${record.bank}`
+                  .toLocaleLowerCase("ar")
+                  .includes(query)) &&
+              (!source || record.source === source) &&
+              (!platform || record.platform.toLowerCase() === platform) &&
+              (!severity || record.severity === severity),
+          );
     const start = (page - 1) * pageSize;
     return HttpResponse.json({
       metrics: importMetrics,
@@ -376,7 +476,8 @@ export const importsHandlers = [
       page,
       pageSize,
       totalItems: filtered.length,
-      totalPages: filtered.length === 0 ? 0 : Math.ceil(filtered.length / pageSize),
+      totalPages:
+        filtered.length === 0 ? 0 : Math.ceil(filtered.length / pageSize),
     });
   }),
   http.post("/api/v1/admin/imports/:id/retry", async ({ params, request }) => {
@@ -400,8 +501,12 @@ export const importsHandlers = [
       return HttpResponse.json({ code: "validation_error" }, { status: 400 });
     }
     const record = failedImports.find((candidate) => candidate.id === id);
-    if (!record) return HttpResponse.json({ code: "not_found" }, { status: 404 });
-    if (parsed.data.expectedState !== record.status || parsed.data.expectedRevision !== 1) {
+    if (!record)
+      return HttpResponse.json({ code: "not_found" }, { status: 404 });
+    if (
+      parsed.data.expectedState !== record.status ||
+      parsed.data.expectedRevision !== 1
+    ) {
       return HttpResponse.json({ code: "conflict" }, { status: 409 });
     }
     return HttpResponse.json({
@@ -416,23 +521,35 @@ export const importsHandlers = [
     const scenario = readScenario(request);
     const scenarioError = await scenarioResponse(scenario);
     if (scenarioError) return scenarioError;
-    if (scenario === "unsafe-response") return HttpResponse.json({ uniqueCustomers: "raw" });
+    if (scenario === "unsafe-response")
+      return HttpResponse.json({ uniqueCustomers: "raw" });
     const platform = new URL(request.url).searchParams.get("platform");
     const key = platform === "android" || platform === "ios" ? platform : "all";
     return HttpResponse.json({
       ...phase4OverviewFixtures[key],
       region: {
         availability: scenario === "partial" ? "partial" : "available",
-        ...(scenario === "partial" ? { message: "بعض المؤشرات غير متاحة مؤقتاً" } : {}),
+        ...(scenario === "partial"
+          ? { message: "بعض المؤشرات غير متاحة مؤقتاً" }
+          : {}),
       },
     });
   }),
   ...listHandlers,
+  http.get("/api/v1/admin/parsers/institutions", ({ request }) =>
+    listResponse(request, "banks"),
+  ),
   http.get("/api/v1/admin/imports/sessions/:id", ({ request, params }) =>
-    detailResponse(request, "sessions", String(params.id))),
+    detailResponse(request, "sessions", String(params.id)),
+  ),
+  http.get("/api/v1/admin/parsers/institutions/:id", ({ request, params }) =>
+    detailResponse(request, "banks", String(params.id)),
+  ),
   http.get("/api/v1/admin/parsers/banks/:id", ({ request, params }) =>
-    detailResponse(request, "banks", String(params.id))),
+    detailResponse(request, "banks", String(params.id)),
+  ),
   http.get("/api/v1/admin/parsers/rules/:id", ({ request, params }) =>
-    detailResponse(request, "parser-rules", String(params.id))),
+    detailResponse(request, "parser-rules", String(params.id)),
+  ),
   ...actionHandlers,
 ];

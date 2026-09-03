@@ -1,4 +1,9 @@
-export type SystemStatus = "operational" | "degraded" | "partial-outage" | "major-outage" | "maintenance";
+export type SystemStatus =
+  | "operational"
+  | "degraded"
+  | "partial-outage"
+  | "major-outage"
+  | "maintenance";
 export type Severity = "info" | "low" | "medium" | "high" | "critical";
 export type ViewState = "default" | "loading" | "empty" | "error";
 export type DateRange = "7d" | "30d" | "90d";
@@ -51,6 +56,7 @@ export interface ImportRecord {
   failureType: string;
   parserVersion: string;
   attempts: number;
+  revision: number;
   severity: Severity;
   time: string;
   status: "failed" | "review" | "unsupported";

@@ -63,13 +63,25 @@ export type TrackingMode = TrackingPreference['mode'];
 
 const epochSchema = z.number().int().nonnegative();
 const confidenceSchema = z.number().int().min(0).max(10_000);
-const currencySchema = z.string().trim().regex(/^[A-Z]{3}$/);
+const currencySchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Z]{3}$/);
 
 export const detectedFinancialEventSchema = z
   .object({
     id: z.string().min(1),
     sourceFingerprint: z.string().min(1),
-    sourceKind: z.enum(['sms_mock', 'platform_assisted_mock']),
+    sourceKind: z.enum([
+      'sms_mock',
+      'platform_assisted_mock',
+      'android_sms',
+      'android_notification',
+      'ios_shortcut',
+      'ios_app_intent',
+      'ios_share_extension',
+      'manual'
+    ]),
     eventType: z.enum(trackingEventTypes),
     decisionStatus: z.enum(trackingDecisionStatuses),
     confidenceBasisPoints: confidenceSchema,
@@ -180,9 +192,7 @@ export const trackingHistoryEntrySchema = z.object({
   occurredAt: epochSchema
 });
 
-export type TrackingHistoryEntry = z.infer<
-  typeof trackingHistoryEntrySchema
->;
+export type TrackingHistoryEntry = z.infer<typeof trackingHistoryEntrySchema>;
 
 export const automaticFeedbackSchema = z.object({
   id: z.string().min(1),
@@ -232,7 +242,15 @@ export interface MockFinancialEventInput {
   id?: string;
   sourceFingerprint: string;
   sourceText?: string | null;
-  sourceKind?: 'sms_mock' | 'platform_assisted_mock';
+  sourceKind?:
+    | 'sms_mock'
+    | 'platform_assisted_mock'
+    | 'android_sms'
+    | 'android_notification'
+    | 'ios_shortcut'
+    | 'ios_app_intent'
+    | 'ios_share_extension'
+    | 'manual';
   eventType: TrackingEventType;
   confidenceBasisPoints: number;
   amountMinor?: number | null;
@@ -268,7 +286,13 @@ export function transitionDetectedEvent(
 ): TrackingDecisionStatus {
   const allowed: Record<TrackingDecisionStatus, TrackingDecisionStatus[]> = {
     received: ['analyzing', 'failed'],
-    analyzing: ['auto_added', 'review_required', 'ignored', 'rejected', 'failed'],
+    analyzing: [
+      'auto_added',
+      'review_required',
+      'ignored',
+      'rejected',
+      'failed'
+    ],
     auto_added: ['resolved', 'failed'],
     review_required: ['resolved', 'ignored', 'failed'],
     ignored: [],

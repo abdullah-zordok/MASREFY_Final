@@ -22,7 +22,7 @@ describe("Spec 005 Phase 4 import state", () => {
 
     test("setting session state creates new snapshot reference", () => {
       const snapshot1 = phase4ImportState.getSnapshot();
-      
+
       phase4ImportState.setImportSession("IMP-001", {
         state: "received",
         revision: 1,
@@ -31,7 +31,7 @@ describe("Spec 005 Phase 4 import state", () => {
       });
 
       const snapshot2 = phase4ImportState.getSnapshot();
-      
+
       expect(snapshot1).not.toBe(snapshot2);
       expect(snapshot2.importSessions.size).toBe(1);
     });
@@ -45,7 +45,9 @@ describe("Spec 005 Phase 4 import state", () => {
     test("detects state mismatch", () => {
       const result = checkStateConflict("failed", "succeeded", 1, 1);
       expect(result.conflict).toBe(true);
-      expect(result.reason).toBe("state_mismatch: expected succeeded, got failed");
+      expect(result.reason).toBe(
+        "state_mismatch: expected succeeded, got failed",
+      );
     });
 
     test("detects revision mismatch", () => {
@@ -70,9 +72,17 @@ describe("Spec 005 Phase 4 import state", () => {
         lastModified: "2026-07-29T10:00:00.000Z",
       });
 
-      const acquired = phase4ImportState.acquireImportSessionLock("IMP-001", "retry-handoff");
+      const acquired = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "retry-handoff",
+      );
       expect(acquired).toBe(true);
-      expect(phase4ImportState.hasImportSessionPendingLock("IMP-001", "retry-handoff")).toBe(true);
+      expect(
+        phase4ImportState.hasImportSessionPendingLock(
+          "IMP-001",
+          "retry-handoff",
+        ),
+      ).toBe(true);
     });
 
     test("rejects duplicate lock acquisition", () => {
@@ -84,8 +94,11 @@ describe("Spec 005 Phase 4 import state", () => {
       });
 
       phase4ImportState.acquireImportSessionLock("IMP-001", "retry-handoff");
-      const duplicate = phase4ImportState.acquireImportSessionLock("IMP-001", "retry-handoff");
-      
+      const duplicate = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "retry-handoff",
+      );
+
       expect(duplicate).toBe(false);
     });
 
@@ -97,9 +110,15 @@ describe("Spec 005 Phase 4 import state", () => {
         lastModified: "2026-07-29T10:00:00.000Z",
       });
 
-      const lock1 = phase4ImportState.acquireImportSessionLock("IMP-001", "lock1");
-      const lock2 = phase4ImportState.acquireImportSessionLock("IMP-001", "lock2");
-      
+      const lock1 = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "lock1",
+      );
+      const lock2 = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "lock2",
+      );
+
       expect(lock1).toBe(true);
       expect(lock2).toBe(true);
     });
@@ -114,17 +133,31 @@ describe("Spec 005 Phase 4 import state", () => {
 
       phase4ImportState.acquireImportSessionLock("IMP-001", "retry-handoff");
       phase4ImportState.releaseImportSessionLock("IMP-001", "retry-handoff");
-      
-      expect(phase4ImportState.hasImportSessionPendingLock("IMP-001", "retry-handoff")).toBe(false);
-      
-      const reacquired = phase4ImportState.acquireImportSessionLock("IMP-001", "retry-handoff");
+
+      expect(
+        phase4ImportState.hasImportSessionPendingLock(
+          "IMP-001",
+          "retry-handoff",
+        ),
+      ).toBe(false);
+
+      const reacquired = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "retry-handoff",
+      );
       expect(reacquired).toBe(true);
     });
 
     test("handles lock operations on non-existent sessions gracefully", () => {
-      expect(phase4ImportState.hasImportSessionPendingLock("IMP-999", "lock")).toBe(false);
-      expect(phase4ImportState.acquireImportSessionLock("IMP-999", "lock")).toBe(false);
-      expect(() => phase4ImportState.releaseImportSessionLock("IMP-999", "lock")).not.toThrow();
+      expect(
+        phase4ImportState.hasImportSessionPendingLock("IMP-999", "lock"),
+      ).toBe(false);
+      expect(
+        phase4ImportState.acquireImportSessionLock("IMP-999", "lock"),
+      ).toBe(false);
+      expect(() =>
+        phase4ImportState.releaseImportSessionLock("IMP-999", "lock"),
+      ).not.toThrow();
     });
   });
 
@@ -137,9 +170,15 @@ describe("Spec 005 Phase 4 import state", () => {
         lastModified: "2026-07-29T10:00:00.000Z",
       });
 
-      const first = phase4ImportState.acquireImportSessionLock("IMP-001", "retry");
-      const second = phase4ImportState.acquireImportSessionLock("IMP-001", "retry");
-      
+      const first = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "retry",
+      );
+      const second = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "retry",
+      );
+
       expect(first).toBe(true);
       expect(second).toBe(false);
     });
@@ -152,9 +191,15 @@ describe("Spec 005 Phase 4 import state", () => {
         lastModified: "2026-07-29T10:00:00.000Z",
       });
 
-      const lock1 = phase4ImportState.acquireImportSessionLock("IMP-001", "action1");
-      const lock2 = phase4ImportState.acquireImportSessionLock("IMP-001", "action2");
-      
+      const lock1 = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "action1",
+      );
+      const lock2 = phase4ImportState.acquireImportSessionLock(
+        "IMP-001",
+        "action2",
+      );
+
       expect(lock1).toBe(true);
       expect(lock2).toBe(true);
     });
@@ -182,8 +227,12 @@ describe("Spec 005 Phase 4 import state", () => {
         scope: "test-scope",
       });
 
-      expect(phase4ImportState.getSnapshot().importSessions.size).toBeGreaterThan(0);
-      expect(phase4ImportState.getSnapshot().auditEvents.length).toBeGreaterThan(0);
+      expect(
+        phase4ImportState.getSnapshot().importSessions.size,
+      ).toBeGreaterThan(0);
+      expect(
+        phase4ImportState.getSnapshot().auditEvents.length,
+      ).toBeGreaterThan(0);
 
       resetPhase4State();
 
@@ -197,7 +246,7 @@ describe("Spec 005 Phase 4 import state", () => {
       const state1 = phase4ImportState;
       resetPhase4State();
       const state2 = phase4ImportState;
-      
+
       expect(state1).toBe(state2);
     });
   });
@@ -322,13 +371,14 @@ describe("Spec 005 Phase 4 import state", () => {
   describe("parser version lifecycle", () => {
     test("blocks release until required tests pass", () => {
       const draft = phase4Records.versions[0];
-      expect(() => phase4ImportState.transitionRecord(draft, {
-        action: "release",
-        expectedState: "draft",
-        expectedRevision: 1,
-        reason: "محاولة إصدار",
-        confirmationToken: "CONFIRM-SPEC-005",
-      })).toThrow("required_tests_failed");
+      expect(() =>
+        phase4ImportState.transitionRecord(draft, {
+          action: "release",
+          expectedState: "draft",
+          expectedRevision: 1,
+          reason: "محاولة إصدار",
+        }),
+      ).toThrow("required_tests_failed");
     });
 
     test("moves draft through testing to active after required tests pass", () => {
@@ -338,7 +388,6 @@ describe("Spec 005 Phase 4 import state", () => {
         expectedState: "draft",
         expectedRevision: 1,
         reason: "تشغيل الاختبارات المطلوبة",
-        confirmationToken: "CONFIRM-SPEC-005",
       });
       expect(testing.currentState).toBe("testing");
 
@@ -347,7 +396,6 @@ describe("Spec 005 Phase 4 import state", () => {
         expectedState: "testing",
         expectedRevision: 2,
         reason: "إصدار بعد نجاح الاختبارات",
-        confirmationToken: "CONFIRM-SPEC-005",
       });
       expect(active.currentState).toBe("active");
     });
@@ -359,12 +407,13 @@ describe("Spec 005 Phase 4 import state", () => {
         expectedState: "active",
         expectedRevision: 1,
         reason: "إنشاء مسودة من إصدار تاريخي",
-        confirmationToken: "CONFIRM-SPEC-005",
       });
 
       expect(rollback.currentState).toBe("active");
       expect(rollback.createdDraftId).toMatch(/^PV-RB-/);
-      expect(phase4ImportState.applyRuntimeState(activeVersion).status).toBe("active");
+      expect(phase4ImportState.applyRuntimeState(activeVersion).status).toBe(
+        "active",
+      );
     });
   });
 });

@@ -15,7 +15,13 @@ export const chartPointSchema = z.object({
   secondary: z.number().optional(),
 });
 
-export const severitySchema = z.enum(["info", "low", "medium", "high", "critical"]);
+export const severitySchema = z.enum([
+  "info",
+  "low",
+  "medium",
+  "high",
+  "critical",
+]);
 export const systemStatusSchema = z.enum([
   "operational",
   "degraded",
@@ -56,14 +62,19 @@ export const importRecordSchema = z.object({
   failureType: z.string().min(1),
   parserVersion: z.string().min(1),
   attempts: z.number().int().nonnegative(),
+  revision: z.number().int().positive(),
   severity: severitySchema,
   time: z.iso.datetime({ offset: true }),
   status: z.enum(["failed", "review", "unsupported"]),
   appVersion: z.string().min(1),
-  sanitizedResult: z.string().min(1).max(500).refine(
-    (value) => !/\b\d{10,}\b/.test(value),
-    "Sanitized results cannot contain long numeric identifiers.",
-  ),
+  sanitizedResult: z
+    .string()
+    .min(1)
+    .max(500)
+    .refine(
+      (value) => !/\b\d{10,}\b/.test(value),
+      "Sanitized results cannot contain long numeric identifiers.",
+    ),
 });
 
 export const serviceHealthSchema = z.object({

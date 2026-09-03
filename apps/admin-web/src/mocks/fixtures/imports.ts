@@ -11,28 +11,96 @@ export const importMetrics: Metric[] = [
   { label: "totalImports", value: "384,620", change: 9.4 },
   { label: "successful", value: "366,482", change: 10.1 },
   { label: "failed", value: "7,240", change: 2.8, tone: "attention" },
-  { label: "partial", value: "4,916" }, { label: "pendingReview", value: "1,284" },
-  { label: "duplicateCandidates", value: "2,118" }, { label: "unsupportedFormats", value: "640" },
+  { label: "partial", value: "4,916" },
+  { label: "pendingReview", value: "1,284" },
+  { label: "duplicateCandidates", value: "2,118" },
+  { label: "unsupportedFormats", value: "640" },
   { label: "averageProcessingTime", value: "1.8" },
 ];
 
 export const importSourceVolume: ChartPoint[] = [
-  { name: "SMS", current: 84, secondary: 4 }, { name: "notifications", current: 68, secondary: 3 },
-  { name: "Shortcut", current: 44, secondary: 2 }, { name: "images", current: 36, secondary: 6 },
-  { name: "CSV", current: 27, secondary: 1 }, { name: "PDF", current: 22, secondary: 3 },
+  { name: "SMS", current: 84, secondary: 4 },
+  { name: "notifications", current: 68, secondary: 3 },
+  { name: "Shortcut", current: 44, secondary: 2 },
+  { name: "images", current: 36, secondary: 6 },
+  { name: "CSV", current: 27, secondary: 1 },
+  { name: "PDF", current: 22, secondary: 3 },
 ];
 
 export const failureTrend: ChartPoint[] = [
-  { name: "jul20", current: 1.4 }, { name: "jul21", current: 1.2 },
-  { name: "jul22", current: 1.7 }, { name: "jul23", current: 1.5 },
-  { name: "jul24", current: 2.1 }, { name: "jul25", current: 2.8 },
+  { name: "jul20", current: 1.4 },
+  { name: "jul21", current: 1.2 },
+  { name: "jul22", current: 1.7 },
+  { name: "jul23", current: 1.5 },
+  { name: "jul24", current: 2.1 },
+  { name: "jul25", current: 2.8 },
 ];
 
 export const failedImports: ImportRecord[] = [
-  { id: "IMP-77241", user: "USR-10***", source: "Android SMS", bank: "بنك سعودي — عينة", platform: "Android", failureType: "تنسيق غير معروف", parserVersion: "v3.18.2", attempts: 3, severity: "high", time: "2026-07-25T08:21:00+03:00", status: "failed", appVersion: "4.8.1", sanitizedResult: "تعذر تحديد حقل المبلغ بعد إزالة المحتوى الحساس." },
-  { id: "IMP-77236", user: "USR-09***", source: "Receipt image", bank: "غير محدد", platform: "iOS", failureType: "جودة صورة منخفضة", parserVersion: "vision-2.4", attempts: 2, severity: "medium", time: "2026-07-25T07:58:00+03:00", status: "review", appVersion: "4.8.2", sanitizedResult: "تم استخراج التاريخ والتاجر، والمبلغ يحتاج مراجعة." },
-  { id: "IMP-77210", user: "USR-08***", source: "PDF statement", bank: "بنك إماراتي — عينة", platform: "iOS", failureType: "PDF محمي", parserVersion: "pdf-1.9", attempts: 1, severity: "low", time: "2026-07-25T06:44:00+03:00", status: "unsupported", appVersion: "4.7.9", sanitizedResult: "لم تتم قراءة محتوى الملف المحمي." },
-  { id: "IMP-77192", user: "USR-10***", source: "Android notification", bank: "بنك سعودي — عينة", platform: "Android", failureType: "قاعدة محلل قديمة", parserVersion: "v3.17.8", attempts: 4, severity: "critical", time: "2026-07-25T05:32:00+03:00", status: "failed", appVersion: "4.8.0", sanitizedResult: "تغير قالب الإشعار؛ لم تُحفظ أي بيانات مالية." },
+  {
+    id: "IMP-77241",
+    user: "USR-10***",
+    source: "Android SMS",
+    bank: "بنك سعودي — عينة",
+    platform: "Android",
+    failureType: "تنسيق غير معروف",
+    parserVersion: "v3.18.2",
+    attempts: 3,
+    revision: 4,
+    severity: "high",
+    time: "2026-07-25T08:21:00+03:00",
+    status: "failed",
+    appVersion: "4.8.1",
+    sanitizedResult: "تعذر تحديد حقل المبلغ بعد إزالة المحتوى الحساس.",
+  },
+  {
+    id: "IMP-77236",
+    user: "USR-09***",
+    source: "Receipt image",
+    bank: "غير محدد",
+    platform: "iOS",
+    failureType: "جودة صورة منخفضة",
+    parserVersion: "vision-2.4",
+    attempts: 2,
+    revision: 3,
+    severity: "medium",
+    time: "2026-07-25T07:58:00+03:00",
+    status: "review",
+    appVersion: "4.8.2",
+    sanitizedResult: "تم استخراج التاريخ والتاجر، والمبلغ يحتاج مراجعة.",
+  },
+  {
+    id: "IMP-77210",
+    user: "USR-08***",
+    source: "PDF statement",
+    bank: "بنك إماراتي — عينة",
+    platform: "iOS",
+    failureType: "PDF محمي",
+    parserVersion: "pdf-1.9",
+    attempts: 1,
+    revision: 2,
+    severity: "low",
+    time: "2026-07-25T06:44:00+03:00",
+    status: "unsupported",
+    appVersion: "4.7.9",
+    sanitizedResult: "لم تتم قراءة محتوى الملف المحمي.",
+  },
+  {
+    id: "IMP-77192",
+    user: "USR-10***",
+    source: "Android notification",
+    bank: "بنك سعودي — عينة",
+    platform: "Android",
+    failureType: "قاعدة محلل قديمة",
+    parserVersion: "v3.17.8",
+    attempts: 4,
+    revision: 5,
+    severity: "critical",
+    time: "2026-07-25T05:32:00+03:00",
+    status: "failed",
+    appVersion: "4.8.0",
+    sanitizedResult: "تغير قالب الإشعار؛ لم تُحفظ أي بيانات مالية.",
+  },
 ];
 
 export const sourceSuccess = [
@@ -78,7 +146,10 @@ function record(
   };
 }
 
-export const phase4OverviewFixtures: Record<"all" | "android" | "ios", ImportOverview> = {
+export const phase4OverviewFixtures: Record<
+  "all" | "android" | "ios",
+  ImportOverview
+> = {
   all: {
     platform: "all",
     uniqueCustomers: 128_420,
@@ -172,8 +243,19 @@ export const phase4Records: Record<Phase4Resource, OperationalRecord[]> = {
       platform: "ios",
       source: "receipt",
       confidence: 0.54,
-      actions: ["accept_suggestion", "correct_merchant", "correct_category", "defer", "mark_unsupported"],
-      preview: { ...safePreview, source: "receipt", currency: "AED", confidence: 0.54 },
+      actions: [
+        "accept_suggestion",
+        "correct_merchant",
+        "correct_category",
+        "defer",
+        "mark_unsupported",
+      ],
+      preview: {
+        ...safePreview,
+        source: "receipt",
+        currency: "AED",
+        confidence: 0.54,
+      },
     }),
   ],
   duplicates: [
@@ -187,7 +269,12 @@ export const phase4Records: Record<Phase4Resource, OperationalRecord[]> = {
       source: "screenshot",
       confidence: 0.91,
       actions: ["confirm_duplicate", "reject_match", "defer"],
-      preview: { ...safePreview, source: "screenshot", currency: "AED", confidence: 0.91 },
+      preview: {
+        ...safePreview,
+        source: "screenshot",
+        currency: "AED",
+        confidence: 0.91,
+      },
     }),
   ],
   unsupported: [
@@ -200,7 +287,12 @@ export const phase4Records: Record<Phase4Resource, OperationalRecord[]> = {
       platform: "android",
       source: "android_notification",
       bank: "مصرف سعودي — عينة",
-      actions: ["assign_parser_issue", "mark_unsupported", "create_rule_draft_handoff", "defer"],
+      actions: [
+        "assign_parser_issue",
+        "mark_unsupported",
+        "create_rule_draft_handoff",
+        "defer",
+      ],
       preview: { ...safePreview, source: "android_notification" },
     }),
   ],
@@ -372,9 +464,21 @@ export const phase4SessionDetails: Record<string, ImportSessionDetail> = {
     ...phase4Records.sessions[0],
     kind: "sessions",
     timeline: [
-      { label: "استلام المصدر وتنقيته", timestamp: "2026-07-29T09:20:00+03:00", status: "completed" },
-      { label: "تشغيل المحلل المحدد", timestamp: "2026-07-29T09:21:00+03:00", status: "completed" },
-      { label: "تسجيل سبب الفشل الآمن", timestamp: "2026-07-29T09:22:00+03:00", status: "failed" },
+      {
+        label: "استلام المصدر وتنقيته",
+        timestamp: "2026-07-29T09:20:00+03:00",
+        status: "completed",
+      },
+      {
+        label: "تشغيل المحلل المحدد",
+        timestamp: "2026-07-29T09:21:00+03:00",
+        status: "completed",
+      },
+      {
+        label: "تسجيل سبب الفشل الآمن",
+        timestamp: "2026-07-29T09:22:00+03:00",
+        status: "failed",
+      },
     ],
     totalItems: 5,
     successfulItems: 2,

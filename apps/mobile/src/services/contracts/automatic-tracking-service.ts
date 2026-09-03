@@ -17,7 +17,7 @@ export const automaticTrackingServiceCapability: CapabilityContractMetadata = {
   capability: 'automatic-tracking.events',
   majorVersion: 1,
   owner: 'automatic-tracking',
-  providerKinds: ['mock'],
+  providerKinds: ['live', 'mock'],
   unavailableOutcome: 'tracking.status.permissionRequired'
 };
 
@@ -72,10 +72,7 @@ export interface ReviewResolutionInput {
 }
 
 export type DuplicateResolution =
-  | 'keep_existing'
-  | 'keep_new'
-  | 'keep_both'
-  | 'merge_details';
+  'keep_existing' | 'keep_new' | 'keep_both' | 'merge_details';
 
 export interface AutomaticTrackingService {
   getStatus(): Promise<TrackingStatusSnapshot>;
@@ -105,7 +102,9 @@ export interface AutomaticTrackingService {
   saveKeywordRules(
     rules: readonly KeywordRule[]
   ): Promise<TrackingMutationResult<KeywordRuleSummary[]>>;
-  restoreDefaultKeywords(): Promise<TrackingMutationResult<KeywordRuleSummary[]>>;
+  restoreDefaultKeywords(): Promise<
+    TrackingMutationResult<KeywordRuleSummary[]>
+  >;
   listSenderRules(query?: SenderQuery): Promise<SenderRule[]>;
   saveSenderRule(
     input: SenderRuleInput

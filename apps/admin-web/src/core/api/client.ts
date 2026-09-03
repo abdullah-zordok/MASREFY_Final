@@ -1,5 +1,11 @@
 import type { z } from "zod";
-import { ApiError, normalizeApiError, normalizeHttpStatus, safeApiMessage, type ApiErrorCode } from "./errors";
+import {
+  ApiError,
+  normalizeApiError,
+  normalizeHttpStatus,
+  safeApiMessage,
+  type ApiErrorCode,
+} from "./errors";
 import { ADMIN_ROLES } from "@/core/permissions/permissions";
 
 type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown };
@@ -28,13 +34,23 @@ async function parseError(response: Response): Promise<ApiError> {
   try {
     const payload: unknown = await response.json();
     if (
-      typeof payload === "object"
-      && payload !== null
-      && "code" in payload
-      && typeof payload.code === "string"
-      && ALLOWED_ERROR_CODES.has(payload.code)
+      typeof payload === "object" &&
+      payload !== null &&
+      (("code" in payload &&
+        typeof payload.code === "string" &&
+        ALLOWED_ERROR_CODES.has(payload.code)) ||
+        ("error" in payload &&
+          typeof payload.error === "object" &&
+          payload.error !== null &&
+          "code" in payload.error &&
+          typeof payload.error.code === "string" &&
+          ALLOWED_ERROR_CODES.has(payload.error.code)))
     ) {
-      code = payload.code as ApiErrorCode;
+      code = (
+        "code" in payload
+          ? payload.code
+          : (payload.error as { code: string }).code
+      ) as ApiErrorCode;
     }
   } catch {
     // The safe status-derived message is sufficient.
@@ -49,7 +65,9 @@ export async function requestJson<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   try {
-    const mocksEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCKS !== "false";
+    const mocksEnabled =
+      process.env.NODE_ENV === "test" ||
+      process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
     const developmentScenario =
       mocksEnabled && typeof window !== "undefined"
         ? window.sessionStorage.getItem("admin-mock-scenario")
@@ -61,24 +79,41 @@ export async function requestJson<T>(
 
     const headers: Record<string, string> = {
       accept: "application/json",
-      ...(options.body === undefined ? {} : { "content-type": "application/json" }),
-      ...(developmentScenario ? { "x-mock-scenario": developmentScenario } : {}),
+      ...(options.body === undefined
+        ? {}
+        : { "content-type": "application/json" }),
+      ...(developmentScenario
+        ? { "x-mock-scenario": developmentScenario }
+        : {}),
       ...(simulatedRole && ADMIN_ROLES.some((role) => role === simulatedRole)
         ? { "x-admin-simulated-role": simulatedRole }
         : {}),
       ...((options.headers as Record<string, string>) || {}),
     };
+    if (
+      options.method &&
+      options.method !== "GET" &&
+      !headers["Idempotency-Key"]
+    ) {
+      headers["Idempotency-Key"] = crypto.randomUUID();
+    }
 
     const response = await fetch(apiUrl(path), {
       ...options,
+      credentials: "same-origin",
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
     });
 
     if (!response.ok) throw await parseError(response);
     const parsed = schema.safeParse(await response.json());
     if (!parsed.success) {
-      throw new ApiError("validation_error", safeApiMessage("validation_error"), 502);
+      throw new ApiError(
+        "validation_error",
+        safeApiMessage("validation_error"),
+        502,
+      );
     }
     return parsed.data;
   } catch (error) {
@@ -87,10 +122,17 @@ export async function requestJson<T>(
 }
 
 export const apiClient = {
-  get<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-    return requestJson(path, schema);
+  get<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    return requestJson(path, schema, options);
   },
   post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
     return requestJson(path, schema, { method: "POST", body });
+  },
+  patch<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
+    return requestJson(path, schema, { method: "PATCH", body });
   },
 };
