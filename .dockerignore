@@ -9,7 +9,10 @@
 **/*.log
 **/.env*
 !**/.env.example
-apps/mobile
+apps/mobile/**
+!apps/mobile/assets/
+!apps/mobile/assets/fonts/
+!apps/mobile/assets/fonts/NotoSansArabicUI-Regular.ttf
 apps/admin-web
 docs
 supabase/.branches

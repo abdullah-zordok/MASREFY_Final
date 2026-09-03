@@ -13,6 +13,7 @@ import { SyncModule } from './sync/sync.module';
 import { PlanningModule } from './planning/planning.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { AiModule } from './ai/ai.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AiModule } from './ai/ai.module';
     PlanningModule,
     TrackingModule,
     AiModule,
+    ReportsModule,
   ],
   providers: [RequestIdMiddleware],
 })

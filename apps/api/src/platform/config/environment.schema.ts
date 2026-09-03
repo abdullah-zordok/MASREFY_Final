@@ -62,6 +62,16 @@ const applicationKeys = new Set([
   'MASARIFI_AI_LEASE_SECONDS',
   'MASARIFI_AI_MAX_CONCURRENCY',
   'MASARIFI_AI_SIGNED_UPLOAD_SECONDS',
+  'MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS',
+  'MASARIFI_EMAIL_SMTP_SOCKET_TIMEOUT_MS',
+  'MASARIFI_REPORT_BATCH_SIZE',
+  'MASARIFI_REPORT_POLL_MS',
+  'MASARIFI_REPORT_LEASE_SECONDS',
+  'MASARIFI_REPORT_MAX_ATTEMPTS',
+  'MASARIFI_REPORT_MAX_ROWS',
+  'MASARIFI_REPORT_MAX_BYTES',
+  'MASARIFI_REPORT_RETENTION_HOURS',
+  'MASARIFI_REPORT_SIGNED_URL_SECONDS',
 ]);
 const testHarnessKeys = new Set(['MASARIFI_IMAGE_UNDER_TEST', 'MASARIFI_LIVE_DATABASE_TESTS']);
 
@@ -274,6 +284,34 @@ const schema = Joi.object<PlatformEnvironment>({
   MASARIFI_AI_LEASE_SECONDS: Joi.number().integer().min(10).max(300).default(120),
   MASARIFI_AI_MAX_CONCURRENCY: Joi.number().integer().min(1).max(16).default(4),
   MASARIFI_AI_SIGNED_UPLOAD_SECONDS: Joi.number().integer().min(60).max(900).default(300),
+  EMAIL_SMTP_HOST: Joi.string().trim().hostname().max(253).optional(),
+  EMAIL_SMTP_PORT: Joi.number().integer().min(1).max(65_535).optional(),
+  EMAIL_SMTP_USERNAME: Joi.string().trim().min(1).max(256).optional(),
+  EMAIL_SMTP_PASSWORD: Joi.string().min(1).max(4_096).optional(),
+  EMAIL_FROM: Joi.string().trim().email({ tlds: { allow: false } }).max(320).optional(),
+  EMAIL_DELIVERY_WEBHOOK_SECRET: Joi.string().min(32).max(512).optional(),
+  MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(250)
+    .max(30_000)
+    .default(5_000),
+  MASARIFI_EMAIL_SMTP_SOCKET_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(500)
+    .max(60_000)
+    .default(10_000),
+  MASARIFI_REPORT_BATCH_SIZE: Joi.number().integer().min(1).max(100).default(25),
+  MASARIFI_REPORT_POLL_MS: Joi.number().integer().min(100).max(10_000).default(500),
+  MASARIFI_REPORT_LEASE_SECONDS: Joi.number().integer().min(10).max(300).default(120),
+  MASARIFI_REPORT_MAX_ATTEMPTS: Joi.number().integer().min(1).max(20).default(5),
+  MASARIFI_REPORT_MAX_ROWS: Joi.number().integer().min(1).max(1_000_000).default(100_000),
+  MASARIFI_REPORT_MAX_BYTES: Joi.number()
+    .integer()
+    .min(1_048_576)
+    .max(1_073_741_824)
+    .default(52_428_800),
+  MASARIFI_REPORT_RETENTION_HOURS: Joi.number().integer().min(1).max(168).default(24),
+  MASARIFI_REPORT_SIGNED_URL_SECONDS: Joi.number().integer().min(60).max(900).default(300),
 }).unknown(true);
 
 const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment)[]> = {
@@ -307,6 +345,11 @@ const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment
     'MASARIFI_SECURITY_WORKER_POLL_MS',
     'MASARIFI_SECURITY_JOB_BATCH_SIZE',
     'MASARIFI_PRIVACY_HANDLER_MANIFEST',
+    'EMAIL_SMTP_HOST',
+    'EMAIL_SMTP_PORT',
+    'EMAIL_SMTP_USERNAME',
+    'EMAIL_SMTP_PASSWORD',
+    'EMAIL_FROM',
   ],
   migration: [],
 };
@@ -392,6 +435,19 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   }
   if (processKind !== 'worker' && input.OPENROUTER_API_KEY !== undefined) {
     invalidEnvironment(['OPENROUTER_API_KEY']);
+  }
+  const smtpKeys = [
+    'EMAIL_SMTP_HOST',
+    'EMAIL_SMTP_PORT',
+    'EMAIL_SMTP_USERNAME',
+    'EMAIL_SMTP_PASSWORD',
+    'EMAIL_FROM',
+  ] as const;
+  const misplacedSmtpKeys =
+    processKind === 'worker' ? [] : smtpKeys.filter((key) => input[key] !== undefined);
+  if (misplacedSmtpKeys.length > 0) invalidEnvironment(misplacedSmtpKeys);
+  if (processKind !== 'api' && input.EMAIL_DELIVERY_WEBHOOK_SECRET !== undefined) {
+    invalidEnvironment(['EMAIL_DELIVERY_WEBHOOK_SECRET']);
   }
   if (
     processKind === 'worker' &&

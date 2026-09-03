@@ -44,6 +44,11 @@ const worker = {
   MASARIFI_SECURITY_WORKER_POLL_MS: 500,
   MASARIFI_SECURITY_JOB_BATCH_SIZE: 25,
   MASARIFI_PRIVACY_HANDLER_MANIFEST: 'identity@1',
+  EMAIL_SMTP_HOST: 'smtp.example.test',
+  EMAIL_SMTP_PORT: 465,
+  EMAIL_SMTP_USERNAME: 'smtp-user',
+  EMAIL_SMTP_PASSWORD: 'nonfunctional-smtp-password',
+  EMAIL_FROM: 'reports@example.test',
 };
 
 describe('Phase 03 security environment', () => {
@@ -100,6 +105,11 @@ describe('Phase 03 security environment', () => {
     'MASARIFI_SECURITY_WORKER_POLL_MS',
     'MASARIFI_SECURITY_JOB_BATCH_SIZE',
     'MASARIFI_PRIVACY_HANDLER_MANIFEST',
+    'EMAIL_SMTP_HOST',
+    'EMAIL_SMTP_PORT',
+    'EMAIL_SMTP_USERNAME',
+    'EMAIL_SMTP_PASSWORD',
+    'EMAIL_FROM',
   ])('fails closed when worker variable %s is absent', (name) => {
     const candidate: Record<string, unknown> = { ...worker };
     Reflect.deleteProperty(candidate, name);

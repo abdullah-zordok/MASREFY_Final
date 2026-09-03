@@ -9,6 +9,7 @@ import { SyncWorkerModule } from './sync/sync.module';
 import { PlanningWorkerModule } from './planning/planning.module';
 import { TrackingWorkerModule } from './tracking/tracking.module';
 import { AiWorkerModule } from './ai/ai.module';
+import { ReportsWorkerModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AiWorkerModule } from './ai/ai.module';
     PlanningWorkerModule,
     TrackingWorkerModule,
     AiWorkerModule,
+    ReportsWorkerModule,
   ],
 })
 export class WorkerModule {}

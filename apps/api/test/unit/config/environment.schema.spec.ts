@@ -130,6 +130,11 @@ describe('validateEnvironment', () => {
       MASARIFI_SECURITY_WORKER_POLL_MS: 500,
       MASARIFI_SECURITY_JOB_BATCH_SIZE: 25,
       MASARIFI_PRIVACY_HANDLER_MANIFEST: 'identity@1',
+      EMAIL_SMTP_HOST: 'smtp.example.test',
+      EMAIL_SMTP_PORT: 465,
+      EMAIL_SMTP_USERNAME: 'smtp-user',
+      EMAIL_SMTP_PASSWORD: 'nonfunctional-smtp-password',
+      EMAIL_FROM: 'reports@example.test',
     });
 
     expect(validateEnvironment(worker)).toMatchObject({

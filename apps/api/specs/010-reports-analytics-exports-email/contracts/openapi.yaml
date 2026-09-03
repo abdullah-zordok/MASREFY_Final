@@ -1,0 +1,687 @@
+openapi: 3.1.0
+info:
+  title: Masarifi SPEC-BE-010 Reports API
+  version: 1.0.0
+  description: Owner reports, schedules, private outputs, and bounded Admin analytics/exports.
+servers:
+  - url: /api/v1
+security:
+  - clerkBearer: []
+tags:
+  - name: Dashboard
+  - name: Reports
+  - name: Report schedules
+  - name: Admin reports
+
+paths:
+  /dashboard/home:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardHome
+      parameters:
+        - $ref: '#/components/parameters/Period'
+      responses:
+        '200':
+          description: Owner home summary from one financial version.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HomeResponse'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '413': {$ref: '#/components/responses/SafeError'}
+        '429': {$ref: '#/components/responses/SafeError'}
+
+  /reports/summary:
+    get:
+      tags: [Reports]
+      operationId: getReportSummary
+      parameters:
+        - $ref: '#/components/parameters/ReportType'
+        - $ref: '#/components/parameters/Period'
+      responses:
+        '200':
+          description: Versioned owner report summary.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportSummaryResponse'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '429': {$ref: '#/components/responses/SafeError'}
+
+  /reports:
+    get:
+      tags: [Reports]
+      operationId: listReportAttempts
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/UserLimit'
+        - name: scheduleId
+          in: query
+          schema: {$ref: '#/components/schemas/Uuid'}
+        - name: status
+          in: query
+          schema: {$ref: '#/components/schemas/ReportStatus'}
+      responses:
+        '200':
+          description: Owner-safe attempt page.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportAttemptPage'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+    post:
+      tags: [Reports]
+      operationId: createReport
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateReportRequest'}
+      responses:
+        '202':
+          description: Immutable snapshot captured and generation queued.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedReport'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+        '413': {$ref: '#/components/responses/SafeError'}
+        '429': {$ref: '#/components/responses/SafeError'}
+
+  /reports/{attemptId}:
+    get:
+      tags: [Reports]
+      operationId: getReportAttempt
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Owner-safe status and a newly signed URL when ready and authorized.
+          headers:
+            Cache-Control:
+              schema: {type: string, const: 'private, no-store'}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportAttempt'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+        '410': {$ref: '#/components/responses/SafeError'}
+
+  /reports/{attemptId}/retry-delivery:
+    post:
+      tags: [Reports]
+      operationId: retryReportDelivery
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Existing immutable snapshot/output queued for safe retry.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedReport'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+        '410': {$ref: '#/components/responses/SafeError'}
+
+  /report-schedules:
+    get:
+      tags: [Report schedules]
+      operationId: listReportSchedules
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/UserLimit'
+      responses:
+        '200':
+          description: Owner schedule page.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportSchedulePage'}
+        '401': {$ref: '#/components/responses/SafeError'}
+    post:
+      tags: [Report schedules]
+      operationId: createReportSchedule
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateScheduleRequest'}
+      responses:
+        '201':
+          description: Schedule created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportSchedule'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+
+  /report-schedules/verify-recipient:
+    post:
+      tags: [Report schedules]
+      operationId: verifyReportRecipient
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/VerifyRecipientRequest'}
+      responses:
+        '200':
+          description: Normalized recipient verification state; never a deliverability or account-existence claim.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RecipientVerification'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+        '429': {$ref: '#/components/responses/SafeError'}
+
+  /report-schedules/{scheduleId}:
+    get:
+      tags: [Report schedules]
+      operationId: getReportSchedule
+      parameters:
+        - $ref: '#/components/parameters/ScheduleId'
+      responses:
+        '200':
+          description: Owner schedule.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportSchedule'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+    patch:
+      tags: [Report schedules]
+      operationId: updateReportSchedule
+      parameters:
+        - $ref: '#/components/parameters/ScheduleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateScheduleRequest'}
+      responses:
+        '200':
+          description: Schedule updated with optimistic concurrency.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportSchedule'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+    delete:
+      tags: [Report schedules]
+      operationId: deleteReportSchedule
+      parameters:
+        - $ref: '#/components/parameters/ScheduleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: expectedVersion
+          in: query
+          required: true
+          schema: {type: integer, minimum: 1}
+      responses:
+        '204': {description: Future schedule claims disabled.}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+
+  /admin/overview:
+    get:
+      tags: [Admin reports]
+      operationId: getAdminOverview
+      parameters:
+        - $ref: '#/components/parameters/AdminPlatform'
+        - $ref: '#/components/parameters/AdminPeriod'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Minimized bounded overview aggregate matching the existing Admin contract.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AdminOverview'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+
+  /admin/overview/platform-analytics:
+    get:
+      tags: [Admin reports]
+      operationId: getAdminPlatformAnalytics
+      parameters:
+        - $ref: '#/components/parameters/AdminPlatform'
+        - $ref: '#/components/parameters/AdminPeriod'
+      responses:
+        '200':
+          description: Bounded platform aggregates matching the existing Admin contract.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AdminPlatformAnalytics'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+
+  /admin/overview/activity:
+    get:
+      tags: [Admin reports]
+      operationId: getAdminOverviewActivity
+      parameters:
+        - $ref: '#/components/parameters/AdminPlatform'
+        - $ref: '#/components/parameters/AdminPeriod'
+        - $ref: '#/components/parameters/AdminPage'
+        - $ref: '#/components/parameters/AdminPageSize'
+      responses:
+        '200':
+          description: Permission-filtered safe activity page.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AdminActivityPage'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+
+  /admin/exports:
+    post:
+      tags: [Admin reports]
+      operationId: createAdminExport
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminExportRequest'}
+      responses:
+        '202':
+          description: Bounded aggregate export accepted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedReport'}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '413': {$ref: '#/components/responses/SafeError'}
+        '429': {$ref: '#/components/responses/SafeError'}
+
+  /admin/exports/{attemptId}:
+    get:
+      tags: [Admin reports]
+      operationId: getAdminExport
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Authorized safe status and newly signed URL.
+          headers:
+            Cache-Control:
+              schema: {type: string, const: 'private, no-store'}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportAttempt'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '403': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+        '410': {$ref: '#/components/responses/SafeError'}
+
+  /webhooks/report-delivery:
+    post:
+      tags: [Reports]
+      operationId: acceptReportDeliveryWebhook
+      security: []
+      description: Present only when a delivery-status webhook secret is configured; otherwise fails closed.
+      parameters:
+        - $ref: '#/components/parameters/WebhookSignature'
+        - $ref: '#/components/parameters/WebhookTimestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DeliveryWebhookRequest'}
+      responses:
+        '202': {description: Valid, fresh, schema-safe event accepted idempotently.}
+        '400': {$ref: '#/components/responses/SafeError'}
+        '401': {$ref: '#/components/responses/SafeError'}
+        '404': {$ref: '#/components/responses/SafeError'}
+        '409': {$ref: '#/components/responses/SafeError'}
+        '413': {$ref: '#/components/responses/SafeError'}
+
+components:
+  securitySchemes:
+    clerkBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 16, maxLength: 128}
+    AttemptId:
+      name: attemptId
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/Uuid'}
+    ScheduleId:
+      name: scheduleId
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/Uuid'}
+    Cursor:
+      name: cursor
+      in: query
+      schema: {type: string, minLength: 1, maxLength: 512}
+    UserLimit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 25}
+    AdminLimit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+    AdminPage:
+      name: page
+      in: query
+      schema: {type: integer, minimum: 1, default: 1}
+    AdminPageSize:
+      name: pageSize
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 25, default: 10}
+    WebhookSignature:
+      name: X-Webhook-Signature
+      in: header
+      required: true
+      schema: {type: string, minLength: 16, maxLength: 512}
+    WebhookTimestamp:
+      name: X-Webhook-Timestamp
+      in: header
+      required: true
+      schema: {type: string, pattern: '^[0-9]{10}$'}
+    Period:
+      name: period
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/ReportPeriod'}
+    ReportType:
+      name: type
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/ReportType'}
+    AdminPlatform:
+      name: platform
+      in: query
+      schema: {type: string, enum: [all, ios, android], default: all}
+    AdminPeriod:
+      name: period
+      in: query
+      schema: {type: string, enum: [7d, 30d, 90d], default: 30d}
+    Locale:
+      name: locale
+      in: query
+      schema: {type: string, enum: [ar, en], default: ar}
+
+  responses:
+    SafeError:
+      description: Safe error; foreign and missing resources are indistinguishable.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+    ReportType:
+      type: string
+      enum: [financial_summary, category_spending, budget_performance, obligation_progress, savings_progress, account_activity]
+    ReportPeriod:
+      type: string
+      enum: [monthly, three_months, half_year, annual]
+    ReportFormat:
+      type: string
+      enum: [json, csv, pdf]
+    DeliveryChannel:
+      type: string
+      enum: [download, email]
+    ReportStatus:
+      type: string
+      enum: [queued, generating, ready, sending, delivered, failed, expired]
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      properties:
+        amountMinor: {type: integer, minimum: -9007199254740991, maximum: 9007199254740991}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+    Evidence:
+      type: object
+      additionalProperties: false
+      required: [kind, version, asOf]
+      properties:
+        kind: {type: string, enum: [ledger, balance, salary, budget, obligation, savings, tracking, ai]}
+        id: {type: string, minLength: 1, maxLength: 128}
+        version: {type: integer, minimum: 0}
+        asOf: {type: string, format: date-time}
+    ReportMetadata:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, generatedAt, ledgerVersion, reportType, period, dataState, evidence]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        generatedAt: {type: string, format: date-time}
+        ledgerVersion: {type: integer, minimum: 0}
+        reportType: {$ref: '#/components/schemas/ReportType'}
+        period: {$ref: '#/components/schemas/ReportPeriod'}
+        dataState: {type: string, enum: [complete, empty, partial, estimated]}
+        evidence:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/Evidence'}
+    SummaryValues:
+      type: object
+      additionalProperties: false
+      required: [income, expense, netCashFlow]
+      properties:
+        income: {$ref: '#/components/schemas/Money'}
+        expense: {$ref: '#/components/schemas/Money'}
+        netCashFlow: {$ref: '#/components/schemas/Money'}
+        savingsRateBasisPoints: {type: integer, minimum: -1000000, maximum: 1000000}
+        obligationPayments: {$ref: '#/components/schemas/Money'}
+    HomeResponse:
+      type: object
+      additionalProperties: false
+      required: [metadata, balances, summary, planning, recentItems]
+      properties:
+        metadata: {$ref: '#/components/schemas/ReportMetadata'}
+        balances:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [accountId, confirmed, pending]
+            properties:
+              accountId: {$ref: '#/components/schemas/Uuid'}
+              confirmed: {$ref: '#/components/schemas/Money'}
+              pending: {$ref: '#/components/schemas/Money'}
+        summary: {$ref: '#/components/schemas/SummaryValues'}
+        planning: {type: object, additionalProperties: true, maxProperties: 20}
+        recentItems: {type: array, maxItems: 25, items: {type: object, additionalProperties: true, maxProperties: 20}}
+    ReportSummaryResponse:
+      type: object
+      additionalProperties: false
+      required: [metadata, summary, breakdowns]
+      properties:
+        metadata: {$ref: '#/components/schemas/ReportMetadata'}
+        summary: {$ref: '#/components/schemas/SummaryValues'}
+        breakdowns:
+          type: array
+          maxItems: 100
+          items: {type: object, additionalProperties: true, maxProperties: 20}
+    CreateReportRequest:
+      type: object
+      additionalProperties: false
+      required: [type, periodStart, periodEnd, format, delivery]
+      properties:
+        type: {$ref: '#/components/schemas/ReportType'}
+        periodStart: {type: string, format: date}
+        periodEnd: {type: string, format: date}
+        format: {$ref: '#/components/schemas/ReportFormat'}
+        delivery: {$ref: '#/components/schemas/DeliveryChannel'}
+        recipient: {type: string, format: email, minLength: 3, maxLength: 320}
+    AcceptedReport:
+      type: object
+      additionalProperties: false
+      required: [attemptId, status, ledgerVersion, schemaVersion, generatedAt]
+      properties:
+        attemptId: {$ref: '#/components/schemas/Uuid'}
+        status: {$ref: '#/components/schemas/ReportStatus'}
+        ledgerVersion: {type: integer, minimum: 0}
+        schemaVersion: {type: integer, const: 1}
+        generatedAt: {type: string, format: date-time}
+    ReportAttempt:
+      type: object
+      additionalProperties: false
+      required: [id, reportType, format, delivery, status, metadata, requestedAt, expiresAt]
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        scheduleId: {$ref: '#/components/schemas/Uuid'}
+        reportType: {$ref: '#/components/schemas/ReportType'}
+        format: {$ref: '#/components/schemas/ReportFormat'}
+        delivery: {$ref: '#/components/schemas/DeliveryChannel'}
+        status: {$ref: '#/components/schemas/ReportStatus'}
+        metadata: {$ref: '#/components/schemas/ReportMetadata'}
+        downloadUrl: {type: string, format: uri, pattern: '^https://'}
+        downloadUrlExpiresAt: {type: string, format: date-time}
+        errorCode: {type: string, minLength: 1, maxLength: 80}
+        requestedAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+    ReportAttemptPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/ReportAttempt'}}
+        nextCursor: {type: [string, 'null'], maxLength: 512}
+    CreateScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [reportType, frequency, timezone, deliveryChannel, enabled]
+      properties:
+        reportType: {$ref: '#/components/schemas/ReportType'}
+        frequency: {$ref: '#/components/schemas/ReportPeriod'}
+        timezone: {type: string, minLength: 1, maxLength: 64}
+        deliveryChannel: {$ref: '#/components/schemas/DeliveryChannel'}
+        recipient: {type: string, format: email, minLength: 3, maxLength: 320}
+        enabled: {type: boolean}
+    VerifyRecipientRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: {type: string, format: email, minLength: 3, maxLength: 320}
+    RecipientVerification:
+      type: object
+      additionalProperties: false
+      required: [normalizedEmail, status, verifiedAt, failureCategory]
+      properties:
+        normalizedEmail: {type: string, format: email, minLength: 3, maxLength: 320}
+        status: {type: string, enum: [unverified, verifying, verified, failed]}
+        verifiedAt: {type: [string, 'null'], format: date-time}
+        failureCategory: {type: [string, 'null'], enum: [validation, temporary, null]}
+    UpdateScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      minProperties: 2
+      properties:
+        expectedVersion: {type: integer, minimum: 1}
+        reportType: {$ref: '#/components/schemas/ReportType'}
+        frequency: {$ref: '#/components/schemas/ReportPeriod'}
+        timezone: {type: string, minLength: 1, maxLength: 64}
+        deliveryChannel: {$ref: '#/components/schemas/DeliveryChannel'}
+        recipient: {type: [string, 'null'], format: email, maxLength: 320}
+        enabled: {type: boolean}
+    ReportSchedule:
+      type: object
+      additionalProperties: false
+      required: [id, version, reportType, frequency, timezone, nextRunAt, deliveryChannel, enabled, createdAt, updatedAt]
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        version: {type: integer, minimum: 1}
+        reportType: {$ref: '#/components/schemas/ReportType'}
+        frequency: {$ref: '#/components/schemas/ReportPeriod'}
+        timezone: {type: string, minLength: 1, maxLength: 64}
+        nextRunAt: {type: string, format: date-time}
+        deliveryChannel: {$ref: '#/components/schemas/DeliveryChannel'}
+        recipientMasked: {type: string, minLength: 3, maxLength: 80}
+        enabled: {type: boolean}
+        lastRunAt: {type: [string, 'null'], format: date-time}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ReportSchedulePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/ReportSchedule'}}
+        nextCursor: {type: [string, 'null'], maxLength: 512}
+    AdminExportRequest:
+      type: object
+      additionalProperties: false
+      required: [exportType, period, format]
+      properties:
+        exportType: {type: string, enum: [overview, platform_analytics, activity, user_report]}
+        period: {type: string, enum: [7d, 30d, 90d]}
+        platform: {type: string, enum: [all, ios, android], default: all}
+        format: {$ref: '#/components/schemas/ReportFormat'}
+        userId: {type: string, minLength: 1, maxLength: 128}
+        supportReason: {type: string, minLength: 10, maxLength: 500}
+    AdminOverview:
+      $ref: '../../../../admin-web/specs/002-admin-overview-and-platform-analytics/contracts/admin-overview.openapi.yaml#/components/schemas/OverviewSummaryResponse'
+    AdminPlatformAnalytics:
+      $ref: '../../../../admin-web/specs/002-admin-overview-and-platform-analytics/contracts/admin-overview.openapi.yaml#/components/schemas/PlatformAnalyticsResponse'
+    AdminActivityPage:
+      $ref: '../../../../admin-web/specs/002-admin-overview-and-platform-analytics/contracts/admin-overview.openapi.yaml#/components/schemas/ActivityResponse'
+    DeliveryWebhookRequest:
+      type: object
+      additionalProperties: false
+      required: [eventId, attemptId, status, occurredAt]
+      properties:
+        eventId: {type: string, minLength: 1, maxLength: 128}
+        attemptId: {$ref: '#/components/schemas/Uuid'}
+        status: {type: string, enum: [accepted, rejected, bounced]}
+        occurredAt: {type: string, format: date-time}
+        errorCode: {type: string, minLength: 1, maxLength: 80}
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [statusCode, code, message, requestId]
+      properties:
+        statusCode: {type: integer, minimum: 400, maximum: 599}
+        code: {type: string, minLength: 1, maxLength: 80}
+        message: {type: string, minLength: 1, maxLength: 240}
+        requestId: {type: string, minLength: 1, maxLength: 128}
+        fieldErrors:
+          type: object
+          maxProperties: 50
+          additionalProperties:
+            type: array
+            maxItems: 10
+            items: {type: string, maxLength: 120}
