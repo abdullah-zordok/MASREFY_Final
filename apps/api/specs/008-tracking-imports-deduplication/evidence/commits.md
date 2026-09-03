@@ -1,11 +1,16 @@
 # Commit Evidence
 
-Status: not complete.
+Status: scoped local commits complete; direct push pending.
 
-- Current local HEAD: `47b03ae79a4437c5ee295edf5875281755ea0275`.
+- Initial artifact commit: `47b03ae79a4437c5ee295edf5875281755ea0275`.
+- Converged artifact/evidence commit: `bea94a6`.
+- Database migrations/tests/checksums commit: `dbf4e0f`.
+- API/workers/contracts/tests/operations commit: `a6bb0cf`.
+- Mobile/Admin production cutover commit: `72d7f07`.
 - Current `origin/main`: `49f38b72f230a317a6b271dde6612030eeaa7d55`.
-- Divergence after fresh fetch: local `main` is ahead 1 and behind 0.
-- Phase 08 implementation changes are still uncommitted.
+- Divergence after fresh fetch and scoped commits: local `main` is ahead 5 and
+  behind 0.
+- Only the final evidence update remains tracked and uncommitted.
 
-No implementation commit or push should be made until the remaining local
-release blockers are resolved or explicitly reclassified.
+Untracked `.agents/plugins/`, `apps/api/pnpm-lock.yaml`, and
+`apps/api/pnpm-workspace.yaml` remain preserved and excluded from every commit.
