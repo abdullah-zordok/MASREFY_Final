@@ -19,7 +19,9 @@ describeLiveDatabase('sync cursor high-water upgrade', () => {
       await client.query('begin');
       try {
         await client.query('set local role masarifi_migration');
-        await client.query("insert into public.profiles(id,status) values('sync_upgrade_owner','active')");
+        await client.query(
+          "insert into public.profiles(id,status) values('sync_upgrade_owner','active')",
+        );
         await client.query(
           `insert into public.user_devices(
             id,user_id,device_fingerprint,clerk_session_id,platform,app_version
@@ -34,19 +36,16 @@ describeLiveDatabase('sync cursor high-water upgrade', () => {
            ('65000000-0000-4000-8000-000000000001','sync_upgrade_owner','Cash','cash','SAR')`,
         );
         for (const eventType of ['account.created', 'account.updated']) {
-          await client.query(
-            `select private.enqueue_outbox_event($1,'account',$2,$3::jsonb)`,
-            [
-              eventType,
-              '65000000-0000-4000-8000-000000000001',
-              JSON.stringify({
-                accountId: '65000000-0000-4000-8000-000000000001',
-                userId: 'sync_upgrade_owner',
-                version: 1,
-                occurredAt: '2026-09-01T00:00:00Z',
-              }),
-            ],
-          );
+          await client.query(`select private.enqueue_outbox_event($1,'account',$2,$3::jsonb)`, [
+            eventType,
+            '65000000-0000-4000-8000-000000000001',
+            JSON.stringify({
+              accountId: '65000000-0000-4000-8000-000000000001',
+              userId: 'sync_upgrade_owner',
+              version: 1,
+              occurredAt: '2026-09-01T00:00:00Z',
+            }),
+          ]);
         }
         await client.query(
           `insert into public.client_sync_state(user_id,device_id,domain,last_cursor,last_issued_cursor)

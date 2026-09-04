@@ -6,3 +6,4 @@ docs/
 specs/
 README.md
 test/performance/artifacts/
+pnpm-lock.yaml

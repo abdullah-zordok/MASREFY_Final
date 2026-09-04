@@ -17,6 +17,11 @@ Scope: SPEC-BE-010
   SMTP 4/14, recovery 1/3, and stress 1/1 passed. The focused integration run
   passed 4 suites and skipped 4 live-database suites (13 passed, 9 skipped).
 - Phase 10 source/test Prettier check and `git diff --check`: exit 0.
+- Repository-wide `npm run format:check`: exit 0 after mechanically formatting
+  three tracked baseline files and excluding the protected, untracked
+  `pnpm-lock.yaml` from formatting. API typecheck remained green; the two
+  affected live-database specs loaded successfully and skipped because the
+  database is unavailable.
 - `npm audit --audit-level=high`: exit 0 with one Moderate `qs` advisory and no
   High/Critical advisory.
 - Diff secret-pattern scan: zero candidate credential/private-key hits. Diff path
@@ -29,8 +34,3 @@ points before its Linux engine starts. Consequently clean Supabase reset/lint,
 latest pgTAP/RLS, live query/load measurements, migration/rollback/restore, and
 container image/scan/SBOM checks have not run against the final sources. These
 are release blockers, not waived or simulated passes.
-
-The repository-wide API Prettier gate also remains red on four baseline files
-outside the Phase 10 diff (`jest.config.ts`, protected untracked
-`pnpm-lock.yaml`, and two existing sync tests). Phase 10-owned files pass their
-scoped Prettier gate; the protected pnpm file was not modified.

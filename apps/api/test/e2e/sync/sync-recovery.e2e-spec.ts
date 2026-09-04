@@ -120,7 +120,9 @@ describeLiveDatabase('sync migration and recovery', () => {
           'insert into public.client_mutations select * from sync_mutation_backup',
         );
         await client.query('insert into public.client_sync_state select * from sync_state_backup');
-        await client.query('insert into private.sync_cursor_positions select * from sync_cursor_backup');
+        await client.query(
+          'insert into private.sync_cursor_positions select * from sync_cursor_backup',
+        );
         await client.query('insert into private.outbox_events select * from sync_outbox_backup');
         await client.query("set local session_replication_role='origin'");
         const restored = await client.query<{
