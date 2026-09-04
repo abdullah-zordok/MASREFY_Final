@@ -1,5 +1,9 @@
+import { randomUUID } from 'node:crypto';
+
+import { PoolService } from '../../../src/platform/database/pool.service';
 import { ReportsWorker } from '../../../src/reports/reports.worker';
 import type { ReportWorkOutcome } from '../../../src/reports/reports.repository';
+import { describeLiveDatabase } from '../../live-database';
 
 const snapshot = {
   schemaVersion: 1,
@@ -173,5 +177,98 @@ describe('report worker recovery', () => {
       storage.upload.mock.invocationCallOrder[0] ?? 0,
     );
     expect(outcome).toMatchObject({ status: 'ready', storageRef: 'private' });
+  });
+});
+
+describeLiveDatabase('report database recovery', () => {
+  let pool: PoolService;
+
+  beforeAll(() => {
+    pool = new PoolService({
+      get: (key: string) => (key === 'DATABASE_URL' ? process.env.DATABASE_URL : 4),
+    } as never);
+  });
+
+  afterAll(async () => pool.onModuleDestroy());
+
+  it('preserves the N-1 query shape and restores one immutable attempt before a forward fix', async () => {
+    const userId = `report_recovery_${randomUUID()}`;
+    const attemptId = randomUUID();
+    const storageRef = `reports/${'a'.repeat(64)}/${attemptId}.pdf`;
+
+    await pool.withClient(async (client) => {
+      await client.query('begin');
+      try {
+        await client.query('set local role masarifi_migration');
+        await client.query(
+          "insert into public.profiles(id,status,timezone) values($1,'active','Asia/Riyadh')",
+          [userId],
+        );
+        await client.query(
+          `insert into private.report_output_attempts(
+             id,user_id,report_type,period_start,period_end,ledger_version,snapshot,
+             storage_ref,delivery_status,expires_at
+           ) values($1,$2,'financial_summary','2026-08-01','2026-08-31',1,$3::jsonb,$4,
+             'ready',clock_timestamp()+interval '1 day')`,
+          [attemptId, userId, JSON.stringify(snapshot), storageRef],
+        );
+
+        const legacyProfile = await client.query<{
+          id: string;
+          status: string;
+          timezone: string;
+        }>('select id,status,timezone from public.profiles where id=$1', [userId]);
+        expect(legacyProfile.rows[0]).toEqual({
+          id: userId,
+          status: 'active',
+          timezone: 'Asia/Riyadh',
+        });
+
+        await client.query(
+          'create temporary table phase10_report_backup on commit drop as select * from private.report_output_attempts where id=$1',
+          [attemptId],
+        );
+        await client.query('delete from private.report_output_attempts where id=$1', [attemptId]);
+        await client.query(
+          'insert into private.report_output_attempts select * from phase10_report_backup',
+        );
+
+        await client.query('savepoint invalid_forward_fix');
+        await expect(
+          client.query(
+            "update private.report_output_attempts set delivery_status='delivered' where id=$1",
+            [attemptId],
+          ),
+        ).rejects.toThrow('REPORT_TRANSITION_INVALID');
+        await client.query('rollback to savepoint invalid_forward_fix');
+        await client.query("select set_config('request.jwt.claims',$1,true)", [
+          JSON.stringify({ role: 'worker', sub: userId }),
+        ]);
+        await client.query(
+          "select private.transition_report_output($1,'failed',null,null,'REPORT_STORAGE_UNAVAILABLE')",
+          [attemptId],
+        );
+
+        const restored = await client.query<{
+          snapshot: typeof snapshot;
+          storage_ref: string;
+          delivery_status: string;
+          error_code: string;
+        }>(
+          'select snapshot,storage_ref,delivery_status,error_code from private.report_output_attempts where id=$1',
+          [attemptId],
+        );
+        expect(restored.rows[0]).toEqual({
+          snapshot,
+          storage_ref: storageRef,
+          delivery_status: 'failed',
+          error_code: 'REPORT_STORAGE_UNAVAILABLE',
+        });
+        await client.query('rollback');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      }
+    });
   });
 });

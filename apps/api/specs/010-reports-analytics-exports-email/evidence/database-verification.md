@@ -3,15 +3,16 @@
 Date: 2026-09-04
 Scope: SPEC-BE-010
 
-- Migration checksums: PASS for all four Phase 10 migrations.
-- Earlier clean reset and pgTAP run: PASS, 41 assertions across tests 041-043,
-  before the final Admin activity/delete changes and webhook receipt reuse.
-- Final clean reset, lint, pgTAP, and up/down/up rerun: PENDING because Docker
-  Desktop 4.88.1 recreates inaccessible Unix-socket reparse points before the
-  Linux engine can start. Moving the exact stale `Docker/run` and
-  `docker-secrets-engine` runtime directories to timestamped sibling backups
-  exposed the same newly-created `sailor-ingest.sock` failure; project data,
-  images, and volumes were not reset.
-
-No final database task is marked complete until the final migration sources are
-applied and retested on a clean local stack.
+- `npm run migration:checksums`: PASS for all four Phase 10 migrations.
+- `npm run db:reset`: PASS from a clean local Supabase database through
+  `20260904040000_phase10_report_delivery_webhooks.sql`.
+- `npm run db:lint`: PASS with zero findings.
+- `npm run test:db`: PASS, 43 files and 1,556 pgTAP assertions.
+- `supabase migration down --last 4` then `migration up`: PASS using the local
+  `supabase_admin` migration role because the CLI's local `postgres` role is
+  intentionally not a superuser. The four Phase 10 migrations reverted to the
+  Phase 9 boundary and reapplied successfully.
+- Checksums, database lint, and all 43/1,556 pgTAP checks passed again after the
+  rollback/reapply cycle.
+- `npm run test:migration`: PASS, 4 suites/4 tests covering apply inventory,
+  checksums, concurrent migration locking, and backup/restore compatibility.

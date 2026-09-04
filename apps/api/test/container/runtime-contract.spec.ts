@@ -28,7 +28,15 @@ describe('SPEC-BE-002 runtime configuration contract', () => {
   });
 
   it('does not require the webhook signing secret in the worker process', () => {
-    const worker = { ...process.env, MASARIFI_PROCESS_KIND: 'worker' };
+    const worker = {
+      ...process.env,
+      MASARIFI_PROCESS_KIND: 'worker',
+      EMAIL_SMTP_HOST: 'localhost',
+      EMAIL_SMTP_PORT: '465',
+      EMAIL_SMTP_USERNAME: 'test-user',
+      EMAIL_SMTP_PASSWORD: 'test-password',
+      EMAIL_FROM: 'reports@example.test',
+    };
     Reflect.deleteProperty(worker, 'CLERK_WEBHOOK_SIGNING_SECRET');
     expect(validateEnvironment(worker)).toMatchObject({ MASARIFI_PROCESS_KIND: 'worker' });
   });

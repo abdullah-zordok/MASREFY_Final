@@ -172,6 +172,21 @@ jobs:
       - run: npm run test:planning:recovery
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:reports:integration
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:reports:security
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:reports:recovery
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:performance:reports
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:stress:reports
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:performance:security
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:ledger

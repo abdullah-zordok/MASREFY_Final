@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 
 import { LedgerRepository } from '../../src/ledger/ledger.repository';
 import { LedgerWorker } from '../../src/ledger/ledger.worker';
+import { ReportsSmtp } from '../../src/reports/reports.smtp';
 import { WorkerModule } from '../../src/worker.module';
 
 describe('ledger worker container registration', () => {
@@ -10,6 +11,8 @@ describe('ledger worker container registration', () => {
     const module = await Test.createTestingModule({ imports: [WorkerModule] })
       .overrideProvider(LedgerRepository)
       .useValue({ reconcile, recordReconciliationMismatch: jest.fn() })
+      .overrideProvider(ReportsSmtp)
+      .useValue({ send: jest.fn() })
       .compile();
     const worker = module.get(LedgerWorker);
 
@@ -27,6 +30,8 @@ describe('ledger worker container registration', () => {
     const module = await Test.createTestingModule({ imports: [WorkerModule] })
       .overrideProvider(LedgerRepository)
       .useValue({ reconcile, recordReconciliationMismatch: jest.fn() })
+      .overrideProvider(ReportsSmtp)
+      .useValue({ send: jest.fn() })
       .compile();
     const worker = module.get(LedgerWorker);
     const stop = jest.spyOn(worker, 'stop');

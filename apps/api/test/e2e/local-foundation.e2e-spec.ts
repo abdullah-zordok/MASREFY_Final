@@ -49,6 +49,15 @@ function startProcess(
       MASARIFI_RELEASE_VERSION: 'foundation-e2e',
       MASARIFI_HTTP_PORT: String(port),
       DATABASE_URL: databaseUrl,
+      ...(kind === 'worker'
+        ? {
+            EMAIL_SMTP_HOST: 'localhost',
+            EMAIL_SMTP_PORT: '465',
+            EMAIL_SMTP_USERNAME: 'test-user',
+            EMAIL_SMTP_PASSWORD: 'test-password',
+            EMAIL_FROM: 'reports@example.test',
+          }
+        : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,

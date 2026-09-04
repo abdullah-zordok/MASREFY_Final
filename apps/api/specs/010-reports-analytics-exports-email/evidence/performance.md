@@ -3,15 +3,18 @@
 Date: 2026-09-04
 Scope: SPEC-BE-010
 
-- A 100,000-row CSV report rendered below the 20,000,000-byte cap and 10-second
-  budget; the focused performance project completed in 4.418 seconds.
-- Summary p95 and category query-bound checks pass when the live database is
-  available; Admin date/platform/page caps pass without a materialized view.
-- Worker batch size is configuration-bounded to 1-100; generation, email,
+- `npm run test:performance:reports`: PASS, 3 suites/8 tests against the live
+  database. Twenty uncached samples measured Admin aggregate p95 at 2.094 ms
+  (2.822 ms maximum) and monthly-summary p95 at 1.565 ms (3.264 ms maximum),
+  below the 800 ms budgets. Category output remained SQL-bounded to 100 rows.
+- `npm run test:stress:reports`: PASS, 1 suite/4 tests. A 100,000-row CSV rendered
+  6,538,949 bytes in 322.37 ms across 399 chunks, with a 67.54 MiB peak heap
+  delta, below the 10 s, 20 MB, and 192 MiB limits.
+- The bounded worker test held maximum concurrency at one, rejected a reentrant
+  run, used a batch size of ten, and drained schedule/expiry backlogs oldest
+  first.
+- A transient SMTP outage remained retryable and completed in under one second;
+  maximum-size cache-hit p95 remained below 50 ms.
+- Worker batch configuration remains bounded to 1-100, and generation, email,
   schedule, expiry, duration, byte, and backlog metrics use fixed-cardinality
   labels.
-- SMTP outage, expiry deletion failure, scheduler lag, and cache/query budgets
-  are covered by focused worker/recovery/cache tests and actionable alerts.
-
-The final live Admin query p95 rerun awaits the local Supabase recovery recorded
-in `database-verification.md`.

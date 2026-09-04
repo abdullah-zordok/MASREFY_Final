@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { ReportsSmtp } from '../../src/reports/reports.smtp';
 import { SyncHandlers } from '../../src/sync/sync.handlers';
 import { SyncRepository } from '../../src/sync/sync.repository';
 import { SyncWorker } from '../../src/sync/sync.worker';
@@ -16,6 +17,8 @@ describe('sync worker container registration', () => {
       .useValue(repository)
       .overrideProvider(SyncHandlers)
       .useValue({ dispatch: jest.fn() })
+      .overrideProvider(ReportsSmtp)
+      .useValue({ send: jest.fn() })
       .compile();
     const worker = module.get(SyncWorker);
     const stop = jest.spyOn(worker, 'stop');
