@@ -6,11 +6,33 @@ describe('ReportsCache', () => {
     const key = ReportsCache.key('owner-a', 'report', 'financial_summary:monthly', 'SAR', 7);
     cache.set(key, { value: 1 }, 1_000);
     expect(cache.get(key, 1_001)).toEqual({ value: 1 });
-    expect(cache.get(ReportsCache.key('owner-b', 'report', 'financial_summary:monthly', 'SAR', 7), 1_001)).toBeUndefined();
-    expect(cache.get(ReportsCache.key('owner-a', 'dashboard', 'financial_summary:monthly', 'SAR', 7), 1_001)).toBeUndefined();
-    expect(cache.get(ReportsCache.key('owner-a', 'report', 'financial_summary:annual', 'SAR', 7), 1_001)).toBeUndefined();
-    expect(cache.get(ReportsCache.key('owner-a', 'report', 'financial_summary:monthly', 'USD', 7), 1_001)).toBeUndefined();
-    expect(cache.get(ReportsCache.key('owner-a', 'report', 'financial_summary:monthly', 'SAR', 8), 1_001)).toBeUndefined();
+    expect(
+      cache.get(
+        ReportsCache.key('owner-b', 'report', 'financial_summary:monthly', 'SAR', 7),
+        1_001,
+      ),
+    ).toBeUndefined();
+    expect(
+      cache.get(
+        ReportsCache.key('owner-a', 'dashboard', 'financial_summary:monthly', 'SAR', 7),
+        1_001,
+      ),
+    ).toBeUndefined();
+    expect(
+      cache.get(ReportsCache.key('owner-a', 'report', 'financial_summary:annual', 'SAR', 7), 1_001),
+    ).toBeUndefined();
+    expect(
+      cache.get(
+        ReportsCache.key('owner-a', 'report', 'financial_summary:monthly', 'USD', 7),
+        1_001,
+      ),
+    ).toBeUndefined();
+    expect(
+      cache.get(
+        ReportsCache.key('owner-a', 'report', 'financial_summary:monthly', 'SAR', 8),
+        1_001,
+      ),
+    ).toBeUndefined();
   });
 
   it('expires entries and evicts the oldest entry at its fixed bound', () => {

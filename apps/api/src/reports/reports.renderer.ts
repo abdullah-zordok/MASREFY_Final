@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 
 import PDFDocument from 'pdfkit';
 
@@ -44,43 +44,84 @@ function csvCell(value: unknown): string {
   return `"${safe.replaceAll('"', '""')}"`;
 }
 
-function csv(snapshot: ReportSnapshot): Buffer {
-  const rows = snapshot.detailedRows.map((item) =>
-    CSV_COLUMNS.map((column) => csvCell(item[column])).join(','),
-  );
-  return Buffer.from(`\uFEFF${CSV_COLUMNS.join(',')}\r\n${rows.join('\r\n')}${rows.length ? '\r\n' : ''}`, 'utf8');
+function* csv(snapshot: ReportSnapshot): Generator<string> {
+  yield `\uFEFF${CSV_COLUMNS.join(',')}\r\n`;
+  for (const row of snapshot.detailedRows)
+    yield `${CSV_COLUMNS.map((column) => csvCell(row[column])).join(',')}\r\n`;
 }
 
-function pdf(snapshot: ReportSnapshot, font: Buffer): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const document = new PDFDocument({ autoFirstPage: true, compress: true, info: {
-      Title: 'Masarifi report', Creator: 'Masarifi', CreationDate: new Date(snapshot.generatedAt),
-    } });
-    const chunks: Buffer[] = [];
-    document.on('data', (chunk: Buffer) => {
-      chunks.push(chunk);
-    });
-    document.on('error', reject);
-    document.on('end', () => {
-      resolve(Buffer.concat(chunks));
-    });
-    document.registerFont('report', font).font('report').fontSize(18).text('Masarifi | مصاريفي', { align: 'center' });
-    document.moveDown().fontSize(11);
-    document.text(`${snapshot.period.startDate} — ${snapshot.period.endDate}`);
-    document.text(`${snapshot.reportType} · ${snapshot.currencyCode} · ledger ${String(snapshot.ledgerVersion)}`);
-    document.moveDown().text(JSON.stringify(canonical(snapshot.summary)));
-    for (const row of snapshot.detailedRows) document.text(JSON.stringify(canonical(row)), { width: 500 });
-    document.end();
+function pdf(snapshot: ReportSnapshot, font: Buffer): NodeJS.ReadableStream & { end(): void } {
+  const document = new PDFDocument({
+    autoFirstPage: true,
+    compress: true,
+    info: {
+      Title: 'Masarifi report',
+      Creator: 'Masarifi',
+      CreationDate: new Date(snapshot.generatedAt),
+    },
   });
+  document
+    .registerFont('report', font)
+    .font('report')
+    .fontSize(18)
+    .text('Masarifi | مصاريفي', { align: 'center' });
+  document.moveDown().fontSize(11);
+  document.text(`${snapshot.period.startDate} — ${snapshot.period.endDate}`);
+  document.text(
+    `${snapshot.reportType} · ${snapshot.currencyCode} · ledger ${String(snapshot.ledgerVersion)}`,
+  );
+  document.moveDown().text(JSON.stringify(canonical(snapshot.summary)));
+  for (const row of snapshot.detailedRows)
+    document.text(JSON.stringify(canonical(row)), { width: 500 });
+  return document;
 }
 
-export async function renderReport(
+function bounded(
+  source: NodeJS.ReadableStream,
+  maximumBytes: number,
+): Pick<RenderedReport, 'body' | 'byteCounter'> {
+  let bytes = 0;
+  const hash = createHash('sha256');
+  let resolveCount!: (count: { bytes: number; sha256: string }) => void;
+  let rejectCount!: (error: Error) => void;
+  const byteCounter = new Promise<{ bytes: number; sha256: string }>((resolve, reject) => {
+    resolveCount = resolve;
+    rejectCount = reject;
+  });
+  const output = new Transform({
+    transform(chunk: Buffer | string, _encoding, callback) {
+      const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bytes += value.byteLength;
+      if (bytes > maximumBytes) {
+        callback(new Error('REPORT_LIMIT_EXCEEDED'));
+        return;
+      }
+      hash.update(value);
+      callback(null, value);
+    },
+    flush(callback) {
+      resolveCount({ bytes, sha256: hash.digest('hex') });
+      callback();
+    },
+  });
+  output.once('error', (error: Error) => {
+    rejectCount(error);
+  });
+  source.once('error', (error: Error) => {
+    output.destroy(error);
+  });
+  source.pipe(output);
+  return { body: output, byteCounter };
+}
+
+export function renderReport(
   input: ReportSnapshot,
   format: ReportFormat,
   maximumBytes: number,
   arabicFont?: Buffer,
-): Promise<RenderedReport> {
-  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) throw new Error('REPORT_LIMIT_EXCEEDED');
+): RenderedReport {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1)
+    throw new Error('REPORT_LIMIT_EXCEEDED');
   let snapshot: ReportSnapshot;
   try {
     snapshot = parseReportSnapshot(input, maximumBytes);
@@ -89,20 +130,26 @@ export async function renderReport(
       throw new Error('REPORT_LIMIT_EXCEEDED');
     throw error;
   }
-  let body: Buffer;
+  let source: NodeJS.ReadableStream;
+  let pdfDocument: (NodeJS.ReadableStream & { end(): void }) | undefined;
   let contentType: RenderedReport['contentType'];
   if (format === 'json') {
-    body = Buffer.from(`${JSON.stringify(canonical(snapshot))}\n`, 'utf8');
+    source = Readable.from([`${JSON.stringify(canonical(snapshot))}\n`]);
     contentType = 'application/json';
   } else if (format === 'csv') {
-    body = csv(snapshot);
+    source = Readable.from(csv(snapshot));
     contentType = 'text/csv; charset=utf-8';
   } else {
     if (!arabicFont) throw new Error('REPORT_FONT_UNAVAILABLE');
-    body = await pdf(snapshot, arabicFont);
+    pdfDocument = pdf(snapshot, arabicFont);
+    source = pdfDocument;
     contentType = 'application/pdf';
   }
-  if (body.byteLength > maximumBytes) throw new Error('REPORT_LIMIT_EXCEEDED');
-  const counted = { bytes: body.byteLength, sha256: createHash('sha256').update(body).digest('hex') };
-  return { contentType, extension: format, body: Readable.from([body]), byteCounter: Promise.resolve(counted) };
+  const output = bounded(source, maximumBytes);
+  pdfDocument?.end();
+  return {
+    contentType,
+    extension: format,
+    ...output,
+  };
 }

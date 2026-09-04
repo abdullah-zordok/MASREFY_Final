@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
-import { Readable } from 'node:stream';
+import { Transform } from 'node:stream';
 
 import { Injectable, Optional } from '@nestjs/common';
 
 import { PlatformConfigService } from '../platform/config/platform-config.service';
 import type { ReportFormat } from './reports.schemas';
 
-const KEY = /^reports\/[a-f0-9]{64}\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(json|csv|pdf)$/;
+const KEY =
+  /^reports\/[a-f0-9]{64}\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(json|csv|pdf)$/;
 const TYPES: Record<ReportFormat, string> = {
   json: 'application/json',
   csv: 'text/csv; charset=utf-8',
@@ -47,29 +48,48 @@ export class ReportsStorage {
   ): Promise<{ key: string; bytes: number; sha256: string }> {
     if (contentType !== TYPES[format] || !Number.isSafeInteger(maximumBytes) || maximumBytes < 1)
       throw failure('REPORT_STORAGE_INVALID');
-    const chunks: Buffer[] = [];
     let bytes = 0;
     const hash = createHash('sha256');
-    // ponytail: buffering is capped by MASARIFI_REPORT_MAX_BYTES; switch to a counting Transform if the cap grows beyond worker memory budgets.
-    for await (const chunk of body) {
-      const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      bytes += value.byteLength;
-      if (bytes > maximumBytes) throw failure('REPORT_LIMIT_EXCEEDED');
-      hash.update(value);
-      chunks.push(value);
-    }
-    const key = this.key(attemptId, userId, format);
-    await this.request(key, '', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType,
-        'Content-Length': String(bytes),
-        'x-upsert': 'false',
+    let resolveCount!: (count: { bytes: number; sha256: string }) => void;
+    let rejectCount!: (error: Error) => void;
+    const byteCounter = new Promise<{ bytes: number; sha256: string }>((resolve, reject) => {
+      resolveCount = resolve;
+      rejectCount = reject;
+    });
+    const counted = new Transform({
+      transform(chunk: Buffer | string, _encoding, callback) {
+        const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        bytes += value.byteLength;
+        if (bytes > maximumBytes) {
+          callback(failure('REPORT_LIMIT_EXCEEDED'));
+          return;
+        }
+        hash.update(value);
+        callback(null, value);
       },
-      body: Readable.from(chunks) as unknown as BodyInit,
-      duplex: 'half',
-    } as RequestInit);
-    return { key, bytes, sha256: hash.digest('hex') };
+      flush(callback) {
+        resolveCount({ bytes, sha256: hash.digest('hex') });
+        callback();
+      },
+    });
+    counted.once('error', (error: Error) => {
+      rejectCount(error);
+    });
+    body.once('error', (error: Error) => {
+      counted.destroy(error);
+    });
+    body.pipe(counted);
+    const key = this.key(attemptId, userId, format);
+    const [, uploaded] = await Promise.all([
+      this.request(key, '', {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType, 'x-upsert': 'false' },
+        body: counted as unknown as BodyInit,
+        duplex: 'half',
+      } as RequestInit),
+      byteCounter,
+    ]);
+    return { key, ...uploaded };
   }
 
   async verify(key: string, expectedBytes: number): Promise<void> {
@@ -84,16 +104,28 @@ export class ReportsStorage {
     if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 900)
       throw failure('REPORT_STORAGE_INVALID');
     const response = await this.request(key, 'sign/', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ expiresIn: expiresInSeconds }),
     });
     let payload: unknown;
-    try { payload = await response.json(); } catch { throw failure(); }
-    const candidate = payload && typeof payload === 'object' ? (payload as { signedURL?: unknown }).signedURL : undefined;
+    try {
+      payload = await response.json();
+    } catch {
+      throw failure();
+    }
+    const candidate =
+      payload && typeof payload === 'object'
+        ? (payload as { signedURL?: unknown }).signedURL
+        : undefined;
     if (typeof candidate !== 'string') throw failure();
     const signed = new URL(candidate, this.origin);
     const expected = `/storage/v1/object/sign/report-exports/${this.encoded(this.valid(key))}`;
-    if (signed.origin !== this.origin.origin || signed.pathname !== expected || (!this.allowHttp && signed.protocol !== 'https:'))
+    if (
+      signed.origin !== this.origin.origin ||
+      signed.pathname !== expected ||
+      (!this.allowHttp && signed.protocol !== 'https:')
+    )
       throw failure();
     return signed.toString();
   }
@@ -112,7 +144,12 @@ export class ReportsStorage {
     return key.split('/').map(encodeURIComponent).join('/');
   }
 
-  private async request(key: string, prefix: string, input: RequestInit, missingOkay = false): Promise<Response> {
+  private async request(
+    key: string,
+    prefix: string,
+    input: RequestInit,
+    missingOkay = false,
+  ): Promise<Response> {
     const encoded = this.encoded(this.valid(key));
     const controller = new AbortController();
     const timeout = setTimeout(() => {
@@ -122,13 +159,26 @@ export class ReportsStorage {
     headers.set('Authorization', `Bearer ${this.credential}`);
     headers.set('apikey', this.credential);
     try {
-      const response = await this.fetcher(new URL(`/storage/v1/object/${prefix}report-exports/${encoded}`, this.origin), {
-        ...input, headers, signal: controller.signal,
-      });
+      const response = await this.fetcher(
+        new URL(`/storage/v1/object/${prefix}report-exports/${encoded}`, this.origin),
+        {
+          ...input,
+          headers,
+          signal: controller.signal,
+        },
+      );
       if (!response.ok && !(missingOkay && response.status === 404)) throw failure();
       return response;
     } catch (error) {
-      if (error instanceof Error && ['REPORT_STORAGE_INVALID','REPORT_STORAGE_INTEGRITY_FAILED','REPORT_LIMIT_EXCEEDED'].includes(error.message)) throw error;
+      if (
+        error instanceof Error &&
+        [
+          'REPORT_STORAGE_INVALID',
+          'REPORT_STORAGE_INTEGRITY_FAILED',
+          'REPORT_LIMIT_EXCEEDED',
+        ].includes(error.message)
+      )
+        throw error;
       throw failure();
     } finally {
       clearTimeout(timeout);

@@ -39,7 +39,8 @@ export interface ReportSnapshot {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const FORBIDDEN_KEY = /^(?:userId|recipient|email|signedUrl|downloadUrl|storageRef|password|secret|token|providerPayload|smtpResponse)$/i;
+const FORBIDDEN_KEY =
+  /^(?:userId|recipient|email|signedUrl|downloadUrl|storageRef|password|secret|token|providerPayload|smtpResponse)$/i;
 
 function invalid(code = 'REPORT_SNAPSHOT_INVALID'): never {
   throw new Error(code);

@@ -14,9 +14,14 @@ describeLiveDatabase('report summary performance', () => {
 
   beforeAll(async () => {
     raw = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
-    pool = new PoolService({ get: (key: string) => key === 'DATABASE_URL' ? process.env.DATABASE_URL : 4 } as never);
+    pool = new PoolService({
+      get: (key: string) => (key === 'DATABASE_URL' ? process.env.DATABASE_URL : 4),
+    } as never);
     await raw.query("select set_config('masarifi.ledger_command','on',false)");
-    await raw.query("insert into public.profiles(id,status,timezone) values($1,'active','Asia/Riyadh')", [userId]);
+    await raw.query(
+      "insert into public.profiles(id,status,timezone) values($1,'active','Asia/Riyadh')",
+      [userId],
+    );
   });
 
   afterAll(async () => {
@@ -30,7 +35,13 @@ describeLiveDatabase('report summary performance', () => {
     const durations: number[] = [];
     for (let index = 0; index < 20; index += 1) {
       const started = performance.now();
-      await repository.getSummary({ userId, sessionId: 's', factorAgeSeconds: 0 }, 'financial_summary', period, null, 'perf');
+      await repository.getSummary(
+        { userId, sessionId: 's', factorAgeSeconds: 0 },
+        'financial_summary',
+        period,
+        null,
+        'perf',
+      );
       durations.push(performance.now() - started);
     }
     durations.sort((a, b) => a - b);

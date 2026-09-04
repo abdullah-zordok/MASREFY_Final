@@ -1,6 +1,21 @@
 import { createHash } from 'node:crypto';
 
-import { Body, Controller, Delete, Get, Headers, HttpCode, HttpException, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
 
@@ -10,7 +25,19 @@ import { ReportsService } from './reports.service';
 interface Route {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
-  operation: 'getDashboardHome' | 'getReportSummary' | 'listReportAttempts' | 'createReport' | 'getReportAttempt' | 'retryReportDelivery' | 'listReportSchedules' | 'createReportSchedule' | 'verifyReportRecipient' | 'getReportSchedule' | 'updateReportSchedule' | 'deleteReportSchedule';
+  operation:
+    | 'getDashboardHome'
+    | 'getReportSummary'
+    | 'listReportAttempts'
+    | 'createReport'
+    | 'getReportAttempt'
+    | 'retryReportDelivery'
+    | 'listReportSchedules'
+    | 'createReportSchedule'
+    | 'verifyReportRecipient'
+    | 'getReportSchedule'
+    | 'updateReportSchedule'
+    | 'deleteReportSchedule';
   status: 200 | 201 | 202 | 204;
 }
 
@@ -20,13 +47,43 @@ export const REPORT_ROUTES: readonly Route[] = Object.freeze([
   { method: 'GET', path: 'api/v1/reports', operation: 'listReportAttempts', status: 200 },
   { method: 'POST', path: 'api/v1/reports', operation: 'createReport', status: 202 },
   { method: 'GET', path: 'api/v1/reports/:attemptId', operation: 'getReportAttempt', status: 200 },
-  { method: 'POST', path: 'api/v1/reports/:attemptId/retry-delivery', operation: 'retryReportDelivery', status: 202 },
+  {
+    method: 'POST',
+    path: 'api/v1/reports/:attemptId/retry-delivery',
+    operation: 'retryReportDelivery',
+    status: 202,
+  },
   { method: 'GET', path: 'api/v1/report-schedules', operation: 'listReportSchedules', status: 200 },
-  { method: 'POST', path: 'api/v1/report-schedules', operation: 'createReportSchedule', status: 201 },
-  { method: 'POST', path: 'api/v1/report-schedules/verify-recipient', operation: 'verifyReportRecipient', status: 200 },
-  { method: 'GET', path: 'api/v1/report-schedules/:scheduleId', operation: 'getReportSchedule', status: 200 },
-  { method: 'PATCH', path: 'api/v1/report-schedules/:scheduleId', operation: 'updateReportSchedule', status: 200 },
-  { method: 'DELETE', path: 'api/v1/report-schedules/:scheduleId', operation: 'deleteReportSchedule', status: 204 },
+  {
+    method: 'POST',
+    path: 'api/v1/report-schedules',
+    operation: 'createReportSchedule',
+    status: 201,
+  },
+  {
+    method: 'POST',
+    path: 'api/v1/report-schedules/verify-recipient',
+    operation: 'verifyReportRecipient',
+    status: 200,
+  },
+  {
+    method: 'GET',
+    path: 'api/v1/report-schedules/:scheduleId',
+    operation: 'getReportSchedule',
+    status: 200,
+  },
+  {
+    method: 'PATCH',
+    path: 'api/v1/report-schedules/:scheduleId',
+    operation: 'updateReportSchedule',
+    status: 200,
+  },
+  {
+    method: 'DELETE',
+    path: 'api/v1/report-schedules/:scheduleId',
+    operation: 'deleteReportSchedule',
+    status: 204,
+  },
 ]);
 
 export interface ReportsHttpRequest {
@@ -45,7 +102,16 @@ export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
   async execute(input: ReportsHttpRequest): Promise<unknown> {
-    const { operation, request, body, query, params = {}, idempotencyKey, ifNoneMatch, response } = input;
+    const {
+      operation,
+      request,
+      body,
+      query,
+      params = {},
+      idempotencyKey,
+      ifNoneMatch,
+      response,
+    } = input;
     if (!request.clerkPrincipal) throw new HttpException({ code: 'AUTH_TOKEN_INVALID' }, 401);
     const requestId = request.requestId ?? 'missing-request-id';
     let result: unknown;
@@ -54,23 +120,62 @@ export class ReportsController {
     else if (operation === 'listReportAttempts')
       result = await this.reports.listReportAttempts(request.clerkPrincipal, query, requestId);
     else if (operation === 'createReport')
-      result = await this.reports.createReport(request.clerkPrincipal, body, idempotencyKey ?? '', requestId);
+      result = await this.reports.createReport(
+        request.clerkPrincipal,
+        body,
+        idempotencyKey ?? '',
+        requestId,
+      );
     else if (operation === 'getReportAttempt')
-      result = await this.reports.getReportAttempt(request.clerkPrincipal, params.attemptId ?? '', requestId);
+      result = await this.reports.getReportAttempt(
+        request.clerkPrincipal,
+        params.attemptId ?? '',
+        requestId,
+      );
     else if (operation === 'retryReportDelivery')
-      result = await this.reports.retryReportDelivery(request.clerkPrincipal, params.attemptId ?? '', idempotencyKey ?? '', requestId);
+      result = await this.reports.retryReportDelivery(
+        request.clerkPrincipal,
+        params.attemptId ?? '',
+        idempotencyKey ?? '',
+        requestId,
+      );
     else if (operation === 'listReportSchedules')
       result = await this.reports.listReportSchedules(request.clerkPrincipal, query, requestId);
     else if (operation === 'createReportSchedule')
-      result = await this.reports.createReportSchedule(request.clerkPrincipal, body, idempotencyKey ?? '', requestId);
+      result = await this.reports.createReportSchedule(
+        request.clerkPrincipal,
+        body,
+        idempotencyKey ?? '',
+        requestId,
+      );
     else if (operation === 'verifyReportRecipient')
-      result = await this.reports.verifyReportRecipient(request.clerkPrincipal, body, idempotencyKey ?? '');
+      result = await this.reports.verifyReportRecipient(
+        request.clerkPrincipal,
+        body,
+        idempotencyKey ?? '',
+      );
     else if (operation === 'getReportSchedule')
-      result = await this.reports.getReportSchedule(request.clerkPrincipal, params.scheduleId ?? '', requestId);
+      result = await this.reports.getReportSchedule(
+        request.clerkPrincipal,
+        params.scheduleId ?? '',
+        requestId,
+      );
     else if (operation === 'updateReportSchedule')
-      result = await this.reports.updateReportSchedule(request.clerkPrincipal, params.scheduleId ?? '', body, idempotencyKey ?? '', requestId);
+      result = await this.reports.updateReportSchedule(
+        request.clerkPrincipal,
+        params.scheduleId ?? '',
+        body,
+        idempotencyKey ?? '',
+        requestId,
+      );
     else {
-      await this.reports.deleteReportSchedule(request.clerkPrincipal, params.scheduleId ?? '', (query as Record<string, unknown>).expectedVersion, idempotencyKey ?? '', requestId);
+      await this.reports.deleteReportSchedule(
+        request.clerkPrincipal,
+        params.scheduleId ?? '',
+        (query as Record<string, unknown>).expectedVersion,
+        idempotencyKey ?? '',
+        requestId,
+      );
       result = undefined;
     }
     if (operation !== 'getDashboardHome' && operation !== 'getReportSummary') {
@@ -99,7 +204,16 @@ for (const route of REPORT_ROUTES) {
     ifNoneMatch: string | undefined,
     response: Response,
   ): Promise<unknown> {
-    return this.execute({ operation: route.operation, request, body, query, params, idempotencyKey, ifNoneMatch, response });
+    return this.execute({
+      operation: route.operation,
+      request,
+      body,
+      query,
+      params,
+      idempotencyKey,
+      ifNoneMatch,
+      response,
+    });
   };
   Object.defineProperty(ReportsController.prototype, route.operation, { value: handler });
   const descriptor = Object.getOwnPropertyDescriptor(ReportsController.prototype, route.operation);
@@ -111,9 +225,17 @@ for (const route of REPORT_ROUTES) {
   Headers('idempotency-key')(ReportsController.prototype, route.operation, 4);
   Headers('if-none-match')(ReportsController.prototype, route.operation, 5);
   Res({ passthrough: true })(ReportsController.prototype, route.operation, 6);
-  ({ GET: Get, POST: Post, PATCH: Patch, DELETE: Delete } as const)[route.method](route.path)(ReportsController.prototype, route.operation, descriptor);
+  (({ GET: Get, POST: Post, PATCH: Patch, DELETE: Delete }) as const)[route.method](route.path)(
+    ReportsController.prototype,
+    route.operation,
+    descriptor,
+  );
   HttpCode(route.status)(ReportsController.prototype, route.operation, descriptor);
-  ApiOperation({ operationId: route.operation })(ReportsController.prototype, route.operation, descriptor);
+  ApiOperation({ operationId: route.operation })(
+    ReportsController.prototype,
+    route.operation,
+    descriptor,
+  );
   ApiBearerAuth('ClerkBearer')(ReportsController.prototype, route.operation, descriptor);
   UseGuards(ClerkAuthGuard)(ReportsController.prototype, route.operation, descriptor);
 }

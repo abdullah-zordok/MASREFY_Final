@@ -99,6 +99,27 @@ alter function private.update_report_schedule(text,uuid,bigint,text,text,text,ti
 revoke all on function private.update_report_schedule(text,uuid,bigint,text,text,text,timestamptz,text,text,boolean) from public;
 grant execute on function private.update_report_schedule(text,uuid,bigint,text,text,text,timestamptz,text,text,boolean) to masarifi_api;
 
+create function private.delete_report_schedule(p_user_id text,p_id uuid,p_expected_version bigint)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare deleted_id uuid;
+begin
+  if coalesce(nullif(pg_catalog.current_setting('request.jwt.claims',true),''),'{}')::jsonb->>'sub' is distinct from p_user_id then
+    raise exception using errcode='42501',message='REPORT_OWNER_FORBIDDEN';
+  end if;
+  delete from public.report_schedules s
+  where s.id=p_id and s.user_id=p_user_id and s.version=p_expected_version returning s.id into deleted_id;
+  if deleted_id is null then
+    if exists(select 1 from public.report_schedules s where s.id=p_id and s.user_id=p_user_id) then
+      raise exception using errcode='40001',message='REPORT_SCHEDULE_CONFLICT';
+    end if;
+    raise exception using errcode='P0002',message='REPORT_NOT_FOUND';
+  end if;
+  return deleted_id;
+end $$;
+alter function private.delete_report_schedule(text,uuid,bigint) owner to masarifi_migration;
+revoke all on function private.delete_report_schedule(text,uuid,bigint) from public;
+grant execute on function private.delete_report_schedule(text,uuid,bigint) to masarifi_api;
+
 create function private.list_due_report_schedules(p_now timestamptz,p_limit integer)
 returns setof public.report_schedules language plpgsql security definer set search_path='' as $$
 begin

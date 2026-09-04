@@ -1,9 +1,26 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpException, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpException,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
 
 import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
-import { AdminAuthGuard, adminPermission, type AdminPrincipalRequest } from '../security/admin-auth.guard';
+import {
+  AdminAuthGuard,
+  adminPermission,
+  type AdminPrincipalRequest,
+} from '../security/admin-auth.guard';
 import { ReportsService } from './reports.service';
 
 type AdminRequest = AdminPrincipalRequest & { requestId?: string };
@@ -21,7 +38,10 @@ export class ReportsAdminController {
   @ApiOperation({ operationId: 'getAdminOverview' })
   @adminPermission('admin.overview.read')
   @UseGuards(AdminAuthGuard)
-  overview(@Req() request: AdminPrincipalRequest, @Query() query: unknown): Promise<Record<string, unknown>> {
+  overview(
+    @Req() request: AdminPrincipalRequest,
+    @Query() query: unknown,
+  ): Promise<Record<string, unknown>> {
     return this.reports.getAdminOverview(principal(request), query);
   }
 
@@ -29,7 +49,10 @@ export class ReportsAdminController {
   @ApiOperation({ operationId: 'getAdminPlatformAnalytics' })
   @adminPermission('admin.overview.read')
   @UseGuards(AdminAuthGuard)
-  platform(@Req() request: AdminPrincipalRequest, @Query() query: unknown): Promise<Record<string, unknown>> {
+  platform(
+    @Req() request: AdminPrincipalRequest,
+    @Query() query: unknown,
+  ): Promise<Record<string, unknown>> {
     return this.reports.getAdminPlatformAnalytics(principal(request), query);
   }
 
@@ -37,7 +60,10 @@ export class ReportsAdminController {
   @ApiOperation({ operationId: 'getAdminOverviewActivity' })
   @adminPermission('admin.overview.read')
   @UseGuards(AdminAuthGuard)
-  activity(@Req() request: AdminPrincipalRequest, @Query() query: unknown): Record<string, unknown> {
+  activity(
+    @Req() request: AdminPrincipalRequest,
+    @Query() query: unknown,
+  ): Promise<Record<string, unknown>> {
     return this.reports.getAdminOverviewActivity(principal(request), query);
   }
 
@@ -53,7 +79,12 @@ export class ReportsAdminController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<Record<string, unknown>> {
     response.setHeader('Cache-Control', 'private, no-store');
-    return this.reports.createAdminExport(principal(request), body, idempotencyKey ?? '', request.requestId ?? 'missing-request-id');
+    return this.reports.createAdminExport(
+      principal(request),
+      body,
+      idempotencyKey ?? '',
+      request.requestId ?? 'missing-request-id',
+    );
   }
 
   @Get('exports/:attemptId')
@@ -66,6 +97,10 @@ export class ReportsAdminController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<unknown> {
     response.setHeader('Cache-Control', 'private, no-store');
-    return this.reports.getAdminExport(principal(request), attemptId, request.requestId ?? 'missing-request-id');
+    return this.reports.getAdminExport(
+      principal(request),
+      attemptId,
+      request.requestId ?? 'missing-request-id',
+    );
   }
 }

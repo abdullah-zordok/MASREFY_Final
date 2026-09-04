@@ -59,14 +59,66 @@ alter function private.read_admin_report_counts(text,integer) owner to masarifi_
 revoke all on function private.read_admin_report_counts(text,integer) from public;
 grant execute on function private.read_admin_report_counts(text,integer) to masarifi_api;
 
+create function private.read_admin_overview_activity(
+  p_platform text,p_days integer,p_offset integer,p_limit integer
+) returns table(
+  id text,event_type text,summary text,occurred_at timestamptz,platform_scope text,
+  permission text,destination text,total_count bigint
+) language plpgsql security definer set search_path='' as $$
+begin
+  perform private.assert_admin_permission('admin.overview.read');
+  if p_platform not in ('all','ios','android') or p_days not in (7,30,90)
+    or p_offset<0 or p_limit not between 1 and 25 then
+    raise exception using errcode='22023',message='REPORT_ADMIN_FILTER_INVALID';
+  end if;
+  return query with activity as (
+    select e.id::text,
+      case
+        when e.action like 'parser.%' then 'parser-rule-update'
+        when e.action like 'support.%' then 'support-access-approval'
+        when e.action like 'security.%deletion%' then 'account-deletion-completed'
+        else 'admin-role-change'
+      end event_type,
+      case
+        when e.action like 'parser.%' then 'Parser configuration changed.'
+        when e.action like 'support.%' then 'Support access changed.'
+        when e.action like 'security.%deletion%' then 'Account deletion completed.'
+        else 'Administrative access changed.'
+      end summary,
+      e.occurred_at,
+      case when e.metadata->>'platform' in ('ios','android') then e.metadata->>'platform' else 'global' end platform_scope,
+      case when e.action like 'parser.%' then 'imports.read'
+        when e.action like 'support.%' or e.action like 'admin.%' then 'users.read'
+        else 'admin.overview.read' end permission,
+      case when e.action like 'parser.%' then '/admin/imports'
+        when e.action like 'support.%' or e.action like 'admin.%' then '/admin/users'
+        when e.action like 'security.%deletion%' then '/admin/users' end destination
+    from audit.audit_events e
+    where e.occurred_at>=clock_timestamp()-make_interval(days=>p_days)
+      and (e.action like 'parser.%' or e.action like 'support.%'
+        or e.action like 'admin.%' or e.action like 'security.%deletion%')
+  ), filtered as (
+    select * from activity where p_platform='all' or activity.platform_scope in (p_platform,'global')
+  )
+  select a.id,a.event_type,a.summary,a.occurred_at,a.platform_scope,a.permission,a.destination,
+    count(*) over()::bigint
+  from filtered a order by a.occurred_at desc,a.id desc offset p_offset limit p_limit;
+end $$;
+alter function private.read_admin_overview_activity(text,integer,integer,integer) owner to masarifi_migration;
+revoke all on function private.read_admin_overview_activity(text,integer,integer,integer) from public;
+grant execute on function private.read_admin_overview_activity(text,integer,integer,integer) to masarifi_api;
+
 create function private.read_supported_financial_report(p_target_user_id text,p_start date,p_end date)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare grant_id uuid; result jsonb;
 begin
   if p_end<p_start or p_end>=p_start+interval '1 year' then raise exception using errcode='22023',message='REPORT_PERIOD_INVALID'; end if;
   grant_id:=private.assert_support_grant(p_target_user_id,'financial-report','read-aggregate');
-  select jsonb_build_object('adminAggregate',true,'supportGrantId',grant_id,'summaries',coalesce(jsonb_agg(to_jsonb(s) order by s.currency_code),'[]'::jsonb)) into result
-  from (select currency_code,sum(income_minor)::bigint income_minor,sum(expense_minor)::bigint expense_minor,sum(net_cash_flow_minor)::bigint net_cash_flow_minor
+  select jsonb_build_object('adminAggregate',true,'supportGrantId',grant_id,
+    'ledgerVersion',coalesce(max(s.ledger_version),0),
+    'summaries',coalesce(jsonb_agg(to_jsonb(s)-'ledger_version' order by s.currency_code),'[]'::jsonb)) into result
+  from (select currency_code,sum(income_minor)::bigint income_minor,sum(expense_minor)::bigint expense_minor,
+      sum(net_cash_flow_minor)::bigint net_cash_flow_minor,max(ledger_version)::bigint ledger_version
     from public.v_monthly_financial_summary where user_id=p_target_user_id and month_start between date_trunc('month',p_start)::date and date_trunc('month',p_end)::date group by currency_code) s;
   return result;
 end $$;

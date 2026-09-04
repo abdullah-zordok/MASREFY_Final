@@ -288,7 +288,11 @@ const schema = Joi.object<PlatformEnvironment>({
   EMAIL_SMTP_PORT: Joi.number().integer().min(1).max(65_535).optional(),
   EMAIL_SMTP_USERNAME: Joi.string().trim().min(1).max(256).optional(),
   EMAIL_SMTP_PASSWORD: Joi.string().min(1).max(4_096).optional(),
-  EMAIL_FROM: Joi.string().trim().email({ tlds: { allow: false } }).max(320).optional(),
+  EMAIL_FROM: Joi.string()
+    .trim()
+    .email({ tlds: { allow: false } })
+    .max(320)
+    .optional(),
   EMAIL_DELIVERY_WEBHOOK_SECRET: Joi.string().min(32).max(512).optional(),
   MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS: Joi.number()
     .integer()

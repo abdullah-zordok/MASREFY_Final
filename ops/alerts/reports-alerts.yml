@@ -1,0 +1,23 @@
+groups:
+  - name: reports
+    rules:
+      - alert: ReportsGenerationFailures
+        expr: sum(rate(masarifi_report_job_total{job="report.generate",outcome="failure"}[10m])) > 0
+        for: 10m
+        annotations:
+          runbook: ops/runbooks/reports-generation.md#generation-failures
+      - alert: ReportsEmailFailures
+        expr: sum(rate(masarifi_report_job_total{job="report.email.deliver",outcome=~"failure|retry"}[10m])) > 0
+        for: 10m
+        annotations:
+          runbook: ops/runbooks/reports-email.md#delivery-failures
+      - alert: ReportsScheduleLag
+        expr: max(masarifi_report_backlog{job="report.schedule.enqueue"}) > 100
+        for: 15m
+        annotations:
+          runbook: ops/runbooks/reports-schedules.md#schedule-lag
+      - alert: ReportsExpiryBacklog
+        expr: max(masarifi_report_backlog{job="report.output.expire"}) > 100
+        for: 15m
+        annotations:
+          runbook: ops/runbooks/reports-generation.md#expiry-backlog

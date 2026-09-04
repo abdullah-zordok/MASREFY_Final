@@ -5,8 +5,22 @@ import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
 import { hashIdempotencyKey } from '../ledger/idempotency';
 import { PlatformConfigService } from '../platform/config/platform-config.service';
 import { ReportsCache } from './reports.cache';
-import { normalizeAdminExportRequest, normalizeAdminOverviewQuery, normalizeCreateReport, normalizeReportList, normalizeScheduleCreate, normalizeSchedulePatch, normalizeSummaryQuery, normalizeVerifyRecipient } from './reports.dto';
-import { firstScheduleRun, localDateAt, resolveReportPeriod, type ReportPeriod as ScheduleFrequency } from './reports.period';
+import {
+  normalizeAdminExportRequest,
+  normalizeAdminOverviewQuery,
+  normalizeCreateReport,
+  normalizeReportList,
+  normalizeScheduleCreate,
+  normalizeSchedulePatch,
+  normalizeSummaryQuery,
+  normalizeVerifyRecipient,
+} from './reports.dto';
+import {
+  firstScheduleRun,
+  localDateAt,
+  resolveReportPeriod,
+  type ReportPeriod as ScheduleFrequency,
+} from './reports.period';
 import { ReportsRepository, type AdminReportCounts } from './reports.repository';
 import { isReportUuid, parseReportSnapshot } from './reports.schemas';
 import { ReportsStorage } from './reports.storage';
@@ -73,7 +87,11 @@ export class ReportsService {
     }
   }
 
-  listReportAttempts(principal: ClerkPrincipal, query: unknown, requestId: string): Promise<unknown> {
+  listReportAttempts(
+    principal: ClerkPrincipal,
+    query: unknown,
+    requestId: string,
+  ): Promise<unknown> {
     try {
       return this.repository.listAttempts(principal, normalizeReportList(query), requestId);
     } catch {
@@ -93,7 +111,10 @@ export class ReportsService {
     if (new Date(String(attempt.expiresAt)).getTime() <= now.getTime())
       throw new HttpException({ code: 'REPORT_EXPIRED' }, 410);
     const { storageRef, ...safe } = attempt;
-    if ((attempt.status === 'ready' || attempt.status === 'delivered') && typeof storageRef === 'string') {
+    if (
+      (attempt.status === 'ready' || attempt.status === 'delivered') &&
+      typeof storageRef === 'string'
+    ) {
       if (!this.storage) throw new HttpException({ code: 'REPORT_STORAGE_UNAVAILABLE' }, 503);
       const ttl = this.config?.get('MASARIFI_REPORT_SIGNED_URL_SECONDS') ?? 300;
       return { ...safe, downloadUrl: await this.storage.sign(storageRef, ttl) };
@@ -117,58 +138,218 @@ export class ReportsService {
     }
   }
 
-  async getAdminOverview(principal: ClerkPrincipal, query: unknown): Promise<Record<string, unknown>> {
+  async getAdminOverview(
+    principal: ClerkPrincipal,
+    query: unknown,
+  ): Promise<Record<string, unknown>> {
     const normalized = this.adminQuery(query);
-    const counts = await this.repository.getAdminReportCounts(principal, String(normalized.platform), this.periodDays(String(normalized.period)));
+    const counts = await this.repository.getAdminReportCounts(
+      principal,
+      String(normalized.platform),
+      this.periodDays(String(normalized.period)),
+    );
     return this.adminOverviewResponse(normalized, counts);
   }
 
-  async getAdminPlatformAnalytics(principal: ClerkPrincipal, query: unknown): Promise<Record<string, unknown>> {
+  async getAdminPlatformAnalytics(
+    principal: ClerkPrincipal,
+    query: unknown,
+  ): Promise<Record<string, unknown>> {
     const normalized = this.adminQuery(query);
-    const counts = await this.repository.getAdminReportCounts(principal, String(normalized.platform), this.periodDays(String(normalized.period)));
-    const now = new Date().toISOString(), period = String(normalized.period), platform = String(normalized.platform);
+    const counts = await this.repository.getAdminReportCounts(
+      principal,
+      String(normalized.platform),
+      this.periodDays(String(normalized.period)),
+    );
+    const now = new Date().toISOString(),
+      period = String(normalized.period),
+      platform = String(normalized.platform);
     const freshness = { state: 'fresh', asOf: now };
     const point = (value: number) => [{ timestamp: now, value }];
-    const trend = (id: string, label: string, kind: string, value: number, unit = 'customers') => ({ id, label, kind, unit, period, platformScope: platform, points: point(value), summary: label });
-    const iosOnly = counts.iosUsers - counts.bothUsers, androidOnly = counts.androidUsers - counts.bothUsers;
+    const trend = (id: string, label: string, kind: string, value: number, unit = 'customers') => ({
+      id,
+      label,
+      kind,
+      unit,
+      period,
+      platformScope: platform,
+      points: point(value),
+      summary: label,
+    });
+    const iosOnly = counts.iosUsers - counts.bothUsers,
+      androidOnly = counts.androidUsers - counts.bothUsers;
     return {
       query: normalized,
-      customers: { uniqueCustomersTotal: counts.iosUsers + counts.androidUsers - counts.bothUsers, iosCustomers: counts.iosUsers, androidCustomers: counts.androidUsers, iosOnlyCustomers: iosOnly, androidOnlyCustomers: androidOnly, multiPlatformCustomers: counts.bothUsers, activeCustomersTotal: counts.iosUsers + counts.androidUsers - counts.bothUsers, activeIosCustomers: counts.iosUsers, activeAndroidCustomers: counts.androidUsers, newCustomersTotal: 0, newIosCustomers: 0, newAndroidCustomers: 0, period, freshness },
+      customers: {
+        uniqueCustomersTotal: counts.iosUsers + counts.androidUsers - counts.bothUsers,
+        iosCustomers: counts.iosUsers,
+        androidCustomers: counts.androidUsers,
+        iosOnlyCustomers: iosOnly,
+        androidOnlyCustomers: androidOnly,
+        multiPlatformCustomers: counts.bothUsers,
+        activeCustomersTotal: counts.iosUsers + counts.androidUsers - counts.bothUsers,
+        activeIosCustomers: counts.iosUsers,
+        activeAndroidCustomers: counts.androidUsers,
+        newCustomersTotal: 0,
+        newIosCustomers: 0,
+        newAndroidCustomers: 0,
+        period,
+        freshness,
+      },
       userGrowth: trend('user-growth', 'User growth', 'unique-customers', counts.newUsers),
-      dailyActiveUsers: trend('daily-active', 'Daily active users', 'unique-customers', counts.iosUsers + counts.androidUsers - counts.bothUsers),
-      monthlyActiveUsers: trend('monthly-active', 'Monthly active users', 'unique-customers', counts.iosUsers + counts.androidUsers - counts.bothUsers),
-      versions: [], capabilities: [],
+      dailyActiveUsers: trend(
+        'daily-active',
+        'Daily active users',
+        'unique-customers',
+        counts.iosUsers + counts.androidUsers - counts.bothUsers,
+      ),
+      monthlyActiveUsers: trend(
+        'monthly-active',
+        'Monthly active users',
+        'unique-customers',
+        counts.iosUsers + counts.androidUsers - counts.bothUsers,
+      ),
+      versions: [],
+      capabilities: [],
       devices: [
-        { platform: 'ios', category: 'active', deviceCount: counts.iosDevices, share: counts.iosDevices + counts.androidDevices === 0 ? 0 : counts.iosDevices / (counts.iosDevices + counts.androidDevices) },
-        { platform: 'android', category: 'active', deviceCount: counts.androidDevices, share: counts.iosDevices + counts.androidDevices === 0 ? 0 : counts.androidDevices / (counts.iosDevices + counts.androidDevices) },
+        {
+          platform: 'ios',
+          category: 'active',
+          deviceCount: counts.iosDevices,
+          share:
+            counts.iosDevices + counts.androidDevices === 0
+              ? 0
+              : counts.iosDevices / (counts.iosDevices + counts.androidDevices),
+        },
+        {
+          platform: 'android',
+          category: 'active',
+          deviceCount: counts.androidDevices,
+          share:
+            counts.iosDevices + counts.androidDevices === 0
+              ? 0
+              : counts.androidDevices / (counts.iosDevices + counts.androidDevices),
+        },
       ],
-      imports: [], support: [], comparisonTrends: [],
+      imports: [],
+      support: [],
+      comparisonTrends: [],
       errorRateTrend: trend('error-rate', 'Error rate', 'events', 0, 'ratio'),
       regions: [{ region: 'customers', availability: 'available', retryable: true }],
     };
   }
 
-  getAdminOverviewActivity(_principal: ClerkPrincipal, query: unknown): Record<string, unknown> {
+  async getAdminOverviewActivity(
+    principal: ClerkPrincipal,
+    query: unknown,
+  ): Promise<Record<string, unknown>> {
     let normalized: Record<string, unknown>;
-    try { normalized = normalizeAdminOverviewQuery(query, true); } catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
-    return { items: [], page: normalized.page, pageSize: normalized.pageSize, totalItems: 0, totalPages: 0, region: { region: 'activity', availability: 'empty', retryable: true, message: 'No matching safe activity.' } };
+    try {
+      normalized = normalizeAdminOverviewQuery(query, true);
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
+    const page = Number(normalized.page),
+      pageSize = Number(normalized.pageSize);
+    const activity = await this.repository.getAdminOverviewActivity(principal, {
+      platform: String(normalized.platform),
+      days: this.periodDays(String(normalized.period)),
+      page,
+      pageSize,
+    });
+    return {
+      items: activity.items,
+      page,
+      pageSize,
+      totalItems: activity.totalItems,
+      totalPages: Math.ceil(activity.totalItems / pageSize),
+      region: {
+        region: 'activity',
+        availability: activity.totalItems === 0 ? 'empty' : 'available',
+        retryable: true,
+        ...(activity.totalItems === 0 ? { message: 'No matching safe activity.' } : {}),
+      },
+    };
   }
 
-  async createAdminExport(principal: ClerkPrincipal, body: unknown, idempotencyKey: string, requestId: string, now = new Date()): Promise<Record<string, unknown>> {
+  async createAdminExport(
+    principal: ClerkPrincipal,
+    body: unknown,
+    idempotencyKey: string,
+    requestId: string,
+    now = new Date(),
+  ): Promise<Record<string, unknown>> {
     this.requireRecent(principal);
     let command: Record<string, unknown>;
-    try { hashIdempotencyKey(idempotencyKey); command = normalizeAdminExportRequest(body); } catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
+    try {
+      hashIdempotencyKey(idempotencyKey);
+      command = normalizeAdminExportRequest(body);
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
     const days = this.periodDays(String(command.period));
     const end = now.toISOString().slice(0, 10);
-    const start = new Date(Date.parse(`${end}T00:00:00.000Z`) - (days - 1) * 86_400_000).toISOString().slice(0, 10);
-    const data = command.exportType === 'user_report'
-      ? await this.repository.getSupportedFinancialReport(principal, String(command.userId), start, end)
-      : { adminAggregate: true, counts: await this.repository.getAdminReportCounts(principal, String(command.platform), days) };
-    const snapshot = parseReportSnapshot({ schemaVersion: 1, generatedAt: now.toISOString(), ledgerVersion: 0, reportType: 'account_activity', period: { startDate: start, endDate: end, timezone: 'UTC', kind: days === 7 ? 'monthly' : days === 30 ? 'monthly' : 'three_months' }, format: command.format, delivery: 'download', currencyCode: 'SAR', dataState: 'complete', evidence: [], summary: data, breakdowns: [], detailedRows: [] });
-    return this.repository.captureAdminExport(principal, command, snapshot, idempotencyKey, requestId);
+    const start = new Date(Date.parse(`${end}T00:00:00.000Z`) - (days - 1) * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const data =
+      command.exportType === 'user_report'
+        ? await this.repository.getSupportedFinancialReport(
+            principal,
+            String(command.userId),
+            start,
+            end,
+          )
+        : {
+            adminAggregate: true,
+            counts: await this.repository.getAdminReportCounts(
+              principal,
+              String(command.platform),
+              days,
+            ),
+          };
+    const sourceLedgerVersion = (data as { ledgerVersion?: unknown }).ledgerVersion;
+    const ledgerVersion =
+      command.exportType === 'user_report' && Number.isSafeInteger(sourceLedgerVersion)
+        ? (sourceLedgerVersion as number)
+        : 0;
+    const snapshot = parseReportSnapshot({
+      schemaVersion: 1,
+      generatedAt: now.toISOString(),
+      ledgerVersion,
+      reportType: 'account_activity',
+      period: {
+        startDate: start,
+        endDate: end,
+        timezone: 'UTC',
+        kind: days === 7 ? 'monthly' : days === 30 ? 'monthly' : 'three_months',
+      },
+      format: command.format,
+      delivery: 'download',
+      currencyCode: 'SAR',
+      dataState: 'complete',
+      evidence:
+        command.exportType === 'user_report'
+          ? [{ kind: 'ledger', version: ledgerVersion, asOf: now.toISOString() }]
+          : [],
+      summary: data,
+      breakdowns: [],
+      detailedRows: [],
+    });
+    return this.repository.captureAdminExport(
+      principal,
+      command,
+      snapshot,
+      idempotencyKey,
+      requestId,
+    );
   }
 
-  getAdminExport(principal: ClerkPrincipal, attemptId: string, requestId: string): Promise<unknown> {
+  getAdminExport(
+    principal: ClerkPrincipal,
+    attemptId: string,
+    requestId: string,
+  ): Promise<unknown> {
     return this.getReportAttempt(principal, attemptId, requestId);
   }
 
@@ -180,12 +361,21 @@ export class ReportsService {
   ): Promise<Record<string, unknown>> {
     this.requireRecent(principal);
     let normalized: { email: string };
-    try { hashIdempotencyKey(idempotencyKey); normalized = normalizeVerifyRecipient(body); }
-    catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
+    try {
+      hashIdempotencyKey(idempotencyKey);
+      normalized = normalizeVerifyRecipient(body);
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
     const identity = await this.identity?.getIdentityUser(principal.userId);
     if (!identity?.primaryEmail || identity.primaryEmail.toLowerCase() !== normalized.email)
       throw new HttpException({ code: 'REPORT_RECIPIENT_UNVERIFIED' }, 403);
-    return { normalizedEmail: normalized.email, status: 'verified', verifiedAt: now.toISOString(), failureCategory: null };
+    return {
+      normalizedEmail: normalized.email,
+      status: 'verified',
+      verifiedAt: now.toISOString(),
+      failureCategory: null,
+    };
   }
 
   async createReportSchedule(
@@ -200,7 +390,9 @@ export class ReportsService {
     try {
       hashIdempotencyKey(idempotencyKey);
       command = normalizeScheduleCreate(body);
-    } catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
     if (command.deliveryChannel === 'email') {
       const identity = await this.identity?.getIdentityUser(principal.userId);
       if (!identity?.primaryEmail || identity.primaryEmail.toLowerCase() !== command.recipient)
@@ -216,17 +408,32 @@ export class ReportsService {
     );
   }
 
-  listReportSchedules(principal: ClerkPrincipal, query: unknown, requestId: string): Promise<unknown> {
+  listReportSchedules(
+    principal: ClerkPrincipal,
+    query: unknown,
+    requestId: string,
+  ): Promise<unknown> {
     try {
       if (!query || typeof query !== 'object' || Array.isArray(query)) throw new Error();
       const input = query as Record<string, unknown>;
-      if (Object.keys(input).some((key) => !['cursor','limit'].includes(key))) throw new Error();
+      if (Object.keys(input).some((key) => !['cursor', 'limit'].includes(key))) throw new Error();
       const normalized = normalizeReportList(input);
-      return this.repository.listSchedules(principal, normalized.cursor, normalized.limit, requestId);
-    } catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
+      return this.repository.listSchedules(
+        principal,
+        normalized.cursor,
+        normalized.limit,
+        requestId,
+      );
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
   }
 
-  getReportSchedule(principal: ClerkPrincipal, scheduleId: string, requestId: string): Promise<unknown> {
+  getReportSchedule(
+    principal: ClerkPrincipal,
+    scheduleId: string,
+    requestId: string,
+  ): Promise<unknown> {
     if (!isReportUuid(scheduleId)) throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
     return this.repository.getSchedule(principal, scheduleId, requestId);
   }
@@ -245,7 +452,9 @@ export class ReportsService {
       if (!isReportUuid(scheduleId)) throw new Error();
       hashIdempotencyKey(idempotencyKey);
       normalized = normalizeSchedulePatch(body);
-    } catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
     const current = await this.repository.getScheduleState(principal, scheduleId);
     const command: Record<string, unknown> = {
       id: scheduleId,
@@ -254,14 +463,23 @@ export class ReportsService {
       frequency: normalized.patch.frequency ?? current.frequency,
       timezone: normalized.patch.timezone ?? current.timezone,
       deliveryChannel: normalized.patch.deliveryChannel ?? current.delivery_channel,
-      recipient: normalized.patch.recipient !== undefined ? normalized.patch.recipient : current.recipient,
+      recipient:
+        normalized.patch.recipient !== undefined ? normalized.patch.recipient : current.recipient,
       enabled: normalized.patch.enabled ?? current.enabled,
     };
     if (command.deliveryChannel === 'download') command.recipient = null;
-    if (command.deliveryChannel === 'email') await this.assertVerifiedRecipient(principal, command.recipient);
-    const timingChanged = normalized.patch.frequency !== undefined || normalized.patch.timezone !== undefined || (normalized.patch.enabled === true && !current.enabled);
+    if (command.deliveryChannel === 'email')
+      await this.assertVerifiedRecipient(principal, command.recipient);
+    const timingChanged =
+      normalized.patch.frequency !== undefined ||
+      normalized.patch.timezone !== undefined ||
+      (normalized.patch.enabled === true && !current.enabled);
     command.nextRunAt = timingChanged
-      ? firstScheduleRun(command.frequency as ScheduleFrequency, String(command.timezone), now).toISOString()
+      ? firstScheduleRun(
+          command.frequency as ScheduleFrequency,
+          String(command.timezone),
+          now,
+        ).toISOString()
       : current.next_run_at.toISOString();
     return this.repository.updateSchedule(principal, command, idempotencyKey, requestId);
   }
@@ -273,46 +491,105 @@ export class ReportsService {
     idempotencyKey: string,
     requestId: string,
   ): Promise<void> {
-    this.requireRecent(principal);
-    const parsedVersion = typeof expectedVersion === 'string' && /^\d+$/.test(expectedVersion) ? Number(expectedVersion) : expectedVersion;
-    if (!isReportUuid(scheduleId) || !Number.isSafeInteger(parsedVersion) || Number(parsedVersion) < 1) throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
-    const current = await this.repository.getScheduleState(principal, scheduleId);
-    await this.repository.updateSchedule(principal, {
-      id: scheduleId, expectedVersion: parsedVersion, reportType: current.report_type,
-      frequency: current.frequency, timezone: current.timezone, nextRunAt: current.next_run_at.toISOString(),
-      deliveryChannel: current.delivery_channel, recipient: current.recipient, enabled: false,
-    }, idempotencyKey, requestId, 'report.schedule_deleted');
+    const parsedVersion =
+      typeof expectedVersion === 'string' && /^\d+$/.test(expectedVersion)
+        ? Number(expectedVersion)
+        : expectedVersion;
+    if (
+      !isReportUuid(scheduleId) ||
+      !Number.isSafeInteger(parsedVersion) ||
+      Number(parsedVersion) < 1
+    )
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    await this.repository.deleteSchedule(
+      principal,
+      scheduleId,
+      Number(parsedVersion),
+      idempotencyKey,
+      requestId,
+    );
   }
 
-  private async assertVerifiedRecipient(principal: ClerkPrincipal, recipient: unknown): Promise<void> {
+  private async assertVerifiedRecipient(
+    principal: ClerkPrincipal,
+    recipient: unknown,
+  ): Promise<void> {
     const identity = await this.identity?.getIdentityUser(principal.userId);
-    if (typeof recipient !== 'string' || !identity?.primaryEmail || identity.primaryEmail.toLowerCase() !== recipient)
+    if (
+      typeof recipient !== 'string' ||
+      !identity?.primaryEmail ||
+      identity.primaryEmail.toLowerCase() !== recipient
+    )
       throw new HttpException({ code: 'REPORT_RECIPIENT_UNVERIFIED' }, 403);
   }
 
   private adminQuery(query: unknown): Record<string, unknown> {
-    try { return normalizeAdminOverviewQuery(query); }
-    catch { throw new HttpException({ code: 'VALIDATION_FAILED' }, 400); }
+    try {
+      return normalizeAdminOverviewQuery(query);
+    } catch {
+      throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
+    }
   }
 
   private periodDays(period: string): number {
     return period === '7d' ? 7 : period === '90d' ? 90 : 30;
   }
 
-  private adminOverviewResponse(query: Record<string, unknown>, counts: AdminReportCounts): Record<string, unknown> {
-    const now = new Date().toISOString(), period = String(query.period), platform = String(query.platform);
+  private adminOverviewResponse(
+    query: Record<string, unknown>,
+    counts: AdminReportCounts,
+  ): Record<string, unknown> {
+    const now = new Date().toISOString(),
+      period = String(query.period),
+      platform = String(query.platform);
     const freshness = { state: 'fresh', asOf: now };
     return {
       query,
-      metrics: [{ id: 'unique-customers', label: 'Unique customers', numericValue: counts.totalUsers, formattedValue: String(counts.totalUsers), kind: 'unique-customers', platformScope: platform, period, freshness }],
+      metrics: [
+        {
+          id: 'unique-customers',
+          label: 'Unique customers',
+          numericValue: counts.totalUsers,
+          formattedValue: String(counts.totalUsers),
+          kind: 'unique-customers',
+          platformScope: platform,
+          period,
+          freshness,
+        },
+      ],
       subscriptionRevenue: {
-        paidCustomers: 0, freeCustomers: counts.totalUsers, recurringRevenue: 0, currency: 'SAR',
-        distribution: [{ plan: 'unclassified', customers: counts.totalUsers, share: counts.totalUsers === 0 ? 0 : 1 }],
-        revenueTrend: { id: 'recurring-revenue', label: 'Recurring revenue', kind: 'currency', unit: 'SAR', period, platformScope: platform, points: [{ timestamp: now, value: 0 }], summary: 'No billing projection is exposed by reports.' },
+        paidCustomers: 0,
+        freeCustomers: counts.totalUsers,
+        recurringRevenue: 0,
+        currency: 'SAR',
+        distribution: [
+          {
+            plan: 'unclassified',
+            customers: counts.totalUsers,
+            share: counts.totalUsers === 0 ? 0 : 1,
+          },
+        ],
+        revenueTrend: {
+          id: 'recurring-revenue',
+          label: 'Recurring revenue',
+          kind: 'currency',
+          unit: 'SAR',
+          period,
+          platformScope: platform,
+          points: [{ timestamp: now, value: 0 }],
+          summary: 'No billing projection is exposed by reports.',
+        },
         freshness,
       },
-      operationalMetrics: [], serviceHealth: [],
-      regions: [{ region: 'metrics', availability: counts.totalUsers === 0 ? 'empty' : 'available', retryable: true }],
+      operationalMetrics: [],
+      serviceHealth: [],
+      regions: [
+        {
+          region: 'metrics',
+          availability: counts.totalUsers === 0 ? 'empty' : 'available',
+          retryable: true,
+        },
+      ],
       freshness,
     };
   }
@@ -354,7 +631,13 @@ export class ReportsService {
     if (cached !== undefined) return cached;
     const result =
       namespace === 'report'
-        ? await this.repository.getSummary(principal, normalized.type, period, normalized.currency, requestId)
+        ? await this.repository.getSummary(
+            principal,
+            normalized.type,
+            period,
+            normalized.currency,
+            requestId,
+          )
         : await this.repository.getHome(principal, period, normalized.currency, requestId);
     const version = (result as { metadata?: { ledgerVersion?: number } }).metadata?.ledgerVersion;
     if (version === context.ledgerVersion) cache.set(key, result);

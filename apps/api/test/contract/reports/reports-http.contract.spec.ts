@@ -23,10 +23,22 @@ describe('Phase 10 summary HTTP contract', () => {
   }
 
   it('registers canonical authenticated summary operations', () => {
-    expect(REPORT_ROUTES).toEqual(expect.arrayContaining([
-      expect.objectContaining({ method: 'GET', path: 'api/v1/dashboard/home', operation: 'getDashboardHome', status: 200 }),
-      expect.objectContaining({ method: 'GET', path: 'api/v1/reports/summary', operation: 'getReportSummary', status: 200 }),
-    ]));
+    expect(REPORT_ROUTES).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'GET',
+          path: 'api/v1/dashboard/home',
+          operation: 'getDashboardHome',
+          status: 200,
+        }),
+        expect.objectContaining({
+          method: 'GET',
+          path: 'api/v1/reports/summary',
+          operation: 'getReportSummary',
+          status: 200,
+        }),
+      ]),
+    );
   });
 
   it('publishes both operations in the runtime OpenAPI document', async () => {
@@ -44,7 +56,10 @@ describe('Phase 10 summary HTTP contract', () => {
   });
 
   it('sets private caching headers and returns 304 for the exact ETag', async () => {
-    const service = { getReportSummary: jest.fn().mockResolvedValue(result), getDashboardHome: jest.fn() };
+    const service = {
+      getReportSummary: jest.fn().mockResolvedValue(result),
+      getDashboardHome: jest.fn(),
+    };
     const controller = new ReportsController(service as never);
     const firstResponse = response();
     const first = await controller.execute({
@@ -56,24 +71,33 @@ describe('Phase 10 summary HTTP contract', () => {
     });
     expect(first).toEqual(result);
     expect(firstResponse.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, max-age=30');
-    const etag = (firstResponse.setHeader.mock.calls as unknown[][]).find(([name]) => name === 'ETag')?.[1] as string;
+    const etag = (firstResponse.setHeader.mock.calls as unknown[][]).find(
+      ([name]) => name === 'ETag',
+    )?.[1] as string;
     const secondResponse = response();
-    expect(await controller.execute({
-      operation: 'getReportSummary',
-      request: { clerkPrincipal: principal, requestId: 'request' } as never,
-      query: { type: 'financial_summary', period: 'monthly' },
-      ifNoneMatch: etag,
-      response: secondResponse.value,
-    })).toBeUndefined();
+    expect(
+      await controller.execute({
+        operation: 'getReportSummary',
+        request: { clerkPrincipal: principal, requestId: 'request' } as never,
+        query: { type: 'financial_summary', period: 'monthly' },
+        ifNoneMatch: etag,
+        response: secondResponse.value,
+      }),
+    ).toBeUndefined();
     expect(secondResponse.status).toHaveBeenCalledWith(304);
   });
 
   it('rejects missing authentication without calling the service', async () => {
     const service = { getReportSummary: jest.fn(), getDashboardHome: jest.fn() };
     const controller = new ReportsController(service as never);
-    await expect(controller.execute({
-      operation: 'getReportSummary', request: {} as never, query: {}, response: response().value,
-    })).rejects.toEqual(expect.any(HttpException));
+    await expect(
+      controller.execute({
+        operation: 'getReportSummary',
+        request: {} as never,
+        query: {},
+        response: response().value,
+      }),
+    ).rejects.toEqual(expect.any(HttpException));
     expect(service.getReportSummary).not.toHaveBeenCalled();
   });
 });

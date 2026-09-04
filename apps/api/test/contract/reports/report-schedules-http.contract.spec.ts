@@ -8,12 +8,26 @@ describe('report schedule HTTP contract', () => {
 
   it('registers verification and full versioned schedule lifecycle routes', () => {
     expect(REPORT_ROUTES.filter(({ path }) => path.includes('report-schedules'))).toHaveLength(6);
-    expect(REPORT_ROUTES).toEqual(expect.arrayContaining([
-      expect.objectContaining({ operation: 'createReportSchedule', method: 'POST', status: 201 }),
-      expect.objectContaining({ operation: 'updateReportSchedule', method: 'PATCH', status: 200 }),
-      expect.objectContaining({ operation: 'deleteReportSchedule', method: 'DELETE', status: 204 }),
-      expect.objectContaining({ operation: 'verifyReportRecipient', method: 'POST', status: 200 }),
-    ]));
+    expect(REPORT_ROUTES).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ operation: 'createReportSchedule', method: 'POST', status: 201 }),
+        expect.objectContaining({
+          operation: 'updateReportSchedule',
+          method: 'PATCH',
+          status: 200,
+        }),
+        expect.objectContaining({
+          operation: 'deleteReportSchedule',
+          method: 'DELETE',
+          status: 204,
+        }),
+        expect.objectContaining({
+          operation: 'verifyReportRecipient',
+          method: 'POST',
+          status: 200,
+        }),
+      ]),
+    );
   });
 
   it('passes the optimistic version and idempotency key to the service', async () => {
@@ -22,10 +36,20 @@ describe('report schedule HTTP contract', () => {
     };
     const controller = new ReportsController(service as never);
     await controller.execute({
-      operation: 'updateReportSchedule', request: { clerkPrincipal: principal, requestId: 'request' } as never,
-      body: { expectedVersion: 1, enabled: false }, query: {}, params: { scheduleId: '99000000-0000-4000-8000-000000000001' },
-      idempotencyKey: 'schedule-key', response,
+      operation: 'updateReportSchedule',
+      request: { clerkPrincipal: principal, requestId: 'request' } as never,
+      body: { expectedVersion: 1, enabled: false },
+      query: {},
+      params: { scheduleId: '99000000-0000-4000-8000-000000000001' },
+      idempotencyKey: 'schedule-key',
+      response,
     });
-    expect(service.updateReportSchedule).toHaveBeenCalledWith(principal, '99000000-0000-4000-8000-000000000001', { expectedVersion: 1, enabled: false }, 'schedule-key', 'request');
+    expect(service.updateReportSchedule).toHaveBeenCalledWith(
+      principal,
+      '99000000-0000-4000-8000-000000000001',
+      { expectedVersion: 1, enabled: false },
+      'schedule-key',
+      'request',
+    );
   });
 });

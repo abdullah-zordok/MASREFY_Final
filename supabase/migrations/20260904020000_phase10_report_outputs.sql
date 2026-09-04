@@ -20,7 +20,7 @@ create table private.report_output_attempts (
   constraint report_attempt_type_check check (report_type in ('financial_summary','category_spending','budget_performance','obligation_progress','savings_progress','account_activity')),
   constraint report_attempt_period_check check (period_end>=period_start and period_end<period_start+interval '1 year'),
   constraint report_attempt_ledger_check check (ledger_version>=0),
-  constraint report_attempt_snapshot_check check (jsonb_typeof(snapshot)='object' and pg_column_size(snapshot)<=1048576),
+  constraint report_attempt_snapshot_check check (jsonb_typeof(snapshot)='object' and pg_column_size(snapshot)<=52428800),
   constraint report_attempt_storage_check check (storage_ref is null or storage_ref ~ '^reports/[a-f0-9]{64}/[0-9a-f-]{36}\.(json|csv|pdf)$'),
   constraint report_attempt_status_check check (delivery_status in ('queued','generating','ready','sending','delivered','failed','expired')),
   constraint report_attempt_provider_check check (provider_message_id is null or (length(provider_message_id) between 3 and 254 and provider_message_id !~ '[\r\n]')),
@@ -39,29 +39,25 @@ create index report_attempts_active_idx on private.report_output_attempts(delive
 create index report_attempts_expiry_idx on private.report_output_attempts(expires_at,id) where delivery_status<>'expired';
 create index report_attempts_schedule_idx on private.report_output_attempts(schedule_id,created_at desc) where schedule_id is not null;
 
-create table private.report_delivery_webhook_receipts (
-  event_id text primary key,
-  payload_hash text not null,
-  received_at timestamptz not null default clock_timestamp(),
-  constraint report_delivery_webhook_event_check check (length(event_id) between 1 and 128 and event_id !~ '[[:cntrl:]]'),
-  constraint report_delivery_webhook_hash_check check (payload_hash ~ '^[a-f0-9]{64}$')
-);
-alter table private.report_delivery_webhook_receipts owner to masarifi_migration;
-revoke all on private.report_delivery_webhook_receipts from public,anon,authenticated,service_role,masarifi_api,masarifi_worker;
-
-create function private.capture_report_delivery_webhook(p_event_id text,p_payload_hash text)
+create function private.capture_report_delivery_webhook(p_event_key_hash text,p_payload_hash text)
 returns text language plpgsql security definer set search_path='' as $$
 declare existing_hash text;
 begin
   if coalesce(nullif(pg_catalog.current_setting('request.jwt.claims',true),''),'{}')::jsonb->>'role'<>'worker' then
     raise exception using errcode='42501',message='REPORT_WORK_FORBIDDEN';
   end if;
-  delete from private.report_delivery_webhook_receipts where ctid in (
-    select ctid from private.report_delivery_webhook_receipts where received_at<clock_timestamp()-interval '10 minutes' limit 100
-  );
-  insert into private.report_delivery_webhook_receipts(event_id,payload_hash) values(p_event_id,p_payload_hash) on conflict do nothing;
+  if p_event_key_hash !~ '^sha256:[a-f0-9]{64}$' or p_payload_hash !~ '^sha256:[a-f0-9]{64}$' then
+    raise exception using errcode='22023',message='REPORT_WEBHOOK_INVALID';
+  end if;
+  insert into private.idempotency_keys(
+    actor_id,scope,key_hash,request_hash,response_status,response_body,state,locked_until,expires_at
+  ) values(
+    'report-delivery-webhook','reports.delivery-webhook',p_event_key_hash,p_payload_hash,
+    202,'{"accepted":true}'::jsonb,'completed',clock_timestamp(),clock_timestamp()+interval '10 minutes'
+  ) on conflict(actor_id,scope,key_hash) do nothing;
   if found then return 'new'; end if;
-  select r.payload_hash into existing_hash from private.report_delivery_webhook_receipts r where r.event_id=p_event_id;
+  select k.request_hash into existing_hash from private.idempotency_keys k
+  where k.actor_id='report-delivery-webhook' and k.scope='reports.delivery-webhook' and k.key_hash=p_event_key_hash;
   return case when existing_hash=p_payload_hash then 'replay' else 'conflict' end;
 end $$;
 alter function private.capture_report_delivery_webhook(text,text) owner to masarifi_migration;
@@ -155,14 +151,14 @@ revoke all on function private.transition_report_output(uuid,text,text,text,text
 grant execute on function private.transition_report_output(uuid,text,text,text,text) to masarifi_worker;
 
 create function private.read_report_output(p_user_id text,p_id uuid)
-returns table(id uuid,report_type text,format text,delivery text,status text,
+returns table(id uuid,schedule_id uuid,report_type text,format text,delivery text,status text,
   metadata jsonb,requested_at timestamptz,expires_at timestamptz,storage_ref text,error_code text)
 language plpgsql security definer set search_path='' as $$
 begin
   if coalesce(nullif(pg_catalog.current_setting('request.jwt.claims',true),''),'{}')::jsonb->>'sub' is distinct from p_user_id then
     raise exception using errcode='42501',message='REPORT_OWNER_FORBIDDEN';
   end if;
-  return query select a.id,a.report_type,a.snapshot->>'format',a.snapshot->>'delivery',a.delivery_status,
+  return query select a.id,a.schedule_id,a.report_type,a.snapshot->>'format',a.snapshot->>'delivery',a.delivery_status,
     jsonb_build_object('schemaVersion',a.snapshot->'schemaVersion','generatedAt',a.snapshot->'generatedAt',
       'ledgerVersion',a.ledger_version,'reportType',a.report_type,'period',a.snapshot->'period',
       'dataState',a.snapshot->'dataState','evidence',a.snapshot->'evidence'),
@@ -175,7 +171,7 @@ grant execute on function private.read_report_output(text,uuid) to masarifi_api;
 
 create function private.list_report_outputs(
   p_user_id text,p_before timestamptz,p_before_id uuid,p_limit integer,p_schedule_id uuid,p_status text
-) returns table(id uuid,report_type text,format text,delivery text,status text,
+) returns table(id uuid,schedule_id uuid,report_type text,format text,delivery text,status text,
   metadata jsonb,requested_at timestamptz,expires_at timestamptz,error_code text)
 language plpgsql security definer set search_path='' as $$
 begin
@@ -183,7 +179,7 @@ begin
     or p_limit not between 1 and 100 then
     raise exception using errcode='42501',message='REPORT_OWNER_FORBIDDEN';
   end if;
-  return query select a.id,a.report_type,a.snapshot->>'format',a.snapshot->>'delivery',a.delivery_status,
+  return query select a.id,a.schedule_id,a.report_type,a.snapshot->>'format',a.snapshot->>'delivery',a.delivery_status,
     jsonb_build_object('schemaVersion',a.snapshot->'schemaVersion','generatedAt',a.snapshot->'generatedAt',
       'ledgerVersion',a.ledger_version,'reportType',a.report_type,'period',a.snapshot->'period',
       'dataState',a.snapshot->'dataState','evidence',a.snapshot->'evidence'),

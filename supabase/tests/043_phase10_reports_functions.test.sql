@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 select no_plan();
 
 select has_table('private','report_output_attempts','private report attempts exist');
-select has_table('private','report_delivery_webhook_receipts','durable webhook replay receipts exist');
+select hasnt_table('private','report_delivery_webhook_receipts','webhook replay reuses the shared idempotency table');
 select columns_are('private','report_output_attempts',array[
   'id','schedule_id','user_id','report_type','period_start','period_end','ledger_version',
   'snapshot','storage_ref','delivery_status','provider_message_id','attempt_count',
@@ -12,6 +12,8 @@ select columns_are('private','report_output_attempts',array[
 select has_function('private','capture_report_snapshot',array['text','text','date','date','bigint','jsonb','uuid','timestamptz'],'snapshot capture function exists');
 select has_function('private','transition_report_output',array['uuid','text','text','text','text'],'guarded transition function exists');
 select has_function('private','capture_report_delivery_webhook',array['text','text'],'webhook receipt capture function exists');
+select has_function('private','read_admin_overview_activity',array['text','integer','integer','integer'],'bounded Admin activity function exists');
+select has_function('private','delete_report_schedule',array['text','uuid','bigint'],'guarded schedule delete function exists');
 select has_index('private','report_output_attempts','report_attempts_user_created_idx','owner cursor index exists');
 select has_index('private','report_output_attempts','report_attempts_active_idx','active worker index exists');
 select has_index('private','report_output_attempts','report_attempts_expiry_idx','expiry index exists');
@@ -40,9 +42,9 @@ select throws_ok(
   '42501','REPORT_TRANSITION_FORBIDDEN','API role cannot mutate worker state');
 select set_config('request.jwt.claims','{"sub":"report-attempt-owner","role":"worker"}',true);
 set local role masarifi_worker;
-select is(private.capture_report_delivery_webhook('evt-1',repeat('a',64)),'new','first webhook receipt is new');
-select is(private.capture_report_delivery_webhook('evt-1',repeat('a',64)),'replay','identical webhook receipt replays');
-select is(private.capture_report_delivery_webhook('evt-1',repeat('b',64)),'conflict','changed webhook receipt conflicts');
+select is(private.capture_report_delivery_webhook('sha256:'||repeat('1',64),'sha256:'||repeat('a',64)),'new','first webhook receipt is new');
+select is(private.capture_report_delivery_webhook('sha256:'||repeat('1',64),'sha256:'||repeat('a',64)),'replay','identical webhook receipt replays');
+select is(private.capture_report_delivery_webhook('sha256:'||repeat('1',64),'sha256:'||repeat('b',64)),'conflict','changed webhook receipt conflicts');
 select extensions.lives_ok(
   $$select private.transition_report_output((select id from captured),'generating',null,null,null)$$,
   'worker may claim a queued output');

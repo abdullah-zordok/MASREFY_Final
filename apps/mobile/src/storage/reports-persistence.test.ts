@@ -3,27 +3,35 @@ import { ReportsRepository } from './reports-repository';
 
 const mockRunAsync = jest.fn(async (..._arguments: unknown[]) => ({}));
 const mockGetAllAsync = jest.fn(async (sql: string) => {
-  if (sql.includes('report_schedules')) return [{ payload: JSON.stringify(schedule) }];
-  if (sql.includes('planning_drafts')) return [{ payload: JSON.stringify(draft) }];
+  if (sql.includes('report_schedules'))
+    return [{ payload: JSON.stringify(schedule) }];
+  if (sql.includes('planning_drafts'))
+    return [{ payload: JSON.stringify(draft) }];
   return [];
 });
 const mockDatabase = { getAllAsync: mockGetAllAsync, runAsync: mockRunAsync };
 
 jest.mock('./database', () => ({
   openDatabase: jest.fn(async () => mockDatabase),
-  runExclusiveDatabaseTransaction: jest.fn(async (_database, task) => task(mockDatabase))
+  runExclusiveDatabaseTransaction: jest.fn(async (_database, task) =>
+    task(mockDatabase)
+  )
 }));
 
-const schedule = buildSchedule({
-  recipientEmail: 'reports@example.com',
-  frequency: 'monthly',
-  language: 'en',
-  currencyCode: 'SAR',
-  deliveryDay: 1,
-  timeZone: 'Asia/Riyadh',
-  includeAssistantSummary: false,
-  detailLevel: 'summary'
-}, null, 1);
+const schedule = buildSchedule(
+  {
+    recipientEmail: 'reports@example.com',
+    frequency: 'monthly',
+    language: 'en',
+    currencyCode: 'SAR',
+    deliveryDay: 1,
+    timeZone: 'Asia/Riyadh',
+    includeAssistantSummary: false,
+    detailLevel: 'summary'
+  },
+  null,
+  1
+);
 const draft: ReportScheduleDraft = {
   id: 'report_schedule',
   payload: {
@@ -50,7 +58,19 @@ test('persistent reports repository restores and writes schedule state and draft
   await repository.saveDraft({ ...draft, updatedAt: 4 });
   await repository.discardDraft();
 
-  expect(mockRunAsync.mock.calls.some(([sql]) => String(sql).includes('report_schedules'))).toBe(true);
-  expect(mockRunAsync.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO planning_drafts'))).toBe(true);
-  expect(mockRunAsync.mock.calls.some(([sql]) => String(sql).includes('DELETE FROM planning_drafts'))).toBe(true);
+  expect(
+    mockRunAsync.mock.calls.some(([sql]) =>
+      String(sql).includes('report_schedules')
+    )
+  ).toBe(true);
+  expect(
+    mockRunAsync.mock.calls.some(([sql]) =>
+      String(sql).includes('INSERT INTO planning_drafts')
+    )
+  ).toBe(true);
+  expect(
+    mockRunAsync.mock.calls.some(([sql]) =>
+      String(sql).includes('DELETE FROM planning_drafts')
+    )
+  ).toBe(true);
 });

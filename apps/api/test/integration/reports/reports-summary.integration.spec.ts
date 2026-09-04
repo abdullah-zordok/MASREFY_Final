@@ -51,6 +51,19 @@ describeLiveDatabase('report summary reads', () => {
            values($1,6000,3),($2,-99900,1)`,
           [account, otherAccount],
         );
+        await client.query(
+          `insert into public.obligations(
+             id,user_id,name,direction,type,schedule_kind,currency_code,principal_minor,
+             opening_paid_minor,frequency,expected_day,start_date
+           ) values($1,$2,'Loan','payable','other','open_ended','SAR',10000,2000,'monthly',1,'2026-01-01')`,
+          [randomUUID(), owner.userId],
+        );
+        await client.query(
+          `insert into public.savings_goals(
+             id,user_id,name,currency_code,target_minor,opening_tracked_minor
+           ) values($1,$2,'Reserve','SAR',12000,3000)`,
+          [randomUUID(), owner.userId],
+        );
         await client.query('commit');
       } catch (error) {
         await client.query('rollback');
@@ -60,7 +73,9 @@ describeLiveDatabase('report summary reads', () => {
   });
 
   afterAll(async () => {
-    await pool.query('delete from public.transactions where user_id=any($1)', [[owner.userId, other.userId]]);
+    await pool.query('delete from public.transactions where user_id=any($1)', [
+      [owner.userId, other.userId],
+    ]);
     await pool.onModuleDestroy();
   });
 
@@ -98,7 +113,10 @@ describeLiveDatabase('report summary reads', () => {
       'SAR',
       'empty',
     );
-    expect(empty).toMatchObject({ summaries: [], metadata: { dataState: 'empty', ledgerVersion: 3 } });
+    expect(empty).toMatchObject({
+      summaries: [],
+      metadata: { dataState: 'empty', ledgerVersion: 3 },
+    });
 
     const usd = await repository.getSummary(
       owner,
@@ -128,9 +146,13 @@ describeLiveDatabase('report summary reads', () => {
     expect(home).toMatchObject({
       metadata: { ledgerVersion: 3, reportType: 'financial_summary' },
       balances: [{ accountId: account, confirmed: { amountMinor: 6000, currency: 'SAR' } }],
-      planning: { budgets: [] },
+      planning: {
+        budgets: [],
+        obligations: [{ currency: 'SAR', paidMinor: 2000, remainingMinor: 8000, overdueMinor: 0 }],
+        savingsGoals: [{ currency: 'SAR', targetMinor: 12000, trackedMinor: 3000 }],
+      },
     });
-    expect((home.recentItems as unknown[])).toHaveLength(2);
+    expect(home.recentItems as unknown[]).toHaveLength(2);
     expect(Buffer.byteLength(JSON.stringify(home))).toBeLessThan(250_000);
   });
 });

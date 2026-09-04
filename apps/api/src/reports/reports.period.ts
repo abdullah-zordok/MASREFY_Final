@@ -136,11 +136,7 @@ function compare(left: readonly number[], right: readonly number[]): number {
   return 0;
 }
 
-export function zonedDateTimeToInstant(
-  date: string,
-  time: string,
-  timezone: string,
-): Date {
+export function zonedDateTimeToInstant(date: string, time: string, timezone: string): Date {
   const day = parseDate(date);
   const match = /^(\d{2}):(\d{2})$/.exec(time);
   const hour = Number(match?.[1]);
@@ -163,8 +159,13 @@ export function zonedDateTimeToInstant(
   if (matches.size > 0) return new Date(Math.min(...matches));
 
   // A DST gap has no exact instant. Select the first valid local minute after it.
-  for (let candidate = targetUtc - 14 * 3_600_000; candidate <= targetUtc + 14 * 3_600_000; candidate += 60_000) {
-    if (compare(tuple(partsAt(candidate, timezone)), tuple(target)) >= 0) return new Date(candidate);
+  for (
+    let candidate = targetUtc - 14 * 3_600_000;
+    candidate <= targetUtc + 14 * 3_600_000;
+    candidate += 60_000
+  ) {
+    if (compare(tuple(partsAt(candidate, timezone)), tuple(target)) >= 0)
+      return new Date(candidate);
   }
   throw new Error('REPORT_TIMEZONE_INVALID');
 }
@@ -189,11 +190,7 @@ export function resolveReportPeriod(
   };
 }
 
-export function firstScheduleRun(
-  frequency: ReportPeriod,
-  timezone: string,
-  after: Date,
-): Date {
+export function firstScheduleRun(frequency: ReportPeriod, timezone: string, after: Date): Date {
   if (!(frequency in spans)) throw new Error('REPORT_PERIOD_INVALID');
   const nextDate = shiftMonth(localDateAt(after, timezone), spans[frequency], 1);
   return zonedDateTimeToInstant(nextDate, '08:00', timezone);
@@ -214,11 +211,7 @@ export function nextScheduleOccurrence(
   const scheduledDate = localDate(scheduled);
   const nextDate = shiftMonth(scheduledDate, spans[schedule.frequency], scheduled.day);
   return {
-    period: resolveReportPeriod(
-      schedule.frequency,
-      addDays(scheduledDate, -1),
-      schedule.timezone,
-    ),
+    period: resolveReportPeriod(schedule.frequency, addDays(scheduledDate, -1), schedule.timezone),
     scheduledFor: new Date(schedule.nextRunAt),
     nextRunAt: zonedDateTimeToInstant(
       nextDate,

@@ -15,7 +15,9 @@ export class ReportsSmtpError extends Error {
     public readonly code: string,
     public readonly retryable = false,
     public readonly ambiguous = false,
-  ) { super(code); }
+  ) {
+    super(code);
+  }
 }
 
 @Injectable()
@@ -32,34 +34,65 @@ export class ReportsSmtp {
     const port = config.getRequired('EMAIL_SMTP_PORT');
     this.from = config.getRequired('EMAIL_FROM');
     this.allowedOrigin = new URL(config.getRequired('SUPABASE_URL')).origin;
-    this.transport = supplied ?? nodemailer.createTransport({
-      host, port, secure: port === 465, requireTLS: true,
-      auth: { user: config.getRequired('EMAIL_SMTP_USERNAME'), pass: config.getRequired('EMAIL_SMTP_PASSWORD') },
-      connectionTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
-      greetingTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
-      socketTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_SOCKET_TIMEOUT_MS'),
-      disableFileAccess: true, disableUrlAccess: true,
-      tls: { servername: host, minVersion: 'TLSv1.2', rejectUnauthorized: true },
-    });
+    this.transport =
+      supplied ??
+      nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        requireTLS: true,
+        auth: {
+          user: config.getRequired('EMAIL_SMTP_USERNAME'),
+          pass: config.getRequired('EMAIL_SMTP_PASSWORD'),
+        },
+        connectionTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
+        greetingTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
+        socketTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_SOCKET_TIMEOUT_MS'),
+        disableFileAccess: true,
+        disableUrlAccess: true,
+        tls: { servername: host, minVersion: 'TLSv1.2', rejectUnauthorized: true },
+      });
   }
 
-  async send(attemptId: string, recipient: string, downloadUrl: string, now = new Date()): Promise<{ providerMessageId: string; acceptedByServerAt: string }> {
-    if (!isReportUuid(attemptId) || !/^[^\s@\r\n]+@[^\s@\r\n]+$/.test(recipient) || recipient.length > 320)
+  async send(
+    attemptId: string,
+    recipient: string,
+    downloadUrl: string,
+    now = new Date(),
+  ): Promise<{ providerMessageId: string; acceptedByServerAt: string }> {
+    if (
+      !isReportUuid(attemptId) ||
+      !/^[^\s@\r\n]+@[^\s@\r\n]+$/.test(recipient) ||
+      recipient.length > 320
+    )
       throw new ReportsSmtpError('REPORT_EMAIL_INVALID');
     let link: URL;
-    try { link = new URL(downloadUrl); } catch { throw new ReportsSmtpError('REPORT_EMAIL_INVALID'); }
-    if (link.protocol !== 'https:' || link.origin !== this.allowedOrigin || !link.pathname.startsWith('/storage/v1/object/sign/report-exports/'))
+    try {
+      link = new URL(downloadUrl);
+    } catch {
+      throw new ReportsSmtpError('REPORT_EMAIL_INVALID');
+    }
+    if (
+      link.protocol !== 'https:' ||
+      link.origin !== this.allowedOrigin ||
+      !link.pathname.startsWith('/storage/v1/object/sign/report-exports/')
+    )
       throw new ReportsSmtpError('REPORT_EMAIL_INVALID');
     const domain = this.from.slice(this.from.lastIndexOf('@') + 1);
     const messageId = `<report-${attemptId}@${domain}>`;
     try {
       const result = await this.transport.sendMail({
-        from: this.from, to: recipient, envelope: { from: this.from, to: recipient },
+        from: this.from,
+        to: recipient,
+        envelope: { from: this.from, to: recipient },
         subject: 'Your Masarifi report is ready',
         text: `Your requested report is ready. This private link expires shortly:\n${link.toString()}`,
-        messageId, attachments: undefined,
+        messageId,
+        attachments: undefined,
       });
-      const accepted = (result.accepted ?? []).some((value) => String(value).toLowerCase() === recipient.toLowerCase());
+      const accepted = (result.accepted ?? []).some(
+        (value) => String(value).toLowerCase() === recipient.toLowerCase(),
+      );
       if (!accepted) throw new ReportsSmtpError('REPORT_SMTP_REJECTED');
       return { providerMessageId: messageId, acceptedByServerAt: now.toISOString() };
     } catch (error) {

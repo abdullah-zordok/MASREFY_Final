@@ -1,0 +1,9 @@
+{
+  "title": "Reports and delivery",
+  "panels": [
+    { "title": "Job outcomes", "query": "sum by (job,outcome) (rate(masarifi_report_job_total[5m]))" },
+    { "title": "Job p95", "query": "histogram_quantile(0.95,sum by (le,job) (rate(masarifi_report_job_duration_ms_bucket[5m])))" },
+    { "title": "Output bytes p95", "query": "histogram_quantile(0.95,sum by (le) (rate(masarifi_report_output_bytes_bucket[5m])))" },
+    { "title": "Backlog", "query": "max by (job) (masarifi_report_backlog)" }
+  ]
+}

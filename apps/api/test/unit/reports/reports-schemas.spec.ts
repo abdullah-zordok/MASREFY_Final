@@ -123,7 +123,12 @@ describe('Phase 10 report schemas', () => {
       delivery: 'email',
       recipient: 'reports@example.test',
     });
-    expect(normalizeReportList({ limit: '100' })).toEqual({ cursor: null, limit: 100, scheduleId: null, status: null });
+    expect(normalizeReportList({ limit: '100' })).toEqual({
+      cursor: null,
+      limit: 100,
+      scheduleId: null,
+      status: null,
+    });
     expect(() => normalizeCreateReport({ ...snapshot, periodEnd: '2027-01-02' })).toThrow(
       'VALIDATION_FAILED',
     );
@@ -131,7 +136,12 @@ describe('Phase 10 report schemas', () => {
   });
 
   it('normalizes exact report and dashboard summary queries', () => {
-    expect(normalizeSummaryQuery({ type: 'financial_summary', period: 'monthly', currency: 'SAR' }, true)).toEqual({
+    expect(
+      normalizeSummaryQuery(
+        { type: 'financial_summary', period: 'monthly', currency: 'SAR' },
+        true,
+      ),
+    ).toEqual({
       type: 'financial_summary',
       period: 'monthly',
       currency: 'SAR',
@@ -141,8 +151,12 @@ describe('Phase 10 report schemas', () => {
       period: 'annual',
       currency: null,
     });
-    expect(() => normalizeSummaryQuery({ period: 'monthly', currency: 'sar' }, false)).toThrow('VALIDATION_FAILED');
-    expect(() => normalizeSummaryQuery({ type: 'financial_summary', period: 'monthly', extra: true }, true)).toThrow('VALIDATION_FAILED');
+    expect(() => normalizeSummaryQuery({ period: 'monthly', currency: 'sar' }, false)).toThrow(
+      'VALIDATION_FAILED',
+    );
+    expect(() =>
+      normalizeSummaryQuery({ type: 'financial_summary', period: 'monthly', extra: true }, true),
+    ).toThrow('VALIDATION_FAILED');
   });
 
   it('normalizes recipient and versioned schedule mutations without extra fields', () => {
@@ -159,9 +173,10 @@ describe('Phase 10 report schemas', () => {
         enabled: true,
       }),
     ).toMatchObject({ recipient: 'reports@example.test', enabled: true });
-    expect(
-      normalizeSchedulePatch({ expectedVersion: 2, enabled: false }),
-    ).toEqual({ expectedVersion: 2, patch: { enabled: false } });
+    expect(normalizeSchedulePatch({ expectedVersion: 2, enabled: false })).toEqual({
+      expectedVersion: 2,
+      patch: { enabled: false },
+    });
     expect(() => normalizeSchedulePatch({ expectedVersion: 2, extra: true })).toThrow(
       'VALIDATION_FAILED',
     );

@@ -13,7 +13,15 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // eslint-disable-next-line no-control-regex -- public inputs reject controls and bidi overrides
 const UNSAFE = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
-const REPORT_STATUSES = ['queued', 'generating', 'ready', 'sending', 'delivered', 'failed', 'expired'] as const;
+const REPORT_STATUSES = [
+  'queued',
+  'generating',
+  'ready',
+  'sending',
+  'delivered',
+  'failed',
+  'expired',
+] as const;
 
 function invalid(): never {
   throw Object.assign(new Error('VALIDATION_FAILED'), { code: 'VALIDATION_FAILED' });
@@ -55,7 +63,8 @@ function email(value: unknown): string {
 }
 
 function timezone(value: unknown): string {
-  if (typeof value !== 'string' || value.length < 1 || value.length > 64 || UNSAFE.test(value)) invalid();
+  if (typeof value !== 'string' || value.length < 1 || value.length > 64 || UNSAFE.test(value))
+    invalid();
   try {
     new Intl.DateTimeFormat('en', { timeZone: value }).format(0);
   } catch {
@@ -71,14 +80,21 @@ function boolean(value: unknown): boolean {
 
 function integer(value: unknown, minimum: number, maximum: number): number {
   const parsed = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
-  if (typeof parsed !== 'number' || !Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) invalid();
+  if (
+    typeof parsed !== 'number' ||
+    !Number.isSafeInteger(parsed) ||
+    parsed < minimum ||
+    parsed > maximum
+  )
+    invalid();
   return parsed;
 }
 
 function text(value: unknown, minimum: number, maximum: number): string {
   if (typeof value !== 'string') invalid();
   const normalized = value.trim();
-  if (normalized.length < minimum || normalized.length > maximum || UNSAFE.test(normalized)) invalid();
+  if (normalized.length < minimum || normalized.length > maximum || UNSAFE.test(normalized))
+    invalid();
   return normalized;
 }
 
@@ -117,10 +133,13 @@ export function normalizeCreateReport(value: unknown): {
   const periodStart = localDate(input.periodStart);
   const periodEnd = localDate(input.periodEnd);
   const start = new Date(`${periodStart}T00:00:00.000Z`);
-  const maximumEnd = new Date(Date.UTC(start.getUTCFullYear() + 1, start.getUTCMonth(), start.getUTCDate()) - 86_400_000);
+  const maximumEnd = new Date(
+    Date.UTC(start.getUTCFullYear() + 1, start.getUTCMonth(), start.getUTCDate()) - 86_400_000,
+  );
   if (periodEnd < periodStart || new Date(`${periodEnd}T00:00:00.000Z`) > maximumEnd) invalid();
   const delivery = oneOf(input.delivery, DELIVERY_CHANNELS);
-  const recipient = input.recipient === undefined || input.recipient === null ? null : email(input.recipient);
+  const recipient =
+    input.recipient === undefined || input.recipient === null ? null : email(input.recipient);
   if ((delivery === 'email') !== Boolean(recipient)) invalid();
   return {
     type: oneOf(input.type, REPORT_TYPES),
@@ -158,7 +177,8 @@ export function normalizeScheduleCreate(value: unknown): Record<string, unknown>
   const input = record(value);
   exact(input, ['reportType', 'frequency', 'timezone', 'deliveryChannel', 'recipient', 'enabled']);
   const deliveryChannel = oneOf(input.deliveryChannel, DELIVERY_CHANNELS);
-  const recipient = input.recipient === undefined || input.recipient === null ? null : email(input.recipient);
+  const recipient =
+    input.recipient === undefined || input.recipient === null ? null : email(input.recipient);
   if ((deliveryChannel === 'email') !== Boolean(recipient)) invalid();
   return {
     reportType: oneOf(input.reportType, REPORT_TYPES),
@@ -175,14 +195,23 @@ export function normalizeSchedulePatch(value: unknown): {
   patch: Record<string, unknown>;
 } {
   const input = record(value);
-  const fields = ['reportType', 'frequency', 'timezone', 'deliveryChannel', 'recipient', 'enabled'] as const;
+  const fields = [
+    'reportType',
+    'frequency',
+    'timezone',
+    'deliveryChannel',
+    'recipient',
+    'enabled',
+  ] as const;
   exact(input, ['expectedVersion', ...fields]);
   const patch: Record<string, unknown> = {};
   if (input.reportType !== undefined) patch.reportType = oneOf(input.reportType, REPORT_TYPES);
   if (input.frequency !== undefined) patch.frequency = oneOf(input.frequency, REPORT_PERIODS);
   if (input.timezone !== undefined) patch.timezone = timezone(input.timezone);
-  if (input.deliveryChannel !== undefined) patch.deliveryChannel = oneOf(input.deliveryChannel, DELIVERY_CHANNELS);
-  if (input.recipient !== undefined) patch.recipient = input.recipient === null ? null : email(input.recipient);
+  if (input.deliveryChannel !== undefined)
+    patch.deliveryChannel = oneOf(input.deliveryChannel, DELIVERY_CHANNELS);
+  if (input.recipient !== undefined)
+    patch.recipient = input.recipient === null ? null : email(input.recipient);
   if (input.enabled !== undefined) patch.enabled = boolean(input.enabled);
   if (Object.keys(patch).length === 0) invalid();
   return { expectedVersion: integer(input.expectedVersion, 1, Number.MAX_SAFE_INTEGER), patch };
@@ -191,11 +220,19 @@ export function normalizeSchedulePatch(value: unknown): {
 export function normalizeAdminExportRequest(value: unknown): Record<string, unknown> {
   const input = record(value);
   exact(input, ['exportType', 'period', 'platform', 'format', 'userId', 'supportReason']);
-  const exportType = oneOf(input.exportType, ['overview', 'platform_analytics', 'activity', 'user_report'] as const);
+  const exportType = oneOf(input.exportType, [
+    'overview',
+    'platform_analytics',
+    'activity',
+    'user_report',
+  ] as const);
   const result: Record<string, unknown> = {
     exportType,
     period: oneOf(input.period, ['7d', '30d', '90d'] as const),
-    platform: input.platform === undefined ? 'all' : oneOf(input.platform, ['all', 'ios', 'android'] as const),
+    platform:
+      input.platform === undefined
+        ? 'all'
+        : oneOf(input.platform, ['all', 'ios', 'android'] as const),
     format: oneOf(input.format, REPORT_FORMATS),
   };
   if (exportType === 'user_report') {
@@ -207,16 +244,29 @@ export function normalizeAdminExportRequest(value: unknown): Record<string, unkn
   return result;
 }
 
-export function normalizeAdminOverviewQuery(value: unknown, activity = false): Record<string, unknown> {
+export function normalizeAdminOverviewQuery(
+  value: unknown,
+  activity = false,
+): Record<string, unknown> {
   const input = record(value);
-  exact(input, activity ? ['platform', 'period', 'locale', 'page', 'pageSize'] : ['platform', 'period', 'locale']);
+  exact(
+    input,
+    activity
+      ? ['platform', 'period', 'locale', 'page', 'pageSize']
+      : ['platform', 'period', 'locale'],
+  );
   return {
-    platform: input.platform === undefined ? 'all' : oneOf(input.platform, ['all', 'ios', 'android'] as const),
+    platform:
+      input.platform === undefined
+        ? 'all'
+        : oneOf(input.platform, ['all', 'ios', 'android'] as const),
     period: input.period === undefined ? '30d' : oneOf(input.period, ['7d', '30d', '90d'] as const),
     locale: input.locale === undefined ? 'ar' : oneOf(input.locale, ['ar', 'en'] as const),
-    ...(activity ? {
-      page: input.page === undefined ? 1 : integer(input.page, 1, 10_000),
-      pageSize: input.pageSize === undefined ? 10 : integer(input.pageSize, 1, 25),
-    } : {}),
+    ...(activity
+      ? {
+          page: input.page === undefined ? 1 : integer(input.page, 1, 10_000),
+          pageSize: input.pageSize === undefined ? 10 : integer(input.pageSize, 1, 25),
+        }
+      : {}),
   };
 }

@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: Owner reports, schedules, private outputs, and bounded Admin analytics/exports.
 servers:
-  - url: /api/v1
+  - url: /
 security:
   - clerkBearer: []
 tags:
@@ -14,7 +14,7 @@ tags:
   - name: Admin reports
 
 paths:
-  /dashboard/home:
+  /api/v1/dashboard/home:
     get:
       tags: [Dashboard]
       operationId: getDashboardHome
@@ -32,7 +32,7 @@ paths:
         '413': {$ref: '#/components/responses/SafeError'}
         '429': {$ref: '#/components/responses/SafeError'}
 
-  /reports/summary:
+  /api/v1/reports/summary:
     get:
       tags: [Reports]
       operationId: getReportSummary
@@ -50,7 +50,7 @@ paths:
         '401': {$ref: '#/components/responses/SafeError'}
         '429': {$ref: '#/components/responses/SafeError'}
 
-  /reports:
+  /api/v1/reports:
     get:
       tags: [Reports]
       operationId: listReportAttempts
@@ -94,7 +94,7 @@ paths:
         '413': {$ref: '#/components/responses/SafeError'}
         '429': {$ref: '#/components/responses/SafeError'}
 
-  /reports/{attemptId}:
+  /api/v1/reports/{attemptId}:
     get:
       tags: [Reports]
       operationId: getReportAttempt
@@ -114,7 +114,7 @@ paths:
         '404': {$ref: '#/components/responses/SafeError'}
         '410': {$ref: '#/components/responses/SafeError'}
 
-  /reports/{attemptId}/retry-delivery:
+  /api/v1/reports/{attemptId}/retry-delivery:
     post:
       tags: [Reports]
       operationId: retryReportDelivery
@@ -133,7 +133,7 @@ paths:
         '409': {$ref: '#/components/responses/SafeError'}
         '410': {$ref: '#/components/responses/SafeError'}
 
-  /report-schedules:
+  /api/v1/report-schedules:
     get:
       tags: [Report schedules]
       operationId: listReportSchedules
@@ -168,7 +168,7 @@ paths:
         '403': {$ref: '#/components/responses/SafeError'}
         '409': {$ref: '#/components/responses/SafeError'}
 
-  /report-schedules/verify-recipient:
+  /api/v1/report-schedules/verify-recipient:
     post:
       tags: [Report schedules]
       operationId: verifyReportRecipient
@@ -191,7 +191,7 @@ paths:
         '409': {$ref: '#/components/responses/SafeError'}
         '429': {$ref: '#/components/responses/SafeError'}
 
-  /report-schedules/{scheduleId}:
+  /api/v1/report-schedules/{scheduleId}:
     get:
       tags: [Report schedules]
       operationId: getReportSchedule
@@ -243,7 +243,7 @@ paths:
         '404': {$ref: '#/components/responses/SafeError'}
         '409': {$ref: '#/components/responses/SafeError'}
 
-  /admin/overview:
+  /api/v1/admin/overview:
     get:
       tags: [Admin reports]
       operationId: getAdminOverview
@@ -261,7 +261,7 @@ paths:
         '401': {$ref: '#/components/responses/SafeError'}
         '403': {$ref: '#/components/responses/SafeError'}
 
-  /admin/overview/platform-analytics:
+  /api/v1/admin/overview/platform-analytics:
     get:
       tags: [Admin reports]
       operationId: getAdminPlatformAnalytics
@@ -278,7 +278,7 @@ paths:
         '401': {$ref: '#/components/responses/SafeError'}
         '403': {$ref: '#/components/responses/SafeError'}
 
-  /admin/overview/activity:
+  /api/v1/admin/overview/activity:
     get:
       tags: [Admin reports]
       operationId: getAdminOverviewActivity
@@ -297,7 +297,7 @@ paths:
         '401': {$ref: '#/components/responses/SafeError'}
         '403': {$ref: '#/components/responses/SafeError'}
 
-  /admin/exports:
+  /api/v1/admin/exports:
     post:
       tags: [Admin reports]
       operationId: createAdminExport
@@ -320,7 +320,7 @@ paths:
         '413': {$ref: '#/components/responses/SafeError'}
         '429': {$ref: '#/components/responses/SafeError'}
 
-  /admin/exports/{attemptId}:
+  /api/v1/admin/exports/{attemptId}:
     get:
       tags: [Admin reports]
       operationId: getAdminExport
@@ -373,7 +373,7 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      schema: {type: string, minLength: 16, maxLength: 128}
+      schema: {type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$'}
     AttemptId:
       name: attemptId
       in: path
