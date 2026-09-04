@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, ArrowLeft, Clock3, RefreshCw } from "lucide-react";
+import { Activity, ArrowLeft, Clock3, Download, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChartCard, DonutChart, TrendChart, VolumeChart } from "@/components/admin/Charts";
@@ -31,6 +31,7 @@ import {
   usePlatformAnalytics,
 } from "@/features/overview/hooks";
 import type { OverviewMetric, TrendSeries } from "@/features/overview/contracts";
+import { reportExportsRepository, type AdminExportStatus } from "@/features/overview/report-exports";
 import type { ChartPoint, Metric, SystemStatus } from "@/types/admin";
 import type { DateRangeInput } from "@/features/foundation/contracts";
 import { ApiError } from "@/core/api/errors";
@@ -255,6 +256,7 @@ export default function OverviewPage() {
     preset: "30d",
   });
   const [platform, setPlatform] = useState<"all" | "ios" | "android">("all");
+  const [reportExport, setReportExport] = useState<AdminExportStatus | "pending" | null>(null);
   const period = (PERIOD_PRESETS as readonly string[]).includes(range.preset)
     ? (range.preset as "7d" | "30d" | "90d")
     : "30d";
@@ -326,6 +328,30 @@ export default function OverviewPage() {
               <PlatformFilter options={platformOptions.data.options} value={platform} onChange={setPlatform} />
             )}
             <DateRangeControl value={range} onChange={setRange} allowedPresets={PERIOD_PRESETS} />
+            {hasPermission(role, "data_requests.exports.manage") && (
+              reportExport && reportExport !== "pending" && reportExport.downloadUrl ? (
+                <a className="button" data-spec="overview-export-download" href={reportExport.downloadUrl} rel="noreferrer">
+                  <Download size={16} />
+                  <span>{locale === "ar" ? "تنزيل التقرير" : "Download report"}</span>
+                </a>
+              ) : (
+                <button
+                  className="button"
+                  data-spec="overview-export"
+                  disabled={reportExport === "pending"}
+                  onClick={async () => {
+                    setReportExport("pending");
+                    try {
+                      const accepted = await reportExportsRepository.request({ exportType: "overview", period, platform, format: "csv" });
+                      setReportExport(await reportExportsRepository.wait(accepted.attemptId));
+                    } catch { setReportExport(null); }
+                  }}
+                >
+                  <Download size={16} />
+                  <span>{locale === "ar" ? "تصدير CSV" : "Export CSV"}</span>
+                </button>
+              )
+            )}
             <button
               className="button"
               onClick={() => {

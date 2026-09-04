@@ -11,6 +11,7 @@ import { readScenario } from "@/mocks/scenarios/foundation";
 import { scenarioResponse } from "./shared";
 
 type PlatformFilter = "all" | "ios" | "android";
+const reportAttemptId = "99000000-0000-4000-8000-000000000001";
 
 function readPlatform(request: Request): PlatformFilter {
   const value = new URL(request.url).searchParams.get("platform");
@@ -47,6 +48,15 @@ function availableRegion(region: "activity" | "customers" | "metrics") {
 }
 
 export const overviewHandlers = [
+  http.post("/api/v1/admin/exports", () => HttpResponse.json({
+    attemptId: reportAttemptId, status: "queued", ledgerVersion: 0, schemaVersion: 1,
+    generatedAt: "2026-09-04T00:00:00.000Z",
+  }, { status: 202 })),
+  http.get(`/api/v1/admin/exports/${reportAttemptId}`, () => HttpResponse.json({
+    id: reportAttemptId, reportType: "account_activity", format: "csv", delivery: "download", status: "ready", metadata: {},
+    requestedAt: "2026-09-04T00:00:00.000Z", expiresAt: "2026-09-05T00:00:00.000Z",
+    downloadUrl: "https://project.supabase.co/storage/v1/object/sign/report-exports/admin.csv?token=opaque",
+  })),
   http.get("/api/v1/admin/overview", async ({ request }) => {
     const scenario = readScenario(request);
     const errorResponse = await scenarioResponse(scenario);
