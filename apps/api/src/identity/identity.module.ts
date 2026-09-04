@@ -58,6 +58,6 @@ export class IdentityModule {}
 @Module({
   imports: [DatabaseModule],
   providers: [ClerkClientService, IdentityRepository, IdentityPrivacyHandler, ClerkWebhookWorker],
-  exports: [ClerkWebhookWorker, IdentityPrivacyHandler],
+  exports: [ClerkClientService, ClerkWebhookWorker, IdentityPrivacyHandler],
 })
 export class IdentityWorkerModule {}

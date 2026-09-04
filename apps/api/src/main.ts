@@ -33,7 +33,7 @@ export async function bootstrapApi(): Promise<INestApplication> {
   configureValidation(
     app,
     config.get('MASARIFI_HTTP_BODY_LIMIT_BYTES'),
-    ['/webhooks/clerk'],
+    ['/webhooks/clerk', '/webhooks/report-delivery'],
     {
       '/api/v1/sync/mutations': syncBodyLimit,
       '/api/v1/conflicts/:conflictId': syncBodyLimit,

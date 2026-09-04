@@ -1,10 +1,15 @@
 import {
+  firstScheduleRun,
   nextScheduleOccurrence,
   resolveReportPeriod,
   zonedDateTimeToInstant,
 } from '../../../src/reports/reports.period';
 
 describe('Phase 10 report periods', () => {
+  it('selects the next deterministic 08:00 local boundary', () => {
+    expect(firstScheduleRun('monthly', 'Asia/Riyadh', new Date('2026-09-04T00:00:00Z')).toISOString()).toBe('2026-10-01T05:00:00.000Z');
+    expect(firstScheduleRun('annual', 'UTC', new Date('2026-09-04T00:00:00Z')).toISOString()).toBe('2027-09-01T08:00:00.000Z');
+  });
   it.each([
     ['monthly', '2026-08-01', '2026-08-31'],
     ['three_months', '2026-06-01', '2026-08-31'],

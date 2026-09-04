@@ -15,6 +15,7 @@ import { SyncWorker } from './sync/sync.worker';
 import { PlanningWorker } from './planning/planning.worker';
 import { TrackingWorker } from './tracking/tracking.worker';
 import { AiWorker } from './ai/ai.worker';
+import { ReportsWorker } from './reports/reports.worker';
 
 export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const { WorkerModule } = await import('./worker.module');
@@ -34,6 +35,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const planningWorker = app.get(PlanningWorker);
   const trackingWorker = app.get(TrackingWorker);
   const aiWorker = app.get(AiWorker);
+  const reportsWorker = app.get(ReportsWorker);
   app.useLogger(logger);
 
   process.once('SIGTERM', () => {
@@ -46,6 +48,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
       await planningWorker.stop();
       await trackingWorker.stop();
       await aiWorker.stop();
+      await reportsWorker.stop();
       await app.close();
       await telemetry.shutdown();
     });
@@ -58,6 +61,7 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
   planningWorker.start();
   trackingWorker.start();
   aiWorker.start();
+  reportsWorker.start();
   logger.info('platform.started', {
     context: 'Bootstrap',
     processKind: 'worker',

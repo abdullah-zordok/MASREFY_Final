@@ -206,3 +206,17 @@ export function normalizeAdminExportRequest(value: unknown): Record<string, unkn
   }
   return result;
 }
+
+export function normalizeAdminOverviewQuery(value: unknown, activity = false): Record<string, unknown> {
+  const input = record(value);
+  exact(input, activity ? ['platform', 'period', 'locale', 'page', 'pageSize'] : ['platform', 'period', 'locale']);
+  return {
+    platform: input.platform === undefined ? 'all' : oneOf(input.platform, ['all', 'ios', 'android'] as const),
+    period: input.period === undefined ? '30d' : oneOf(input.period, ['7d', '30d', '90d'] as const),
+    locale: input.locale === undefined ? 'ar' : oneOf(input.locale, ['ar', 'en'] as const),
+    ...(activity ? {
+      page: input.page === undefined ? 1 : integer(input.page, 1, 10_000),
+      pageSize: input.pageSize === undefined ? 10 : integer(input.pageSize, 1, 25),
+    } : {}),
+  };
+}

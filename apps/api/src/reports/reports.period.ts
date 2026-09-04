@@ -189,6 +189,16 @@ export function resolveReportPeriod(
   };
 }
 
+export function firstScheduleRun(
+  frequency: ReportPeriod,
+  timezone: string,
+  after: Date,
+): Date {
+  if (!(frequency in spans)) throw new Error('REPORT_PERIOD_INVALID');
+  const nextDate = shiftMonth(localDateAt(after, timezone), spans[frequency], 1);
+  return zonedDateTimeToInstant(nextDate, '08:00', timezone);
+}
+
 export function nextScheduleOccurrence(
   schedule: ReportScheduleClock,
   after: Date,
