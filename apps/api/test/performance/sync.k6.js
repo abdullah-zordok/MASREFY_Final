@@ -11,6 +11,7 @@ const mutationDuration = new Trend('sync_mutation_batch_duration_ms', true);
 const payloadBytes = new Trend('sync_payload_bytes');
 const failures = new Rate('sync_failures');
 const owner = 'sync_performance_owner';
+const claims = JSON.stringify({ role: 'authenticated', sub: owner, sid: 'performance' });
 
 export const options = {
   scenarios: {
@@ -26,20 +27,15 @@ export const options = {
   },
 };
 
-function asApi() {
-  db.exec(
-    "select set_config('request.jwt.claims',$1,false)",
-    JSON.stringify({ role: 'authenticated', sub: owner, sid: 'performance' }),
-  );
-  db.exec('set role masarifi_api');
-}
-
 export function delta() {
   const started = Date.now();
   try {
-    asApi();
     const rows = db.query(
-      'select * from private.get_sync_delta($1,$2,$3,$4)',
+      `with context as materialized (
+         select set_config('request.jwt.claims',$1,false),set_config('role','masarifi_api',false)
+       ) select delta.* from context
+       cross join lateral private.get_sync_delta($2,$3,$4,$5) delta`,
+      claims,
       owner,
       'accounts',
       50000,
@@ -57,14 +53,16 @@ export function delta() {
 export function mutations() {
   const started = Date.now();
   try {
-    asApi();
     const nonce = `${__VU}:${__ITER}:${Date.now()}`;
     const rows = db.query(
-      `select count(*)::int total from generate_series(1,100) sample
+      `with context as materialized (
+         select set_config('request.jwt.claims',$1,false),set_config('role','masarifi_api',false)
+       ) select count(*)::int total from context cross join generate_series(1,100) sample
        cross join lateral private.receive_client_mutation(
-         $1,$2,0,md5($3||sample)::uuid,'accounts','account',1,'{}'::uuid[],
-         'create',null,null,$4,$5::jsonb
+         $2,$3,0,md5($4||sample)::uuid,'accounts','account',1,'{}'::uuid[],
+         'create',null,null,$5,$6::jsonb
        )`,
+      claims,
       owner,
       '75000000-0000-4000-8000-000000000001',
       nonce,
