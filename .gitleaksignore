@@ -19,3 +19,6 @@ a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.du
 a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:99
 a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:112
 a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.duplicate.spec.ts:generic-api-key:131
+
+# Known non-secret Clerk schema fixture introduced by Phase 10.
+a6423b0c93f9d4131dde35322153fdd929588b0e:apps/api/test/unit/reports/reports-config.spec.ts:stripe-access-token:10

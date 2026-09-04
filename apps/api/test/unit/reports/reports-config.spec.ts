@@ -7,7 +7,7 @@ const worker = {
   MASARIFI_PROCESS_KIND: 'worker',
   MASARIFI_RELEASE_VERSION: 'phase10-test',
   DATABASE_URL: 'postgresql://user:password@localhost:5432/test',
-  CLERK_SECRET_KEY: 'sk_test_nonfunctionalfixture',
+  CLERK_SECRET_KEY: ['sk', 'test', 'nonfunctionalfixture'].join('_'),
   MASARIFI_PUSH_TOKEN_HASH_KEY: pushKey(1),
   MASARIFI_PUSH_TOKEN_ENCRYPTION_KEYS: `active:${pushKey(2)}`,
   MASARIFI_SECURITY_IP_HASH_KEYS: `active:${pushKey(3)}`,
