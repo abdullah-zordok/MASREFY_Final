@@ -21,9 +21,7 @@ OpenAPI and workflow YAML parse, the final live database/API/client/container
 gates pass, and scans found no unresolved marker, secret-pattern hit, changed
 SPEC-BE-011+ path, or notification-owned implementation.
 
-Ninety-one tasks were complete before this convergence update. The only
-remaining tasks are the delivery sequence itself: commit/push and remote-SHA
-verification (T092), CI monitoring (T093), and exact-remote-SHA closeout (T095).
-They are not implementation gaps and must remain ordered after T091. Genuine
-provider, hosted-project, registry/tag, signing, and provenance proof remains
-external-only as recorded in `external-gates.md`.
+All 95 tasks are complete after the ordered commit/push, CI monitoring, and
+exact-remote-SHA closeout. Genuine provider, hosted-project, registry/tag,
+signing, and provenance proof remains external-only as recorded in
+`external-gates.md`.

@@ -201,10 +201,10 @@ independent of incomplete tasks. Story labels appear only in story phases.
 - [x] T089 [P] Run the full Mobile and Admin lint/type/unit/contract/E2E suites and record exact commands/results in `specs/010-reports-analytics-exports-email/evidence/client-verification.md`.
 - [X] T090 Run clean-code and test-quality reviews over the Phase 10 diff, remove duplication/speculative code/weak tests, and record resolved findings in `specs/010-reports-analytics-exports-email/evidence/review.md`.
 - [X] T091 Re-run the SpecKit consistency analysis and convergence checks, update completed task checkboxes, and prove no executable SPEC-BE-010 work remains in `specs/010-reports-analytics-exports-email/evidence/spec-convergence.md`.
-- [ ] T092 Commit the complete verified Phase 10 diff directly on `main`, push `main` to `origin`, and verify the remote SHA equals local while preserving `.agents/plugins/`, `apps/api/pnpm-lock.yaml`, and `apps/api/pnpm-workspace.yaml` as untracked.
-- [ ] T093 Monitor all CI workflows for the pushed SHA, fix failures forward on `main`, and record job URLs/statuses in `specs/010-reports-analytics-exports-email/evidence/ci.md`.
+- [X] T092 Commit the complete verified Phase 10 diff directly on `main`, push `main` to `origin`, and verify the remote SHA equals local while preserving `.agents/plugins/`, `apps/api/pnpm-lock.yaml`, and `apps/api/pnpm-workspace.yaml` as untracked.
+- [X] T093 Monitor all CI workflows for the pushed SHA, fix failures forward on `main`, and record job URLs/statuses in `specs/010-reports-analytics-exports-email/evidence/ci.md`.
 - [X] T094 Collect image build/scan, SBOM, signature, provenance, and tagged-release evidence where runnable; record genuine external provider/secret/hosted/tag-only gates separately in `specs/010-reports-analytics-exports-email/evidence/external-gates.md` without marking executable work complete.
-- [ ] T095 Re-run final verification on the exact remote `main` SHA, confirm every Definition of Done item and acceptance criterion, and record the signed closeout in `specs/010-reports-analytics-exports-email/evidence/phase10-closeout.md`.
+- [X] T095 Re-run final verification on the exact remote `main` SHA, confirm every Definition of Done item and acceptance criterion, and record the signed closeout in `specs/010-reports-analytics-exports-email/evidence/phase10-closeout.md`.
 
 ## Dependencies
 

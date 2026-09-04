@@ -687,24 +687,24 @@ recovery never regenerate a snapshot or duplicate accepted mail.
 
 ## Definition of Done
 
-- [ ] All owned scope, tests, security, performance, observability, migration,
+- [x] All owned scope, tests, security, performance, observability, migration,
       rollback, recovery, reconciliation, client parity, and acceptance evidence
       required by this Spec passes.
-- [ ] Every requirement, acceptance criterion, success criterion and task has
+- [x] Every requirement, acceptance criterion, success criterion and task has
       current traceable evidence; `speckit-analyze` and post-implementation
       `speckit-converge` report no valid missing executable work.
-- [ ] Local deterministic SMTP behavior is complete; missing real provider
+- [x] Local deterministic SMTP behavior is complete; missing real provider
       credentials leave only exact external provider proof pending.
-- [ ] Clean-code and test reviews plus final security and verification gates have
+- [x] Clean-code and test reviews plus final security and verification gates have
       no unresolved release blocker.
-- [ ] After local pre-push gates pass, narrow verified commits are pushed directly
+- [x] After local pre-push gates pass, narrow verified commits are pushed directly
       to `origin/main`; every resulting remote workflow is monitored and any
       locally actionable failure is fixed forward.
-- [ ] Final implementation and closeout SHAs, task/acceptance/success counts,
+- [x] Final implementation and closeout SHAs, task/acceptance/success counts,
       exact verification, reconciliation/performance/SMTP/security/privacy/
       recovery evidence, external gates, and SPEC-BE-011+ exclusion are recorded.
-- [ ] The goal is marked complete only after every locally executable and required
+- [x] The goal is marked complete only after every locally executable and required
       remote gate is genuinely green.
 
-Verification listed in this document is required evidence, not a claim that it
-has already been executed.
+Verification is recorded under `evidence/`; external-only gates remain named in
+`evidence/external-gates.md` and are not represented as local passes.
