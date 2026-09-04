@@ -2671,6 +2671,7 @@ pre {
 
 /* Admin typography system */
 .desktop-table {
+  contain: paint;
   max-width: 100%;
   overflow-x: auto;
 }

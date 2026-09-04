@@ -50,9 +50,9 @@ test("Phase 9 navigation and direct-route permissions are projected for all seve
 
   await page.evaluate(() => sessionStorage.setItem("admin-simulated-role", "security-administrator"));
   await page.goto("/admin/settings/security");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Security Settings");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("إعدادات الأمن");
   await page.goto("/admin/settings/maintenance");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Maintenance");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("الصيانة");
   await page.goto("/admin/settings");
   await expect(page.locator("main").getByRole("alert")).toBeVisible();
 
@@ -145,9 +145,14 @@ test("seven simulated roles expose only their allowed route links", async ({ pag
 
   for (const [role, allowedRoutes] of Object.entries(matrix)) {
     await switcher.selectOption(role);
-    const healthButton = page.getByRole("button", { name: "System Health" });
-    if (await healthButton.count()) {
-      if (await healthButton.getAttribute("aria-expanded") === "false") await healthButton.click();
+    await page.reload();
+    const healthButton = page.getByRole("button", { name: /صحة النظام|System Health/ });
+    if (allowedRoutes.includes("/admin/system-health" as never)) {
+      await expect(healthButton).toHaveAttribute("aria-expanded", "false");
+      await healthButton.click();
+      await expect(healthButton).toHaveAttribute("aria-expanded", "true");
+    } else {
+      await expect(healthButton).toHaveCount(0);
     }
     for (const route of navigationRoutes) {
       const link = page.locator(`nav a[href="${route}"]`);
@@ -158,7 +163,7 @@ test("seven simulated roles expose only their allowed route links", async ({ pag
 
 test("role simulation states that backend authorization remains required", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page.getByText(/التفويض الفعلي للخادم/)).toBeVisible();
+  await expect(page.getByText(/التفويض الفعلي يتم من الخادم/)).toBeVisible();
 });
 
 test("direct denied routes remove protected content", async ({ page }) => {
@@ -187,7 +192,7 @@ for (const [route, marker] of deniedPhase2Routes) {
 
 test("unsafe search input is rendered as text and never executable markup", async ({ page }) => {
   await page.goto("/admin");
-  await page.getByRole("textbox", { name: "البحث العام" }).fill("<script>window.__unsafe=true</script>");
+  await page.locator(".global-search input").fill("<script>window.__unsafe=true</script>");
   await expect.poll(() => page.evaluate(() => Reflect.get(window, "__unsafe"))).toBeUndefined();
 });
 
@@ -211,8 +216,8 @@ test("sensitive retry acknowledges pending state and blocks duplicate submission
   await page.getByRole("button", { name: "إعادة المحاولة" }).first().click();
   const confirm = page.getByRole("button", { name: "تأكيد" });
   await confirm.click();
-  await expect(page.getByRole("button", { name: "جارٍ التنفيذ…" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "جارٍ التنفيذ…" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /جاري التنفيذ/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /جاري التنفيذ/ })).toHaveCount(1);
 });
 
 test("rate-limited sensitive mutations return only a safe error", async ({ page }) => {

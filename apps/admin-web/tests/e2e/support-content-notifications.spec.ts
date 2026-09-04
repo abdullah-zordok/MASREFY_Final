@@ -38,9 +38,9 @@ test("Spec 007 routes are available, responsive, and privacy-safe", async ({ pag
 
 test("Spec 007 notification campaign preview is aggregate-only and supports LTR toggle", async ({ page }) => {
   await page.goto("/admin/notifications/campaigns/new");
-  await expect(page.getByText(/Eligible: 1280/)).toBeVisible();
+  await expect(page.getByText(/مؤهل: 1280|Eligible: 1280/)).toBeVisible();
   await expect(page.locator("body")).not.toContainText(/recipient|deviceToken|emailAddress|providerPayload/i);
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await page.locator(".topbar-actions .icon-button").nth(0).click();
+  await page.getByRole("button", { name: "تغيير اللغة" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
 });

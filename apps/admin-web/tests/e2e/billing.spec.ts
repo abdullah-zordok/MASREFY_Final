@@ -146,7 +146,7 @@ test.describe("reconciliation", () => {
     await expect(page.locator("main")).toContainText(/قرارات محاكاة فقط/);
     await expect(page.locator("main")).toContainText("REC-");
 
-    const firstDecision = page.getByRole("button", { name: "mark_reviewing" }).first();
+    const firstDecision = page.getByRole("button", { name: "تمييز كقيد المراجعة" }).first();
     await firstDecision.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();

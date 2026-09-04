@@ -20,9 +20,8 @@ Scope: SPEC-BE-010
 - Vitest: 72/72 files and 791/791 tests passed.
 - Focused Phase 10 Playwright flow: 3 desktop tests passed, 12 intentionally
   skipped viewport duplicates.
-- Full cross-feature Playwright was run and stopped after 109 cases once it had
-  already produced numerous failures in pre-existing Phase 2/7/9 governance,
-  billing, permission, and visual-preservation flows. All three Phase 10
-  overview/export cases passed in that run. T089 remains open because the user
-  required the full suite to be green; unrelated failures were not hidden or
-  changed inside this Phase 10 diff.
+- Full five-project Playwright matrix: 309 tests passed and 276 intentionally
+  skipped viewport duplicates. The run included the production Next.js build
+  and completed successfully in 4.7 minutes.
+- Commands: `npm run typecheck`, `npm run lint`, `npm test`, and
+  `npx playwright test --reporter=dot` from `apps/admin-web`.

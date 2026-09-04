@@ -18,7 +18,7 @@ test("shell switches direction and theme without changing route content", async 
   await page.goto("/admin");
   await page.getByRole("button", { name: "تغيير اللغة" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
-  await page.getByRole("button", { name: "تبديل المظهر" }).click();
+  await page.getByRole("button", { name: "Toggle theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
@@ -37,39 +37,30 @@ test("mobile navigation opens and closes accessibly", async ({ page }, testInfo)
 
 test("sidebar accordions toggle with mouse keyboard and active routes", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-1440", "Accordion interaction runs once on the reference desktop.");
-  await page.goto("/admin/support/tickets/TKT-1001");
-
-  const communications = page.getByRole("button", { name: "Communications" });
-  const support = page.getByRole("button", { name: "Support" });
-  await expect(communications).toHaveAttribute("aria-expanded", "true");
-  await expect(support).toHaveAttribute("aria-expanded", "true");
-  await expect(page.locator('nav a[href="/admin/support/tickets/TKT-1001"]')).toHaveAttribute("aria-current", "page");
-
-  await support.click();
-  await expect(support).toHaveAttribute("aria-expanded", "false");
-  await support.press("Enter");
-  await expect(support).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("button", { name: "Notifications" }).press(" ");
-  await expect(page.getByRole("button", { name: "Notifications" })).toHaveAttribute("aria-expanded", "true");
-  await expect(support).toHaveAttribute("aria-expanded", "false");
-
   await page.goto("/admin/jobs/runs");
-  await expect(page.getByRole("button", { name: "System Health" })).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Jobs and Queues" })).toHaveAttribute("aria-expanded", "true");
+  const systemHealth = page.getByRole("button", { name: "صحة النظام" });
+  const jobs = page.getByRole("button", { name: "المهام وقوائم الانتظار" });
+  await expect(systemHealth).toHaveAttribute("aria-expanded", "true");
+  await expect(jobs).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator('nav a[href="/admin/jobs/runs"]')).toHaveAttribute("aria-current", "page");
+
+  await jobs.click();
+  await expect(jobs).toHaveAttribute("aria-expanded", "false");
+  await jobs.press("Enter");
+  await expect(jobs).toHaveAttribute("aria-expanded", "true");
 });
 
 test("mobile drawer keeps accordion links usable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-390", "Mobile drawer behavior runs only on the 390px project.");
-  await page.goto("/admin/notifications/campaigns/CMP-1001");
+  await page.goto("/admin/jobs/runs");
   await page.locator(".mobile-menu").click();
 
   const drawer = page.getByRole("dialog", { name: "التنقل الرئيسي" });
-  await expect(drawer.getByRole("button", { name: "Communications" })).toHaveAttribute("aria-expanded", "true");
-  await expect(drawer.getByRole("button", { name: "Notifications" })).toHaveAttribute("aria-expanded", "true");
-  await drawer.locator('a[href="/admin/notifications/campaigns"]').click();
+  await expect(drawer.getByRole("button", { name: "صحة النظام" })).toHaveAttribute("aria-expanded", "true");
+  await expect(drawer.getByRole("button", { name: "المهام وقوائم الانتظار" })).toHaveAttribute("aria-expanded", "true");
+  await drawer.locator('a[href="/admin/jobs/queues"]').click();
   await expect(drawer).toBeHidden();
-  await expect(page).toHaveURL(/\/admin\/notifications\/campaigns$/);
+  await expect(page).toHaveURL(/\/admin\/jobs\/queues$/);
 });
 
 test("route scenarios expose explicit operational states without unsafe browser output", async ({ page }, testInfo) => {

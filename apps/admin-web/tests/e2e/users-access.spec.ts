@@ -231,8 +231,8 @@ test.describe("profile, actions, and bounded bulk scope", () => {
     await page.getByRole("button", { name: /إنهاء جلسة/ }).last().click();
     await page.getByRole("dialog").getByLabel("سبب الإجراء").fill("إنهاء جلسة محددة بعد مراجعة الوصول");
     await page.getByRole("button", { name: "تأكيد" }).click();
-    await expect(page.getByRole("button", { name: "جارٍ التنفيذ…" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "جارٍ التنفيذ…" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /جاري التنفيذ/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /جاري التنفيذ/ })).toHaveCount(1);
     await expect(page.getByRole("status").last()).toContainText("تم تنفيذ الإجراء");
     await page.evaluate(() => sessionStorage.removeItem("admin-mock-scenario"));
   });
@@ -247,7 +247,7 @@ test.describe("profile, actions, and bounded bulk scope", () => {
     const requestPromise = page.waitForRequest((request) => request.url().includes("/bulk-actions"));
     await page.evaluate(() => sessionStorage.setItem("admin-mock-scenario", "slow"));
     await page.getByRole("button", { name: "تأكيد" }).click();
-    await expect(page.getByRole("button", { name: "جارٍ التنفيذ…" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /جاري التنفيذ/ })).toBeDisabled();
     const body = (await requestPromise).postDataJSON() as { userIds: string[] };
     expect(body.userIds).toHaveLength(2);
     expect(new Set(body.userIds)).toEqual(new Set(["USR-10482", "USR-10461"]));

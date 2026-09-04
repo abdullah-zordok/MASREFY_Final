@@ -60,7 +60,7 @@ test("US1 US2 US3 US4 US5 denied roles cannot read Phase 7 routes or force direc
 test("US4 export simulation returns no URL or archive content", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-1440", "workflow smoke runs once");
   await page.goto("/admin/data-requests/exports/EXP-1001");
-  await page.getByRole("button", { name: "Simulate Download" }).click();
+  await page.getByRole("button", { name: "محاكاة التنزيل" }).click();
   await expect(page.getByRole("status")).toContainText("No customer archive");
   await expect(page.locator("body")).not.toContainText(/https?:\/\/|data:|createObjectURL|api[_-]?key|token=/i);
 });
@@ -68,12 +68,12 @@ test("US4 export simulation returns no URL or archive content", async ({ page },
 test("US1 security action requires confirmation and returns an audit reference", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-1440", "workflow smoke runs once");
   await page.goto("/admin/security/suspicious-activity");
-  await page.getByRole("button", { name: "assign_reviewer" }).click();
+  await page.getByRole("button", { name: "تعيين مراجع" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("security.incidents.manage");
   await dialog.getByRole("button", { name: "تأكيد" }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.locator("main")).toContainText("Investigating");
+  await expect(page.locator("main")).toContainText(/قيد التحقيق|Investigating/);
 });
 
 test("US2 billing operator has no direct Phase 7 data-request route", async ({ page }, testInfo) => {

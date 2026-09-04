@@ -36,7 +36,9 @@ const billingOverviewCopy = {
     empty: "لا توجد بيانات اشتراكات للفترة والمنصة المحددة.",
     subscriptionMetrics: "مؤشرات الاشتراكات",
     activeSubscriptions: "اشتراكات نشطة",
+    uniqueSubscriptions: "اشتراكات فريدة",
     activeNote: "إجمالي تعاقدي من واجهة mock",
+    nonAdditiveNote: "إجمالي فريد لا يساوي جمع المنصات المتداخلة",
     revenue: "الإيراد الشهري المتكرر",
     revenueNote: "يعرض كل عملة منفصلة دون تحويل أو دمج",
     failedRenewals: "فشل التجديد",
@@ -61,7 +63,9 @@ const billingOverviewCopy = {
     empty: "No subscription data for the selected period and platform.",
     subscriptionMetrics: "Subscription metrics",
     activeSubscriptions: "Active subscriptions",
+    uniqueSubscriptions: "Unique subscriptions",
     activeNote: "Contract total from the mock surface",
+    nonAdditiveNote: "Unique total; overlapping platforms are not added together",
     revenue: "Monthly recurring revenue",
     revenueNote: "Shows each currency separately without conversion or merging",
     failedRenewals: "Failed renewals",
@@ -178,7 +182,14 @@ export function BillingOverview({
           {overview.data && (
             <>
               <section className="metrics-grid" aria-label={copy.subscriptionMetrics}>
-                <MetricCard metric={metric(copy.activeSubscriptions, formatNumber(overview.data.kpis.active), copy.activeNote)} primary />
+                <MetricCard
+                  metric={metric(
+                    platform === "all" ? copy.activeSubscriptions : copy.uniqueSubscriptions,
+                    formatNumber(overview.data.kpis.active),
+                    platform === "all" ? copy.nonAdditiveNote : copy.activeNote,
+                  )}
+                  primary
+                />
                 <MetricCard metric={revenueMetric(overview.data, "AED", copy.revenue, copy.revenueNote)} primary />
                 <MetricCard metric={revenueMetric(overview.data, "SAR", copy.revenue, copy.revenueNote)} primary />
                 <MetricCard metric={metric(copy.failedRenewals, formatNumber(overview.data.kpis.failedRenewals), copy.failedRenewalsNote)} />

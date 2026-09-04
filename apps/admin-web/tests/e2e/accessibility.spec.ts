@@ -212,6 +212,7 @@ test("Phase 9 landmarks controls dialogs and reduced motion remain accessible", 
   );
 
   await page.goto("/admin/admin-team");
+  await page.getByRole("button", { name: "تغيير اللغة" }).click();
   await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "Admin Team",
@@ -231,7 +232,8 @@ test("Phase 9 landmarks controls dialogs and reduced motion remain accessible", 
   }
 
   await page.goto("/admin/admin-team/ADM-DEMO-SUPPORT-03");
-  const action = page.getByRole("button", { name: "Revoke eligible sessions" });
+  await page.getByRole("button", { name: "تغيير اللغة" }).click();
+  const action = page.getByRole("button", { name: "Revoke sessions" });
   await action.focus();
   await action.press("Enter");
   await expect(
@@ -241,7 +243,8 @@ test("Phase 9 landmarks controls dialogs and reduced motion remain accessible", 
   await expect(action).toBeFocused();
 
   await page.goto("/admin/settings/security");
-  await expect(page.getByLabel("Settings reason")).toBeVisible();
+  await page.getByRole("button", { name: "تغيير اللغة" }).click();
+  await expect(page.getByLabel("Change reason")).toBeVisible();
   expect(
     await page.evaluate(
       () => matchMedia("(prefers-reduced-motion: reduce)").matches,
