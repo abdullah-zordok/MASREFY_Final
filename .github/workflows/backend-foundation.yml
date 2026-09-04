@@ -181,12 +181,6 @@ jobs:
       - run: npm run test:reports:recovery
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
-      - run: npm run test:performance:reports
-        env:
-          MASARIFI_LIVE_DATABASE_TESTS: "1"
-      - run: npm run test:stress:reports
-        env:
-          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:performance:security
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:ledger
@@ -213,6 +207,12 @@ jobs:
         run: npm run perf:seed:outbox
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:stress
+      - run: npm run test:performance:reports
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:stress:reports
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

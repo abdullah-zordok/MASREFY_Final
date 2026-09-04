@@ -62,6 +62,9 @@ describe('backend workflow action pins', () => {
     ]) {
       expect(workflow).toContain(command);
     }
+    expect(workflow.indexOf('npm run test:performance:sync')).toBeLessThan(
+      workflow.indexOf('npm run test:performance:reports'),
+    );
     const lines = workflow.split(/\r?\n/);
     const loadIndex = lines.findIndex(
       (line) => line.trim() === 'run: npm run test:outbox:performance',
