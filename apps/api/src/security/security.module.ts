@@ -12,6 +12,8 @@ import { TrackingPrivacyHandler } from '../tracking/tracking-privacy.handler';
 import { TrackingStorage } from '../tracking/tracking.storage';
 import { AiPrivacyHandler } from '../ai/ai-privacy.handler';
 import { AiStorage } from '../ai/ai.storage';
+import { EngagementPrivacyHandler } from '../engagement/engagement-privacy.handler';
+import { SupportStorage } from '../engagement/support.storage';
 
 @Module({
   imports: [DatabaseModule, IdentityModule],
@@ -30,6 +32,8 @@ export class SecurityModule {}
     TrackingPrivacyHandler,
     AiStorage,
     AiPrivacyHandler,
+    SupportStorage,
+    EngagementPrivacyHandler,
     SecurityWorkerService,
   ],
   exports: [SecurityWorkerService],

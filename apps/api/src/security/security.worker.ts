@@ -13,6 +13,7 @@ import { SecurityRepository } from './security.repository';
 import { buildSecurityEventPayload } from './security.events';
 import { TrackingPrivacyHandler } from '../tracking/tracking-privacy.handler';
 import { AiPrivacyHandler } from '../ai/ai-privacy.handler';
+import { EngagementPrivacyHandler } from '../engagement/engagement-privacy.handler';
 
 interface ExportClaim {
   id: string;
@@ -36,11 +37,12 @@ export class SecurityWorkerService {
     identity: IdentityPrivacyHandler,
     tracking: TrackingPrivacyHandler,
     ai: AiPrivacyHandler,
+    engagement: EngagementPrivacyHandler,
     private readonly config: PlatformConfigService,
   ) {
     const manifest = config.get('MASARIFI_PRIVACY_HANDLER_MANIFEST');
     if (!manifest) throw new Error('PRIVACY_HANDLER_MANIFEST_MISSING');
-    this.registry = new PrivacyHandlerRegistry([ai, identity, tracking], manifest);
+    this.registry = new PrivacyHandlerRegistry([ai, engagement, identity, tracking], manifest);
   }
 
   start(): void {

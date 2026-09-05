@@ -6,8 +6,29 @@ import { isReportUuid } from './reports.schemas';
 
 export const REPORT_SMTP_TRANSPORT = 'REPORT_SMTP_TRANSPORT';
 
-interface MailTransport {
+export interface MailTransport {
   sendMail(input: Record<string, unknown>): Promise<{ accepted?: unknown[]; rejected?: unknown[] }>;
+}
+
+export function createTlsMailTransport(config: PlatformConfigService): MailTransport {
+  const host = config.getRequired('EMAIL_SMTP_HOST');
+  const port = config.getRequired('EMAIL_SMTP_PORT');
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    requireTLS: true,
+    auth: {
+      user: config.getRequired('EMAIL_SMTP_USERNAME'),
+      pass: config.getRequired('EMAIL_SMTP_PASSWORD'),
+    },
+    connectionTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
+    greetingTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
+    socketTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_SOCKET_TIMEOUT_MS'),
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    tls: { servername: host, minVersion: 'TLSv1.2', rejectUnauthorized: true },
+  });
 }
 
 export class ReportsSmtpError extends Error {
@@ -30,28 +51,9 @@ export class ReportsSmtp {
     config: PlatformConfigService,
     @Optional() @Inject(REPORT_SMTP_TRANSPORT) supplied?: MailTransport,
   ) {
-    const host = config.getRequired('EMAIL_SMTP_HOST');
-    const port = config.getRequired('EMAIL_SMTP_PORT');
     this.from = config.getRequired('EMAIL_FROM');
     this.allowedOrigin = new URL(config.getRequired('SUPABASE_URL')).origin;
-    this.transport =
-      supplied ??
-      nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        requireTLS: true,
-        auth: {
-          user: config.getRequired('EMAIL_SMTP_USERNAME'),
-          pass: config.getRequired('EMAIL_SMTP_PASSWORD'),
-        },
-        connectionTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
-        greetingTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_CONNECTION_TIMEOUT_MS'),
-        socketTimeout: config.getRequired('MASARIFI_EMAIL_SMTP_SOCKET_TIMEOUT_MS'),
-        disableFileAccess: true,
-        disableUrlAccess: true,
-        tls: { servername: host, minVersion: 'TLSv1.2', rejectUnauthorized: true },
-      });
+    this.transport = supplied ?? createTlsMailTransport(config);
   }
 
   async send(

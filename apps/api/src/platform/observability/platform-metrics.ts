@@ -118,6 +118,12 @@ export const REPORT_METRICS = {
   backlog: 'masarifi_report_backlog',
 } as const;
 
+export const ENGAGEMENT_METRICS = {
+  job: 'masarifi_engagement_job_total',
+  duration: 'masarifi_engagement_job_duration_ms',
+  backlog: 'masarifi_engagement_backlog',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
@@ -129,7 +135,8 @@ type MetricName =
   | (typeof PLANNING_METRICS)[keyof typeof PLANNING_METRICS]
   | (typeof TRACKING_METRICS)[keyof typeof TRACKING_METRICS]
   | (typeof AI_METRICS)[keyof typeof AI_METRICS]
-  | (typeof REPORT_METRICS)[keyof typeof REPORT_METRICS];
+  | (typeof REPORT_METRICS)[keyof typeof REPORT_METRICS]
+  | (typeof ENGAGEMENT_METRICS)[keyof typeof ENGAGEMENT_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -147,6 +154,8 @@ const allowedLabels = new Set([
   'job',
   'mismatch_kind',
   'source_type',
+  'channel',
+  'provider',
 ]);
 const safeLabelValue = /^[A-Za-z0-9_./:-]{1,128}$/;
 const counterNames = new Set<MetricName>([
@@ -196,6 +205,7 @@ const counterNames = new Set<MetricName>([
   AI_METRICS.fallback,
   AI_METRICS.purge,
   REPORT_METRICS.job,
+  ENGAGEMENT_METRICS.job,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

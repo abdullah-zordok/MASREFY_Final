@@ -1,0 +1,15 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select no_plan();
+select is((select count(*) from public.content_items where system_seed and status='published'),3::bigint,'reviewed published seeds exist');
+select is((select count(*) from public.content_translations t join public.content_items c on c.id=t.content_id where c.system_seed),6::bigint,'reviewed seeds are bilingual');
+select is((select count(*) from public.notification_templates where system_seed and status='published'),138::bigint,'reviewed source-event templates cover locale and channel matrix');
+select has_index('public','content_items','content_items_public_idx','published content lookup is indexed');
+grant masarifi_api to current_user with inherit true,set true;
+grant usage on schema extensions to masarifi_api;
+select set_config('request.jwt.claims','{"sub":"phase11-content-reader","role":"authenticated"}',true);
+set local role masarifi_api;
+select is((select count(*) from public.content_items where status<>'published'),0::bigint,'customer RLS cannot expose drafts or retired rows');
+reset role;
+select * from finish();
+rollback;

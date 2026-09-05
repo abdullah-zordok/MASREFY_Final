@@ -107,6 +107,9 @@ describe('OpenAPI drift', () => {
     const reports = loadContract(
       '../../specs/010-reports-analytics-exports-email/contracts/openapi.yaml',
     );
+    const engagement = loadContract(
+      '../../specs/011-notifications-support-content/contracts/openapi.yaml',
+    );
     const generated = generateOpenApi(app, [
       identity,
       security,
@@ -117,6 +120,7 @@ describe('OpenAPI drift', () => {
       tracking,
       ai,
       reports,
+      engagement,
     ]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
@@ -131,6 +135,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(tracking).paths,
         ...contractSurface(ai).paths,
         ...contractSurface(reports).paths,
+        ...contractSurface(engagement).paths,
       },
       schemas: {
         ...contractSurface(foundation).schemas,
@@ -143,6 +148,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(tracking).schemas,
         ...contractSurface(ai).schemas,
         ...contractSurface(reports).schemas,
+        ...contractSurface(engagement).schemas,
       },
     });
   });
@@ -170,6 +176,9 @@ describe('OpenAPI drift', () => {
     const reports = loadContract(
       '../../specs/010-reports-analytics-exports-email/contracts/openapi.yaml',
     );
+    const engagement = loadContract(
+      '../../specs/011-notifications-support-content/contracts/openapi.yaml',
+    );
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
@@ -184,6 +193,7 @@ describe('OpenAPI drift', () => {
       tracking,
       ai,
       reports,
+      engagement,
     ]);
     const foundationSurface = contractSurface(foundation);
     const identitySurface = contractSurface(identity);
@@ -195,6 +205,7 @@ describe('OpenAPI drift', () => {
     const trackingSurface = contractSurface(tracking);
     const aiSurface = contractSurface(ai);
     const reportsSurface = contractSurface(reports);
+    const engagementSurface = contractSurface(engagement);
 
     expect(contractSurface(generated)).toEqual({
       paths: {
@@ -208,6 +219,7 @@ describe('OpenAPI drift', () => {
         ...trackingSurface.paths,
         ...aiSurface.paths,
         ...reportsSurface.paths,
+        ...engagementSurface.paths,
       },
       schemas: {
         ...foundationSurface.schemas,
@@ -220,6 +232,7 @@ describe('OpenAPI drift', () => {
         ...trackingSurface.schemas,
         ...aiSurface.schemas,
         ...reportsSurface.schemas,
+        ...engagementSurface.schemas,
       },
     });
     expect(
@@ -251,6 +264,8 @@ describe('OpenAPI drift', () => {
         'publishParserVersion',
         'createReport',
         'createAdminExport',
+        'listNotifications',
+        'adminActOnContent',
       ]),
     );
   });

@@ -28,7 +28,7 @@ set local role masarifi_api;
 create temporary table captured as select * from private.capture_report_snapshot(
   'report-attempt-owner','financial_summary','2026-08-01','2026-08-31',0,
   '{"schemaVersion":1,"generatedAt":"2026-09-04T00:00:00.000Z","ledgerVersion":0,"reportType":"financial_summary","period":{"startDate":"2026-08-01","endDate":"2026-08-31","timezone":"Asia/Riyadh","kind":"monthly"},"format":"json","delivery":"download","currencyCode":"SAR","dataState":"empty","evidence":[],"summary":{},"breakdowns":[],"detailedRows":[]}'::jsonb,
-  null,'2026-09-05T00:00:00Z'
+  null,clock_timestamp()+interval '1 hour'
 );
 reset role;
 grant select on captured to masarifi_worker;

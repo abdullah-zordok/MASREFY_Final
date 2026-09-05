@@ -10,6 +10,7 @@ import { PlanningWorkerModule } from './planning/planning.module';
 import { TrackingWorkerModule } from './tracking/tracking.module';
 import { AiWorkerModule } from './ai/ai.module';
 import { ReportsWorkerModule } from './reports/reports.module';
+import { EngagementWorkerModule } from './engagement/engagement.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ReportsWorkerModule } from './reports/reports.module';
     TrackingWorkerModule,
     AiWorkerModule,
     ReportsWorkerModule,
+    EngagementWorkerModule,
   ],
 })
 export class WorkerModule {}

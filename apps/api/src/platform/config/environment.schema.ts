@@ -72,6 +72,24 @@ const applicationKeys = new Set([
   'MASARIFI_REPORT_MAX_BYTES',
   'MASARIFI_REPORT_RETENTION_HOURS',
   'MASARIFI_REPORT_SIGNED_URL_SECONDS',
+  'MASARIFI_NOTIFICATION_BATCH_SIZE',
+  'MASARIFI_CAMPAIGN_BATCH_SIZE',
+  'MASARIFI_ATTACHMENT_SCAN_BATCH_SIZE',
+  'MASARIFI_NOTIFICATION_MAX_ATTEMPTS',
+  'MASARIFI_SUPPORT_REOPEN_HOURS',
+  'MASARIFI_CAMPAIGN_APPROVAL_THRESHOLD',
+  'MASARIFI_SUPPORT_ATTACHMENT_MAX_BYTES',
+  'MASARIFI_SUPPORT_SIGNED_URL_SECONDS',
+  'MASARIFI_ENGAGEMENT_PROVIDER_MODE',
+  'MASARIFI_EXPO_ACCESS_TOKEN',
+  'MASARIFI_APNS_TEAM_ID',
+  'MASARIFI_APNS_KEY_ID',
+  'MASARIFI_APNS_PRIVATE_KEY',
+  'MASARIFI_APNS_BUNDLE_ID',
+  'MASARIFI_FCM_ACCESS_TOKEN',
+  'MASARIFI_FCM_PROJECT_ID',
+  'MASARIFI_CLAMAV_HOST',
+  'MASARIFI_CLAMAV_PORT',
 ]);
 const testHarnessKeys = new Set(['MASARIFI_IMAGE_UNDER_TEST', 'MASARIFI_LIVE_DATABASE_TESTS']);
 
@@ -316,6 +334,42 @@ const schema = Joi.object<PlatformEnvironment>({
     .default(52_428_800),
   MASARIFI_REPORT_RETENTION_HOURS: Joi.number().integer().min(1).max(168).default(24),
   MASARIFI_REPORT_SIGNED_URL_SECONDS: Joi.number().integer().min(60).max(900).default(300),
+  MASARIFI_NOTIFICATION_BATCH_SIZE: Joi.number().integer().min(1).max(100).default(100),
+  MASARIFI_CAMPAIGN_BATCH_SIZE: Joi.number().integer().min(1).max(500).default(500),
+  MASARIFI_ATTACHMENT_SCAN_BATCH_SIZE: Joi.number().integer().min(1).max(25).default(25),
+  MASARIFI_NOTIFICATION_MAX_ATTEMPTS: Joi.number().integer().min(1).max(20).default(5),
+  MASARIFI_SUPPORT_REOPEN_HOURS: Joi.number().integer().min(1).max(720).default(168),
+  MASARIFI_CAMPAIGN_APPROVAL_THRESHOLD: Joi.number()
+    .integer()
+    .min(1)
+    .max(1_000_000)
+    .default(10_000),
+  MASARIFI_SUPPORT_ATTACHMENT_MAX_BYTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(10_485_760)
+    .default(10_485_760),
+  MASARIFI_SUPPORT_SIGNED_URL_SECONDS: Joi.number().integer().min(30).max(900).default(300),
+  MASARIFI_ENGAGEMENT_PROVIDER_MODE: Joi.string()
+    .valid('disabled', 'deterministic', 'live')
+    .default('disabled'),
+  MASARIFI_EXPO_ACCESS_TOKEN: Joi.string().min(16).max(4096).optional(),
+  MASARIFI_APNS_TEAM_ID: Joi.string()
+    .pattern(/^[A-Z0-9]{10}$/)
+    .optional(),
+  MASARIFI_APNS_KEY_ID: Joi.string()
+    .pattern(/^[A-Z0-9]{10}$/)
+    .optional(),
+  MASARIFI_APNS_PRIVATE_KEY: Joi.string().min(64).max(16_384).optional(),
+  MASARIFI_APNS_BUNDLE_ID: Joi.string()
+    .pattern(/^[A-Za-z0-9.-]{3,255}$/)
+    .optional(),
+  MASARIFI_FCM_ACCESS_TOKEN: Joi.string().min(16).max(4096).optional(),
+  MASARIFI_FCM_PROJECT_ID: Joi.string()
+    .pattern(/^[a-z][a-z0-9-]{4,62}$/)
+    .optional(),
+  MASARIFI_CLAMAV_HOST: Joi.string().hostname().max(253).optional(),
+  MASARIFI_CLAMAV_PORT: Joi.number().integer().min(1).max(65_535).default(3310),
 }).unknown(true);
 
 const requiredByProcess: Record<ProcessKind, readonly (keyof PlatformEnvironment)[]> = {
@@ -453,6 +507,20 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   if (processKind !== 'api' && input.EMAIL_DELIVERY_WEBHOOK_SECRET !== undefined) {
     invalidEnvironment(['EMAIL_DELIVERY_WEBHOOK_SECRET']);
   }
+  const engagementSecrets = [
+    'MASARIFI_EXPO_ACCESS_TOKEN',
+    'MASARIFI_APNS_TEAM_ID',
+    'MASARIFI_APNS_KEY_ID',
+    'MASARIFI_APNS_PRIVATE_KEY',
+    'MASARIFI_APNS_BUNDLE_ID',
+    'MASARIFI_FCM_ACCESS_TOKEN',
+    'MASARIFI_FCM_PROJECT_ID',
+    'MASARIFI_CLAMAV_HOST',
+  ] as const;
+  if (processKind !== 'worker') {
+    const misplaced = engagementSecrets.filter((key) => input[key] !== undefined);
+    if (misplaced.length > 0) invalidEnvironment(misplaced);
+  }
   if (
     processKind === 'worker' &&
     (input.MASARIFI_AI_PROVIDER_ENABLED === true ||
@@ -488,6 +556,12 @@ export function validateEnvironment(input: Record<string, unknown>): PlatformEnv
   }
 
   const environment = value as PlatformEnvironment;
+  if (
+    environment.NODE_ENV === 'production' &&
+    environment.MASARIFI_ENGAGEMENT_PROVIDER_MODE === 'deterministic'
+  ) {
+    invalidEnvironment(['MASARIFI_ENGAGEMENT_PROVIDER_MODE']);
+  }
   if (environment.MASARIFI_ADMIN_INVITATION_REDIRECT_URL) {
     const redirect = new URL(environment.MASARIFI_ADMIN_INVITATION_REDIRECT_URL);
     const localHttp =
