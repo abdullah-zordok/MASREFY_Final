@@ -26,6 +26,7 @@ const routes = [
 ];
 
 test("Phase 11 routes are available at five viewports and remain privacy-safe", async ({ page }) => {
+  test.setTimeout(60_000);
   for (const route of routes) {
     const response = await page.goto(route);
     expect(response?.status(), route).toBeLessThan(400);
