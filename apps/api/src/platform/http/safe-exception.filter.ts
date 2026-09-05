@@ -80,6 +80,10 @@ const domainErrors: Record<string, { status: number; message: string }> = {
     message: 'Idempotency replay is unavailable',
   },
   ACCOUNT_NOT_POSTABLE: { status: 409, message: 'Account cannot accept this transaction' },
+  TRACKING_ACCOUNT_BLOCKED: {
+    status: 409,
+    message: 'Automatic tracking is disabled for this account',
+  },
   CURRENCY_MISMATCH: { status: 409, message: 'Currencies do not match' },
   AMOUNT_OUT_OF_RANGE: { status: 400, message: 'Amount is out of range' },
   TRANSACTION_NOT_EDITABLE: { status: 409, message: 'Transaction cannot be changed' },

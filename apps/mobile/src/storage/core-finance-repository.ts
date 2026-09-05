@@ -55,7 +55,7 @@ export class CoreFinanceRepository {
 
   constructor(seed: CoreFinanceSeed = {}) {
     this.seed = copy(seed);
-    this.accounts = seed.accounts?.map(copy) ?? [];
+    this.accounts = seed.accounts?.map(accountWithTrackingDefault) ?? [];
     this.categories = seed.categories?.map(copy) ?? [];
     this.transactions = seed.transactions?.map(copy) ?? [];
     this.conflicts = seed.conflicts?.map(copy) ?? [];
@@ -65,7 +65,7 @@ export class CoreFinanceRepository {
 
   reset(): void {
     const seed = this.seed;
-    this.accounts = seed.accounts?.map(copy) ?? [];
+    this.accounts = seed.accounts?.map(accountWithTrackingDefault) ?? [];
     this.categories = seed.categories?.map(copy) ?? [];
     this.transactions = seed.transactions?.map(copy) ?? [];
     this.conflicts = seed.conflicts?.map(copy) ?? [];
@@ -154,7 +154,7 @@ export class CoreFinanceRepository {
       await this.persistAll();
       return;
     }
-    this.accounts = parseRows<Account>(accounts);
+    this.accounts = parseRows<Account>(accounts).map(accountWithTrackingDefault);
     this.categories = parseRows<Category>(categories);
     this.transactions = parseRows<Transaction>(transactions);
     this.drafts = new Map(
@@ -377,6 +377,10 @@ export class CoreFinanceRepository {
           input.creditLimitMinor !== undefined
             ? value.creditLimitMinor
             : current.creditLimitMinor,
+        automaticTrackingEnabled:
+          input.automaticTrackingEnabled !== undefined
+            ? value.automaticTrackingEnabled
+            : current.automaticTrackingEnabled,
         iconKey: current.iconKey,
         colorKey: current.colorKey,
         notes: input.notes !== undefined ? value.notes : current.notes,
@@ -1288,6 +1292,13 @@ function transactionSorter(sort: TransactionFilterSet['sort']) {
 
 function copy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function accountWithTrackingDefault(account: Account): Account {
+  return {
+    ...copy(account),
+    automaticTrackingEnabled: account.automaticTrackingEnabled ?? true
+  };
 }
 
 function isEmptyDefaultAccount(account: Account): boolean {

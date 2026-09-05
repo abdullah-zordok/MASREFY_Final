@@ -15,6 +15,13 @@ const iosKeys = [
 ] as const;
 
 describe('automatic tracking messages', () => {
+  it.each([en, ar])('includes per-account tracking controls', (messages) => {
+    expect(messages['coreFinance.accounts.automaticTracking']).toBeTruthy();
+    expect(messages['coreFinance.accounts.automaticTrackingDescription']).toBeTruthy();
+    expect(messages['coreFinance.accounts.automaticTrackingEnabled']).toBeTruthy();
+    expect(messages['coreFinance.accounts.automaticTrackingDisabled']).toBeTruthy();
+  });
+
   it('keeps iOS alternatives free of Android tracking controls', () => {
     for (const key of iosKeys) {
       expect(en[key]).not.toMatch(/inbox|keyword|sender|background/i);

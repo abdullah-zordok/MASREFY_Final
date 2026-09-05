@@ -207,3 +207,10 @@ blockers rather than inferred passes.
 - [x] Reject system/foreign/missing/invalid lifecycle targets without leakage.
 - [x] Add OpenAPI, safe-error, integration, security, pgTAP, and Mobile adapter/UI coverage.
 - [x] Record the final pushed SHA and remote CI result in release evidence.
+
+## 2026-09-06 Account Tracking Remediation
+
+- [x] Add the backward-compatible non-null account flag and least-privilege write grants.
+- [x] Map create/update/read through DTO, OpenAPI, repository, audit, and outbox events.
+- [x] Add account validation, integration, security, and migration coverage.
+- [ ] Record the Slice 2 review, pushed SHA, and remote CI result in release evidence.

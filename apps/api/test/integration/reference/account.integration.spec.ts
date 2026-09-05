@@ -33,7 +33,14 @@ describeLiveDatabase('account lifecycle', () => {
         includeInTotals: true,
         openedAt: null,
       },
-    }) as Promise<{ account: { id: string; version: number; status: string } }>;
+    }) as Promise<{
+      account: {
+        id: string;
+        version: number;
+        status: string;
+        automaticTrackingEnabled: boolean;
+      };
+    }>;
 
   beforeAll(async () => {
     pool = new PoolService({
@@ -102,5 +109,37 @@ describeLiveDatabase('account lifecycle', () => {
     );
     expect(defaults.rows.map((row) => row.id)).toEqual([second.account.id]);
     expect(first.account.id).not.toBe(second.account.id);
+  });
+
+  it('creates enabled by default and persists an audited opt-out update', async () => {
+    const created = await create();
+    expect(created.account.automaticTrackingEnabled).toBe(true);
+    const updated = (await repository.execute({
+      operation: 'updateAccount',
+      principal: owner,
+      requestId,
+      query: {},
+      params: { accountId: created.account.id },
+      body: {
+        expectedVersion: created.account.version,
+        automaticTrackingEnabled: false,
+      },
+    })) as { automaticTrackingEnabled: boolean; version: number };
+    expect(updated).toMatchObject({ automaticTrackingEnabled: false });
+    await expect(
+      pool.query<{ automatic_tracking_enabled: boolean }>(
+        'select automatic_tracking_enabled from public.accounts where id=$1',
+        [created.account.id],
+      ),
+    ).resolves.toMatchObject({ rows: [{ automatic_tracking_enabled: false }] });
+    await expect(
+      pool.query<{ changed_fields: string[] }>(
+        `select payload->'changedFields' changed_fields
+         from private.outbox_events
+         where aggregate_id=$1 and event_type='account.updated'
+         order by created_at desc limit 1`,
+        [created.account.id],
+      ),
+    ).resolves.toMatchObject({ rows: [{ changed_fields: ['automaticTrackingEnabled'] }] });
   });
 });

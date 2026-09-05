@@ -11,6 +11,7 @@ import type {
 } from '@/services/contracts/assistant-notifications-service';
 import { coreFinanceService } from './core-finance-service';
 import { AutomaticTrackingRepository } from '@/storage/automatic-tracking-repository';
+import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
 
 describe('mock automatic tracking service', () => {
   it('does not record an event while tracking is paused', async () => {
@@ -151,6 +152,7 @@ describe('mock automatic tracking service', () => {
         saveKeywords: async () => undefined
       } as never,
       financeService: {
+        getAccount: async () => fixtureAccounts[0],
         createTransaction: async (
           _input: Parameters<CoreFinanceService['createTransaction']>[0],
           operationId: Parameters<CoreFinanceService['createTransaction']>[1],
@@ -182,6 +184,113 @@ describe('mock automatic tracking service', () => {
     expect(created).toEqual(['sms:clear']);
   });
 
+  it.each([
+    ['disabled', { ...fixtureAccounts[0], automaticTrackingEnabled: false }],
+    ['archived', { ...fixtureAccounts[0], status: 'archived' as const }],
+    ['unsupported', { ...fixtureAccounts[0], type: 'cash' as const }]
+  ])(
+    'fails closed for a %s account before tracking state is persisted',
+    async (_case, account) => {
+      const createTransaction = jest.fn();
+      const service = createMockAutomaticTrackingService({
+        persistent: false,
+        storage: {
+          loadTrackingPreference: async () => ({
+            mode: 'automatic_clear',
+            selectedAt: 1,
+            isRecommended: true
+          }),
+          saveTrackingPreference: async () => undefined,
+          loadKeywords: async () => [],
+          saveKeywords: async () => undefined
+        } as never,
+        financeService: {
+          getAccount: async () => account,
+          createTransaction
+        } as unknown as CoreFinanceService
+      });
+
+      await expect(
+        service.processMockEvent(makeMockEvent(`blocked-${_case}`))
+      ).rejects.toMatchObject({ code: 'account_blocked' });
+      await expect(service.listHistory()).resolves.toMatchObject({ total: 0 });
+      expect(createTransaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it('fails closed when the selected account cannot be resolved', async () => {
+    const createTransaction = jest.fn();
+    const service = createMockAutomaticTrackingService({
+      persistent: false,
+      financeService: {
+        getAccount: async () => {
+          throw new Error('not_found');
+        },
+        createTransaction
+      } as unknown as CoreFinanceService
+    });
+
+    await expect(
+      service.processMockEvent(makeMockEvent('missing-account'))
+    ).rejects.toMatchObject({ code: 'account_blocked' });
+    await expect(service.listHistory()).resolves.toMatchObject({ total: 0 });
+    expect(createTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the account after opt-out before resolving pending financial work', async () => {
+    let enabled = true;
+    let paused = false;
+    const repository = new AutomaticTrackingRepository();
+    const service = createMockAutomaticTrackingService({
+      repository,
+      persistent: false,
+      storage: {
+        loadTrackingPreference: async () => ({
+          mode: paused ? ('paused' as const) : ('automatic_clear' as const),
+          selectedAt: 1,
+          isRecommended: true
+        }),
+        saveTrackingPreference: async () => undefined,
+        loadKeywords: async () => [],
+        saveKeywords: async () => undefined
+      } as never,
+      financeService: {
+        getAccount: async () => ({
+          ...fixtureAccounts[0],
+          automaticTrackingEnabled: enabled
+        })
+      } as unknown as CoreFinanceService
+    });
+
+    const reviewEvent = await service.processMockEvent(
+      makeMockEvent('review-opt-out', { confidenceBasisPoints: 8_900 })
+    );
+    await service.processMockEvent(
+      makeMockEvent('duplicate-opt-out', {
+        duplicateTransactionId: 'existing-transaction'
+      })
+    );
+    const review = (await service.listReviewItems()).items.find(
+      (item) => item.detectedEventId === reviewEvent.event.id
+    );
+    const duplicate = repository.listDuplicates()[0];
+    enabled = false;
+
+    await expect(
+      service.resolveReview(review!.id, { action: 'confirm' })
+    ).rejects.toMatchObject({ code: 'account_blocked' });
+    await expect(
+      service.resolveDuplicate(duplicate.id, 'keep_new')
+    ).rejects.toMatchObject({ code: 'account_blocked' });
+    enabled = true;
+    paused = true;
+    await expect(
+      service.resolveReview(review!.id, { action: 'confirm' })
+    ).rejects.toMatchObject({ code: 'account_blocked' });
+    expect((await service.getReviewItem(review!.id)).status).toBe('pending');
+    expect((await service.getDuplicate(duplicate.id)).status).toBe('pending');
+  });
+
   it('emits central notifications exactly once for automatic tracking outcomes', async () => {
     const notifications: NotificationSourceEvent[] = [];
     const deleted: string[] = [];
@@ -209,6 +318,7 @@ describe('mock automatic tracking service', () => {
         saveKeywords: async () => undefined
       } as never,
       financeService: {
+        getAccount: async () => fixtureAccounts[0],
         createTransaction: async () =>
           ({
             value: { id: `transaction-${++nextTransaction}` },

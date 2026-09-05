@@ -25,6 +25,7 @@ const categoryFields = new Set([
   'sortOrder',
 ]);
 const accountFields = new Set([
+  'automaticTrackingEnabled',
   'closedAt',
   'colorKey',
   'creditLimitMinor',

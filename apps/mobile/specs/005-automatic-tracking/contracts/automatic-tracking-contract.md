@@ -196,3 +196,12 @@ conflict, and unknown failure. Each maps to one actionable localized recovery.
 - Controls expose name, role, state, error, and action and measure at least 44 by 44.
 - Critical routes remain usable at 200% text, with reduced motion, open keyboard, grayscale,
   screen readers, and 320 by 568 logical pixels.
+
+## 14. Per-Account Eligibility Contract
+
+Before persisting a detection effect, resolve its `accountId` and require the
+global preference plus `accountAllowsAutomaticTracking(account)`. Supported
+types are bank, debit card, credit card, wallet, and savings. Every missing,
+inactive, unsupported, or opted-out account maps to `account_blocked`; callers
+must not infer whether a foreign account exists. The Mobile switch is UX only,
+never the server security boundary.

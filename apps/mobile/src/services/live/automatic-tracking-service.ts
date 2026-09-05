@@ -160,13 +160,15 @@ export function createLiveAutomaticTrackingService({
       const error = record(value);
       const code = text(error.code || record(error.error ?? {}).code);
       throw new TrackingError(
-        response.status === 409
-          ? 'conflict'
-          : response.status === 404
-            ? 'not_found'
-            : code === 'REVIEW_REQUIRED'
-              ? 'review_required'
-              : 'unknown'
+        code === 'TRACKING_ACCOUNT_BLOCKED'
+          ? 'account_blocked'
+          : response.status === 409
+            ? 'conflict'
+            : response.status === 404
+              ? 'not_found'
+              : code === 'REVIEW_REQUIRED'
+                ? 'review_required'
+                : 'unknown'
       );
     }
     return value;

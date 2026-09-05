@@ -142,10 +142,10 @@
 - Modify: `apps/api/specs/006-sync-offline-idempotency/plan.md`
 - Modify: `apps/api/specs/006-sync-offline-idempotency/tasks.md`
 - Modify: `apps/api/specs/006-sync-offline-idempotency/data-model.md`
-- Modify: `apps/api/specs/008-tracking-import/spec.md`
-- Modify: `apps/api/specs/008-tracking-import/plan.md`
-- Modify: `apps/api/specs/008-tracking-import/tasks.md`
-- Modify: `apps/api/specs/008-tracking-import/data-model.md`
+- Modify: `apps/api/specs/008-tracking-imports-deduplication/spec.md`
+- Modify: `apps/api/specs/008-tracking-imports-deduplication/plan.md`
+- Modify: `apps/api/specs/008-tracking-imports-deduplication/tasks.md`
+- Modify: `apps/api/specs/008-tracking-imports-deduplication/data-model.md`
 - Modify: `apps/mobile/specs/005-automatic-tracking/spec.md`
 - Modify: `apps/mobile/specs/005-automatic-tracking/contracts/automatic-tracking-contract.md`
 - Modify: `apps/mobile/specs/013-r02-accounts/spec.md`
@@ -157,11 +157,11 @@
 - Modify: `apps/mobile/src/services/mocks/automatic-tracking-service.test.ts`
 - Modify: `apps/mobile/src/features/accounts/AccountForm.test.tsx`
 
-- [ ] Define non-null `automaticTrackingEnabled` on accounts with a backward-compatible default of `true`.
-- [ ] Define effective tracking as global tracking enabled AND an active, owned, supported account with account tracking enabled.
-- [ ] Define missing, foreign, archived, disabled, unsupported, and unresolved accounts as the same fail-closed outcome before proposal/review/ledger effects.
-- [ ] Define account CRUD, audit/event, sync bootstrap/delta/tombstone, and offline storage behavior.
-- [ ] Add failing API/mobile tests and run focused RED checks.
+- [x] Define non-null `automaticTrackingEnabled` on accounts with a backward-compatible default of `true`.
+- [x] Define effective tracking as global tracking enabled AND an active, owned, supported account with account tracking enabled.
+- [x] Define missing, foreign, archived, disabled, unsupported, and unresolved accounts as the same fail-closed outcome before proposal/review/ledger effects.
+- [x] Define account CRUD, audit/event, sync bootstrap/delta/tombstone, and offline storage behavior.
+- [x] Add failing API/mobile tests and run focused RED checks.
 
 ### Task 2.2 — Enforce one shared server-side tracking gate
 
@@ -183,12 +183,12 @@
 - Modify: `apps/api/test/security/tracking-ledger-boundary.spec.ts`
 - Modify: `apps/api/test/security/reference/reference-boundaries.spec.ts`
 
-- [ ] Add the column, DB constraint/default, CRUD mapping, audited changed-field allowlist, and explicit sync snapshot/delta projection.
-- [ ] Add one private database assertion reused by tracking finalization and tracking-import ledger writes so a preference race cannot bypass the gate.
-- [ ] Gate before review/proposal creation and again at the financial write boundary; preserve idempotent retry behavior and avoid partial side effects.
-- [ ] Keep global tracking preference authoritative and conjunctive; do not build a second tracking subsystem.
-- [ ] Cover RLS/BOLA, ownership/status/type, parser finalization, direct ledger source spoof attempts, retries, sync field retention, and tombstone privacy.
-- [ ] Run clean database and focused API GREEN checks.
+- [x] Add the column, DB constraint/default, CRUD mapping, audited changed-field allowlist, and explicit sync snapshot/delta projection.
+- [x] Add one private database assertion reused by tracking finalization and tracking-import ledger writes so a preference race cannot bypass the gate.
+- [x] Gate before review/proposal creation and again at the financial write boundary; preserve idempotent retry behavior and avoid partial side effects.
+- [x] Keep global tracking preference authoritative and conjunctive; do not build a second tracking subsystem.
+- [x] Cover RLS/BOLA, ownership/status/type, parser finalization, direct ledger source spoof attempts, retries, sync field retention, and tombstone privacy.
+- [x] Run clean database and focused API GREEN checks.
 
 ### Task 2.3 — Persist and edit the account control on Mobile
 
@@ -209,10 +209,10 @@
 - Modify: `apps/mobile/src/features/accounts/AccountDetailScreen.test.tsx`
 - Modify: `apps/mobile/src/localization/automatic-tracking-messages.test.ts`
 
-- [ ] Add the account field with default `true`, form switch, detail state, Arabic/English copy, and old-snapshot compatibility.
-- [ ] Make the mock financial-effect path resolve the account and fail closed before event/review/transaction persistence, matching the live server policy.
-- [ ] Prove create/edit/persist/reload/sync/bootstrap/delta behavior and disabled/missing/archived account rejection.
-- [ ] Run Mobile lint/typecheck and focused GREEN Jest suites.
+- [x] Add the account field with default `true`, form switch, detail state, Arabic/English copy, and old-snapshot compatibility.
+- [x] Make the mock financial-effect path resolve the account and fail closed before event/review/transaction persistence, matching the live server policy.
+- [x] Prove create/edit/persist/reload/sync/bootstrap/delta behavior and disabled/missing/archived account rejection.
+- [x] Run Mobile lint/typecheck and focused GREEN Jest suites.
 
 ### Task 2.4 — Close evidence, verify, review, commit, push, and confirm CI
 
@@ -228,8 +228,8 @@
 - Modify: this plan
 
 - [ ] Record results and mark only item #45 complete, including explicit proof of the shared server gate and mobile persistence.
-- [ ] Run the full relevant API/database/Mobile gates and secret/boundary checks.
-- [ ] Request an independent read-only Slice 2 review; fix all critical/important findings and rerun affected gates.
+- [x] Run the full relevant API/database/Mobile gates and secret/boundary checks.
+- [x] Request an independent read-only Slice 2 review; fix all critical/important findings and rerun affected gates.
 - [ ] Commit only Slice 2, push `main`, verify pushed SHA, and wait for required CI success before Slice 3.
 
 ## Slice 3 — Client items #38/#39: credit-card terms, due reminders, payoff calculator

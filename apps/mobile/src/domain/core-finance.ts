@@ -47,6 +47,14 @@ export type TransactionType = (typeof transactionTypes)[number];
 export type TransactionSource = (typeof transactionSources)[number];
 export type SyncStatus = (typeof syncStatuses)[number];
 
+const automaticTrackingAccountTypes = new Set<AccountType>([
+  'bank',
+  'debit_card',
+  'credit_card',
+  'wallet',
+  'savings'
+]);
+
 export interface Account {
   id: string;
   name: string;
@@ -56,6 +64,7 @@ export interface Account {
   institution: string | null;
   lastFour: string | null;
   creditLimitMinor: number | null;
+  automaticTrackingEnabled: boolean;
   isDefault: boolean;
   iconKey: string | null;
   colorKey: string | null;
@@ -238,6 +247,7 @@ export const accountInputSchema = z.object({
     .nullable()
     .default(null),
   creditLimitMinor: safeMinorSchema.nonnegative().nullable().default(null),
+  automaticTrackingEnabled: z.boolean().default(true),
   isDefault: z.boolean().default(false),
   notes: z.string().trim().max(500).nullable().default(null)
 });
@@ -364,6 +374,20 @@ export const conflictResolutionSchema = z.enum([
 ]);
 
 export type AccountInput = z.input<typeof accountInputSchema>;
+
+export function supportsAutomaticTrackingAccountType(
+  type: AccountType
+): boolean {
+  return automaticTrackingAccountTypes.has(type);
+}
+
+export function accountAllowsAutomaticTracking(account: Account): boolean {
+  return (
+    account.status === 'active' &&
+    account.automaticTrackingEnabled &&
+    supportsAutomaticTrackingAccountType(account.type)
+  );
+}
 export type CategoryInput = z.input<typeof categoryInputSchema>;
 export type TransactionInput = z.input<typeof transactionInputSchema>;
 export type DraftInput = z.input<typeof draftInputSchema>;

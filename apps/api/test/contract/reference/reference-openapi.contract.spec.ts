@@ -48,4 +48,22 @@ describe('reference OpenAPI contract', () => {
       expect(target).toBeDefined();
     }
   });
+
+  it('publishes the non-null backward-compatible account tracking control', () => {
+    const schemas = document.components.schemas as Record<
+      string,
+      { required?: string[]; properties?: Record<string, Record<string, unknown>> }
+    >;
+    expect(schemas.Account?.required).toContain('automaticTrackingEnabled');
+    expect(schemas.Account?.properties?.automaticTrackingEnabled).toMatchObject({
+      type: 'boolean',
+    });
+    expect(schemas.CreateAccountRequest?.properties?.automaticTrackingEnabled).toMatchObject({
+      type: 'boolean',
+      default: true,
+    });
+    expect(schemas.UpdateAccountRequest?.properties?.automaticTrackingEnabled).toMatchObject({
+      type: 'boolean',
+    });
+  });
 });

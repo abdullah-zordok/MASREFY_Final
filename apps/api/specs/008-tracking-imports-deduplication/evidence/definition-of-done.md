@@ -27,3 +27,9 @@ earlier/later route families. The Phase 08 Playwright surface is green, and
 expanding this Spec to repair SPEC-BE-009+ routes is prohibited.
 
 SPEC-BE-009+ implementation remains absent from the Phase 08 diff.
+
+## 2026-09-06 Item #45 Additive DoD
+
+The shared pre-parser/finalization/ledger assertion, generic fail-closed behavior,
+fenced retry handling, Mobile parity, all local database/API/Mobile gates, and
+independent review are complete. Slice 2 remains open only for scoped push and CI.

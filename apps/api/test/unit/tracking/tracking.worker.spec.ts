@@ -1,4 +1,5 @@
 import { TrackingWorker } from '../../../src/tracking/tracking.worker';
+import { HttpException } from '@nestjs/common';
 import { TRACKING_METRICS } from '../../../src/platform/observability/platform-metrics';
 import * as platformMetrics from '../../../src/platform/observability/platform-metrics';
 
@@ -105,6 +106,68 @@ describe('tracking worker', () => {
     expect(typeof accepted?.[2]).toBe('string');
     expect(accepted?.[3]).toBe('transaction-1');
     expect(repository.finalizeImport).toHaveBeenCalledWith('session-1', 'token-1');
+    expect(repository.completeImport).toHaveBeenCalledWith(
+      'session-1',
+      'token-1',
+      'succeeded',
+      null,
+    );
+  });
+
+  it('rejects a preference-race item without creating review or ledger effects', async () => {
+    const repository = {
+      claimParserCorpus: jest.fn(() => Promise.resolve([])),
+      claimImports: jest.fn(() =>
+        Promise.resolve([
+          { id: 'session-1', user_id: 'owner', claim_token: 'token-1', attempt_count: 1 },
+        ]),
+      ),
+      prepareImport: jest.fn(() => Promise.resolve({ parserItems: [] })),
+      finalizeImport: jest.fn(() =>
+        Promise.resolve({
+          autoItems: [
+            {
+              id: 'item-1',
+              userId: 'owner',
+              values: {
+                kind: 'expense',
+                amountMinor: 100,
+                currency: 'SAR',
+                accountId: 'account-1',
+                occurredAt: '2026-09-02T08:00:00.000Z',
+              },
+            },
+          ],
+        }),
+      ),
+      getImportSourceIdentityHash: jest.fn(() => Promise.resolve('d'.repeat(64))),
+      deferImportItem: jest.fn(() => Promise.resolve()),
+      completeImport: jest.fn(() => Promise.resolve()),
+      rawDue: jest.fn(() => Promise.resolve([])),
+      maintenance: jest.fn(() => Promise.resolve()),
+      operationalMetrics: jest.fn(() =>
+        Promise.resolve({
+          importBacklog: 0,
+          reviewBacklog: 0,
+          duplicateBacklog: 0,
+          oldestImportAgeSeconds: 0,
+          rawPurgeLagSeconds: 0,
+        }),
+      ),
+    };
+    const ledger = {
+      createTransaction: jest.fn(() =>
+        Promise.reject(new HttpException({ code: 'TRACKING_ACCOUNT_BLOCKED' }, 409)),
+      ),
+    };
+
+    await new TrackingWorker(repository as never, ledger as never, {} as never).runOnce();
+
+    expect(repository.deferImportItem).toHaveBeenCalledWith(
+      'item-1',
+      'token-1',
+      'account_tracking_blocked',
+    );
     expect(repository.completeImport).toHaveBeenCalledWith(
       'session-1',
       'token-1',

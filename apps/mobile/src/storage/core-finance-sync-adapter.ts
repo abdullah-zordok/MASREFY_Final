@@ -419,6 +419,9 @@ export class CoreFinanceSyncAdapter {
       creditLimitMinor: this.numberOrNull(
         value.credit_limit_minor ?? value.creditLimitMinor
       ),
+      automaticTrackingEnabled:
+        (value.automatic_tracking_enabled ?? value.automaticTrackingEnabled) !==
+        false,
       isDefault: Boolean(value.is_default ?? value.isDefault),
       iconKey: this.nullable(value.icon_key ?? value.iconKey),
       colorKey: this.nullable(value.color_key ?? value.colorKey),

@@ -5,6 +5,7 @@ import {
   normalizeSearch,
   parseAmountToMinor,
   transactionEffectForAccount,
+  accountInputSchema,
   type Account,
   type Transaction
 } from './core-finance';
@@ -19,6 +20,7 @@ const account: Account = {
   institution: null,
   lastFour: '1234',
   creditLimitMinor: null,
+  automaticTrackingEnabled: true,
   isDefault: true,
   iconKey: null,
   colorKey: null,
@@ -27,6 +29,20 @@ const account: Account = {
   createdAt: now,
   updatedAt: now
 };
+
+it('defaults account automatic tracking on and preserves an explicit opt-out', () => {
+  const base = {
+    name: 'Main',
+    type: 'bank' as const,
+    currencyCode: 'SAR',
+    openingBalanceMinor: 0
+  };
+  expect(accountInputSchema.parse(base).automaticTrackingEnabled).toBe(true);
+  expect(
+    accountInputSchema.parse({ ...base, automaticTrackingEnabled: false })
+      .automaticTrackingEnabled
+  ).toBe(false);
+});
 const transaction = (overrides: Partial<Transaction>): Transaction => ({
   id: 't1',
   type: 'expense',

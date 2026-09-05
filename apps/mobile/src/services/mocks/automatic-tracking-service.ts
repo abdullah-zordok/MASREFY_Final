@@ -36,6 +36,7 @@ import type {
   NotificationSourceEvent
 } from '@/services/contracts/assistant-notifications-service';
 import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
+import { accountAllowsAutomaticTracking } from '@/domain/core-finance';
 import { createAppShellStorage } from '@/storage/app-shell-storage';
 import { AutomaticTrackingRepository } from '@/storage/automatic-tracking-repository';
 import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
@@ -106,6 +107,23 @@ export function createMockAutomaticTrackingService({
   };
   const mode = async (): Promise<TrackingMode> =>
     (await storage.loadTrackingPreference())?.mode ?? 'automatic_clear';
+  const assertAutomaticTrackingAccount = async (
+    accountId: unknown,
+    selectedMode?: TrackingMode
+  ) => {
+    try {
+      if (
+        (selectedMode ?? (await mode())) === 'paused' ||
+        typeof accountId !== 'string' ||
+        !accountAllowsAutomaticTracking(
+          await financeService.getAccount(accountId)
+        )
+      )
+        throw new Error('blocked');
+    } catch {
+      throw new TrackingError('account_blocked');
+    }
+  };
 
   return {
     metadata: {
@@ -182,6 +200,7 @@ export function createMockAutomaticTrackingService({
           feedback: null,
           affectedScopes: ['tracking.status']
         };
+      await assertAutomaticTrackingAccount(input.accountId, selectedMode);
       const decision = decideAutomaticTracking(selectedMode, input);
       const status =
         decision.status === 'auto_add'
@@ -254,6 +273,10 @@ export function createMockAutomaticTrackingService({
     async resolveReview(id, input) {
       await ensureReady();
       const review = repository.requireReview(id);
+      if (input.action === 'confirm')
+        await assertAutomaticTrackingAccount(
+          input.values?.accountId ?? review.proposedValues.accountId
+        );
       const next = repository.updateReview(review.id, {
         status:
           input.action === 'confirm'
@@ -272,6 +295,12 @@ export function createMockAutomaticTrackingService({
     },
     async resolveDuplicate(id, resolution: DuplicateResolution) {
       await ensureReady();
+      if (resolution === 'keep_new' || resolution === 'keep_both') {
+        const duplicate = repository.requireDuplicate(id);
+        await assertAutomaticTrackingAccount(
+          repository.requireEvent(duplicate.detectedEventId).accountId
+        );
+      }
       const duplicate = repository.updateDuplicate(id, resolution);
       await persist();
       return mutation(duplicate, ['tracking.review', 'tracking.history']);

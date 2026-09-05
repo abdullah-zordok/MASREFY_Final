@@ -42,6 +42,31 @@ describe('AccountForm', () => {
     expect(screen.queryByText(translate('coreFinance.accounts.setup.dueDay'))).toBeNull();
   });
 
+  it('defaults automatic tracking on and submits an explicit opt-out', async () => {
+    const create = jest.spyOn(coreFinanceService, 'createAccount').mockResolvedValue({
+      value: { ...fixtureAccounts[0], id: 'created-account' },
+      affectedScopes: []
+    });
+    renderWithProviders(<AccountForm initialType="bank" />);
+
+    const toggle = screen.getByLabelText(
+      translate('coreFinance.accounts.automaticTracking')
+    );
+    expect(toggle).toHaveProp('value', true);
+    fireEvent(toggle, 'valueChange', false);
+    fireEvent.changeText(
+      screen.getByLabelText(translate('coreFinance.accounts.name')),
+      'Private account'
+    );
+    fireEvent.press(screen.getByText(translate('coreFinance.accounts.create')));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ automaticTrackingEnabled: false })
+      )
+    );
+  });
+
   it.each(['SAR', 'AED'] as const)(
     'defaults a new account to the configured %s preference',
     (baseCurrencyCode) => {

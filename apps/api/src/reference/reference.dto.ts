@@ -149,6 +149,7 @@ export function normalizeCreateAccount(value: unknown): Record<string, unknown> 
     'notes',
     'sortOrder',
     'includeInTotals',
+    'automaticTrackingEnabled',
     'openedAt',
     'openingBalanceMinor',
   ]);
@@ -190,6 +191,7 @@ export function normalizeCreateAccount(value: unknown): Record<string, unknown> 
     notes: optionalText(input.notes, 500),
     sortOrder: input.sortOrder === undefined ? 0 : integer(input.sortOrder, -100000, 100000),
     includeInTotals: optionalBoolean(input.includeInTotals, true),
+    automaticTrackingEnabled: optionalBoolean(input.automaticTrackingEnabled, true),
     openedAt: input.openedAt,
     openingBalanceMinor: opening,
   };
@@ -210,6 +212,7 @@ export function normalizeAccountPatch(value: unknown): Record<string, unknown> {
     'notes',
     'sortOrder',
     'includeInTotals',
+    'automaticTrackingEnabled',
     'openedAt',
   ]);
   if ('currency' in input) failure('ACCOUNT_CURRENCY_LOCKED');
@@ -243,7 +246,7 @@ export function normalizeAccountPatch(value: unknown): Record<string, unknown> {
     if (input.type !== undefined && input.type !== 'credit_card' && credit !== null) failure();
     result.creditLimitMinor = credit;
   }
-  for (const key of ['isDefault', 'includeInTotals'] as const)
+  for (const key of ['isDefault', 'includeInTotals', 'automaticTrackingEnabled'] as const)
     if (key in input) result[key] = optionalBoolean(input[key]);
   if ('sortOrder' in input) result.sortOrder = integer(input.sortOrder, -100000, 100000);
   if ('openedAt' in input) {

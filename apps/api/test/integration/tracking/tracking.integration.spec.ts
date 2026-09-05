@@ -32,6 +32,7 @@ describeLiveDatabase('tracking owner, import, lease, and retention lifecycle', (
   const principal = { userId: owner, sessionId: 'tracking-session', factorAgeSeconds: 0 };
   const adminPrincipal = { userId: admin, sessionId: 'tracking-admin', factorAgeSeconds: 0 };
   const readerPrincipal = { userId: reader, sessionId: 'tracking-reader', factorAgeSeconds: 0 };
+  const trackingAccountId = randomUUID();
 
   beforeAll(async () => {
     await pool.query(
@@ -41,6 +42,12 @@ describeLiveDatabase('tracking owner, import, lease, and retention lifecycle', (
     await pool.query(
       "insert into public.admin_profiles(user_id,status) values($1,'active'),($2,'active')",
       [admin, reader],
+    );
+    await pool.query(
+      `insert into public.accounts(
+        id,user_id,name,type,currency_code,automatic_tracking_enabled
+      ) values($1,$2,'Tracking card','credit_card','SAR',true)`,
+      [trackingAccountId, owner],
     );
     await pool.query(
       `insert into public.admin_role_assignments(user_id,role_id,assigned_by,reason)
@@ -61,6 +68,7 @@ describeLiveDatabase('tracking owner, import, lease, and retention lifecycle', (
         admin,
         reader,
       ]);
+      await client.query('delete from public.accounts where id=$1', [trackingAccountId]);
       await client.query('delete from public.profiles where id in ($1,$2,$3,$4)', [
         owner,
         other,
@@ -171,6 +179,7 @@ describeLiveDatabase('tracking owner, import, lease, and retention lifecycle', (
           sourceItemKey: 'message-1',
           sender: 'EXAMPLE-CRESCENT',
           body: 'paid 120 SAR',
+          accountId: trackingAccountId,
           receivedAt: new Date().toISOString(),
         },
       ],

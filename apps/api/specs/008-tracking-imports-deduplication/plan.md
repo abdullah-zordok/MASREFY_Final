@@ -306,3 +306,10 @@ can be reconstructed without changing immutable decisions or ledger truth.
 | Violation | Why Required | Approved By | Follow-up |
 |---|---|---|---|
 | None | N/A | N/A | N/A |
+
+## 2026-09-06 Account Gate Plan
+
+Add one private assertion and reuse it from import preparation, finalization,
+and the ledger posting trigger. A preference race is therefore checked both
+before proposal/review creation and at the transactional financial boundary;
+the existing worker converts the stable block into a terminal rejected item.

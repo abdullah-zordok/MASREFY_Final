@@ -197,3 +197,10 @@ Rules:
   qualify objects, and revoke execution from `PUBLIC`;
 - logs and metrics use identifiers, hashes, counts, states, and latencies only;
   mutation payloads and snapshots are not logged.
+
+## Account Tracking Projection
+
+Account upsert snapshots carry `automatic_tracking_enabled` as a non-null
+boolean. Deletion continues to emit only the existing account tombstone
+identity/version with `snapshot = null`, so no account preference leaks after
+deletion. Missing fields from older snapshots retain the compatible value true.

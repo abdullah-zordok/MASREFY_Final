@@ -32,6 +32,24 @@ it('keeps one default account and derives balances from the ledger', () => {
   );
 });
 
+it('preserves the per-account automatic-tracking opt-out', () => {
+  const repo = repository();
+  const created = repo.saveAccount({
+    name: 'Tracked card',
+    type: 'credit_card',
+    currencyCode: 'SAR',
+    openingBalanceMinor: 0,
+    automaticTrackingEnabled: false
+  });
+  expect(repo.requireAccount(created.id).automaticTrackingEnabled).toBe(false);
+  expect(
+    repo.saveAccount(
+      { ...created, automaticTrackingEnabled: true },
+      created.id
+    ).automaticTrackingEnabled
+  ).toBe(true);
+});
+
 it('paginates without duplicate records', () => {
   const repo = repository();
   const first = repo.listTransactions(emptyTransactionFilters, null, 4);

@@ -800,3 +800,16 @@ never cross public response boundaries.
       remain preserved.
 
 Verification listed here is required evidence, not a claim that it has run.
+
+## 2026-09-06 Client Remediation Addendum — Per-Account Gate
+
+- Effective tracking requires global preference enabled AND an active,
+  same-owner, supported account with `automatic_tracking_enabled = true`.
+- Supported account types are `bank`, `debit_card`, `credit_card`, `wallet`, and
+  `savings`. Missing, foreign, archived, disabled, unsupported, and unresolved
+  accounts share the non-disclosing `TRACKING_ACCOUNT_BLOCKED` outcome.
+- The shared database assertion runs before parser materialization/finalization
+  and at `tracking-import` posting insertion. Blocked work creates no proposal,
+  review item, transaction, posting, or other committed financial effect.
+- Existing import claims, fence tokens, retry semantics, and global consent stay
+  authoritative. No second parser/tracking subsystem or Phase 14 cutover exists.

@@ -205,3 +205,9 @@ never inferred. No push occurs under this goal.
 | Violation | Why Required | Approved By | Follow-up |
 | --------- | ------------ | ----------- | --------- |
 | None      | N/A          | N/A         | N/A       |
+
+## 2026-09-06 Additive Account Projection
+
+Extend the existing account bootstrap projection and outbox sync metadata
+trigger with `automatic_tracking_enabled`. Reuse current cursor, delta,
+tombstone, and conflict behavior; add no sync resource or queue.

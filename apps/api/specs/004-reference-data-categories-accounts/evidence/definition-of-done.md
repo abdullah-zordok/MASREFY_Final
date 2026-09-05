@@ -61,3 +61,9 @@ absent and fails safely.
 The Phase 04 specification, implementation, migrations, RLS/grants, audit/outbox
 flows, endpoints, tests, operational evidence, pushed release tag, and signed
 release artifacts satisfy its Definition of Done. No later Spec was implemented.
+
+## 2026-09-06 Item #45 Additive DoD
+
+The account field, minimum grants, DTO/OpenAPI/repository/event/audit mapping,
+clean migration replay, focused/full automated gates, and independent review
+pass locally. Slice 2 remains open only for its scoped push and remote CI evidence.

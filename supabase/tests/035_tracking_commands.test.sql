@@ -50,16 +50,18 @@ select throws_ok(
   'stale preference update is rejected'
 );
 select is(private.restore_default_keyword_rules('tracking-pgtap-owner'),22,'all bilingual default groups restore');
+insert into public.accounts(id,user_id,name,type,currency_code)
+values('85000000-0000-4000-8000-000000000010','tracking-pgtap-owner','Tracking card','credit_card','SAR');
 
 create temporary table tracking_command_ids as
 select private.create_import_session(
   'tracking-pgtap-owner','sms',null,1,repeat('a',64),
-  '[{"sourceItemKey":"fixture-1","receivedAt":"2026-09-02T08:00:00Z","body":"fictional paid 12"}]'::jsonb
+  '[{"sourceItemKey":"fixture-1","receivedAt":"2026-09-02T08:00:00Z","body":"fictional paid 12","accountId":"85000000-0000-4000-8000-000000000010"}]'::jsonb
 ) result;
 select is(
   (select private.create_import_session(
     'tracking-pgtap-owner','sms',null,1,repeat('a',64),
-    '[{"sourceItemKey":"fixture-1","receivedAt":"2026-09-02T08:00:00Z","body":"fictional paid 12"}]'::jsonb
+    '[{"sourceItemKey":"fixture-1","receivedAt":"2026-09-02T08:00:00Z","body":"fictional paid 12","accountId":"85000000-0000-4000-8000-000000000010"}]'::jsonb
   )->>'id'),
   (select result->>'id' from tracking_command_ids),
   'import creation replays one natural-key session'

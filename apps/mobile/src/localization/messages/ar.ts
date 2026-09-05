@@ -665,6 +665,13 @@ const ar: MessageCatalog = {
     'تبقى العملة للقراءة فقط بعد وجود نشاط على الحساب.',
   'coreFinance.accounts.openingBalance': 'الرصيد الافتتاحي',
   'coreFinance.accounts.makeDefault': 'تعيين كحساب افتراضي',
+  'coreFinance.accounts.automaticTracking': 'التتبع التلقائي',
+  'coreFinance.accounts.automaticTrackingDescription':
+    'السماح بإضافة المعاملات التلقائية المؤهلة لهذا الحساب.',
+  'coreFinance.accounts.automaticTrackingEnabled':
+    'التتبع التلقائي مفعّل لهذا الحساب.',
+  'coreFinance.accounts.automaticTrackingDisabled':
+    'التتبع التلقائي متوقف لهذا الحساب.',
   'coreFinance.accounts.create': 'إنشاء الحساب',
   'coreFinance.accounts.step1Of2': 'الخطوة 1 من 2',
   'coreFinance.accounts.step2Of2': 'الخطوة 2 من 2',

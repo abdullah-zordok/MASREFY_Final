@@ -61,4 +61,16 @@ describe('reference event contracts', () => {
       }),
     ).toThrow('EVENT_PAYLOAD_INVALID');
   });
+
+  it('allows the account automatic-tracking field in audited updates', () => {
+    expect(
+      events.buildReferenceEvent('account.updated', {
+        accountId: '10000000-0000-4000-8000-000000000001',
+        userId: 'user_1',
+        version: 2,
+        occurredAt: '2026-08-29T00:00:00.000Z',
+        changedFields: ['automaticTrackingEnabled'],
+      }),
+    ).toMatchObject({ changedFields: ['automaticTrackingEnabled'] });
+  });
 });

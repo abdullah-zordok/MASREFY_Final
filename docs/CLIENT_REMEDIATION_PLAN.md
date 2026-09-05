@@ -37,7 +37,8 @@ The client report is valuable product input but is not a reliable snapshot of th
 Current verification found:
 
 - Already resolved in current Mobile code: #3, #20, #21, #22, #23, #29, #34, #36, #52, #55, and #61.
-- Materially improved but not fully release-complete: #2, #4, #5, #6, #14, #18, #19, #24, #26, #27, #35, #42, #44, #45, #47, #48, #53, #57, #58, #59, and #60.
+- Materially improved but not fully release-complete: #2, #4, #5, #6, #14, #18, #19, #24, #26, #27, #35, #42, #44, #47, #48, #53, #57, #58, #59, and #60.
+- Implemented locally with the release gate still pending: #45.
 - Confirmed remaining Mobile/product gaps: #1, #7–13, #15, #17, #31, #33, #37–41, #46, #54, #56, and #62.
 - Explicit decisions or deferrals are required for #31, #33, #37, #41, #43, #49, #51, and #53.
 - #50 is an external privacy incident in the screenshot archive, not a repository feature.
@@ -537,7 +538,7 @@ Keep the 14-Spec sequence and extend it before the affected Spec packages are cr
 
 **Client IDs:** #37, #40, #45, #46, #47.
 
-**Current implementation:** Mobile sender rules and Admin parser surfaces exist; backend BE-008 is planned; real file ingestion, corpus, merchant learning, and card opt-out are absent.
+**Current implementation:** Mobile sender rules and Admin parser surfaces exist; BE-008 ingestion is live locally. Client item #45 now has an account field, sync transport, Mobile control, and shared server-side parser/ledger gate; real provider cutover and the remaining corpus/merchant work stay separate.
 
 **Required changes:** If #37 approved, private file upload and explicit ≤300 accepted-row limit; institution/sender registry; redacted Gulf Arabic/English corpus; versioned parser test/publish; merchant/category rules; account tracking opt-out; review queue and dedupe.
 
@@ -976,6 +977,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 ### Phase 2 execution
 
 - [ ] Extend BE-004 card metadata and account tracking opt-out; add nullable-safe migration.
+- [x] Implement #45 per-account tracking control across BE-004/006/008 and Mobile; independent review passed and remote CI remains the Slice 2 release gate.
 - [ ] Extend BE-007 planning parity and approved recurrence; preserve current SQLite data through BE-006 sync.
 - [ ] Wire savings, wallet, budgets, and card/planning Mobile adapters live without layout changes.
 - [ ] Implement approved BE-008 import/tracking/parser corpus and 300-row contract if #37 is V1.
@@ -1030,7 +1032,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 |        27 | Yes       | Transfer invariant and repair implemented locally  |     1 | Financial truth            | #58, BE-004/005               | Resolved locally; partial live    |
 |        28 | No device | Cannot verify current visual defect                |     3 | RTL/LTR visual proof       | Current screenshot            | Verify                            |
 |        29 | Yes       | Resolved clients / backend incomplete              |     2 | Canonical billing          | BE-012/014                    | Partial live                      |
-|        30 | Yes       | Safer partial solution / decision                  |     3 | Approved UX decisions      | BE-004/product                | Partial                           |
+|        30 | Yes       | Authoritative usage preview and safe merge shipped |     3 | Approved UX decisions      | BE-004/product                | Complete; remote CI passed        |
 |        31 | Yes       | Requires explicit UI/product approval              |     3 | Approved UX decisions      | Product approval              | Blocked by decision               |
 |        32 | No device | Cannot verify current visual defect                |     3 | RTL/LTR visual proof       | Current reproduction          | Verify                            |
 |        33 | Yes       | Missing feature / YAGNI decision                   |     3 | Approved UX decisions      | Product approval/BE-002       | Decision                          |
@@ -1045,7 +1047,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 |        42 | Yes       | Implemented locally / live pipeline missing        |     2 | Notifications/feedback     | BE-011/014                    | Partial                           |
 |        43 | Yes       | Explicitly deferred                                |     3 | Deferred scope             | Post-V1                       | Deferred                          |
 |        44 | Yes       | Partial native/live capability                     |     2 | Notifications/feedback     | BE-011/014/device             | Partial                           |
-|        45 | Yes       | Partial / card opt-out missing                     |     2 | Imports/parsers            | BE-004/008                    | Partial                           |
+|        45 | Yes       | Per-account control and server gate implemented    |     2 | Imports/parsers            | BE-004/006/008                | Local/review complete; CI pending |
 |        46 | Yes       | Production fails closed; live capability deferred  |     1 | Tracking release gate      | BE-008 corpus/native evidence | Resolved local gate; live blocked |
 |        47 | Yes       | Partial local / live registry missing              |     2 | Imports/parsers            | BE-008/014                    | Partial                           |
 |        48 | Yes       | Partial preview/actions                            |     2 | Assistant/report truth     | BE-009/014                    | Partial                           |

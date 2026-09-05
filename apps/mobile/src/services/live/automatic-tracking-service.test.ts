@@ -145,6 +145,24 @@ describe('live automatic tracking adapter', () => {
     expect(request.mock.calls[1]?.[0]).toContain('status=rejected');
   });
 
+  it('maps a blocked-account conflict from a review decision', async () => {
+    const request = jest
+      .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(response({ id: 'review-1', version: 1 }))
+      .mockResolvedValueOnce(response({ id: 'review-1', version: 1 }))
+      .mockResolvedValueOnce(
+        response({ code: 'TRACKING_ACCOUNT_BLOCKED' }, 409)
+      );
+    const service = createLiveAutomaticTrackingService({
+      token: async () => 'token',
+      request
+    });
+
+    await expect(
+      service.resolveReview('review-1', { action: 'confirm' })
+    ).rejects.toMatchObject({ code: 'account_blocked' });
+  });
+
   it('reuses the same request identity for repeated delivery of one source event', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-09-03T10:00:00.000Z'));
     const request = jest

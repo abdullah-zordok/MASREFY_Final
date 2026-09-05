@@ -17,6 +17,7 @@ const account: Account = {
   institution: null,
   lastFour: null,
   creditLimitMinor: null,
+  automaticTrackingEnabled: true,
   isDefault: true,
   iconKey: null,
   colorKey: null,

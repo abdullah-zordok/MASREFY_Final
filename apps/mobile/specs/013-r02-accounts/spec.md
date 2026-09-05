@@ -252,3 +252,10 @@ As a user recording, filtering, reviewing, or planning money, I can search and s
 - Account inclusion or exclusion from aggregate summaries follows existing feature projections; R02 only communicates the supplied result.
 - Account detail may adopt R04 transaction rows after R04 approval without transferring transaction ownership to R02.
 - Real-device validation and any fixes discovered there will be detailed in `/tasks`; this `/specify` phase changes no production code.
+
+## 2026-09-06 Account Tracking Control Addendum
+
+Supported account forms expose an `automaticTrackingEnabled` switch and details
+show its enabled/disabled state. Cash and other unsupported account types omit
+the control. Create defaults true; edit preserves the stored value; existing
+records missing the field normalize to true without changing other account data.

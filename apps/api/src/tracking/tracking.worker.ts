@@ -217,11 +217,20 @@ export class TrackingWorker implements OnModuleDestroy {
               ? Reflect.get(response, 'code')
               : '';
           if (typeof code !== 'string') throw error;
-          if (!['RECENT_AUTH_REQUIRED', 'VALIDATION_FAILED'].includes(code)) throw error;
+          if (
+            !['RECENT_AUTH_REQUIRED', 'VALIDATION_FAILED', 'TRACKING_ACCOUNT_BLOCKED'].includes(
+              code,
+            )
+          )
+            throw error;
           await this.repository.deferImportItem(
             String(item.id),
             claim.claim_token,
-            code === 'RECENT_AUTH_REQUIRED' ? 'recent_auth_required' : 'ledger_validation_failed',
+            code === 'RECENT_AUTH_REQUIRED'
+              ? 'recent_auth_required'
+              : code === 'TRACKING_ACCOUNT_BLOCKED'
+                ? 'account_tracking_blocked'
+                : 'ledger_validation_failed',
           );
         }
       }

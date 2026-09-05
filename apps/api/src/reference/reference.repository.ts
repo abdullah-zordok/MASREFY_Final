@@ -50,6 +50,7 @@ interface ReferenceRow extends QueryResultRow {
   notes: string | null;
   status: string;
   include_in_totals: boolean;
+  automatic_tracking_enabled: boolean;
   opened_at: Date | null;
   closed_at: Date | null;
   base_currency: string;
@@ -292,7 +293,7 @@ export class ReferenceRepository {
         if (b.isDefault) await this.clearDefault(client, user);
         const row = (
           await client.query<ReferenceRow>(
-            `insert into public.accounts(user_id,name,type,currency_code,institution_name,last_four,credit_limit_minor,is_default,icon_key,color_key,notes,sort_order,include_in_totals,opened_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning *`,
+            `insert into public.accounts(user_id,name,type,currency_code,institution_name,last_four,credit_limit_minor,is_default,icon_key,color_key,notes,sort_order,include_in_totals,opened_at,automatic_tracking_enabled) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning *`,
             [
               user,
               b.name,
@@ -308,6 +309,7 @@ export class ReferenceRepository {
               b.sortOrder,
               b.includeInTotals,
               b.openedAt ?? null,
+              b.automaticTrackingEnabled ?? true,
             ],
           )
         ).rows[0];
@@ -690,6 +692,7 @@ export class ReferenceRepository {
       notes: 'notes',
       sortOrder: 'sort_order',
       includeInTotals: 'include_in_totals',
+      automaticTrackingEnabled: 'automatic_tracking_enabled',
       openedAt: 'opened_at',
     };
     const { sql, values } = this.patch(map, input.body, 2);
@@ -978,6 +981,7 @@ export class ReferenceRepository {
       status: row.status,
       sortOrder: row.sort_order,
       includeInTotals: row.include_in_totals,
+      automaticTrackingEnabled: row.automatic_tracking_enabled,
       openedAt: row.opened_at,
       closedAt: row.closed_at,
       version: Number(row.version),

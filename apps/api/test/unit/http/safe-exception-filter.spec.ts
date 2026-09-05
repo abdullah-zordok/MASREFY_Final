@@ -46,6 +46,7 @@ describe('safeError', () => {
     ['IDEMPOTENCY_IN_PROGRESS', 409, 'Idempotent request is in progress'],
     ['VERSION_CONFLICT', 409, 'Resource version conflict'],
     ['ACCOUNT_NOT_POSTABLE', 409, 'Account cannot accept this transaction'],
+    ['TRACKING_ACCOUNT_BLOCKED', 409, 'Automatic tracking is disabled for this account'],
     ['CURRENCY_MISMATCH', 409, 'Currencies do not match'],
     ['TRANSACTION_NOT_EDITABLE', 409, 'Transaction cannot be changed'],
     ['TRANSACTION_HAS_DEPENDENTS', 409, 'Transaction has dependent records'],

@@ -2,6 +2,7 @@ import { createMockAutomaticTrackingService } from '@/services/mocks/automatic-t
 import { createMockTrackingPermissionService } from '@/services/mocks/tracking-permission-service';
 import { makeMockEvent } from '@/test-utils/automatic-tracking-fixtures';
 import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
+import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
 
 describe('automatic tracking financial effects', () => {
   it('creates one automatic transaction and returns affected scopes', async () => {
@@ -11,6 +12,7 @@ describe('automatic tracking financial effects', () => {
       permissionService: createMockTrackingPermissionService('granted'),
       storage: trackingStorageStub(),
       financeService: ({
+        getAccount: async () => fixtureAccounts[0],
         createTransaction: async (
           _input: Parameters<CoreFinanceService['createTransaction']>[0],
           operationId: Parameters<CoreFinanceService['createTransaction']>[1],

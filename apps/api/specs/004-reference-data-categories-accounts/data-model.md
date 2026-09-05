@@ -197,3 +197,10 @@ Admin support access does not grant financial account/category mutation.
 stored counter. It validates the caller/owner, takes the existing owner ledger
 lock, locks the custom category row, and counts owner transaction headers at
 request time. No denormalized usage column or client-authoritative count exists.
+
+## Account Automatic-Tracking Flag
+
+`public.accounts.automatic_tracking_enabled boolean not null default true` is
+owner-controlled through the existing account API. The default preserves old
+accounts/clients; effective eligibility is still decided by SPEC-BE-008 using
+global consent, ownership, lifecycle, supported type, and this flag together.

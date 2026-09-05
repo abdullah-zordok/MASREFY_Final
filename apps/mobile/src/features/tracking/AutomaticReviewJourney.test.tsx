@@ -1,12 +1,17 @@
 import { createMockAutomaticTrackingService } from '@/services/mocks/automatic-tracking-service';
 import { createMockTrackingPermissionService } from '@/services/mocks/tracking-permission-service';
 import { makeMockEvent } from '@/test-utils/automatic-tracking-fixtures';
+import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
+import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
 
 describe('automatic review journey', () => {
   it('covers uncertain, duplicate, lifecycle, and obligation review outcomes', async () => {
     const service = createMockAutomaticTrackingService({
       persistent: false,
       permissionService: createMockTrackingPermissionService('granted'),
+      financeService: {
+        getAccount: async () => fixtureAccounts[0]
+      } as unknown as CoreFinanceService,
       storage: {
         loadTrackingPreference: async () => ({
           mode: 'automatic_clear',

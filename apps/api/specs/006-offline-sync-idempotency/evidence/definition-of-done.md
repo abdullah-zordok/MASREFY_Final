@@ -27,3 +27,9 @@ Date: 2026-08-31
 External CI/provider/registry/signature/provenance gates remain explicitly
 pending in `remote.md`; they require a separately authorized remote action and
 are not represented as locally passed.
+
+## 2026-09-06 Item #45 Additive DoD
+
+Account bootstrap/delta/tombstone transport and Mobile old-snapshot compatibility
+are implemented and locally verified without adding a sync domain or changing
+cursor/conflict semantics. Slice 2 remote CI evidence remains pending.

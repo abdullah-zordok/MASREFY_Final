@@ -230,3 +230,10 @@ Complete T001–T022: baseline, Shared Account Foundation, and Account List. Thi
 - Tests precede implementation for changed financial, form, picker, and navigation behavior.
 - `[P]` indicates safe file-level parallelism, not permission to bypass dependencies.
 - Preserve unrelated user changes in the shared worktree.
+
+## 2026-09-06 Account Tracking Control
+
+- [x] Add supported-type form switch, dirty-state handling, and accessible copy.
+- [x] Render the saved state on account detail for supported account types only.
+- [x] Prove create/edit/storage/bootstrap/delta/default compatibility in Jest.
+- [ ] Record independent review and Slice 2 remote CI evidence.

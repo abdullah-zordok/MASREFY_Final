@@ -18,6 +18,10 @@ describe('Phase 04 security boundaries', () => {
     '../../supabase/migrations/20260905080000_client_category_usage.sql',
     'utf8',
   );
+  const accountTrackingMigration = readFileSync(
+    '../../supabase/migrations/20260905081000_account_automatic_tracking.sql',
+    'utf8',
+  );
 
   it('forces RLS, revokes anonymous access, and keeps mutation functions server-only', () => {
     for (const table of [
@@ -49,6 +53,11 @@ describe('Phase 04 security boundaries', () => {
     expect(remediationMigration).toContain(
       'revoke all on function private.reassign_category_transactions',
     );
+    expect(accountTrackingMigration).toContain(
+      'revoke all on function private.assert_automatic_tracking_account',
+    );
+    expect(accountTrackingMigration).toContain("message='TRACKING_ACCOUNT_BLOCKED'");
+    expect(accountTrackingMigration).toContain('transaction_postings_tracking_account_gate');
   });
 
   it('uses exact BFLA permissions and no generic Admin resource route', () => {

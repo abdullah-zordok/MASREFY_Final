@@ -372,3 +372,12 @@ are excluded from this frontend specification.
   only when the target platform capability and approved product scope support them.
 - Camera capture, receipt scanning, production bank connections, production AI, investments,
   and advanced merchant intelligence remain outside scope.
+
+## 2026-09-06 Per-Account Tracking Addendum
+
+- Effective capture requires the global tracking preference and an active,
+  supported account whose `automaticTrackingEnabled` value is true.
+- Missing, archived, unsupported, or disabled accounts fail closed with the
+  localized `account_blocked` outcome before mock event/review/transaction writes.
+- Existing local records and older sync snapshots that omit the property default
+  to true. This does not claim production cutover or external device delivery.

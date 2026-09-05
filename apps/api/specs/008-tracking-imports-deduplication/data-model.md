@@ -421,4 +421,12 @@ SQL. Service role does not receive direct ledger table mutation.
   database evidence only after success; retries are safe. Orphan reconciliation
   compares both sides without revealing keys.
 - Backups/restores include all Phase 08 tables and existing Storage recovery
-  procedure. Parser rollback changes active pointer, never rewrites parsed rows.
+procedure. Parser rollback changes active pointer, never rewrites parsed rows.
+
+## Account Eligibility Boundary
+
+`private.assert_automatic_tracking_account(text,text)` locks and validates the
+owned account plus global preference. Preparation/finalization call it before
+creating parser outputs, reviews, or auto-items; the `transaction_postings`
+trigger calls it again for `tracking-import` transactions. The assertion is
+server-only and returns one generic blocked code for every ineligible identity.

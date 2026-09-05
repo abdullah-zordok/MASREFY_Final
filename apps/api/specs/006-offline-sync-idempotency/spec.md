@@ -492,3 +492,11 @@ preserving all queues and records. Schema defects use forward correction.
       rebase, or PR occurs, and no task worktree remains.
 
 Verification listed here is required evidence, not a claim it has already run.
+
+## 2026-09-06 Account Tracking Sync Addendum
+
+- Account upsert snapshots include non-null `automatic_tracking_enabled` in
+  bootstrap and delta responses; account tombstones retain a null snapshot.
+- Older snapshots that omit the field are interpreted as enabled by clients,
+  matching the database default without rewriting or deleting local data.
+- Sync transports the value only; it does not decide tracking eligibility.

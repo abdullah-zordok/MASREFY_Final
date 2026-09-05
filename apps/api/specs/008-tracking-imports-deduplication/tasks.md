@@ -338,3 +338,11 @@ Do not check a task or claim a result unless its command/procedure ran successfu
 and retained evidence. External provider/account proof may remain explicitly gated;
 no local database, worker, client, security, migration, recovery, performance, or CI
 gate may be skipped. SPEC-BE-009 and later work is prohibited.
+
+## 2026-09-06 Per-Account Tracking Remediation
+
+- [x] Add RED/GREEN parser, worker-race, BOLA, ledger-boundary, and pgTAP cases.
+- [x] Reuse one database assertion before proposals/reviews and financial writes.
+- [x] Reject blocked claimed items without creating review or ledger side effects.
+- [x] Preserve global consent, fencing, replay, and enabled-account behavior.
+- [ ] Record independent review, pushed SHA, and successful remote CI evidence.

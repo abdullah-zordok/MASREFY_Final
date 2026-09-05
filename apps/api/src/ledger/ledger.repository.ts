@@ -126,6 +126,8 @@ function mapDatabaseError(error: unknown): HttpException {
     ].includes(pg.constraint ?? '')
   )
     return domainError('AMOUNT_OUT_OF_RANGE', 400);
+  if (message.includes('TRACKING_ACCOUNT_BLOCKED'))
+    return domainError('TRACKING_ACCOUNT_BLOCKED', 409);
   if (message.includes('ACCOUNT_INVALID')) return domainError('ACCOUNT_NOT_POSTABLE', 409);
   if (message.includes('CURRENCY_MISMATCH')) return domainError('CURRENCY_MISMATCH', 409);
   if (message.includes('CURRENCY_INVALID')) return domainError('INVALID_CURRENCY', 400);

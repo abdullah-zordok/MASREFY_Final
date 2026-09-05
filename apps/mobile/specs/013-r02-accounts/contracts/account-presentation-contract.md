@@ -75,3 +75,11 @@ R02 owns selection/search/empty/error/modal presentation. The caller owns its dr
 | Transaction rows/actions | R04 |
 | Caller draft/filter and applying picker result | Caller area |
 
+## 8. Automatic Tracking Presentation
+
+For bank, debit-card, credit-card, wallet, and savings accounts, create/edit
+forms own a boolean `automaticTrackingEnabled` input and detail renders the saved
+state. Cash and other accounts render neither control nor state. Presentation
+does not promise tracking eligibility: global consent and the server gate remain
+authoritative.
+

@@ -272,3 +272,10 @@ remain explicit pending gates. The user prohibited push/merge/rebase/PR actions;
 the terminal authorized repository actions are the verified baseline-test and
 Phase 06 local commits on `main`, excluding unrelated `.agents/plugins/`
 changes.
+
+## 2026-09-06 Account Tracking Sync Remediation
+
+- [x] Project `automatic_tracking_enabled` in account bootstrap snapshots.
+- [x] Attach the field to account upsert deltas while preserving null tombstones.
+- [x] Prove false survives bootstrap/delta and old Mobile snapshots default true.
+- [ ] Record the Slice 2 pushed SHA and remote CI result in acceptance evidence.

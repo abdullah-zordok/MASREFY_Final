@@ -4,6 +4,24 @@ import {
 } from '../../../src/reference/reference.dto';
 
 describe('account service', () => {
+  it('defaults account automatic tracking on and accepts explicit create/update controls', () => {
+    expect(normalizeCreateAccount({ name: 'A', type: 'bank', currency: 'SAR' })).toMatchObject({
+      automaticTrackingEnabled: true,
+    });
+    expect(
+      normalizeCreateAccount({
+        name: 'A',
+        type: 'bank',
+        currency: 'SAR',
+        automaticTrackingEnabled: false,
+      }),
+    ).toMatchObject({ automaticTrackingEnabled: false });
+    expect(normalizeAccountPatch({ expectedVersion: 1, automaticTrackingEnabled: false })).toEqual({
+      expectedVersion: 1,
+      automaticTrackingEnabled: false,
+    });
+  });
+
   it.each(['bank', 'debit_card', 'credit_card', 'wallet', 'cash', 'savings', 'other'])(
     'accepts the %s account type',
     (type) => {

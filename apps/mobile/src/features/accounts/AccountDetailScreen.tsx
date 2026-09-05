@@ -11,6 +11,7 @@ import { TransactionRow } from '@/design-system/components/financial/Transaction
 import { GroupedList } from '@/design-system/components/navigation/GroupedList';
 import {
   emptyTransactionFilters,
+  supportsAutomaticTrackingAccountType,
   type Category,
   type Transaction
 } from '@/domain/core-finance';
@@ -144,6 +145,15 @@ export function AccountDetailScreen({ id }: { id: string }) {
       <GroupedList label={value.name}>
         <AccountRow presentation={presentation} />
       </GroupedList>
+      {supportsAutomaticTrackingAccountType(value.type) ? (
+        <StyledText variant="caption">
+          {translate(
+            value.automaticTrackingEnabled
+              ? 'coreFinance.accounts.automaticTrackingEnabled'
+              : 'coreFinance.accounts.automaticTrackingDisabled'
+          )}
+        </StyledText>
+      ) : null}
       <View style={styles.stack}>
         <StyledText variant="subtitle">
           {translate('coreFinance.accounts.recentActivity')}

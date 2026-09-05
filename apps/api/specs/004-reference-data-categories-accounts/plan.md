@@ -229,3 +229,9 @@ Phase 05 per-owner ledger lock. One forward migration adds two server-only
 functions: an owner-scoped count/state preview and atomic transaction-header
 reassignment. The existing controller/service/repository, safe error envelope,
 audit/outbox, and Mobile category flow are extended without another subsystem.
+
+## 2026-09-06 Account Tracking Additive Release
+
+One forward migration extends `public.accounts` with a default-true boolean and
+the existing column-level API grants. Existing DTO, repository, audit/event,
+OpenAPI, and sync paths carry the field; no new account service is introduced.

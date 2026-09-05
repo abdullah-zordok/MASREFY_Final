@@ -123,6 +123,7 @@ export type TrackingErrorCode =
   | 'invalid_input'
   | 'permission_required'
   | 'paused'
+  | 'account_blocked'
   | 'offline'
   | 'duplicate'
   | 'review_required'

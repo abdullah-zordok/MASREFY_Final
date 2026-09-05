@@ -29,3 +29,12 @@ SC-001..008 are covered by the same retained story evidence: zero duplicate
 effects, no-loss upgrade, 100,000-resource pagination/load, tombstone safety,
 single conflict decisions, isolation denial, bounded indexed performance, and
 operator recovery visibility.
+
+## 2026-09-06 Client Item #45 Sync Evidence
+
+- Live bootstrap/delta integration proves an explicit false account value
+  survives both projections and excludes the foreign owner.
+- Mobile delta/storage tests prove false round-trips, omitted legacy fields
+  default true, and account tombstones remain snapshot-free.
+- Full database lint and pgTAP pass: 52 files and 1,659 assertions.
+- Independent review found no release-blocking findings; remote CI remains pending.

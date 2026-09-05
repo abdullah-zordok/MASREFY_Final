@@ -19,6 +19,7 @@ import { DesignIcon } from '@/design-system/icons';
 import { spacing } from '@/design-system/tokens';
 import {
   parseAmountToMinor,
+  supportsAutomaticTrackingAccountType,
   type Account,
   type AccountType
 } from '@/domain/core-finance';
@@ -74,6 +75,9 @@ export function AccountForm({
   );
   const [lastFour, setLastFour] = useState(account?.lastFour ?? '');
   const [isDefault, setDefault] = useState(account?.isDefault ?? false);
+  const [automaticTrackingEnabled, setAutomaticTrackingEnabled] = useState(
+    account?.automaticTrackingEnabled ?? true
+  );
 
   const [currencySheetVisible, setCurrencySheetVisible] = useState(false);
   const [error, setError] = useState<string>();
@@ -99,6 +103,8 @@ export function AccountForm({
         ? minorToMajorAmountText(account.creditLimitMinor, account.currencyCode)
         : '') ||
     isDefault !== (account?.isDefault ?? false) ||
+    automaticTrackingEnabled !==
+      (account?.automaticTrackingEnabled ?? true) ||
     lastFour !== (account?.lastFour ?? '');
 
   useEffect(() => {
@@ -114,6 +120,7 @@ export function AccountForm({
     );
     setLastFour(account.lastFour ?? '');
     setDefault(account.isDefault);
+    setAutomaticTrackingEnabled(account.automaticTrackingEnabled ?? true);
     setError(undefined);
     setErrorField(undefined);
   }, [account]);
@@ -168,6 +175,7 @@ export function AccountForm({
       lastFour: lastFour.trim() ? lastFour.trim().slice(-4) : null,
       creditLimitMinor: creditLimitMinor ?? account?.creditLimitMinor ?? null,
       isDefault,
+      automaticTrackingEnabled,
       notes: account?.notes ?? null
     };
 
@@ -371,6 +379,18 @@ export function AccountForm({
             value={isDefault}
             onValueChange={setDefault}
           />
+
+          {supportsAutomaticTrackingAccountType(type) ? (
+            <AccountSettingCard
+              icon="check"
+              title={t('coreFinance.accounts.automaticTracking')}
+              description={t(
+                'coreFinance.accounts.automaticTrackingDescription'
+              )}
+              value={automaticTrackingEnabled}
+              onValueChange={setAutomaticTrackingEnabled}
+            />
+          ) : null}
 
           {errorField === 'form' && error ? (
             <Text style={styles.formErrorText}>{error}</Text>

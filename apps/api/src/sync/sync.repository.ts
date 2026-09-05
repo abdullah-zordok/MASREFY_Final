@@ -316,6 +316,7 @@ export class SyncRepository {
                   'icon_key',source.icon_key,'color_key',source.color_key,'notes',source.notes,
                   'status',source.status,'sort_order',source.sort_order,
                   'include_in_totals',source.include_in_totals,'opened_at',source.opened_at,
+                  'automatic_tracking_enabled',source.automatic_tracking_enabled,
                   'closed_at',source.closed_at,'deleted_at',source.deleted_at,
                   'created_at',source.created_at,'updated_at',source.updated_at,
                   'version',source.version)`

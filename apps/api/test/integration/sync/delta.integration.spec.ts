@@ -28,8 +28,8 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
         [deviceId, ownerId, `h1:${'d'.repeat(64)}`],
       );
       await client.query(
-        `insert into public.accounts(id,user_id,name,type,currency_code) values
-         ($1,$3,'Cash','cash','SAR'),($2,$4,'Other','cash','SAR')`,
+        `insert into public.accounts(id,user_id,name,type,currency_code,automatic_tracking_enabled) values
+         ($1,$3,'Cash','cash','SAR',false),($2,$4,'Other','cash','SAR',true)`,
         [accountId, otherAccountId, ownerId, otherId],
       );
       await client.query(
@@ -90,6 +90,7 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
       id: accountId,
       snapshot: { id: accountId, name: 'Cash updated' },
     });
+    expect(domain?.items[0]?.snapshot.automatic_tracking_enabled).toBe(false);
     expect(domain?.items.some((item) => item.id === otherAccountId)).toBe(false);
   });
 
@@ -102,6 +103,11 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
     expect(resumed.changes.map(({ position }) => position)).toEqual([501n, 502n]);
     expect(first.current).toBe(502n);
     expect(first.changes.every(({ resourceId }) => resourceId === accountId)).toBe(true);
+    expect(
+      first.changes
+        .filter(({ snapshot }) => snapshot !== null)
+        .every(({ snapshot }) => snapshot?.automatic_tracking_enabled === false),
+    ).toBe(true);
     await repository.recordIssuedCursor(principal, deviceId, 'accounts', 502n);
     const ack = await repository.acknowledge(principal, deviceId, 'accounts', 502n, null);
     expect(ack.position).toBe(502n);

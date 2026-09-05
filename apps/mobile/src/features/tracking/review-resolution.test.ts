@@ -1,12 +1,17 @@
 import { createMockAutomaticTrackingService } from '@/services/mocks/automatic-tracking-service';
 import { createMockTrackingPermissionService } from '@/services/mocks/tracking-permission-service';
 import { makeMockEvent } from '@/test-utils/automatic-tracking-fixtures';
+import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
+import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
 
 describe('review resolution', () => {
   it('keeps uncertain detections pending until explicit resolution', async () => {
     const service = createMockAutomaticTrackingService({
       persistent: false,
       permissionService: createMockTrackingPermissionService('granted'),
+      financeService: {
+        getAccount: async () => fixtureAccounts[0]
+      } as unknown as CoreFinanceService,
       storage: storageStub()
     });
 

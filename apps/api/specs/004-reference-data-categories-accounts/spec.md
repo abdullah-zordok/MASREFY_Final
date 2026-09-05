@@ -623,3 +623,14 @@ been executed.
   same-kind custom target and atomically reassigns every owned transaction
   header before the source is marked merged.
 - Separate archive undo and bulk lifecycle actions remain out of scope.
+
+## 2026-09-06 Client Remediation Addendum — Account Tracking Control
+
+- Every account exposes non-null `automaticTrackingEnabled`; existing rows and
+  omitted create values default to `true` for backward compatibility.
+- Only `bank`, `debit_card`, `credit_card`, `wallet`, and `savings` accounts can
+  participate. `cash`, `other`, inactive, missing, and foreign-owned accounts
+  fail closed through the tracking boundary without revealing existence.
+- Create/update audit and outbox events include this allowlisted field, and the
+  existing account routes remain the sole mutation surface.
+- This additive control does not perform the Phase 14 production cutover.

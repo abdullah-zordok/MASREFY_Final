@@ -3,6 +3,7 @@ import { createMockAutomaticTrackingService } from '@/services/mocks/automatic-t
 import { createMockTrackingPermissionService } from '@/services/mocks/tracking-permission-service';
 import { makeMockEvent } from '@/test-utils/automatic-tracking-fixtures';
 import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
+import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
 
 describe('automatic tracking undo', () => {
   afterEach(() => {
@@ -17,6 +18,7 @@ describe('automatic tracking undo', () => {
       permissionService: createMockTrackingPermissionService('granted'),
       storage: trackingStorageStub(),
       financeService: ({
+        getAccount: async () => fixtureAccounts[0],
         createTransaction: async () =>
           ({
             value: { id: 'transaction-auto' },
@@ -53,6 +55,7 @@ describe('automatic tracking undo', () => {
       permissionService: createMockTrackingPermissionService('granted'),
       storage: trackingStorageStub(),
       financeService: ({
+        getAccount: async () => fixtureAccounts[0],
         createTransaction: async () =>
           ({
             value: { id: 'transaction-auto' },

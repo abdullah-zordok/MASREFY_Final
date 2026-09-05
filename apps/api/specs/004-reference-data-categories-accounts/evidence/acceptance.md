@@ -58,3 +58,14 @@ Windows `core.autocrlf` normalization and has no content diff. A fresh
   image/container, and vulnerability-scan jobs. The superseded first run exposed
   the missing migration-function inventory entries; the exact migration suite
   passed locally and remotely after the follow-up.
+
+## 2026-09-06 Client Item #45 Account Evidence
+
+- Clean reset and schema lint: PASS with migration
+  `20260905081000_account_automatic_tracking.sql`.
+- Account default/create/update/read, column-level grants, audit/outbox changed
+  fields, OpenAPI, BOLA, and migration inventory checks: PASS.
+- API full verify: 111 unit suites/819 tests, 63 contract suites/191 tests,
+  86 live integration suites/216 tests, 38 E2E suites/67 tests, and
+  40 security suites/139 tests all passed.
+- Independent review found no release-blocking findings; remote CI remains pending.

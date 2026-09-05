@@ -679,6 +679,13 @@ const en = {
     'Currency stays read-only after account activity.',
   'coreFinance.accounts.openingBalance': 'Opening balance',
   'coreFinance.accounts.makeDefault': 'Make default account',
+  'coreFinance.accounts.automaticTracking': 'Automatic tracking',
+  'coreFinance.accounts.automaticTrackingDescription':
+    'Allow eligible automatic transactions for this account.',
+  'coreFinance.accounts.automaticTrackingEnabled':
+    'Automatic tracking is enabled for this account.',
+  'coreFinance.accounts.automaticTrackingDisabled':
+    'Automatic tracking is disabled for this account.',
   'coreFinance.accounts.create': 'Create Account',
   'coreFinance.accounts.step1Of2': 'Step 1 of 2',
   'coreFinance.accounts.step2Of2': 'Step 2 of 2',

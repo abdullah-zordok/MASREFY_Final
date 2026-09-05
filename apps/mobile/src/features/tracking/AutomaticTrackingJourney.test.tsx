@@ -3,6 +3,7 @@ import { createMockTrackingPermissionService } from '@/services/mocks/tracking-p
 import { makeMockEvent } from '@/test-utils/automatic-tracking-fixtures';
 import { resolveTrackingRouteCapability } from './tracking-route-guard';
 import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
+import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
 
 describe('automatic tracking critical journey', () => {
   it('covers clear add, review, duplicate, undo, rules, privacy, and iOS separation', async () => {
@@ -21,6 +22,7 @@ describe('automatic tracking critical journey', () => {
         saveKeywords: async () => undefined
       } as never,
       financeService: ({
+        getAccount: async () => fixtureAccounts[0],
         createTransaction: async () =>
           ({
             value: { id: 'transaction-auto' },

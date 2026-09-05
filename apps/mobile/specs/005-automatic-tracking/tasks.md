@@ -356,3 +356,10 @@ Home/More integration, and localization catalogs; keep story-specific components
 - User-story labels provide requirement traceability; setup, foundational, and polish tasks have no
   story label by design.
 - Commit after each task or coherent task group and stop at any checkpoint for independent review.
+
+## 2026-09-06 Per-Account Tracking Remediation
+
+- [x] Add account resolution and fail-closed mock financial-effect coverage.
+- [x] Keep replay/idempotency checks ahead of the account eligibility decision.
+- [x] Add localized blocked-account messaging and contract parity tests.
+- [ ] Record independent review and Slice 2 remote CI evidence.

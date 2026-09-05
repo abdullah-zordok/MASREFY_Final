@@ -75,3 +75,15 @@ Counts:
 | AC-018     | Passed                            | Every Phase 08 local gate and pushed-main workflow `33744378707` passed.                     |
 | AC-019     | Passed locally with external gaps | SPEC-BE-001..007 dependencies evidenced; provider/account proofs remain external.            |
 | AC-020     | Passed                            | Spec09+ scope scan passes; scoped commits were pushed and CI completed successfully.         |
+
+## 2026-09-06 Client Item #45 Gate Evidence
+
+- New pgTAP coverage passes 26 assertions for default/non-null schema, execute
+  denial, enabled account, every blocked state, global opt-out, manual-write
+  preservation, parser/finalization races, imported-transaction revision,
+  zero review/financial effects, and retry idempotency.
+- The worker race test proves a late ledger rejection becomes one terminal
+  `account_tracking_blocked` result through the existing fenced import flow.
+- Mobile full Jest passes 415 suites/1,699 tests with a host-safe 15-second test
+  timeout; lint has zero errors, typecheck and all quality boundaries pass.
+- Independent review found no release-blocking findings; remote CI remains pending.

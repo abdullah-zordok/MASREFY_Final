@@ -1500,6 +1500,15 @@ erDiagram
   handoff contract, tests, budgets, cache rules, metrics/alerts, migration mapping,
   reconciliation, and rollback evidence pass.
 
+#### Client Item #45 Additive Account Contract (2026-09-06)
+
+- `public.accounts.automatic_tracking_enabled boolean not null default true` is
+  carried by account CRUD, audit/outbox, OpenAPI, and sync. Supported automatic
+  tracking account types are bank, debit card, credit card, wallet, and savings.
+- SPEC-BE-008 owns the conjunctive global/account eligibility decision and its
+  financial boundary; SPEC-BE-004 owns only the account field and mutation rules.
+- This additive remediation does not activate the Phase 14 client cutover.
+
 ### Phase 05 - SPEC-BE-005: Transactions, Ledger, Transfers & Financial Integrity
 
 #### Objective and Scope
@@ -1793,6 +1802,13 @@ Unknown domains/resources/schema versions are rejected before persistence.
   interrupted work is safe; Mobile data survives; financial conflicts never LWW;
   contracts, RLS, tests, performance, migration/shadow/rollback, metrics, alerts,
   and runbook evidence pass.
+
+#### Client Item #45 Sync Contract (2026-09-06)
+
+- Account bootstrap and upsert delta snapshots carry
+  `automatic_tracking_enabled`; account tombstones remain snapshot-free.
+- Older snapshots omit the field safely and normalize to the database-compatible
+  value true. Sync transports the field without becoming an authorization gate.
 
 ### Phase 07 - SPEC-BE-007: Financial Planning
 
@@ -2092,6 +2108,16 @@ payloads, internal rule definitions, and worker errors are excluded.
   one ledger command; hostile inputs are bounded; no duplicate confirmed write;
   all schema/RLS/APIs/jobs/events/mocks/tests/performance/migration/rollback/
   observability and corpus evidence pass.
+
+#### Client Item #45 Per-Account Gate (2026-09-06)
+
+- Effective tracking requires global consent plus an active, owned, supported
+  account with `automatic_tracking_enabled = true`.
+- One server-only assertion is reused before parser proposal/review creation and
+  at `tracking-import` posting insertion. All ineligible account identities fail
+  closed through the same non-disclosing code and commit no financial effects.
+- Existing import fencing, retries, ledger commands, and parser subsystem remain
+  authoritative; no second subsystem or Phase 14 cutover is introduced.
 
 ### Phase 09 - SPEC-BE-009: Voice, OpenRouter AI & Financial Assistant
 

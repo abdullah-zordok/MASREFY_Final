@@ -38,7 +38,21 @@ it('shows derived balance and account management actions', () => {
   ).toBeTruthy();
   expect(screen.getByText(translate('coreFinance.accounts.edit'))).toBeTruthy();
   expect(
+    screen.getByText(translate('coreFinance.accounts.automaticTrackingEnabled'))
+  ).toBeTruthy();
+  expect(
     screen.getByText(translate('coreFinance.action.transfer'))
+  ).toBeTruthy();
+});
+
+it('shows when automatic tracking is disabled for the account', () => {
+  const account = { ...fixtureAccounts[0], automaticTrackingEnabled: false };
+  renderWithQueryData(<AccountDetailScreen id={account.id} />, [
+    [coreFinanceKeys.account(account.id), account],
+    [coreFinanceKeys.accountBalances(true), []]
+  ]);
+  expect(
+    screen.getByText(translate('coreFinance.accounts.automaticTrackingDisabled'))
   ).toBeTruthy();
 });
 

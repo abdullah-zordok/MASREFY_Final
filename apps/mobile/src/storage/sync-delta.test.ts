@@ -93,6 +93,56 @@ describe('transactional Mobile delta apply', () => {
     expect(cursorWrite?.[2]).toBe('final-cursor');
   });
 
+  it.each([
+    [undefined, true],
+    [false, false]
+  ] as const)(
+    'maps account automatic tracking from sync snapshots (%s)',
+    async (automaticTrackingEnabled, expected) => {
+      const transaction = {
+        getFirstAsync: jest.fn(async () => null),
+        runAsync: jest.fn(async (..._args: unknown[]) => undefined)
+      };
+      const database = {
+        ...transaction,
+        withExclusiveTransactionAsync: jest.fn(
+          async (action: (value: unknown) => Promise<void>) => action(transaction)
+        )
+      };
+      await new CoreFinanceSyncAdapter(database as never).applyDelta(
+        'accounts',
+        [
+          {
+            resourceId: 'account-tracking',
+            operation: 'upsert',
+            version: 1,
+            deletedAt: null,
+            snapshot: {
+              id: 'account-tracking',
+              name: 'Card',
+              type: 'credit_card',
+              currency_code: 'SAR',
+              status: 'active',
+              ...(automaticTrackingEnabled === undefined
+                ? {}
+                : { automatic_tracking_enabled: automaticTrackingEnabled }),
+              created_at: '2026-08-31T00:00:00.000Z',
+              updated_at: '2026-08-31T00:00:00.000Z'
+            }
+          }
+        ],
+        'cursor-tracking',
+        null
+      );
+      const write = transaction.runAsync.mock.calls.find(([sql]) =>
+        String(sql).includes('finance_accounts')
+      );
+      expect(JSON.parse(String(write?.[2])).automaticTrackingEnabled).toBe(
+        expected
+      );
+    }
+  );
+
   it('advances the cursor only after every local apply succeeds', async () => {
     const events: string[] = [];
     const transaction = {
