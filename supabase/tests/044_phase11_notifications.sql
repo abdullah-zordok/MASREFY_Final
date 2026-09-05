@@ -22,5 +22,15 @@ select has_index('public','notification_events','notification_events_owner_curso
 select has_index('public','notification_preferences','notification_preferences_owner_channel_uq','preference matrix is unique');
 select has_index('private','notification_deliveries','notification_deliveries_due_idx','due claims are indexed');
 
+grant masarifi_migration to current_user with inherit true,set true;
+set local role masarifi_migration;
+insert into public.profiles(id,status) values('phase11-preference-cascade','active');
+reset role;
+select ok((select count(*)>0 from public.notification_preferences where user_id='phase11-preference-cascade'),'new profiles receive preferences');
+set local role masarifi_migration;
+delete from public.profiles where id='phase11-preference-cascade';
+reset role;
+select is((select count(*) from public.notification_preferences where user_id='phase11-preference-cascade'),0::bigint,'owned preferences cascade with profile deletion');
+
 select * from finish();
 rollback;

@@ -24,13 +24,20 @@ describeLiveDatabase('report schedule worker', () => {
   afterAll(async () => pool.onModuleDestroy());
 
   it('enqueues one immutable attempt under concurrent claims and advances one period', async () => {
+    const now = new Date();
+    const scheduledFor = new Date(now);
+    scheduledFor.setUTCDate(1);
+    scheduledFor.setUTCHours(5, 0, 0, 0);
+    scheduledFor.setUTCMonth(scheduledFor.getUTCMonth() - 1);
+    const nextRunAt = new Date(scheduledFor);
+    nextRunAt.setUTCMonth(nextRunAt.getUTCMonth() + 1);
     const schedule = (await repository.createSchedule(
       principal,
       {
         reportType: 'financial_summary',
         frequency: 'monthly',
         timezone: 'Asia/Riyadh',
-        nextRunAt: '2026-08-01T05:00:00.000Z',
+        nextRunAt: scheduledFor.toISOString(),
         deliveryChannel: 'download',
         recipient: null,
         enabled: true,
@@ -39,8 +46,8 @@ describeLiveDatabase('report schedule worker', () => {
       'request',
     )) as { id: string };
     const results = await Promise.all([
-      repository.enqueueDueSchedule(schedule.id, new Date('2026-09-04T00:00:00.000Z')),
-      repository.enqueueDueSchedule(schedule.id, new Date('2026-09-04T00:00:00.000Z')),
+      repository.enqueueDueSchedule(schedule.id, now),
+      repository.enqueueDueSchedule(schedule.id, now),
     ]);
     expect(results.sort()).toEqual([false, true]);
     const attempts = await pool.query<{ count: string }>(
@@ -51,8 +58,8 @@ describeLiveDatabase('report schedule worker', () => {
     expect(attempts.rows[0]?.count).toBe('1');
     expect(advanced).toMatchObject({
       version: 2,
-      lastRunAt: '2026-08-01T05:00:00.000Z',
-      nextRunAt: '2026-09-01T05:00:00.000Z',
+      lastRunAt: scheduledFor.toISOString(),
+      nextRunAt: nextRunAt.toISOString(),
     });
   });
 });

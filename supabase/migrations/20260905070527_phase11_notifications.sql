@@ -30,7 +30,7 @@ for each row execute function private.set_updated_at_and_version();
 
 create table public.notification_preferences (
   id uuid primary key default extensions.gen_random_uuid(),
-  user_id text not null references public.profiles(id) on update restrict on delete restrict,
+  user_id text not null references public.profiles(id) on update restrict on delete cascade,
   channel text not null check(channel in ('in_app','push','email')),
   event_type text not null check(event_type ~ '^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)+$' and char_length(event_type)<=96),
   enabled boolean not null default true,
