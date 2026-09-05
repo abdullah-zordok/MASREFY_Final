@@ -1,0 +1,669 @@
+openapi: 3.1.0
+info:
+  title: Masarifi Phase 11 Engagement API
+  version: 1.0.0
+  description: Safe notification, campaign, support, feedback, abuse, and published-content contracts.
+servers:
+  - url: /api/v1
+security:
+  - ClerkBearer: []
+tags:
+  - name: Notifications
+  - name: Support
+  - name: Feedback
+  - name: Content
+  - name: AdminEngagement
+paths:
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CustomerLimit'
+        - { name: type, in: query, schema: { type: string, maxLength: 96 } }
+        - { name: unread, in: query, schema: { type: boolean } }
+      responses:
+        '200': { description: Owner-safe notification page, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /notifications/{notificationId}:
+    get:
+      tags: [Notifications]
+      operationId: getNotification
+      parameters: [{ $ref: '#/components/parameters/NotificationId' }]
+      responses:
+        '200': { description: Protected owner detail, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /notifications/{notificationId}/read:
+    post:
+      tags: [Notifications]
+      operationId: setNotificationRead
+      parameters: [{ $ref: '#/components/parameters/NotificationId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReadRequest' } } } }
+      responses:
+        '200': { description: Updated owner item, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /notifications/{notificationId}/actions:
+    post:
+      tags: [Notifications]
+      operationId: actOnNotification
+      parameters: [{ $ref: '#/components/parameters/NotificationId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationActionRequest' } } } }
+      responses:
+        '200': { description: Protected action result, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /notifications/preferences:
+    get:
+      tags: [Notifications]
+      operationId: getNotificationPreferences
+      responses:
+        '200': { description: Complete matrix, content: { application/json: { schema: { $ref: '#/components/schemas/PreferenceMatrix' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [Notifications]
+      operationId: replaceNotificationPreferences
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PreferenceMatrixInput' } } } }
+      responses:
+        '200': { description: Replaced matrix, content: { application/json: { schema: { $ref: '#/components/schemas/PreferenceMatrix' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/categories:
+    get:
+      tags: [Support]
+      operationId: listSupportCategories
+      responses:
+        '200': { description: Active categories, content: { application/json: { schema: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportCategory' } } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets:
+    get:
+      tags: [Support]
+      operationId: listSupportTickets
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/CustomerLimit' }, { name: status, in: query, schema: { $ref: '#/components/schemas/TicketStatus' } }]
+      responses:
+        '200': { description: Owner ticket page, content: { application/json: { schema: { $ref: '#/components/schemas/TicketPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [Support]
+      operationId: createSupportTicket
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateTicketRequest' } } } }
+      responses:
+        '201': { description: Created ticket, content: { application/json: { schema: { $ref: '#/components/schemas/TicketDetail' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets/{ticketId}:
+    get:
+      tags: [Support]
+      operationId: getSupportTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/CustomerLimit' }]
+      responses:
+        '200': { description: Owner ticket and message page, content: { application/json: { schema: { $ref: '#/components/schemas/TicketDetail' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets/{ticketId}/messages:
+    post:
+      tags: [Support]
+      operationId: addSupportMessage
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddMessageRequest' } } } }
+      responses:
+        '201': { description: Created message and ticket state, content: { application/json: { schema: { $ref: '#/components/schemas/TicketDetail' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets/{ticketId}/close:
+    post:
+      tags: [Support]
+      operationId: closeSupportTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VersionRequest' } } } }
+      responses:
+        '200': { description: Closed ticket, content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets/{ticketId}/reopen:
+    post:
+      tags: [Support]
+      operationId: reopenSupportTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/VersionRequest' }, { type: object, required: [reason], properties: { reason: { type: string, minLength: 1, maxLength: 500 } } }] } } } }
+      responses:
+        '200': { description: Reopened ticket, content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets/{ticketId}/attachments/uploads:
+    post:
+      tags: [Support]
+      operationId: initializeSupportAttachment
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentInitRequest' } } } }
+      responses:
+        '201': { description: Short signed upload instructions, content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentUpload' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/tickets/{ticketId}/attachments/finalize:
+    post:
+      tags: [Support]
+      operationId: finalizeSupportAttachment
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentFinalizeRequest' } } } }
+      responses:
+        '202': { description: Pending scan, content: { application/json: { schema: { $ref: '#/components/schemas/Attachment' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /support/attachments/{attachmentId}/download:
+    get:
+      tags: [Support]
+      operationId: downloadSupportAttachment
+      parameters: [{ $ref: '#/components/parameters/AttachmentId' }]
+      responses:
+        '200': { description: Clean owner-authorized short link, content: { application/json: { schema: { type: object, additionalProperties: false, required: [url,expiresAt], properties: { url: { type: string, format: uri }, expiresAt: { type: string, format: date-time } } } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /feedback:
+    get:
+      tags: [Feedback]
+      operationId: listFeedback
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/CustomerLimit' }]
+      responses:
+        '200': { description: Owner feedback page, content: { application/json: { schema: { $ref: '#/components/schemas/FeedbackPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [Feedback]
+      operationId: createFeedback
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateFeedbackRequest' } } } }
+      responses:
+        '201': { description: Created feedback, content: { application/json: { schema: { $ref: '#/components/schemas/Feedback' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /feedback/{feedbackId}:
+    get:
+      tags: [Feedback]
+      operationId: getFeedback
+      parameters: [{ name: feedbackId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }]
+      responses:
+        '200': { description: Owner feedback, content: { application/json: { schema: { $ref: '#/components/schemas/Feedback' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /abuse-reports:
+    get:
+      tags: [Feedback]
+      operationId: listOwnAbuseReports
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/CustomerLimit' }]
+      responses:
+        '200': { description: Owner-safe statuses, content: { application/json: { schema: { $ref: '#/components/schemas/AbusePage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [Feedback]
+      operationId: createAbuseReport
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateAbuseRequest' } } } }
+      responses:
+        '202': { description: Safe accepted receipt, content: { application/json: { schema: { $ref: '#/components/schemas/AbuseReport' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /content:
+    get:
+      tags: [Content]
+      operationId: listPublishedContent
+      parameters:
+        - { name: locale, in: query, required: true, schema: { $ref: '#/components/schemas/Locale' } }
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/ContentType' } }
+        - { name: query, in: query, schema: { type: string, maxLength: 120 } }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/CustomerLimit' }
+      responses:
+        '200': { description: Published localized page, content: { application/json: { schema: { $ref: '#/components/schemas/ContentPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /content/{contentKey}:
+    get:
+      tags: [Content]
+      operationId: getPublishedContent
+      parameters:
+        - { name: contentKey, in: path, required: true, schema: { type: string, pattern: '^[a-z][a-z0-9_-]{1,95}$' } }
+        - { name: locale, in: query, required: true, schema: { $ref: '#/components/schemas/Locale' } }
+      responses:
+        '200': { description: Published localized item, content: { application/json: { schema: { $ref: '#/components/schemas/ContentItem' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/communications/templates:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListNotificationTemplates
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses:
+        '200': { description: Template page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [AdminEngagement]
+      operationId: adminCreateNotificationTemplate
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateRequest' } } } }
+      responses:
+        '201': { description: Draft template, content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/communications/templates/{templateId}/actions:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminActOnNotificationTemplate
+      parameters: [{ name: templateId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminActionRequest' } } } }
+      responses:
+        '200': { description: Test, publish, or retire result, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/notifications/audience-preview:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminPreviewNotificationAudience
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AudienceDefinition' } } } }
+      responses:
+        '200': { description: Aggregate-only preview, content: { application/json: { schema: { $ref: '#/components/schemas/AudiencePreview' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/notifications/campaigns:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListNotificationCampaigns
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses:
+        '200': { description: Campaign page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [AdminEngagement]
+      operationId: adminCreateNotificationCampaign
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CampaignRequest' } } } }
+      responses:
+        '201': { description: Campaign draft, content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/notifications/campaigns/{campaignId}:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminGetNotificationCampaign
+      parameters: [{ name: campaignId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }]
+      responses:
+        '200': { description: Campaign detail/status, content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/notifications/campaigns/{campaignId}/actions:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminActOnNotificationCampaign
+      parameters: [{ name: campaignId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CampaignActionRequest' } } } }
+      responses:
+        '200': { description: Versioned action result, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/notifications/deliveries:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListNotificationDeliveries
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses:
+        '200': { description: Redacted delivery page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/notifications/deliveries/{deliveryId}/retry:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminRetryNotificationDelivery
+      parameters: [{ name: deliveryId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/VersionRequest' }, { type: object, required: [reason], properties: { reason: { type: string, minLength: 1, maxLength: 500 } } }] } } } }
+      responses:
+        '202': { description: Retry queued, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/support/tickets:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListSupportTickets
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses:
+        '200': { description: Permissioned ticket page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/support/tickets/{ticketId}:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminGetSupportTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses:
+        '200': { description: Ticket detail; notes only for notes permission, content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/support/tickets/{ticketId}/actions:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminActOnSupportTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminActionRequest' } } } }
+      responses:
+        '200': { description: Assign, priority, reply, status, close, or reopen, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/support/tickets/{ticketId}/notes:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminAddSupportInternalNote
+      parameters: [{ $ref: '#/components/parameters/TicketId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body, expectedVersion, reason]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 8192 }
+                expectedVersion: { type: integer, minimum: 1 }
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '201': { description: Private note result, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /admin/support/categories:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListSupportCategories
+      responses: { '200': { description: Category page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }, default: { $ref: '#/components/responses/Error' } }
+    post:
+      tags: [AdminEngagement]
+      operationId: adminCreateSupportCategory
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [key, name, sortOrder]
+              properties:
+                key: { type: string, pattern: '^[a-z][a-z0-9_-]{1,63}$' }
+                name: { type: string, minLength: 1, maxLength: 120 }
+                sortOrder: { type: integer, minimum: 0 }
+      responses: { '201': { description: Category, content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } } }, default: { $ref: '#/components/responses/Error' } }
+  /admin/feedback:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListFeedback
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses: { '200': { description: Feedback page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }, default: { $ref: '#/components/responses/Error' } }
+  /admin/feedback/{feedbackId}/actions:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminActOnFeedback
+      parameters: [{ name: feedbackId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminActionRequest' } } } }
+      responses: { '200': { description: Review/assign/status result, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }, default: { $ref: '#/components/responses/Error' } }
+  /admin/abuse-reports:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListAbuseReports
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses: { '200': { description: Permissioned redacted report page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }, default: { $ref: '#/components/responses/Error' } }
+  /admin/abuse-reports/{reportId}/actions:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminActOnAbuseReport
+      parameters: [{ name: reportId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminActionRequest' } } } }
+      responses: { '200': { description: Review/action/dismiss result, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }, default: { $ref: '#/components/responses/Error' } }
+  /admin/content:
+    get:
+      tags: [AdminEngagement]
+      operationId: adminListContent
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/AdminLimit' }]
+      responses: { '200': { description: Content page, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPage' } } } }, default: { $ref: '#/components/responses/Error' } }
+    post:
+      tags: [AdminEngagement]
+      operationId: adminCreateContent
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ContentRequest' } } } }
+      responses: { '201': { description: Content draft, content: { application/json: { schema: { $ref: '#/components/schemas/AdminResource' } } } }, default: { $ref: '#/components/responses/Error' } }
+  /admin/content/{contentId}/actions:
+    post:
+      tags: [AdminEngagement]
+      operationId: adminActOnContent
+      parameters: [{ name: contentId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminActionRequest' } } } }
+      responses: { '200': { description: Review, immediate publish, or retire, content: { application/json: { schema: { $ref: '#/components/schemas/ActionResult' } } } }, default: { $ref: '#/components/responses/Error' } }
+components:
+  securitySchemes:
+    ClerkBearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
+    CustomerLimit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+    AdminLimit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
+    NotificationId: { name: notificationId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    TicketId: { name: ticketId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    AttachmentId: { name: attachmentId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+  responses:
+    Error:
+      description: Safe error envelope
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Uuid: { type: string, format: uuid }
+    Locale: { type: string, enum: [ar, en] }
+    Channel: { type: string, enum: [in_app, push, email] }
+    TicketStatus: { type: string, enum: [open, waiting_customer, waiting_support, resolved, closed] }
+    TicketPriority: { type: string, enum: [low, normal, high, urgent] }
+    ContentType: { type: string, enum: [article, faq, policy, announcement] }
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string, maxLength: 80 }
+        message: { type: string, maxLength: 240 }
+        requestId: { type: string, maxLength: 128 }
+        fieldErrors: { type: object, additionalProperties: { type: array, maxItems: 10, items: { type: string, maxLength: 160 } } }
+    CursorPage:
+      type: object
+      additionalProperties: false
+      required: [nextCursor,hasMore]
+      properties: { nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
+    NotificationAction:
+      type: object
+      additionalProperties: false
+      required: [key,expiresAt]
+      properties: { key: { type: string, enum: [view, edit, undo] }, expiresAt: { type: [string,'null'], format: date-time } }
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id,type,title,body,dataSafe,readAt,actedAt,expiresAt,actions,version,createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        type: { type: string, maxLength: 96 }
+        title: { type: string, maxLength: 120 }
+        body: { type: string, maxLength: 240 }
+        dataSafe: { type: object, maxProperties: 16, additionalProperties: { type: [string,number,boolean,'null'] } }
+        readAt: { type: [string,'null'], format: date-time }
+        actedAt: { type: [string,'null'], format: date-time }
+        expiresAt: { type: [string,'null'], format: date-time }
+        actions: { type: array, maxItems: 3, items: { $ref: '#/components/schemas/NotificationAction' } }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    NotificationPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items,unreadCount]
+          properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Notification' } }, unreadCount: { type: integer, minimum: 0 } }
+    ReadRequest:
+      type: object
+      additionalProperties: false
+      required: [read,expectedVersion]
+      properties: { read: { type: boolean }, expectedVersion: { type: integer, minimum: 1 } }
+    NotificationActionRequest:
+      type: object
+      additionalProperties: false
+      required: [actionKey,expectedVersion]
+      properties: { actionKey: { type: string, enum: [view, edit, undo] }, expectedVersion: { type: integer, minimum: 1 } }
+    QuietHours:
+      type: object
+      additionalProperties: false
+      required: [enabled,start,end,weekdays,timeZone]
+      properties:
+        enabled: { type: boolean }
+        start: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        end: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        weekdays: { type: array, maxItems: 7, uniqueItems: true, items: { type: integer, minimum: 0, maximum: 6 } }
+        timeZone: { type: string, minLength: 1, maxLength: 64 }
+    Preference:
+      type: object
+      additionalProperties: false
+      required: [channel,eventType,enabled,quietHours,version]
+      properties:
+        channel: { $ref: '#/components/schemas/Channel' }
+        eventType: { type: string, maxLength: 96 }
+        enabled: { type: boolean }
+        quietHours: { $ref: '#/components/schemas/QuietHours' }
+        version: { type: integer, minimum: 1 }
+    PreferenceMatrix:
+      type: object
+      additionalProperties: false
+      required: [items,version]
+      properties: { items: { type: array, maxItems: 300, items: { $ref: '#/components/schemas/Preference' } }, version: { type: integer, minimum: 1 } }
+    PreferenceMatrixInput:
+      allOf:
+        - $ref: '#/components/schemas/PreferenceMatrix'
+        - type: object
+          required: [expectedVersion]
+          properties: { expectedVersion: { type: integer, minimum: 1 } }
+    SupportCategory:
+      type: object
+      additionalProperties: false
+      required: [id,key,name,sortOrder]
+      properties: { id: { $ref: '#/components/schemas/Uuid' }, key: { type: string, maxLength: 64 }, name: { type: string, maxLength: 120 }, sortOrder: { type: integer, minimum: 0 } }
+    Ticket:
+      type: object
+      additionalProperties: false
+      required: [id,categoryId,subject,status,priority,lastMessageAt,closedAt,version,createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        categoryId: { $ref: '#/components/schemas/Uuid' }
+        subject: { type: string, maxLength: 180 }
+        status: { $ref: '#/components/schemas/TicketStatus' }
+        priority: { $ref: '#/components/schemas/TicketPriority' }
+        lastMessageAt: { type: string, format: date-time }
+        closedAt: { type: [string,'null'], format: date-time }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    SupportMessage:
+      type: object
+      additionalProperties: false
+      required: [id,senderType,body,attachments,createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        senderType: { type: string, enum: [customer, admin, system] }
+        body: { type: string, maxLength: 8192 }
+        attachments: { type: array, maxItems: 6, items: { $ref: '#/components/schemas/Attachment' } }
+        createdAt: { type: string, format: date-time }
+    TicketDetail:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          required: [messages,nextCursor,hasMore]
+          properties: { messages: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportMessage' } }, nextCursor: { type: [string,'null'] }, hasMore: { type: boolean } }
+    TicketPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Ticket' } } }
+    CreateTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [categoryId,subject,message]
+      properties: { categoryId: { $ref: '#/components/schemas/Uuid' }, subject: { type: string, minLength: 1, maxLength: 180 }, message: { type: string, minLength: 1, maxLength: 8192 }, attachmentUploadIds: { type: array, maxItems: 6, uniqueItems: true, items: { $ref: '#/components/schemas/Uuid' } } }
+    AddMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [body,expectedVersion]
+      properties: { body: { type: string, minLength: 1, maxLength: 8192 }, attachmentUploadIds: { type: array, maxItems: 6, uniqueItems: true, items: { $ref: '#/components/schemas/Uuid' } }, expectedVersion: { type: integer, minimum: 1 } }
+    VersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties: { expectedVersion: { type: integer, minimum: 1 } }
+    AttachmentInitRequest:
+      type: object
+      additionalProperties: false
+      required: [filename,contentType,sizeBytes,sha256]
+      properties: { filename: { type: string, minLength: 1, maxLength: 255 }, contentType: { type: string, enum: [application/pdf,image/png,image/jpeg,text/plain] }, sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }, sha256: { type: string, pattern: '^[a-f0-9]{64}$' } }
+    AttachmentUpload:
+      type: object
+      additionalProperties: false
+      required: [uploadId,url,headers,expiresAt]
+      properties: { uploadId: { $ref: '#/components/schemas/Uuid' }, url: { type: string, format: uri }, headers: { type: object, maxProperties: 8, additionalProperties: { type: string, maxLength: 256 } }, expiresAt: { type: string, format: date-time } }
+    AttachmentFinalizeRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadId,filename,contentType,sizeBytes,sha256,expectedVersion]
+      properties: { uploadId: { $ref: '#/components/schemas/Uuid' }, filename: { type: string, minLength: 1, maxLength: 255 }, contentType: { type: string, enum: [application/pdf,image/png,image/jpeg,text/plain] }, sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }, sha256: { type: string, pattern: '^[a-f0-9]{64}$' }, expectedVersion: { type: integer, minimum: 1 } }
+    Attachment:
+      type: object
+      additionalProperties: false
+      required: [id,filename,contentType,sizeBytes,status]
+      properties: { id: { $ref: '#/components/schemas/Uuid' }, filename: { type: string, maxLength: 255 }, contentType: { type: string, maxLength: 100 }, sizeBytes: { type: integer, minimum: 1 }, status: { type: string, enum: [pending,clean,rejected,failed] } }
+    Feedback:
+      type: object
+      additionalProperties: false
+      required: [id,type,subject,body,status,version,createdAt]
+      properties: { id: { $ref: '#/components/schemas/Uuid' }, type: { type: string, enum: [bug,idea,experience,other] }, subject: { type: [string,'null'], maxLength: 180 }, body: { type: string, maxLength: 8192 }, status: { type: string, enum: [new,reviewing,planned,resolved,closed] }, version: { type: integer, minimum: 1 }, createdAt: { type: string, format: date-time } }
+    CreateFeedbackRequest:
+      type: object
+      additionalProperties: false
+      required: [type,body]
+      properties: { type: { type: string, enum: [bug,idea,experience,other] }, subject: { type: [string,'null'], maxLength: 180 }, body: { type: string, minLength: 1, maxLength: 8192 } }
+    FeedbackPage:
+      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Feedback' } } } }]
+    CreateAbuseRequest:
+      type: object
+      additionalProperties: false
+      required: [resourceType,resourceId,reason]
+      properties: { resourceType: { type: string, enum: [content,support_message,assistant_response,other] }, resourceId: { type: string, minLength: 1, maxLength: 128 }, reason: { type: string, minLength: 1, maxLength: 2048 } }
+    AbuseReport:
+      type: object
+      additionalProperties: false
+      required: [id,status,createdAt]
+      properties: { id: { $ref: '#/components/schemas/Uuid' }, status: { type: string, enum: [open,reviewing,actioned,dismissed] }, createdAt: { type: string, format: date-time } }
+    AbusePage:
+      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/AbuseReport' } } } }]
+    ContentItem:
+      type: object
+      additionalProperties: false
+      required: [key,type,locale,title,body,version,publishedAt]
+      properties: { key: { type: string, maxLength: 96 }, type: { $ref: '#/components/schemas/ContentType' }, locale: { $ref: '#/components/schemas/Locale' }, title: { type: string, maxLength: 180 }, body: { type: string, maxLength: 65536 }, version: { type: integer, minimum: 1 }, publishedAt: { type: string, format: date-time } }
+    ContentPage:
+      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ContentItem' } } } }]
+    AudienceDefinition:
+      type: object
+      additionalProperties: false
+      required: [platforms,locales,activity,segmentKeys]
+      properties: { platforms: { type: array, minItems: 1, maxItems: 3, uniqueItems: true, items: { type: string, enum: [ios,android,web] } }, locales: { type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: { $ref: '#/components/schemas/Locale' } }, activity: { type: string, enum: [all,active,inactive] }, segmentKeys: { type: array, maxItems: 10, uniqueItems: true, items: { type: string, pattern: '^[a-z][a-z0-9_-]{1,63}$' } } }
+    AudiencePreview:
+      type: object
+      additionalProperties: false
+      required: [previewId,audienceVersion,eligible,excluded,optedOut,expiresAt]
+      properties: { previewId: { $ref: '#/components/schemas/Uuid' }, audienceVersion: { type: string, maxLength: 128 }, eligible: { type: integer, minimum: 0 }, excluded: { type: integer, minimum: 0 }, optedOut: { type: integer, minimum: 0 }, expiresAt: { type: string, format: date-time } }
+    TemplateRequest:
+      type: object
+      additionalProperties: false
+      required: [key,locale,channel,subject,body,variables]
+      properties: { key: { type: string, pattern: '^[a-z][a-z0-9_.-]{1,95}$' }, locale: { $ref: '#/components/schemas/Locale' }, channel: { $ref: '#/components/schemas/Channel' }, subject: { type: [string,'null'], maxLength: 120 }, body: { type: string, minLength: 1, maxLength: 4096 }, variables: { type: array, maxItems: 32, uniqueItems: true, items: { type: string, pattern: '^[a-z][a-zA-Z0-9]{0,63}$' } } }
+    CampaignRequest:
+      type: object
+      additionalProperties: false
+      required: [name,templateId,previewId,audienceVersion,audience,scheduleMode]
+      properties: { name: { type: string, minLength: 1, maxLength: 120 }, templateId: { $ref: '#/components/schemas/Uuid' }, previewId: { $ref: '#/components/schemas/Uuid' }, audienceVersion: { type: string, maxLength: 128 }, audience: { $ref: '#/components/schemas/AudienceDefinition' }, scheduleMode: { type: string, enum: [send_now,scheduled] }, scheduledAt: { type: [string,'null'], format: date-time } }
+    CampaignActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action,expectedVersion,reason]
+      properties: { action: { type: string, enum: [approve,schedule,send_now,pause,resume,cancel] }, expectedVersion: { type: integer, minimum: 1 }, reason: { type: string, minLength: 1, maxLength: 500 }, scheduledAt: { type: [string,'null'], format: date-time } }
+    AdminActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action,expectedVersion,reason]
+      properties: { action: { type: string, enum: [test,publish,retire,assign,priority,reply,status,resolve,close,reopen,review,action,dismiss] }, expectedVersion: { type: integer, minimum: 1 }, reason: { type: string, minLength: 1, maxLength: 500 }, assigneeId: { type: [string,'null'], maxLength: 128 }, priority: { $ref: '#/components/schemas/TicketPriority' }, status: { type: string, maxLength: 40 }, message: { type: string, maxLength: 8192 } }
+    ContentRequest:
+      type: object
+      additionalProperties: false
+      required: [key,type,translations]
+      properties: { key: { type: string, pattern: '^[a-z][a-z0-9_-]{1,95}$' }, type: { $ref: '#/components/schemas/ContentType' }, translations: { type: array, minItems: 1, maxItems: 2, items: { type: object, additionalProperties: false, required: [locale,title,body], properties: { locale: { $ref: '#/components/schemas/Locale' }, title: { type: string, minLength: 1, maxLength: 180 }, body: { type: string, minLength: 1, maxLength: 65536 } } } } }
+    AdminResource:
+      type: object
+      additionalProperties: false
+      required: [id,state,version,updatedAt]
+      properties: { id: { $ref: '#/components/schemas/Uuid' }, state: { type: string, maxLength: 40 }, version: { type: integer, minimum: 1 }, updatedAt: { type: string, format: date-time }, safe: { type: object, maxProperties: 32, additionalProperties: { type: [string,number,boolean,'null'] } } }
+    AdminPage:
+      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminResource' } } } }]
+    ActionResult:
+      type: object
+      additionalProperties: false
+      required: [resourceId,outcome,currentState,version,requestId]
+      properties: { resourceId: { type: string, maxLength: 128 }, outcome: { type: string, enum: [success,conflict,forbidden,not_found,validation_error,accepted] }, currentState: { type: [string,'null'], maxLength: 40 }, version: { type: [integer,'null'], minimum: 1 }, requestId: { type: string, maxLength: 128 } }
