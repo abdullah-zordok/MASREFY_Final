@@ -1,0 +1,10 @@
+{
+  "title": "Engagement delivery, support, and content",
+  "panels": [
+    { "title": "Job outcomes", "query": "sum by (job,outcome,channel,provider) (rate(masarifi_engagement_job_total[5m]))" },
+    { "title": "Job p95", "query": "histogram_quantile(0.95,sum by (le,job) (rate(masarifi_engagement_job_duration_ms_bucket[5m])))" },
+    { "title": "Claim saturation", "query": "max by (job) (masarifi_engagement_backlog)" },
+    { "title": "Provider retries", "query": "sum by (provider,channel) (rate(masarifi_engagement_job_total{job=\"notification.delivery.retry\"}[10m]))" },
+    { "title": "Attachment rejection", "query": "sum(rate(masarifi_engagement_job_total{job=\"support-attachment.scan\",outcome=\"suppressed\"}[10m]))" }
+  ]
+}

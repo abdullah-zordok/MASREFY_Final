@@ -28,6 +28,12 @@ try {
   assert.ok(violations.some((item) => item.includes('bypass.tsx: unguarded')));
   file('guarded.tsx', 'async function handle() { await unlock(); await revalidateAction(); executeAction(); }');
   assert.ok(!checkAssistantNotificationsBoundaries(root).some((item) => item.includes('guarded.tsx: unguarded')));
+  const live = join(root, 'src', 'services', 'live', 'engagement-service.ts');
+  mkdirSync(join(live, '..'), { recursive: true });
+  writeFileSync(live, "SecureStore.setItemAsync('token', value); fetch('/api/v1/admin/content'); const scan_status = 'clean';");
+  const liveViolations = checkAssistantNotificationsBoundaries(root);
+  for (const expected of ['engagement secret persistence', 'unsafe engagement route', 'private server field'])
+    assert.ok(liveViolations.some((item) => item.includes(expected)), `${expected} was not rejected`);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

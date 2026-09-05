@@ -1,8 +1,9 @@
 import type { RequestHandler } from "msw";
 import { http, HttpResponse } from "msw";
+import { z } from "zod";
 import { ADMIN_ROLES, type AdminRole, type PermissionKey } from "@/core/permissions/permissions";
 import { hasPermission } from "@/core/permissions/role-map";
-import { actionResultSchema, audiencePreviewRequestSchema } from "@/features/communications/contracts";
+import { actionResultSchema } from "@/features/communications/contracts";
 import {
   communicationsOverview,
   communicationsPage,
@@ -11,6 +12,12 @@ import {
 
 const base = "/api/v1/admin";
 const now = "2026-07-29T12:00:00+03:00";
+const audiencePreviewRequestSchema = z.object({
+  platforms: z.array(z.enum(["ios", "android", "web"])).min(1).max(3),
+  locales: z.array(z.enum(["ar", "en"])).min(1).max(2),
+  activity: z.enum(["all", "active", "inactive"]),
+  segmentKeys: z.array(z.string()).max(10),
+}).strict();
 
 function simulatedRole(request: Request): AdminRole | null {
   const candidate = request.headers.get("x-admin-simulated-role");
@@ -85,7 +92,7 @@ export const communicationsHandlers: RequestHandler[] = [
     if (permissionError) return permissionError;
     const parsed = audiencePreviewRequestSchema.safeParse(await request.json().catch(() => ({})));
     if (!parsed.success) return HttpResponse.json(safeError(422, "validation_error", "Invalid audience preview"), { status: 422 });
-    return HttpResponse.json({ eligibleCount: 1280, optedOutCount: 84, denominator: "eligible-audience", generatedAt: now });
+    return HttpResponse.json({ previewId: "90000000-0000-4000-8000-000000000001", audienceVersion: "mock-v1", eligible: 1280, excluded: 120, optedOut: 84, expiresAt: "2026-07-29T12:15:00+03:00" });
   }),
   http.get(`${base}/notifications/campaigns`, ({ request }) => denied(request, "notifications.campaigns.read") ?? HttpResponse.json(communicationsPage("campaigns"))),
   http.post(`${base}/notifications/campaigns`, async ({ request }) => denied(request, "notifications.campaigns.manage") ?? HttpResponse.json(action("CMP-1002", await readActionName(request)))),

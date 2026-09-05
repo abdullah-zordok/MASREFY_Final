@@ -267,7 +267,7 @@ export function SupportTicketDetailRoute({ ticketId }: { ticketId: string }) {
   const query = useSupportTicketDetail(ticketId);
   const mutation = useTicketAction();
   const { locale } = useLocale();
-  return <PageState query={query} permission="support.tickets.read">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ ticketId, action: { action: "status", expectedVersion: item.revision, status: "resolved" } })}>{locale === "ar" ? "حل التذكرة" : "Resolve"}</button>} />}</PageState>;
+  return <PageState query={query} permission="support.tickets.read">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ ticketId, action: { action: "resolve", expectedVersion: item.revision, reason: "Resolved by support administrator" } })}>{locale === "ar" ? "حل التذكرة" : "Resolve"}</button>} />}</PageState>;
 }
 
 export function SupportCategoriesRoute() {
@@ -284,7 +284,7 @@ export function FeedbackDetailRoute({ feedbackId }: { feedbackId: string }) {
   const query = useFeedbackDetail(feedbackId);
   const mutation = useFeedbackAction();
   const { locale } = useLocale();
-  return <PageState query={query} permission="feedback.read">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ resourceId: feedbackId, action: { action: "link", expectedVersion: item.revision, reason: "Link to support ticket" } })}>{locale === "ar" ? "ربط الملاحظة" : "Link feedback"}</button>} />}</PageState>;
+  return <PageState query={query} permission="feedback.read">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ resourceId: feedbackId, action: { action: "review", expectedVersion: item.revision, reason: "Accepted for product review" } })}>{locale === "ar" ? "مراجعة الملاحظة" : "Review feedback"}</button>} />}</PageState>;
 }
 
 export function AbuseReportsRoute() {
@@ -301,7 +301,7 @@ export function ContentDetailRoute({ collection, itemId }: { collection: string;
   const query = useContentItem(collection, itemId);
   const mutation = useContentAction(collection);
   const { locale } = useLocale();
-  return <PageState query={query} permission="content.manage">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ resourceId: itemId, action: { action: "publish", expectedVersion: item.revision } })}>{locale === "ar" ? "نشر" : "Publish"}</button>} />}</PageState>;
+  return <PageState query={query} permission="content.manage">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ resourceId: itemId, action: { action: "publish", expectedVersion: item.revision, reason: "Approved for immediate publication" } })}>{locale === "ar" ? "نشر" : "Publish"}</button>} />}</PageState>;
 }
 
 export function TemplateRoute({ channel }: { channel: "email" | "push" | "transactional" }) {
@@ -347,7 +347,7 @@ export function CampaignDetailRoute({ campaignId }: { campaignId: string }) {
   const query = useCampaignDetail(campaignId);
   const mutation = useCampaignAction();
   const { locale } = useLocale();
-  return <PageState query={query} permission="notifications.campaigns.manage">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ resourceId: campaignId, action: { action: "schedule", expectedVersion: item.revision } })}>{locale === "ar" ? "جدولة" : "Schedule"}</button>} />}</PageState>;
+  return <PageState query={query} permission="notifications.campaigns.manage">{(item) => <Detail item={item} action={<button className="button primary" disabled={mutation.isPending} onClick={() => mutation.mutate({ resourceId: campaignId, action: { action: "approve", expectedVersion: item.revision, reason: "Campaign reviewed and approved" } })}>{locale === "ar" ? "اعتماد" : "Approve"}</button>} />}</PageState>;
 }
 
 export function CampaignNewRoute() {

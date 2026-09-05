@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
+import {
+  engagementAdminActionSchema,
+  safeErrorSchema as productionSafeErrorSchema,
+} from "./contracts";
 
 describe("communications strict schema tests", () => {
   test("shared ID schema validates valid IDs and rejects invalid ones", () => {
@@ -271,6 +275,35 @@ describe("communications strict schema tests", () => {
       name: "Test",
       unknown: "value",
       another: "field"
+    })).toThrow();
+  });
+
+  test("production Phase 11 action schema requires a bounded reason and rejects unknown fields", () => {
+    expect(() => engagementAdminActionSchema.parse({
+      action: "publish",
+      expectedVersion: 2,
+      reason: "Approved bilingual content",
+    })).not.toThrow();
+    expect(() => engagementAdminActionSchema.parse({
+      action: "publish",
+      expectedVersion: 2,
+      reason: "short",
+    })).toThrow();
+    expect(() => engagementAdminActionSchema.parse({
+      action: "publish",
+      expectedVersion: 2,
+      reason: "Approved bilingual content",
+      status: "published",
+    })).toThrow();
+  });
+
+  test("production safe error contract never accepts diagnostic fields", () => {
+    expect(() => productionSafeErrorSchema.parse({
+      status: "500",
+      code: "INTERNAL_ERROR",
+      message: "Request failed",
+      correlationId: "CORR-12345-ABCDEF",
+      stack: "private stack",
     })).toThrow();
   });
 

@@ -1,0 +1,28 @@
+groups:
+  - name: engagement
+    rules:
+      - alert: EngagementProviderRetries
+        expr: sum(rate(masarifi_engagement_job_total{job="notification.delivery.retry",outcome="retry"}[10m])) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { runbook: "ops/runbooks/engagement-delivery.md#provider-outage" }
+      - alert: EngagementDeliveryClaimSaturation
+        expr: max(masarifi_engagement_backlog{job="notification.dispatch"}) >= 100
+        for: 15m
+        labels: { severity: warning }
+        annotations: { runbook: "ops/runbooks/engagement-delivery.md#backlog" }
+      - alert: EngagementCampaignClaimSaturation
+        expr: max(masarifi_engagement_backlog{job="notification.campaign.expand"}) >= 500
+        for: 15m
+        labels: { severity: warning }
+        annotations: { runbook: "ops/runbooks/engagement-campaigns.md#stalled-expansion" }
+      - alert: EngagementAttachmentScanFailures
+        expr: sum(rate(masarifi_engagement_job_total{job="support-attachment.scan",outcome=~"retry|suppressed"}[10m])) > 0
+        for: 10m
+        labels: { severity: critical }
+        annotations: { runbook: "ops/runbooks/engagement-files.md#scan-failures" }
+      - alert: EngagementSourceConsumptionFailures
+        expr: sum(rate(masarifi_engagement_job_total{job="source.consume",outcome="failure"}[10m])) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations: { runbook: "ops/runbooks/engagement-delivery.md#source-replay" }

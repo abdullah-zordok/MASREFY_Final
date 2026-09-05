@@ -20,7 +20,7 @@ function check(path, root, violations) {
   if (!/\.(ts|tsx)$/.test(path)) return;
   const rel = relative(root, path).replaceAll('\\', '/');
   const text = readFileSync(path, 'utf8');
-  if (!/^(app\/(\(tabs\)\/)?(notifications|assistant|subscriptions|profile|support|security)|src\/(features\/(notifications|assistant|subscriptions|settings|support)|analytics\/assistant-notifications|state\/assistant-notifications))/.test(rel)) return;
+  if (!/^(app\/(\(tabs\)\/)?(notifications|assistant|subscriptions|profile|support|security)|src\/(features\/(notifications|assistant|subscriptions|settings|support)|services\/live\/engagement-service|analytics\/assistant-notifications|state\/assistant-notifications))/.test(rel)) return;
   reject(/expo-sqlite/i, 'direct SQLite', rel, text, violations);
   reject(/from ['"][^'"]*(openai|anthropic|stripe|revenuecat|intercom|zendesk|firebase|onesignal)[^'"]*['"]/i, 'provider import', rel, text, violations);
   reject(/getExpoPushTokenAsync|ExpoPushToken|sendPushNotification/i, 'remote push', rel, text, violations);
@@ -29,6 +29,9 @@ function check(path, root, violations) {
   reject(/\b(?:create|use)(?:Assistant|Notification|Subscription|Support|Settings)\w*Store\b/i, 'Zustand', rel, text, violations);
   reject(/analytics\.(track|capture)\([^\n]*(amount|currency|title|body|question|answer|sourceId|email|phone|ticket|credential|token)/i, 'analytics', rel, text, violations);
   reject(/iOS[^\n]*(SMS|text message)|SMS[^\n]*iOS/i, 'iOS SMS', rel, text, violations);
+  reject(/(?:AsyncStorage|SecureStore|SQLite)[\s\S]{0,120}(?:setItem|insert|execAsync)/i, 'engagement secret persistence', rel, text, violations);
+  reject(/\/(?:api\/v1\/)?admin\/|support\/internal/i, 'unsafe engagement route', rel, text, violations);
+  reject(/(?:internalNotes|claim_token|scan_status|token_ciphertext)/i, 'private server field', rel, text, violations);
   const executable = text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:\\.|[^'])*'|"(?:\\.|[^"])*"/g, '');
   const functions = executable.match(/(?:async\s+)?function\s+\w*\s*\([^)]*\)\s*\{[\s\S]*?\}/g) ?? [];
   const actionCalls = (executable.match(/executeAction\s*\(/g) ?? []).length;

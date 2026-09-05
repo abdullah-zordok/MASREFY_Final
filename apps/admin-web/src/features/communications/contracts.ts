@@ -111,31 +111,49 @@ export const actionContextSchema = z.object({
 
 export type ActionContext = z.infer<typeof actionContextSchema>;
 
+export const engagementAdminActionSchema = z.object({
+  action: z.enum(["test", "assign", "priority", "reply", "note", "resolve", "close", "reopen", "review", "plan", "action", "dismiss", "publish", "retire", "activate", "approve", "schedule", "send_now", "pause", "resume", "cancel"]),
+  expectedVersion: z.number().int().min(1),
+  reason: safeTextSchema.pipe(z.string().min(10).max(500)),
+  assigneeId: z.string().max(128).optional(),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  message: safeTextSchema.pipe(z.string().max(8192)).optional(),
+  scheduledAt: z.iso.datetime({ offset: true }).optional(),
+  replacementCategoryId: z.string().uuid().optional(),
+  translations: z.array(z.object({
+    locale: z.enum(["ar", "en"]),
+    title: safeTextSchema.pipe(z.string().min(1).max(180)),
+    body: safeTextSchema.pipe(z.string().min(1).max(65536)),
+  }).strict()).max(2).optional(),
+}).strict();
+
+export type EngagementAdminAction = z.infer<typeof engagementAdminActionSchema>;
+
 export const platformSchema = z.enum(["all", "ios", "android", "unknown"]);
 export type Platform = z.infer<typeof platformSchema>;
 
-export const ticketPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
+export const ticketPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
 export type TicketPriority = z.infer<typeof ticketPrioritySchema>;
 
-export const ticketStateSchema = z.enum(["new", "open", "awaiting_customer", "awaiting_agent", "resolved", "closed"]);
+export const ticketStateSchema = z.enum(["open", "waiting_customer", "waiting_support", "resolved", "closed"]);
 export type TicketState = z.infer<typeof ticketStateSchema>;
 
-export const feedbackStateSchema = z.enum(["new", "under_review", "planned", "linked", "resolved", "dismissed", "closed"]);
+export const feedbackStateSchema = z.enum(["new", "reviewing", "planned", "resolved", "closed"]);
 export type FeedbackState = z.infer<typeof feedbackStateSchema>;
 
 export const abuseSeveritySchema = z.enum(["low", "medium", "high", "critical"]);
 export type AbuseSeverity = z.infer<typeof abuseSeveritySchema>;
 
-export const contentStatusSchema = z.enum(["draft", "published", "retired"]);
+export const contentStatusSchema = z.enum(["draft", "review", "published", "retired"]);
 export type ContentStatus = z.infer<typeof contentStatusSchema>;
 
-export const campaignStateSchema = z.enum(["draft", "scheduled", "sending", "paused", "completed", "cancelled", "failed"]);
+export const campaignStateSchema = z.enum(["draft", "approved", "scheduled", "running", "paused", "completed", "cancelled"]);
 export type CampaignState = z.infer<typeof campaignStateSchema>;
 
 export const channelSchema = z.enum(["email", "push", "in_app"]);
 export type Channel = z.infer<typeof channelSchema>;
 
-export const deliveryStatusSchema = z.enum(["delivered", "opened", "failed", "token_failed", "opted_out"]);
+export const deliveryStatusSchema = z.enum(["queued", "sending", "delivered", "failed", "suppressed"]);
 export type DeliveryStatus = z.infer<typeof deliveryStatusSchema>;
 
 export const actionResultSchema = z.object({

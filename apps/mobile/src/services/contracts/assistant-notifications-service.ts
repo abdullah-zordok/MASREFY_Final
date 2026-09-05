@@ -46,7 +46,7 @@ export const notificationServiceCapability: CapabilityContractMetadata = {
   capability: 'assistant-notifications.notifications',
   majorVersion: 1,
   owner: 'assistant-notifications',
-  providerKinds: ['mock'],
+  providerKinds: ['mock', 'live'],
   unavailableOutcome: 'notifications.state.unavailable'
 };
 
@@ -86,7 +86,7 @@ export const supportServiceCapability: CapabilityContractMetadata = {
   capability: 'support.tickets',
   majorVersion: 1,
   owner: 'support',
-  providerKinds: ['mock'],
+  providerKinds: ['mock', 'live'],
   unavailableOutcome: 'support.state.unavailable'
 };
 

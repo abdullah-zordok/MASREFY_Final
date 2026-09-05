@@ -67,7 +67,7 @@ describe("Communications Repository", () => {
         id: "TKT-1001",
         subject: "Test ticket",
         status: "open",
-        priority: "medium",
+        priority: "normal",
         version: 1,
         createdAt: "2026-07-29T12:00:00+03:00",
         updatedAt: "2026-07-29T12:00:00+03:00",
@@ -191,7 +191,7 @@ describe("Communications Repository", () => {
       await repository.getSupportTickets({ page: 1, pageSize: "25" });
       
       expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/v1/admin/support/tickets?page=1&pageSize=25",
+        "/api/v1/admin/support/tickets?limit=25",
         expect.objectContaining({
           headers: expect.objectContaining({
             "Content-Type": "application/json",
@@ -211,6 +211,7 @@ describe("Communications Repository", () => {
       await repository.actOnSupportTicket("TKT-1001", {
         action: "assign",
         expectedVersion: 1,
+        reason: "Assign for investigation",
         assignTo: "AGENT-001",
       });
       
@@ -218,11 +219,68 @@ describe("Communications Repository", () => {
         "/api/v1/admin/support/tickets/TKT-1001/actions",
         expect.objectContaining({
           method: "POST",
-          body: expect.stringContaining("assignTo"),
+          headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) }),
+          body: expect.stringContaining("assigneeId"),
         })
       );
+      expect(fetchSpy.mock.calls[0]?.[1]?.body).not.toContain("assignTo");
 
       fetchSpy.mockRestore();
+    });
+
+    test("maps cursor pages to the existing admin view contract", async () => {
+      vi.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          items: [{ id: "7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f", subject: "Card issue", status: "open", priority: "normal", version: 2, lastMessageAt: "2026-09-05T08:00:00Z" }],
+          nextCursor: "opaque",
+          hasMore: true,
+        }),
+      } as Response);
+
+      const result = await repository.getSupportTickets({ page: 1, pageSize: "25" });
+
+      expect(result.tickets[0]).toMatchObject({ title: "Card issue", state: "open", revision: 2 });
+      expect(result.pagination).toMatchObject({ pageSize: 25, totalPages: 2 });
+      expect(JSON.stringify(result)).not.toContain("nextCursor");
+    });
+
+    test("uses real detail routes and bounded audience grammar", async () => {
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: "7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f", subject: "Idea", body: "Details", state: "new", version: 1, createdAt: "2026-09-05T08:00:00Z", updatedAt: "2026-09-05T08:00:00Z", eligible: 7, optedOut: 2 }),
+      } as Response);
+
+      await repository.getFeedbackDetail("7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f");
+      await repository.getContentItem("faqs", "1f888fbd-13fe-4d9b-91a8-38356a9a5380");
+      const preview = await repository.previewAudience({ platform: "ios", locale: "ar" });
+
+      expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/v1/admin/feedback/7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f");
+      expect(fetchSpy.mock.calls[1]?.[0]).toBe("/api/v1/admin/content/1f888fbd-13fe-4d9b-91a8-38356a9a5380");
+      expect(fetchSpy.mock.calls[2]?.[1]?.body).toBe(JSON.stringify({ platforms: ["ios"], locales: ["ar"], activity: "all", segmentKeys: [] }));
+      expect(preview).toMatchObject({ eligibleCount: 7, optedOutCount: 2, denominator: "eligible-audience" });
+    });
+
+    test("retires a support category only through the versioned replacement contract", async () => {
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: async () => ({ resourceId: "10000000-0000-4000-8000-000000000001", outcome: "success" }),
+      } as Response);
+
+      await repository.actOnSupportCategory("10000000-0000-4000-8000-000000000001", {
+        action: "retire",
+        expectedVersion: 2,
+        reason: "Replaced by the account category",
+        replacementCategoryId: "20000000-0000-4000-8000-000000000002",
+      });
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/api/v1/admin/support/categories/10000000-0000-4000-8000-000000000001/actions",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ action: "retire", expectedVersion: 2, reason: "Replaced by the account category", replacementCategoryId: "20000000-0000-4000-8000-000000000002" }),
+        }),
+      );
     });
   });
 });

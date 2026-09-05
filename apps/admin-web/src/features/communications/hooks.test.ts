@@ -26,11 +26,11 @@ describe("communications hook helpers", () => {
   });
 
   test("uses resource and action in mutation lock keys", () => {
-    expect(ticketActionLockKey({ ticketId: "TKT-1001-A", action: { action: "assign", expectedVersion: 1 } })).toBe(
+    expect(ticketActionLockKey({ ticketId: "TKT-1001-A", action: { action: "assign", expectedVersion: 1, reason: "Assign for investigation" } })).toBe(
       "support-ticket:TKT-1001-A:assign",
     );
-    expect(ticketActionLockKey({ ticketId: "TKT-1001-A", action: { action: "reply", expectedVersion: 1 } })).not.toBe(
-      ticketActionLockKey({ ticketId: "TKT-1002-A", action: { action: "reply", expectedVersion: 1 } }),
+    expect(ticketActionLockKey({ ticketId: "TKT-1001-A", action: { action: "reply", expectedVersion: 1, reason: "Reply to customer" } })).not.toBe(
+      ticketActionLockKey({ ticketId: "TKT-1002-A", action: { action: "reply", expectedVersion: 1, reason: "Reply to customer" } }),
     );
   });
 
@@ -46,7 +46,7 @@ describe("communications hook helpers", () => {
 
     ticketActionLockKey({
       ticketId: "TKT-1001-A",
-      action: { action: "reply", expectedVersion: draftReply.expectedVersion, message: draftReply.text },
+      action: { action: "reply", expectedVersion: draftReply.expectedVersion, reason: "Reply to customer", message: draftReply.text },
     });
 
     expect(draftReply).toEqual({ text: "Keep this text for retry", expectedVersion: 9 });
