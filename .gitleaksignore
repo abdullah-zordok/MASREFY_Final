@@ -22,3 +22,6 @@ a6bb0cf0ea4aae1484d3490c5de3729b5eb7b504:apps/api/test/unit/tracking/tracking.du
 
 # Known non-secret Clerk schema fixture introduced by Phase 10.
 a6423b0c93f9d4131dde35322153fdd929588b0e:apps/api/test/unit/reports/reports-config.spec.ts:stripe-access-token:10
+
+# Known non-secret idempotency fixture introduced by Phase 11.
+5010a15ec674bda8b6e9c2434bef6f149236e2e2:apps/api/test/security/engagement/engagement-dto.security.spec.ts:generic-api-key:4

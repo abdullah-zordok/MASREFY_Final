@@ -1,7 +1,7 @@
 import { validateEngagementCommand } from '../../../src/engagement/engagement.dto';
 import { ENGAGEMENT_SOURCE_EVENTS } from '../../../src/engagement/engagement.events';
 
-const base = { requestId: 'request-1', idempotencyKey: 'idempotency-1' };
+const base = { requestId: 'request-1', idempotencyKey: 'test-key' }; // gitleaks:allow -- test fixture
 
 describe('engagement trust-boundary DTOs', () => {
   it.each([
