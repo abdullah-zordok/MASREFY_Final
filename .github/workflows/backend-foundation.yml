@@ -12,6 +12,7 @@ on:
     paths:
       [
         "apps/api/**",
+        "apps/admin-web/**",
         "apps/mobile/**",
         "supabase/**",
         "docker/**",
@@ -101,6 +102,26 @@ jobs:
       - run: npx expo prebuild --platform android --no-install
       - run: npm test -- --runInBand
 
+  admin:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/admin-web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/admin-web/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
   database:
     runs-on: ubuntu-24.04
     env:
@@ -187,6 +208,12 @@ jobs:
       - run: npm run test:stress:reports
         env:
           MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:performance:engagement
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
+      - run: npm run test:stress:engagement
+        env:
+          MASARIFI_LIVE_DATABASE_TESTS: "1"
       - run: npm run test:performance:security
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:performance:ledger
@@ -223,7 +250,7 @@ jobs:
         run: npm run supabase:stop
 
   image:
-    needs: [secrets, sentinel-redaction, application, mobile, database]
+    needs: [secrets, sentinel-redaction, application, mobile, admin, database]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

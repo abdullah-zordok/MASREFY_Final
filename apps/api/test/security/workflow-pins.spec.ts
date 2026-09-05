@@ -73,7 +73,7 @@ describe('backend workflow action pins', () => {
     expect(stressSeedIndex).toBeGreaterThan(loadIndex);
     expect(stressSeedIndex).toBeLessThan(stressIndex);
     expect(workflow).toContain(
-      'needs: [secrets, sentinel-redaction, application, mobile, database]',
+      'needs: [secrets, sentinel-redaction, application, mobile, admin, database]',
     );
     expect(workflow).toContain('working-directory: apps/mobile');
     expect(workflow).toContain('npm test -- --runInBand');

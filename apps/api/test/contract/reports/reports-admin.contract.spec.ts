@@ -94,7 +94,16 @@ describe('Admin reports contract', () => {
       'admin-export-key',
       'request',
     );
-    await reports.getAdminExport(principal, '99000000-0000-4000-8000-000000000001', 'request');
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-04T00:00:00.000Z'));
+    try {
+      await reports.getAdminExport(
+        principal,
+        '99000000-0000-4000-8000-000000000001',
+        'request',
+      );
+    } finally {
+      jest.useRealTimers();
+    }
     expect(repository.getAttempt).toHaveBeenCalled();
   });
 
