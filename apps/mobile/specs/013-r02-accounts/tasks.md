@@ -236,4 +236,4 @@ Complete T001–T022: baseline, Shared Account Foundation, and Account List. Thi
 - [x] Add supported-type form switch, dirty-state handling, and accessible copy.
 - [x] Render the saved state on account detail for supported account types only.
 - [x] Prove create/edit/storage/bootstrap/delta/default compatibility in Jest.
-- [ ] Record independent review and Slice 2 remote CI evidence.
+- [x] Record independent review and Slice 2 remote CI evidence.

@@ -32,4 +32,7 @@ SPEC-BE-009+ implementation remains absent from the Phase 08 diff.
 
 The shared pre-parser/finalization/ledger assertion, generic fail-closed behavior,
 fenced retry handling, Mobile parity, all local database/API/Mobile gates, and
-independent review are complete. Slice 2 remains open only for scoped push and CI.
+independent review are complete. Slice 2 shipped in
+`cd3bafc28a42b758f6670d2d5b6087cd63abaefc`, and Backend Foundation run
+[`33994830522`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33994830522)
+passed all required jobs.

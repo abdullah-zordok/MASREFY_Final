@@ -345,4 +345,4 @@ gate may be skipped. SPEC-BE-009 and later work is prohibited.
 - [x] Reuse one database assertion before proposals/reviews and financial writes.
 - [x] Reject blocked claimed items without creating review or ledger side effects.
 - [x] Preserve global consent, fencing, replay, and enabled-account behavior.
-- [ ] Record independent review, pushed SHA, and successful remote CI evidence.
+- [x] Record independent review, pushed SHA, and successful remote CI evidence.

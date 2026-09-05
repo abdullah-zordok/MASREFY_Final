@@ -278,4 +278,4 @@ changes.
 - [x] Project `automatic_tracking_enabled` in account bootstrap snapshots.
 - [x] Attach the field to account upsert deltas while preserving null tombstones.
 - [x] Prove false survives bootstrap/delta and old Mobile snapshots default true.
-- [ ] Record the Slice 2 pushed SHA and remote CI result in acceptance evidence.
+- [x] Record the Slice 2 pushed SHA and remote CI result in acceptance evidence.

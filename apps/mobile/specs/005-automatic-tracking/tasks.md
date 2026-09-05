@@ -362,4 +362,4 @@ Home/More integration, and localization catalogs; keep story-specific components
 - [x] Add account resolution and fail-closed mock financial-effect coverage.
 - [x] Keep replay/idempotency checks ahead of the account eligibility decision.
 - [x] Add localized blocked-account messaging and contract parity tests.
-- [ ] Record independent review and Slice 2 remote CI evidence.
+- [x] Record independent review and Slice 2 remote CI evidence.

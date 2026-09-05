@@ -977,7 +977,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 ### Phase 2 execution
 
 - [ ] Extend BE-004 card metadata and account tracking opt-out; add nullable-safe migration.
-- [x] Implement #45 per-account tracking control across BE-004/006/008 and Mobile; independent review passed and remote CI remains the Slice 2 release gate.
+- [x] Implement #45 per-account tracking control across BE-004/006/008 and Mobile; independent review and remote CI passed in `cd3bafc28a42b758f6670d2d5b6087cd63abaefc` / run `33994830522`.
 - [ ] Extend BE-007 planning parity and approved recurrence; preserve current SQLite data through BE-006 sync.
 - [ ] Wire savings, wallet, budgets, and card/planning Mobile adapters live without layout changes.
 - [ ] Implement approved BE-008 import/tracking/parser corpus and 300-row contract if #37 is V1.
@@ -1047,7 +1047,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 |        42 | Yes       | Implemented locally / live pipeline missing        |     2 | Notifications/feedback     | BE-011/014                    | Partial                           |
 |        43 | Yes       | Explicitly deferred                                |     3 | Deferred scope             | Post-V1                       | Deferred                          |
 |        44 | Yes       | Partial native/live capability                     |     2 | Notifications/feedback     | BE-011/014/device             | Partial                           |
-|        45 | Yes       | Per-account control and server gate implemented    |     2 | Imports/parsers            | BE-004/006/008                | Local/review complete; CI pending |
+|        45 | Yes       | Per-account control and server gate implemented    |     2 | Imports/parsers            | BE-004/006/008                | Complete; remote CI passed        |
 |        46 | Yes       | Production fails closed; live capability deferred  |     1 | Tracking release gate      | BE-008 corpus/native evidence | Resolved local gate; live blocked |
 |        47 | Yes       | Partial local / live registry missing              |     2 | Imports/parsers            | BE-008/014                    | Partial                           |
 |        48 | Yes       | Partial preview/actions                            |     2 | Assistant/report truth     | BE-009/014                    | Partial                           |

@@ -32,4 +32,7 @@ are not represented as locally passed.
 
 Account bootstrap/delta/tombstone transport and Mobile old-snapshot compatibility
 are implemented and locally verified without adding a sync domain or changing
-cursor/conflict semantics. Slice 2 remote CI evidence remains pending.
+cursor/conflict semantics. Slice 2 shipped in
+`cd3bafc28a42b758f6670d2d5b6087cd63abaefc`, and Backend Foundation run
+[`33994830522`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33994830522)
+passed all required jobs.

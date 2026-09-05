@@ -213,4 +213,4 @@ blockers rather than inferred passes.
 - [x] Add the backward-compatible non-null account flag and least-privilege write grants.
 - [x] Map create/update/read through DTO, OpenAPI, repository, audit, and outbox events.
 - [x] Add account validation, integration, security, and migration coverage.
-- [ ] Record the Slice 2 review, pushed SHA, and remote CI result in release evidence.
+- [x] Record the Slice 2 review, pushed SHA, and remote CI result in release evidence.

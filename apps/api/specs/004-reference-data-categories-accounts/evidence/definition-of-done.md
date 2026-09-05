@@ -66,4 +66,7 @@ release artifacts satisfy its Definition of Done. No later Spec was implemented.
 
 The account field, minimum grants, DTO/OpenAPI/repository/event/audit mapping,
 clean migration replay, focused/full automated gates, and independent review
-pass locally. Slice 2 remains open only for its scoped push and remote CI evidence.
+pass. Slice 2 shipped in `cd3bafc28a42b758f6670d2d5b6087cd63abaefc`, and
+Backend Foundation run
+[`33994830522`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33994830522)
+passed all required jobs.
