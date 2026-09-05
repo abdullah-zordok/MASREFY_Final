@@ -5,7 +5,7 @@ import postgres from 'k6/x/sql/driver/postgres';
 
 const databaseUrl = __ENV.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL_REQUIRED');
-const db = sql.open(postgres, databaseUrl, { max_open_conns: 1, max_idle_conns: 1 });
+const db = sql.open(postgres, databaseUrl, { max_open_conns: 5, max_idle_conns: 5 });
 const deltaDuration = new Trend('sync_delta_duration_ms', true);
 const mutationDuration = new Trend('sync_mutation_batch_duration_ms', true);
 const payloadBytes = new Trend('sync_payload_bytes');
