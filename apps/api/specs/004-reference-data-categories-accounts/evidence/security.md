@@ -26,3 +26,11 @@ Recorded 2026-08-29 for SPEC-BE-004.
 - No FX provider worker or secret is enabled. Missing or stale approved metadata
   fails closed as `FX_UNAVAILABLE`; same-currency identity is the only computed
   result.
+
+## 2026-09-05 Category Lifecycle Boundary
+
+`051_client_category_usage.sql` proves the two new functions are unavailable to
+PUBLIC/authenticated clients and executable only by `masarifi_api`. Caller/owner
+identity is rechecked inside each security-definer function. Live integration
+proves a foreign owner receives `NOT_FOUND`, while pgTAP proves foreign/system/
+incompatible inputs cannot reassign transaction headers.

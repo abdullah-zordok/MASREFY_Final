@@ -204,3 +204,10 @@ recovery, container, and complete regression gates before release evidence.
 | Violation | Why Required | Approved By | Follow-up |
 |-----------|--------------|-------------|-----------|
 | Constitution 2.0.0 main-only checkout | Newer explicit task instruction requires `superpowers:using-git-worktrees` when not already isolated; primary main also contains unrelated user work | User, 2026-08-30 task | Finish through the required branch workflow, preserve unrelated main state, integrate without rewriting history, and record the deviation in release evidence |
+
+## 2026-09-05 Additive Integration
+
+The reference owner invokes one server-only bulk header-reclassification
+function inside the same database transaction as category merge. Existing
+postings, revision format, ledger lock, ledger version, audit append, and outbox
+functions are reused unchanged.

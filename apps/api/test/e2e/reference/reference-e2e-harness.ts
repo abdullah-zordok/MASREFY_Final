@@ -27,6 +27,7 @@ export async function createReferenceE2eHarness(): Promise<ReferenceE2eHarness> 
       listSystemCategories: [],
       listUserCategories: [],
       createCategory: { id: '10000000-0000-4000-8000-000000000001', version: 1 },
+      getCategoryUsage: { linkedTransactionCount: 0, version: 1 },
       archiveCategory: null,
       createAccount: {
         account: { id: '20000000-0000-4000-8000-000000000001', status: 'active', version: 1 },

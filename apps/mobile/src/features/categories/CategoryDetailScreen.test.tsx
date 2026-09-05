@@ -1,13 +1,13 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import { coreFinanceKeys } from '@/features/core-finance/core-finance-queries';
 import { currentLocale, translate } from '@/localization/i18n';
 import { fixtureCategories } from '@/test-utils/core-finance-fixtures';
 import { renderWithQueryData } from '@/test-utils/render';
-import { coreFinanceService } from '@/services/mocks/core-finance-service';
+import { categoryLifecycleService } from '@/services/mocks/core-finance-service';
 import {
   completeCategorySelection,
   getCategorySelectionSession
@@ -18,7 +18,19 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() }
 }));
 
-it('shows category detail actions including archive and merge', () => {
+const customCategory = {
+  ...fixtureCategories[1],
+  id: 'custom-food',
+  kind: 'custom' as const
+};
+const customTarget = {
+  ...fixtureCategories.find((item) => item.id === 'shopping')!,
+  id: 'custom-shopping',
+  kind: 'custom' as const
+};
+const categories = [customCategory, customTarget, ...fixtureCategories];
+
+it('keeps system category lifecycle read-only', () => {
   renderWithQueryData(<CategoryDetailScreen id="food" />, [
     [coreFinanceKeys.categories(true), fixtureCategories]
   ]);
@@ -29,31 +41,35 @@ it('shows category detail actions including archive and merge', () => {
     )
   ).toBeTruthy();
   expect(
-    screen.getByText(translate('coreFinance.categories.archive'))
-  ).toBeTruthy();
+    screen.queryByText(translate('coreFinance.categories.archive'))
+  ).toBeNull();
   expect(
-    screen.getByText(new RegExp(translate('coreFinance.categories.merge')))
-  ).toBeTruthy();
+    screen.queryByText(translate('coreFinance.categories.merge'))
+  ).toBeNull();
 });
 
-it('requires confirmation before changing category lifecycle', () => {
+it('fetches and shows canonical usage before changing category lifecycle', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-  const setStatus = jest.spyOn(coreFinanceService, 'setCategoryStatus');
-  renderWithQueryData(<CategoryDetailScreen id="food" />, [
-    [coreFinanceKeys.categories(true), fixtureCategories]
+  jest
+    .spyOn(categoryLifecycleService, 'getCategoryUsage')
+    .mockResolvedValue({ linkedTransactionCount: 3, version: 7 });
+  const setStatus = jest.spyOn(categoryLifecycleService, 'setCategoryStatus');
+  renderWithQueryData(<CategoryDetailScreen id={customCategory.id} />, [
+    [coreFinanceKeys.categories(true), categories]
   ]);
 
   fireEvent.press(
     screen.getByText(translate('coreFinance.categories.archive'))
   );
 
-  expect(alert).toHaveBeenCalled();
+  await waitFor(() => expect(alert).toHaveBeenCalled());
+  expect(alert.mock.calls[0]?.[1]).toContain('3');
   expect(setStatus).not.toHaveBeenCalled();
 });
 
 it('does not preselect the first merge target', () => {
-  renderWithQueryData(<CategoryDetailScreen id="food" />, [
-    [coreFinanceKeys.categories(true), fixtureCategories]
+  renderWithQueryData(<CategoryDetailScreen id={customCategory.id} />, [
+    [coreFinanceKeys.categories(true), categories]
   ]);
 
   expect(
@@ -67,8 +83,8 @@ it('does not preselect the first merge target', () => {
 });
 
 it('uses the canonical picker for a merge target and excludes the source', () => {
-  renderWithQueryData(<CategoryDetailScreen id="food" />, [
-    [coreFinanceKeys.categories(true), fixtureCategories]
+  renderWithQueryData(<CategoryDetailScreen id={customCategory.id} />, [
+    [coreFinanceKeys.categories(true), categories]
   ]);
 
   fireEvent.press(
@@ -80,15 +96,12 @@ it('uses the canonical picker for a merge target and excludes the source', () =>
     params: { requestId: string };
   };
   const session = getCategorySelectionSession(route.params.requestId);
-  expect(session).toMatchObject({ excludedIds: ['food'] });
-  act(() => completeCategorySelection(route.params.requestId, 'shopping'));
-  const shopping = fixtureCategories.find((item) => item.id === 'shopping');
+  expect(session).toMatchObject({ excludedIds: [customCategory.id] });
+  act(() => completeCategorySelection(route.params.requestId, customTarget.id));
 
   expect(
     screen.getByText(
-      currentLocale() === 'ar'
-        ? (shopping?.labelAr ?? '')
-        : (shopping?.labelEn ?? '')
+      currentLocale() === 'ar' ? customTarget.labelAr : customTarget.labelEn
     )
   ).toBeTruthy();
 });

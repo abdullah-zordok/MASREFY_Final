@@ -72,3 +72,10 @@ R03 owns selection presentation. The caller owns its transaction/proposal/filter
 | Category validation, hierarchy, lifecycle, merge and reclassification | Existing core finance |
 | Caller draft and applying picker result | R04/R05/other caller |
 
+## 10. Lifecycle Count Contract
+
+Only custom categories render lifecycle controls. Confirmation names the source
+and includes the authoritative linked transaction count. Merge additionally
+names an active compatible custom target. The count is not inferred from the
+currently loaded transaction page, and stale confirmation state never mutates.
+

@@ -771,9 +771,9 @@ const ar: MessageCatalog = {
   'coreFinance.categories.merge': 'دمج في',
   'coreFinance.categories.selectMergeTarget': 'اختر التصنيف الوجهة',
   'coreFinance.categories.archiveConfirmNamed':
-    'هل تريد أرشفة {{name}}؟ سيبقى سجل المعاملات الحالي متاحًا.',
+    'هل تريد أرشفة {{name}}؟ ستبقى {{count}} معاملة مرتبطة متاحة في السجل.',
   'coreFinance.categories.mergeConfirmNamed':
-    'هل تريد دمج {{source}} في {{target}}؟ سيعاد تصنيف المعاملات الحالية.',
+    'هل تريد دمج {{source}} في {{target}}؟ سيعاد تصنيف {{count}} معاملة مرتبطة.',
   'coreFinance.categories.discardChanges': 'هل تريد تجاهل تغييرات التصنيف؟',
   'coreFinance.categories.discardChangesBody':
     'ستفقد تعديلات التصنيف غير المحفوظة.',

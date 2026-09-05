@@ -61,7 +61,7 @@ description: "Dependency-ordered implementation tasks for SPEC-BE-004"
 
 ## Phase 4: User Story 2 - Manage Personal Categories (P1)
 
-**Goal**: Customers create, update, archive, restore, and merge only their categories while system categories remain immutable to customers and ledger rows remain untouched.
+**Goal**: Customers create, update, archive, restore, and merge only their categories while system categories remain immutable; when SPEC-BE-005 is present, merge delegates transaction reclassification to its ledger-owned command.
 
 **Independent test**: Category unit/integration/E2E tests pass for owner/non-owner/system rows, compatible parents/targets, cycles, stale versions, retries, audit, outbox, and rollback.
 
@@ -75,11 +75,11 @@ description: "Dependency-ordered implementation tasks for SPEC-BE-004"
 ### Implementation
 
 - [x] T028 [US2] Implement the ten-name safe event builders and validation in `apps/api/src/reference/reference.events.ts`; make T024 pass
-- [x] T029 [US2] Implement parameterized category create/update/archive/restore/merge transactions using the Phase 04 guarded SQL boundary in `apps/api/src/reference/reference.repository.ts`; make T026 pass
+- [x] T029 [US2] Implement parameterized category create/update/archive/restore/merge transactions using the Phase 04 guarded SQL boundary; once SPEC-BE-005 exists, delegate merge reclassification to its guarded ledger command; make T026 pass
 - [x] T030 [US2] Implement category orchestration, stable errors, version checks, and pre-SPEC-BE-006 retry ceiling in `apps/api/src/reference/reference.service.ts`; make T025 pass
 - [x] T031 [US2] Add category mutation routes with mandatory `Idempotency-Key` and exact request schemas in `apps/api/src/reference/reference.controller.ts`; make T027 pass
 
-**Checkpoint**: Category lifecycle passes independently without any transaction/ledger write or Mobile source change.
+**Checkpoint**: Category lifecycle passes independently; its later SPEC-BE-005 integration reclassifies headers only through the guarded ledger command.
 
 ---
 
@@ -199,3 +199,11 @@ Do not mark a task complete or claim a verification result unless its named
 command/procedure was executed successfully and evidence was retained. Missing
 secrets, OTPs, hosted-provider attestations, or remote approvals remain explicit
 blockers rather than inferred passes.
+
+## 2026-09-05 Category Usage Remediation
+
+- [x] Add the owner-scoped usage route and strict count/version validation.
+- [x] Recheck count under the ledger owner lock for archive and merge.
+- [x] Reject system/foreign/missing/invalid lifecycle targets without leakage.
+- [x] Add OpenAPI, safe-error, integration, security, pgTAP, and Mobile adapter/UI coverage.
+- [ ] Record the final pushed SHA and remote CI result in release evidence.

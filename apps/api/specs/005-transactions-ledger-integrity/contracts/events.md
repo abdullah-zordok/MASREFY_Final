@@ -78,3 +78,8 @@ never metric labels.
 
 Alert links point to the Phase 05 reconciliation and recovery runbook. The
 worker reports mismatches and never auto-repairs balances.
+
+Category merge emits the existing `transaction.revised` contract for each moved
+header. It does not emit `balance.changed`, because postings and monetary effects
+are unchanged; affected account ledger versions still advance under one command
+version so downstream ordering remains monotonic.

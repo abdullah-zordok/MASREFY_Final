@@ -63,6 +63,10 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   INVALID_CURRENCY: { status: 400, message: 'Currency is invalid' },
   CATEGORY_INVALID: { status: 409, message: 'Category is invalid' },
   CATEGORY_CYCLE: { status: 409, message: 'Category hierarchy would contain a cycle' },
+  CATEGORY_USAGE_CHANGED: {
+    status: 409,
+    message: 'Category usage changed; review and retry the action',
+  },
   ACCOUNT_CURRENCY_LOCKED: { status: 409, message: 'Account currency cannot be changed' },
   ACCOUNT_CLOSED: { status: 409, message: 'Account is closed' },
   DUPLICATE_RESOURCE: { status: 409, message: 'Resource already exists' },

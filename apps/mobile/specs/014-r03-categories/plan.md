@@ -163,3 +163,9 @@ Each group names exact files and covers hierarchy, components, styling, interact
 ## Complexity Tracking
 
 No constitution violations or exceptional complexity are planned.
+
+## 2026-09-05 Additive Flow
+
+Detail → usage preview → localized confirmation → archive/merge with the same
+count/version → invalidate existing category/transaction/home query scopes.
+Preview failure remains on detail with the existing safe error state.

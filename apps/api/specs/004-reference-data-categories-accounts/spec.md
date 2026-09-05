@@ -609,3 +609,17 @@ produce reconciliation counts for tables, constraints, policies, and seed hashes
 
 Verification listed here is required evidence, not a claim that it has already
 been executed.
+
+## 2026-09-05 Client Remediation Addendum — Category Usage
+
+- `GET /api/v1/categories/{categoryId}/usage` returns only the authenticated
+  owner's custom category `linkedTransactionCount` and current `version`.
+- Archive and merge require that server preview. Execution serializes with
+  owner ledger writes and recomputes the count; a changed count returns
+  `409 CATEGORY_USAGE_CHANGED` and makes no change.
+- Missing, foreign, and system categories are indistinguishable `404` outcomes.
+  Merged or otherwise invalid lifecycle states return `409 CATEGORY_INVALID`.
+- Archive changes category state only. Merge requires an active same-owner,
+  same-kind custom target and atomically reassigns every owned transaction
+  header before the source is marked merged.
+- Separate archive undo and bulk lifecycle actions remain out of scope.

@@ -40,6 +40,7 @@ const readOperations = new Set([
   'listCurrencies',
   'listCountries',
   'listCategories',
+  'getCategoryUsage',
   'listAccounts',
   'getAccount',
   'getExchangeRate',
@@ -58,6 +59,7 @@ const errorStatuses: Readonly<Record<string, number>> = Object.freeze({
   NOT_FOUND: 404,
   CATEGORY_INVALID: 409,
   CATEGORY_CYCLE: 409,
+  CATEGORY_USAGE_CHANGED: 409,
   ACCOUNT_CURRENCY_LOCKED: 409,
   ACCOUNT_CLOSED: 409,
   VERSION_CONFLICT: 409,
@@ -263,13 +265,19 @@ export class ReferenceService {
       case 'createCategory':
         Object.assign(body, normalizeCreateCategory(body));
         break;
+      case 'getCategoryUsage':
+        this.uuid(params.categoryId);
+        break;
       case 'updateCategory':
         Object.assign(body, normalizeCategoryPatch(body));
         this.uuid(params.categoryId);
         break;
       case 'archiveCategory':
-        exact(query, ['expectedVersion']);
+        exact(query, ['expectedVersion', 'expectedLinkedTransactionCount']);
         query.expectedVersion = queryVersion(query.expectedVersion);
+        query.expectedLinkedTransactionCount = this.queryCount(
+          query.expectedLinkedTransactionCount,
+        );
         this.uuid(params.categoryId);
         break;
       case 'restoreCategory':
@@ -277,7 +285,15 @@ export class ReferenceService {
         this.uuid(params.categoryId);
         break;
       case 'mergeCategory':
-        Object.assign(body, normalizeVersionBody(body, ['targetId']));
+        Object.assign(
+          body,
+          normalizeVersionBody(body, ['targetId', 'expectedLinkedTransactionCount']),
+        );
+        body.expectedLinkedTransactionCount = integer(
+          body.expectedLinkedTransactionCount,
+          0,
+          Number.MAX_SAFE_INTEGER,
+        );
         this.uuid(params.categoryId);
         this.uuid(body.targetId);
         break;
@@ -409,6 +425,11 @@ export class ReferenceService {
   }
   private uuid(value: unknown): void {
     if (!isUuid(value)) fail('VALIDATION_FAILED', 400);
+  }
+  private queryCount(value: unknown): number {
+    if (typeof value !== 'string' || !/^(0|[1-9][0-9]*)$/.test(value))
+      fail('VALIDATION_FAILED', 400);
+    return integer(Number(value), 0, Number.MAX_SAFE_INTEGER);
   }
   private async cached(
     input: ReferenceOperation,

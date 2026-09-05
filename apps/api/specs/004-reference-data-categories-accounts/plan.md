@@ -221,3 +221,11 @@ No design introduced a Constitution violation.
 | Violation | Why Required | Approved By | Follow-up |
 |---|---|---|---|
 | None | N/A | N/A | N/A |
+
+## 2026-09-05 Additive Release
+
+The category lifecycle remediation uses the existing reference transaction and
+Phase 05 per-owner ledger lock. One forward migration adds two server-only
+functions: an owner-scoped count/state preview and atomic transaction-header
+reassignment. The existing controller/service/repository, safe error envelope,
+audit/outbox, and Mobile category flow are extended without another subsystem.

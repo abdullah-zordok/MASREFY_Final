@@ -18,7 +18,8 @@ describe('reference OpenAPI contract', () => {
           typeof operation === 'object' && operation !== null && 'operationId' in operation,
       ),
     );
-    expect(operations).toHaveLength(24);
+    expect(operations).toHaveLength(25);
+    expect(document.paths['/api/v1/categories/{categoryId}/usage']).toBeDefined();
   });
 
   it('keeps typed pages, errors, and account responses explicit', () => {
@@ -26,6 +27,7 @@ describe('reference OpenAPI contract', () => {
       expect.arrayContaining([
         'AccountResponse',
         'CategoryPageResponse',
+        'CategoryUsageResponse',
         'CreateAccountResponse',
         'ErrorResponse',
       ]),

@@ -61,6 +61,7 @@ export const REFERENCE_ROUTES: readonly Route[] = Object.freeze(
     ['GET', 'api/v1/reference/countries', 'listCountries', 200],
     ['GET', 'api/v1/exchange-rates', 'getExchangeRate', 200],
     ['GET', 'api/v1/categories', 'listCategories', 200],
+    ['GET', 'api/v1/categories/:categoryId/usage', 'getCategoryUsage', 200],
     ['POST', 'api/v1/categories', 'createCategory', 201],
     ['PATCH', 'api/v1/categories/:categoryId', 'updateCategory', 200],
     ['DELETE', 'api/v1/categories/:categoryId', 'archiveCategory', 204],

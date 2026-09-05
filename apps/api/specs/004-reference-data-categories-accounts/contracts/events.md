@@ -83,3 +83,8 @@ cache TTL is only the fallback.
 - `changedFields` is sorted, unique, allowlisted, and at most 20 entries.
 - Customer category/account event requires matching `userId`.
 - Unknown fields fail before outbox insertion.
+
+Category merge continues to emit one `category.merged` event after all linked
+transaction headers have been revised. Each moved transaction also emits the
+Phase 05 `transaction.revised` event with its old/new version, account IDs, one
+serialized ledger version, and the initiating request ID.

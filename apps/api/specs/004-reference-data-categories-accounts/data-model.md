@@ -190,3 +190,10 @@ Admin support access does not grant financial account/category mutation.
 - Failure before route enablement is safe. Previous image ignores additive tables.
 - Rollback never deletes referenced currency/category/account/rate history; use a
   forward correction and reconcile row/policy/seed counts.
+
+## Category Usage Projection
+
+`private.get_category_usage(text,uuid)` is a security-definer projection, not a
+stored counter. It validates the caller/owner, takes the existing owner ledger
+lock, locks the custom category row, and counts owner transaction headers at
+request time. No denormalized usage column or client-authoritative count exists.

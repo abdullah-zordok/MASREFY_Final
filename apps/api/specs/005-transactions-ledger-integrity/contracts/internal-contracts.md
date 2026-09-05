@@ -90,3 +90,8 @@ insert/update/delete ledger tables. Admin/support roles receive neither raw
 ledger reads nor financial mutations in Phase 05; the existing aggregate
 transaction count remains unchanged. Direct authenticated/PostgREST table access
 is revoked and RLS remains deny-by-default.
+
+`private.reassign_category_transactions` is executable only by `masarifi_api`,
+revalidates caller/owner, an unmerged custom source, and an active compatible
+custom target, and can update only `transactions.category_id` under the existing
+ledger command guard.

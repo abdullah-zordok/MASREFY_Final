@@ -211,3 +211,9 @@ failed and no exception is required.
 ## Complexity Tracking
 
 No constitution violation or additional dependency requires justification.
+
+## 2026-09-05 Additive Work
+
+Reuse the current repository count and merge staging for mock/offline behavior;
+add one thin authenticated HTTP adapter for the same preview/action contract.
+No general Phase 14 provider cutover is part of this change.

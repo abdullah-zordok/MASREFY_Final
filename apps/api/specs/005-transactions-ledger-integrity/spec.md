@@ -808,3 +808,11 @@ and post-change reconciliation.
 
 Verification listed in this document is required evidence, not a claim that it
 has already been executed.
+
+## 2026-09-05 Category Merge Addendum
+
+Category merge is a metadata-only ledger revision: it changes transaction
+headers, never immutable postings or amounts. The command uses the existing
+per-owner ledger serialization, appends one immutable revision/audit/outbox event
+per moved transaction, advances affected account ledger versions once, and
+rolls back the whole merge if any category or evidence precondition fails.

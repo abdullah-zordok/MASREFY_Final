@@ -17,7 +17,8 @@ import {
   translate,
   translateDynamic
 } from '@/localization/i18n';
-import { coreFinanceService } from '@/services/mocks/core-finance-service';
+import { categoryLifecycleService } from '@/services/mocks/core-finance-service';
+import type { CategoryUsagePreview } from '@/services/contracts/core-finance-service';
 import { CategoryRow } from './CategoryRow';
 import { projectCategory } from './category-presentation';
 import { openCategorySelection } from './category-selection-session';
@@ -55,7 +56,13 @@ export function CategoryDetailScreen({ id }: { id: string }) {
         onAction={() => router.back()}
       />
     );
-  const target = query.data?.find((item: Category) => item.id === targetId);
+  const target = query.data?.find(
+    (item: Category) =>
+      item.id === targetId &&
+      item.kind === 'custom' &&
+      item.status === 'active' &&
+      item.financialType === category.financialType
+  );
   const categoryLabel = locale === 'ar' ? category.labelAr : category.labelEn;
   const parent = query.data?.find(
     (item: Category) => item.id === category.parentId
@@ -65,11 +72,12 @@ export function CategoryDetailScreen({ id }: { id: string }) {
     category.status === 'archived'
       ? translate('coreFinance.categories.restore')
       : translate('coreFinance.categories.archive');
-  const runLifecycle = () => {
+  const confirmLifecycle = (preview: CategoryUsagePreview) => {
     Alert.alert(
       lifecycleLabel,
       translateDynamic('coreFinance.categories.archiveConfirmNamed', {
-        name: categoryLabel
+        name: categoryLabel,
+        count: String(preview.linkedTransactionCount)
       }),
       [
         { text: translate('coreFinance.cancel'), style: 'cancel' },
@@ -82,9 +90,69 @@ export function CategoryDetailScreen({ id }: { id: string }) {
               setWorking(true);
               setActionError(undefined);
               try {
-                const result = await coreFinanceService.setCategoryStatus(
+                const result = await categoryLifecycleService.setCategoryStatus(
                   id,
-                  category.status === 'archived' ? 'active' : 'archived'
+                  category.status === 'archived' ? 'active' : 'archived',
+                  preview
+                );
+                await invalidateCoreFinanceScopes(
+                  client,
+                  result.affectedScopes
+                );
+                router.replace('/categories');
+              } catch {
+                setActionError(translate('coreFinance.state.error'));
+              } finally {
+                setWorking(false);
+              }
+            })();
+          }
+        }
+      ]
+    );
+  };
+  const loadUsage = async () => {
+    if (working) return undefined;
+    setWorking(true);
+    setActionError(undefined);
+    try {
+      return await categoryLifecycleService.getCategoryUsage(id);
+    } catch {
+      setActionError(translate('coreFinance.state.error'));
+      return undefined;
+    } finally {
+      setWorking(false);
+    }
+  };
+  const runLifecycle = () => {
+    void loadUsage().then((preview) => {
+      if (preview) confirmLifecycle(preview);
+    });
+  };
+  const confirmMerge = (preview: CategoryUsagePreview) => {
+    if (!target) return;
+    const targetLabel = locale === 'ar' ? target.labelAr : target.labelEn;
+    Alert.alert(
+      translate('coreFinance.categories.merge'),
+      translateDynamic('coreFinance.categories.mergeConfirmNamed', {
+        source: categoryLabel,
+        target: targetLabel,
+        count: String(preview.linkedTransactionCount)
+      }),
+      [
+        { text: translate('coreFinance.cancel'), style: 'cancel' },
+        {
+          text: translate('coreFinance.categories.merge'),
+          onPress: () => {
+            void (async () => {
+              if (working) return;
+              setWorking(true);
+              setActionError(undefined);
+              try {
+                const result = await categoryLifecycleService.mergeCategory(
+                  id,
+                  target.id,
+                  preview
                 );
                 await invalidateCoreFinanceScopes(
                   client,
@@ -104,42 +172,9 @@ export function CategoryDetailScreen({ id }: { id: string }) {
   };
   const runMerge = () => {
     if (!target) return;
-    const targetLabel = locale === 'ar' ? target.labelAr : target.labelEn;
-    Alert.alert(
-      translate('coreFinance.categories.merge'),
-      translateDynamic('coreFinance.categories.mergeConfirmNamed', {
-        source: categoryLabel,
-        target: targetLabel
-      }),
-      [
-        { text: translate('coreFinance.cancel'), style: 'cancel' },
-        {
-          text: translate('coreFinance.categories.merge'),
-          onPress: () => {
-            void (async () => {
-              if (working) return;
-              setWorking(true);
-              setActionError(undefined);
-              try {
-                const result = await coreFinanceService.mergeCategory(
-                  id,
-                  target.id
-                );
-                await invalidateCoreFinanceScopes(
-                  client,
-                  result.affectedScopes
-                );
-                router.replace('/categories');
-              } catch {
-                setActionError(translate('coreFinance.state.error'));
-              } finally {
-                setWorking(false);
-              }
-            })();
-          }
-        }
-      ]
-    );
+    void loadUsage().then((preview) => {
+      if (preview) confirmMerge(preview);
+    });
   };
   return (
     <ScrollView contentContainerStyle={styles.stack}>
@@ -149,13 +184,15 @@ export function CategoryDetailScreen({ id }: { id: string }) {
         variant="secondary"
         onPress={() => router.push(`/categories/${id}?edit=1`)}
       />
-      <ActionButton
-        label={lifecycleLabel}
-        loading={working}
-        variant={category.status === 'archived' ? 'secondary' : 'destructive'}
-        onPress={runLifecycle}
-      />
-      {category.status === 'active' ? (
+      {category.kind === 'custom' ? (
+        <ActionButton
+          label={lifecycleLabel}
+          loading={working}
+          variant={category.status === 'archived' ? 'secondary' : 'destructive'}
+          onPress={runLifecycle}
+        />
+      ) : null}
+      {category.kind === 'custom' && category.status === 'active' ? (
         <>
           <PickerField
             label={translate('coreFinance.categories.selectMergeTarget')}

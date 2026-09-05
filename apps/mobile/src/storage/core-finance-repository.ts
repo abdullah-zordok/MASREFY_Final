@@ -491,6 +491,8 @@ export class CoreFinanceRepository {
   setCategoryStatus(id: string, status: 'active' | 'archived'): Category {
     const index = this.categories.findIndex((item) => item.id === id);
     if (index < 0) throw new CoreFinanceError('not_found');
+    if (this.categories[index].kind !== 'custom')
+      throw new CoreFinanceError('validation');
     const next = { ...this.categories[index], status, updatedAt: Date.now() };
     this.categories[index] = next;
     return copy(next);
@@ -502,9 +504,18 @@ export class CoreFinanceRepository {
       (item) => item.id === sourceId
     );
     const target = this.categories.find(
-      (item) => item.id === targetId && item.status === 'active'
+      (item) =>
+        item.id === targetId &&
+        item.kind === 'custom' &&
+        item.status === 'active'
     );
     if (sourceIndex < 0 || !target) throw new CoreFinanceError('not_found');
+    if (
+      this.categories[sourceIndex].kind !== 'custom' ||
+      this.categories[sourceIndex].status === 'merged' ||
+      this.categories[sourceIndex].financialType !== target.financialType
+    )
+      throw new CoreFinanceError('validation');
     const stagedTransactions = this.transactions.map((item) =>
       item.categoryId === sourceId
         ? {

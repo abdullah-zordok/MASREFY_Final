@@ -36,15 +36,35 @@ describeLiveDatabase('category lifecycle', () => {
   });
 
   afterAll(async () => {
-    await pool.query(`delete from private.outbox_events where payload->>'userId'=any($1)`, [
-      [owner.userId, other.userId],
-    ]);
-    await pool.query('delete from public.categories where user_id=any($1)', [
-      [owner.userId, other.userId],
-    ]);
-    await pool.query('delete from public.profiles where id=any($1)', [
-      [owner.userId, other.userId],
-    ]);
+    await pool.withClient(async (client) => {
+      const users = [owner.userId, other.userId];
+      await client.query('begin');
+      await client.query('set local session_replication_role=replica');
+      await client.query(
+        `delete from private.outbox_events
+         where payload->>'userId'=any($1) or payload#>>'{sync,userId}'=any($1)`,
+        [users],
+      );
+      await client.query(
+        `delete from public.transaction_postings where transaction_id in
+          (select id from public.transactions where user_id=any($1))`,
+        [users],
+      );
+      await client.query(
+        `delete from audit.transaction_revisions where transaction_id in
+          (select id from public.transactions where user_id=any($1))`,
+        [users],
+      );
+      await client.query('delete from public.transactions where user_id=any($1)', [users]);
+      await client.query(
+        'delete from public.account_balances where account_id in (select id from public.accounts where user_id=any($1))',
+        [users],
+      );
+      await client.query('delete from public.accounts where user_id=any($1)', [users]);
+      await client.query('delete from public.categories where user_id=any($1)', [users]);
+      await client.query('delete from public.profiles where id=any($1)', [users]);
+      await client.query('commit');
+    });
     await pool.onModuleDestroy();
   });
 
@@ -129,5 +149,116 @@ describeLiveDatabase('category lifecycle', () => {
         ),
       ),
     ).rejects.toThrow('CATEGORY_CYCLE');
+  });
+
+  it('rechecks usage and atomically reassigns every owned transaction on merge', async () => {
+    const source = (await repository.execute(
+      input('createCategory', {
+        kind: 'expense',
+        labelAr: `مصدر${runId.slice(0, 5)}`,
+        labelEn: `Source${runId.slice(0, 5)}`,
+        icon: null,
+        color: null,
+        parentId: null,
+        sortOrder: 20,
+      }),
+    )) as { id: string; version: number };
+    const target = (await repository.execute(
+      input('createCategory', {
+        kind: 'expense',
+        labelAr: `هدف${runId.slice(0, 5)}`,
+        labelEn: `Target${runId.slice(0, 5)}`,
+        icon: null,
+        color: null,
+        parentId: null,
+        sortOrder: 21,
+      }),
+    )) as { id: string; version: number };
+    const accountId = randomUUID();
+    const transactionIds: [string, string] = [randomUUID(), randomUUID()];
+    await pool.query(
+      `insert into public.accounts(id,user_id,name,type,currency_code)
+       values($1,$2,'Merge cash','cash','SAR')`,
+      [accountId, owner.userId],
+    );
+    const insertTransaction = async (transactionId: string) => {
+      await pool.query(
+        `insert into public.transactions(
+          id,user_id,kind,amount_minor,currency_code,category_id,title,occurred_at
+        ) values($1,$2,'expense',100,'SAR',$3,'Linked',clock_timestamp())`,
+        [transactionId, owner.userId, source.id],
+      );
+      await pool.query(
+        `insert into public.transaction_postings(
+          transaction_id,account_id,amount_minor,clearing_state,posting_role,occurred_at
+        ) values($1,$2,-100,'confirmed','source',clock_timestamp())`,
+        [transactionId, accountId],
+      );
+    };
+    await insertTransaction(transactionIds[0]);
+
+    const preview = (await repository.execute(
+      input('getCategoryUsage', {}, { categoryId: source.id }),
+    )) as { linkedTransactionCount: number; version: number };
+    expect(preview).toEqual({ linkedTransactionCount: 1, version: source.version });
+    await expect(
+      repository.execute({
+        ...input('getCategoryUsage', {}, { categoryId: source.id }),
+        principal: other,
+      }),
+    ).rejects.toThrow('NOT_FOUND');
+
+    await insertTransaction(transactionIds[1]);
+    const archivePreview = (await repository.execute(
+      input('getCategoryUsage', {}, { categoryId: source.id }),
+    )) as { linkedTransactionCount: number; version: number };
+    await repository.execute(
+      {
+        ...input('archiveCategory', {}, { categoryId: source.id }),
+        query: {
+          expectedVersion: archivePreview.version,
+          expectedLinkedTransactionCount: archivePreview.linkedTransactionCount,
+        },
+      },
+    );
+    await expect(
+      repository.execute(
+        input(
+          'mergeCategory',
+          {
+            targetId: target.id,
+            expectedVersion: preview.version,
+            expectedLinkedTransactionCount: preview.linkedTransactionCount,
+          },
+          { categoryId: source.id },
+        ),
+      ),
+    ).rejects.toThrow('CATEGORY_USAGE_CHANGED');
+
+    const current = (await repository.execute(
+      input('getCategoryUsage', {}, { categoryId: source.id }),
+    )) as { linkedTransactionCount: number; version: number };
+    expect(current).toEqual({
+      linkedTransactionCount: archivePreview.linkedTransactionCount,
+      version: archivePreview.version + 1,
+    });
+    await repository.execute(
+      input(
+        'mergeCategory',
+        {
+          targetId: target.id,
+          expectedVersion: current.version,
+          expectedLinkedTransactionCount: current.linkedTransactionCount,
+        },
+        { categoryId: source.id },
+      ),
+    );
+    const evidence = await pool.query<{ moved: string; revisions: string }>(
+      `select
+        (select count(*) from public.transactions where id=any($1) and category_id=$2)::text moved,
+        (select count(*) from audit.transaction_revisions where transaction_id=any($1))::text revisions`,
+      [transactionIds, target.id],
+    );
+    expect(evidence.rows[0]).toEqual({ moved: '2', revisions: '2' });
   });
 });

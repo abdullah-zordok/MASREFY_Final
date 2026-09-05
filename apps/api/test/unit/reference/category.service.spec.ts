@@ -51,4 +51,96 @@ describe('category service', () => {
       ).rejects.toMatchObject({ status: 409 });
     },
   );
+
+  it('reads an owner-scoped usage preview without idempotency', async () => {
+    repository.execute.mockResolvedValueOnce({ linkedTransactionCount: 3, version: 7 });
+
+    await expect(
+      service.execute({
+        operation: 'getCategoryUsage',
+        principal,
+        requestId: 'r5',
+        params: { categoryId: '10000000-0000-4000-8000-000000000001' },
+      }),
+    ).resolves.toEqual({ linkedTransactionCount: 3, version: 7 });
+
+    expect(repository.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: 'getCategoryUsage' }),
+    );
+  });
+
+  it('requires a server-previewed count for archive and merge', async () => {
+    repository.execute.mockResolvedValue(null);
+
+    await service.execute({
+      operation: 'archiveCategory',
+      principal,
+      requestId: 'r6',
+      idempotencyKey: 'archive-key',
+      params: { categoryId: '10000000-0000-4000-8000-000000000001' },
+      query: { expectedVersion: '4', expectedLinkedTransactionCount: '0' },
+    });
+    await service.execute({
+      operation: 'mergeCategory',
+      principal,
+      requestId: 'r7',
+      idempotencyKey: 'merge-key',
+      params: { categoryId: '10000000-0000-4000-8000-000000000001' },
+      body: {
+        expectedVersion: 4,
+        expectedLinkedTransactionCount: 12,
+        targetId: '20000000-0000-4000-8000-000000000002',
+      },
+    });
+
+    expect(repository.execute).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        query: { expectedVersion: 4, expectedLinkedTransactionCount: 0 },
+      }),
+    );
+    expect(repository.execute).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        body: {
+          expectedVersion: 4,
+          expectedLinkedTransactionCount: 12,
+          targetId: '20000000-0000-4000-8000-000000000002',
+        },
+      }),
+    );
+  });
+
+  it('rejects a lifecycle action without a valid preview count', async () => {
+    await expect(
+      service.execute({
+        operation: 'archiveCategory',
+        principal,
+        requestId: 'r8',
+        idempotencyKey: 'archive-key',
+        params: { categoryId: '10000000-0000-4000-8000-000000000001' },
+        query: { expectedVersion: '4' },
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+
+    expect(repository.execute).not.toHaveBeenCalled();
+  });
+
+  it('maps a changed authoritative count to a stable conflict', async () => {
+    repository.execute.mockRejectedValueOnce(new Error('CATEGORY_USAGE_CHANGED'));
+    await expect(
+      service.execute({
+        operation: 'mergeCategory',
+        principal,
+        requestId: 'r9',
+        idempotencyKey: 'merge-key',
+        params: { categoryId: '10000000-0000-4000-8000-000000000001' },
+        body: {
+          expectedVersion: 4,
+          expectedLinkedTransactionCount: 1,
+          targetId: '20000000-0000-4000-8000-000000000002',
+        },
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+  });
 });

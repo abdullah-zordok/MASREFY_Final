@@ -215,6 +215,13 @@ export class ReferenceRepository {
         ).rows;
         return rows;
       }
+      case 'getCategoryUsage': {
+        const usage = await this.categoryUsage(client, input);
+        return {
+          linkedTransactionCount: usage.linkedTransactionCount,
+          version: usage.version,
+        };
+      }
       case 'createCategory': {
         const row = (
           await client.query<ReferenceRow>(
@@ -518,14 +525,10 @@ export class ReferenceRepository {
     return this.category(row);
   }
   private async archiveCategory(client: PoolClient, input: ReferenceOperation): Promise<unknown> {
-    const before = await this.locked(
-      client,
-      'categories',
-      input.params.categoryId,
-      input.principal.userId,
-    );
-    if (!before) throw new Error('NOT_FOUND');
+    const { category: before, linkedTransactionCount } = await this.categoryUsage(client, input);
     if (!before.active) return null;
+    if (linkedTransactionCount !== input.query.expectedLinkedTransactionCount)
+      throw new Error('CATEGORY_USAGE_CHANGED');
     const row = (
       await client.query<ReferenceRow>(
         `update public.categories set active=false,deleted_at=clock_timestamp() where id=$1 and version=$2 returning *`,
@@ -585,13 +588,29 @@ export class ReferenceRepository {
     return this.category(row);
   }
   private async mergeCategory(client: PoolClient, input: ReferenceOperation): Promise<unknown> {
-    const before = await this.locked(
+    const { category: before, linkedTransactionCount } = await this.categoryUsage(client, input);
+    if (linkedTransactionCount !== input.body.expectedLinkedTransactionCount)
+      throw new Error('CATEGORY_USAGE_CHANGED');
+    const target = await this.locked(
       client,
       'categories',
-      input.params.categoryId,
+      input.body.targetId as string,
       input.principal.userId,
     );
-    if (!before) throw new Error('NOT_FOUND');
+    if (
+      !target ||
+      !target.active ||
+      target.merged_into_id !== null ||
+      target.kind !== before.kind ||
+      target.id === before.id
+    )
+      throw new Error('CATEGORY_INVALID');
+    await client.query('select * from private.reassign_category_transactions($1,$2,$3,$4)', [
+      input.principal.userId,
+      before.id,
+      target.id,
+      input.requestId,
+    ]);
     const row = (
       await client.query<ReferenceRow>(
         `update public.categories set active=false,deleted_at=clock_timestamp(),merged_into_id=$3 where id=$1 and version=$2 returning *`,
@@ -616,6 +635,39 @@ export class ReferenceRepository {
       },
     });
     return { source: this.category(row), targetId: input.body.targetId };
+  }
+  private async categoryUsage(
+    client: PoolClient,
+    input: ReferenceOperation,
+  ): Promise<{ category: ReferenceRow; linkedTransactionCount: number; version: number }> {
+    const usage = (
+      await client.query<{
+        linkedTransactionCount: string;
+        version: string;
+        active: boolean;
+        merged: boolean;
+      }>(
+        `select linked_transaction_count::text "linkedTransactionCount",
+          version::text,active,merged
+         from private.get_category_usage($1,$2)`,
+        [input.principal.userId, input.params.categoryId],
+      )
+    ).rows[0];
+    if (!usage) throw new Error('NOT_FOUND');
+    const category = await this.locked(
+      client,
+      'categories',
+      input.params.categoryId,
+      input.principal.userId,
+    );
+    if (!category) throw new Error('NOT_FOUND');
+    if (usage.merged) throw new Error('CATEGORY_INVALID');
+    const linkedTransactionCount = Number(usage.linkedTransactionCount);
+    return {
+      category,
+      linkedTransactionCount,
+      version: Number(usage.version),
+    };
   }
   private async updateAccount(client: PoolClient, input: ReferenceOperation): Promise<unknown> {
     const before = await this.locked(

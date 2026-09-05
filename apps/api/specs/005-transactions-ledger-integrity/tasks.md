@@ -313,3 +313,10 @@ container, protected-identity, provider, CI, signature, provenance, and tag gate
 remain explicit when unavailable and never become inferred passes. Phase 05 is
 complete only after T001-T111 are resolved and the exact final immutable release
 revision satisfies the Definition of Done.
+
+## 2026-09-05 Category Merge Integration
+
+- [x] Preserve postings and money while changing linked category IDs.
+- [x] Append transaction revision, audit, and outbox evidence atomically.
+- [x] Cover zero and many rows, incompatible/foreign/system denial, and rollback.
+- [ ] Record the final pushed SHA and remote CI result.

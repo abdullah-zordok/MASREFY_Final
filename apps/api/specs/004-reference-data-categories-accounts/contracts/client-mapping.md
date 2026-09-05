@@ -31,7 +31,7 @@ backend responses and later SPEC-BE-014 adapters.
 | `isFavorite` | device presentation preference | remains local; not server authority |
 | `status active|archived|merged` | active/deleted/merge metadata | direct lifecycle mapping |
 | `mergedIntoId` | merge target | direct after ID mapping |
-| create/update/archive/restore/merge | category routes | adapter supplies version/idempotency; backend denies system archive/merge and never reclassifies ledger rows |
+| create/update/archive/restore/merge | category routes | adapter supplies version/idempotency; backend denies system archive/merge and merge reclassifies through the ledger-owned command |
 
 User category requests without a financial kind default to `expense`, matching the
 current create UI. Later explicit clients may submit income/transfer.
@@ -59,7 +59,16 @@ current create UI. Later explicit clients may submit income/transfer.
 
 - Account type/status and safe-field parity.
 - System category key set and financial-kind mapping.
-- Category lifecycle/merge mapping and absence of direct transaction writes.
+- Category lifecycle/merge mapping and ledger-owned transaction reclassification.
 - Exchange available/unavailable behavior and no cross-currency aggregation.
 - Admin permission names and governance code projections.
 - No Mobile/Admin imports in production backend source.
+
+## Category Lifecycle Mapping Addendum
+
+- Mobile maps `linkedTransactionCount` and `version` without coercing another
+  field or deriving the count from the rendered list.
+- Archive sends both preview values as query preconditions; merge sends them in
+  its body with `targetId`.
+- Mock and live adapters expose the same preview/action contract. Phase 14 still
+  owns any whole-application provider cutover.

@@ -50,6 +50,25 @@ export interface ImpactPreview {
   affectedAccountIds: string[];
 }
 
+export interface CategoryUsagePreview {
+  linkedTransactionCount: number;
+  version: number;
+}
+
+export interface CategoryLifecycleService {
+  getCategoryUsage(id: string): Promise<CategoryUsagePreview>;
+  setCategoryStatus(
+    id: string,
+    status: 'active' | 'archived',
+    preview: CategoryUsagePreview
+  ): Promise<{ affectedScopes: readonly string[] }>;
+  mergeCategory(
+    sourceId: string,
+    targetId: string,
+    preview: CategoryUsagePreview
+  ): Promise<{ affectedScopes: readonly string[] }>;
+}
+
 export interface CardPayoffInput {
   fundingAccountId: string;
   cardAccountId: string;
@@ -82,6 +101,7 @@ export interface CoreFinanceService {
   archiveAccount(id: string): Promise<MutationResult<Account>>;
   restoreAccount(id: string): Promise<MutationResult<Account>>;
   listCategories(includeArchived?: boolean): Promise<Category[]>;
+  getCategoryUsage(id: string): Promise<CategoryUsagePreview>;
   createCategory(input: CategoryInput): Promise<MutationResult<Category>>;
   updateCategory(
     id: string,
@@ -89,11 +109,13 @@ export interface CoreFinanceService {
   ): Promise<MutationResult<Category>>;
   setCategoryStatus(
     id: string,
-    status: 'active' | 'archived'
+    status: 'active' | 'archived',
+    preview?: CategoryUsagePreview
   ): Promise<MutationResult<Category>>;
   mergeCategory(
     sourceId: string,
-    targetId: string
+    targetId: string,
+    preview?: CategoryUsagePreview
   ): Promise<MutationResult<Category>>;
   listTransactions(
     filters: TransactionFilterSet,

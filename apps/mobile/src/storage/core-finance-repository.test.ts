@@ -160,11 +160,34 @@ it('preserves both conflict snapshots until explicit supported resolution', () =
 
 it('merges categories and reclassifies all source records atomically', () => {
   const repo = repository();
-  const source = repo.requireTransaction('transaction-1').categoryId!;
-  repo.mergeCategory(source, 'other-income');
-  expect(repo.requireCategory(source).status).toBe('merged');
+  const source = repo.saveCategory({
+    labelAr: 'مصدر',
+    labelEn: 'Source',
+    financialType: 'expense',
+    parentId: null,
+    isFavorite: false
+  });
+  const target = repo.saveCategory({
+    labelAr: 'هدف',
+    labelEn: 'Target',
+    financialType: 'expense',
+    parentId: null,
+    isFavorite: false
+  });
+  repo.saveTransaction({
+    type: 'expense',
+    amountMinor: 100,
+    currencyCode: 'SAR',
+    accountId: 'account-bank',
+    categoryId: source.id,
+    title: 'Linked',
+    occurredAt: 1
+  });
+  repo.setCategoryStatus(source.id, 'archived');
+  repo.mergeCategory(source.id, target.id);
+  expect(repo.requireCategory(source.id).status).toBe('merged');
   expect(
-    repo.allTransactions().filter((item) => item.categoryId === source)
+    repo.allTransactions().filter((item) => item.categoryId === source.id)
   ).toHaveLength(0);
 });
 

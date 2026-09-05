@@ -334,3 +334,9 @@ before T097-T099 and T101 complete the journey.
 - After each task, run its exact narrow verification and keep the checkbox unchecked if it fails.
 - Preserve unrelated dirty-worktree changes and never rewrite earlier migrations.
 - Stop at each checkpoint and report the first failing command with its relevant output.
+
+### 2026-09-05 Category Usage
+
+- [x] Add mock/live preview parity and changed-count rejection.
+- [x] Keep system categories out of lifecycle mutations.
+- [x] Reclassify local transaction history atomically during merge.

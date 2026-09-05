@@ -118,7 +118,10 @@ it('converts account balances toward the profile currency and excludes incompara
     type: 'expense'
   });
   const sut = createMockCoreFinanceService(
-    new CoreFinanceRepository({ accounts: [usdAccount], transactions: [usdExpense] }),
+    new CoreFinanceRepository({
+      accounts: [usdAccount],
+      transactions: [usdExpense]
+    }),
     {
       rates: createMockExchangeRateService([
         {
@@ -343,13 +346,40 @@ it('keeps assistant transaction operation IDs idempotent and owner versions enfo
 
 it('keeps merge effects visible through the service', async () => {
   const sut = service();
-  await sut.mergeCategory('food', 'restaurants');
+  const source = await sut.createCategory({
+    labelAr: 'مصدر',
+    labelEn: 'Source',
+    financialType: 'expense',
+    parentId: null,
+    isFavorite: false
+  });
+  const target = await sut.createCategory({
+    labelAr: 'هدف',
+    labelEn: 'Target',
+    financialType: 'expense',
+    parentId: null,
+    isFavorite: false
+  });
+  await sut.createTransaction({
+    type: 'expense',
+    amountMinor: 100,
+    currencyCode: 'SAR',
+    accountId: 'account-bank',
+    destinationAccountId: null,
+    categoryId: source.value.id,
+    title: 'Linked',
+    merchant: null,
+    occurredAt: 1,
+    notes: null
+  });
+  await sut.mergeCategory(source.value.id, target.value.id);
   expect(
-    (await sut.listCategories(true)).find((item) => item.id === 'food')?.status
+    (await sut.listCategories(true)).find((item) => item.id === source.value.id)
+      ?.status
   ).toBe('merged');
   expect(
     (await sut.listTransactions(emptyTransactionFilters)).items.some(
-      (item) => item.categoryId === 'food'
+      (item) => item.categoryId === source.value.id
     )
   ).toBe(false);
 });

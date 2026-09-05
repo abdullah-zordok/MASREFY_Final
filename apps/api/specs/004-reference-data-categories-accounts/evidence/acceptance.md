@@ -40,3 +40,14 @@ differences in the separate commit `adc2f70`; the remaining status noise is Git'
 Windows `core.autocrlf` normalization and has no content diff. A fresh
 `npm run format:check` now passes across the entire API tree, and `git diff
 --check` passes for the Phase 04 diff.
+
+## 2026-09-05 Category Usage Evidence
+
+- Clean `supabase db reset`: PASS, including
+  `20260905080000_client_category_usage.sql`.
+- Schema lint at warning/fail-on-error: PASS, no schema errors.
+- Full pgTAP: PASS, 51 files and 1,633 tests.
+- Live category integration: PASS, 1 suite and 3 tests, including stale count,
+  cross-owner hiding, two-row merge, and revision evidence.
+- API and Mobile focused contract/UI results are recorded in the execution plan;
+  remote CI remains pending until the slice commit is pushed.

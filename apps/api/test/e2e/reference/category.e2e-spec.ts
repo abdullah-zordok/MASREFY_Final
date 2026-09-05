@@ -31,7 +31,13 @@ describe('category HTTP lifecycle', () => {
       .send({ labelAr: 'طعام', labelEn: 'Food' })
       .expect(201);
     await request(harness.server)
-      .delete('/api/v1/categories/10000000-0000-4000-8000-000000000001?expectedVersion=1')
+      .get('/api/v1/categories/10000000-0000-4000-8000-000000000001/usage')
+      .expect(200)
+      .expect({ linkedTransactionCount: 0, version: 1 });
+    await request(harness.server)
+      .delete(
+        '/api/v1/categories/10000000-0000-4000-8000-000000000001?expectedVersion=1&expectedLinkedTransactionCount=0',
+      )
       .set('Idempotency-Key', 'valid-key')
       .expect(204);
   });

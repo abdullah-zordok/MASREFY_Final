@@ -253,3 +253,10 @@ Complete T001–T022: baseline, Shared Category Foundation, and Category List. I
 - Duplicate category labels remain allowed; no task adds uniqueness validation.
 - `[P]` indicates safe file-level parallelism, not permission to bypass dependencies.
 - Preserve unrelated user changes in the shared worktree.
+
+## 2026-09-05 Item #30
+
+- [x] Hide archive/merge controls for system categories.
+- [x] Show owner-derived linked count before custom archive/merge.
+- [x] Pass the preview into the mutation and surface stale/failure safely.
+- [x] Cover picker compatibility, localization, live/mock HTTP parity, and count changes.

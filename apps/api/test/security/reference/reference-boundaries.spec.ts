@@ -14,6 +14,10 @@ describe('Phase 04 security boundaries', () => {
     'utf8',
   );
   const repository = readFileSync('src/reference/reference.repository.ts', 'utf8');
+  const remediationMigration = readFileSync(
+    '../../supabase/migrations/20260905080000_client_category_usage.sql',
+    'utf8',
+  );
 
   it('forces RLS, revokes anonymous access, and keeps mutation functions server-only', () => {
     for (const table of [
@@ -38,6 +42,13 @@ describe('Phase 04 security boundaries', () => {
       normalizeCreateAccount({ name: 'Cash', type: 'cash', currency: 'SAR', status: 'closed' }),
     ).toThrow('VALIDATION_FAILED');
     expect(repository).toContain('where id=$1 and user_id=$2');
+    expect(remediationMigration).toContain(
+      'public.current_clerk_user_id() is distinct from p_user_id',
+    );
+    expect(remediationMigration).toContain('revoke all on function private.get_category_usage');
+    expect(remediationMigration).toContain(
+      'revoke all on function private.reassign_category_transactions',
+    );
   });
 
   it('uses exact BFLA permissions and no generic Admin resource route', () => {

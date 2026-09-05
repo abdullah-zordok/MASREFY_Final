@@ -18,10 +18,15 @@ import {
 import type {
   CoreFinanceService,
   CardPayoffInput,
+  CategoryLifecycleService,
+  CategoryUsagePreview,
   DeleteResult,
   MutationResult
 } from '@/services/contracts/core-finance-service';
-import { coreFinanceServiceCapability } from '@/services/contracts/core-finance-service';
+import {
+  CoreFinanceError,
+  coreFinanceServiceCapability
+} from '@/services/contracts/core-finance-service';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
 import type { CapabilityProviderKind } from '@/services/contracts/capability-contract';
 import {
@@ -83,6 +88,23 @@ export function createMockCoreFinanceService(
     if (!persistent) return Promise.resolve();
     hydration ??= repository.hydrate();
     return hydration;
+  };
+  const assertCategoryUsage = async (
+    id: string,
+    preview?: CategoryUsagePreview
+  ) => {
+    if (!preview) return;
+    await ensureReady();
+    const category = repository
+      .listCategories(true)
+      .find((item) => item.id === id && item.kind === 'custom');
+    if (
+      !category ||
+      category.updatedAt !== preview.version ||
+      repository.countTransactionsForCategory(id) !==
+        preview.linkedTransactionCount
+    )
+      throw new CoreFinanceError('conflict');
   };
   if (registerForReset)
     registerRuntimeUserDataReset(() => {
@@ -239,6 +261,18 @@ export function createMockCoreFinanceService(
     async listCategories(includeArchived) {
       return read(() => repository.listCategories(includeArchived));
     },
+    async getCategoryUsage(id) {
+      await ensureReady();
+      const category = repository
+        .listCategories(true)
+        .find((item) => item.id === id && item.kind === 'custom');
+      if (!category || category.status === 'merged')
+        throw new CoreFinanceError('not_found');
+      return {
+        linkedTransactionCount: repository.countTransactionsForCategory(id),
+        version: category.updatedAt
+      };
+    },
     async createCategory(input: CategoryInput) {
       return mutate(
         () => repository.saveCategory(categoryInputSchema.parse(input)),
@@ -257,15 +291,17 @@ export function createMockCoreFinanceService(
         () => scopes.category(id)
       );
     },
-    async setCategoryStatus(id, status) {
+    async setCategoryStatus(id, status, preview?: CategoryUsagePreview) {
+      await assertCategoryUsage(id, preview);
       return mutate(
         () => repository.setCategoryStatus(id, status),
         (category) => repository.persistCategory(category),
         () => scopes.category(id)
       );
     },
-    async mergeCategory(sourceId, targetId) {
+    async mergeCategory(sourceId, targetId, preview?: CategoryUsagePreview) {
       await ensureReady();
+      await assertCategoryUsage(sourceId, preview);
       const value = repository.mergeCategory(sourceId, targetId);
       if (persistent) await repository.persistCategoryMerge();
       return result(value, [
@@ -433,6 +469,25 @@ function createDemoCoreFinanceRepository(locale: Locale) {
 }
 
 export const coreFinanceService = createProductionCoreFinanceService();
+export const categoryLifecycleService: CategoryLifecycleService = {
+  getCategoryUsage: (id) => coreFinanceService.getCategoryUsage(id),
+  async setCategoryStatus(id, status, preview) {
+    const result = await coreFinanceService.setCategoryStatus(
+      id,
+      status,
+      preview
+    );
+    return { affectedScopes: result.affectedScopes };
+  },
+  async mergeCategory(sourceId, targetId, preview) {
+    const result = await coreFinanceService.mergeCategory(
+      sourceId,
+      targetId,
+      preview
+    );
+    return { affectedScopes: result.affectedScopes };
+  }
+};
 
 export function relocalizeDemoCoreFinanceRepository(locale: Locale): void {
   const now = Date.now();

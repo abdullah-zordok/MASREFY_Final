@@ -786,9 +786,9 @@ const en = {
   'coreFinance.categories.merge': 'Merge into',
   'coreFinance.categories.selectMergeTarget': 'Select destination category',
   'coreFinance.categories.archiveConfirmNamed':
-    'Archive {{name}}? Existing transaction history will remain available.',
+    'Archive {{name}}? {{count}} linked transactions will remain available in history.',
   'coreFinance.categories.mergeConfirmNamed':
-    'Merge {{source}} into {{target}}? Existing transactions will be reclassified.',
+    'Merge {{source}} into {{target}}? {{count}} linked transactions will be reclassified.',
   'coreFinance.categories.discardChanges': 'Discard category changes?',
   'coreFinance.categories.discardChangesBody':
     'Unsaved category modifications will be lost.',

@@ -26,3 +26,12 @@ Result: 1 suite passed, 3 tests passed
 npx jest --selectProjects unit e2e --runInBand --runTestsByPath test/unit/reference/account.service.spec.ts test/unit/reference/reference.contracts.spec.ts test/unit/reference/reference.service.spec.ts test/unit/ledger/ledger.service.spec.ts test/e2e/reference/account.e2e-spec.ts
 Result: 5 suites passed, 47 tests passed
 ```
+
+## 2026-09-05 Category Merge
+
+`051_client_category_usage.sql` passed inside the full 51-file/1,633-test pgTAP
+run. It proves archived-source zero-link and active-source many-link
+reassignment, unchanged money, immutable posting count, one
+revision/audit/outbox record per moved transaction, and foreign/system/kind
+denial. The live reference integration passed a changed-count rollback followed
+by an archived-source, two-transaction successful merge.

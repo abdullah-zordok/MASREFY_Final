@@ -76,18 +76,19 @@ callers and arbitrary hierarchy depth.
 **Alternatives rejected**: Application-only traversal, fixed maximum depth, or a
 closure table not justified by current scale.
 
-## Decision 7: Category Merge Is Metadata Until the Ledger Exists
+## Decision 7: Category Merge Delegates to the Ledger Once Available
 
-**Decision**: Phase 04 may mark a user category inactive/deleted with
-`merged_into_id`, audit it, and emit `category.merged`. It never updates a
-transaction. Before SPEC-BE-005, no committed ledger references exist; later
-reclassification must call the ledger owner's command.
+**Decision**: Before SPEC-BE-005, Phase 04 may only mark a user category
+inactive/deleted with `merged_into_id`, audit it, and emit `category.merged`.
+With SPEC-BE-005 present, merge first calls the ledger-owned command to
+reclassify every owned transaction header while preserving postings and adding
+revision/audit/outbox evidence.
 
 **Rationale**: This preserves current Mobile lifecycle semantics without stealing
 ledger ownership.
 
-**Alternatives rejected**: Direct future transaction updates, omitting traceability,
-or a generic cross-domain cascade.
+**Alternatives rejected**: Reference-owned direct transaction updates, omitting
+traceability, or a generic cross-domain cascade.
 
 ## Decision 8: Current Mobile Account Types Are Canonical
 

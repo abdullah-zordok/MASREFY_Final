@@ -200,3 +200,11 @@ No state relies on color, icon, motion, or haptic feedback alone.
 - Controls expose accessible name, role, state, error, and action and measure at least 44 by 44.
 - Critical tasks remain usable at 200% text, with screen readers, reduced motion, open keyboard,
   grayscale, and 320 by 568 logical pixels.
+
+## 14. Category Lifecycle Preview
+
+`getCategoryUsage(id)` returns `{linkedTransactionCount, version}`. Archive and
+merge accept that exact preview, fail with `conflict` when it is stale, and never
+accept system categories. The live adapter sends the preview to the owner API;
+the local adapter derives it from the persisted repository immediately before
+confirmation.

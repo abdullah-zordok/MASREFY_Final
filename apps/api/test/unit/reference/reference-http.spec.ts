@@ -40,6 +40,7 @@ describe('reference HTTP contract', () => {
     [409, 'LEDGER_NOT_AVAILABLE'],
     [404, 'FX_UNAVAILABLE'],
     [409, 'CATEGORY_CYCLE'],
+    [409, 'CATEGORY_USAGE_CHANGED'],
     [400, 'IDEMPOTENCY_KEY_REQUIRED'],
   ])('keeps %s %s in the safe allowlist', (status, code) => {
     expect(safeError(status, 'request-1', [], code)).toMatchObject({

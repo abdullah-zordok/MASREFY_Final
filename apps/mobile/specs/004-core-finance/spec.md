@@ -339,3 +339,10 @@ attachments, investments, production services, and real currency conversion are 
   and anchored to the user's profile currency.
 - Camera capture, receipts, attachments, investments, production banking connections,
   production synchronization, and production analytics remain outside scope.
+
+## 2026-09-05 Category Lifecycle Addendum
+
+The core-finance service exposes an authoritative category usage preview with a
+linked transaction count and opaque version. Archive/merge confirmation must use
+that preview, and mock persistence rejects changed counts. System categories are
+read-only. Merge retains the existing atomic local reclassification behavior.

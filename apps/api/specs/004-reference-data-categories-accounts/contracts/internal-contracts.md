@@ -92,7 +92,9 @@ logs, metrics labels, or outbox payloads.
   cannot be merge sources.
 - Kind must match for parent and merge relationships.
 - Merging sets source `active=false`, `deleted_at=now()`, and
-  `merged_into_id=target`. It never updates later-domain rows.
+  `merged_into_id=target`. Once SPEC-BE-005 is present, it first calls the
+  ledger-owned command to reclassify transaction headers and preserve immutable
+  postings, revisions, audit, and outbox evidence.
 
 ## Account Default and Lifecycle Contract
 
@@ -156,6 +158,7 @@ Phase 04 contains no dynamic detection that could silently switch behavior.
 | duplicate active natural key | 409 | `DUPLICATE_RESOURCE` |
 | hierarchy/merge cycle | 409 | `CATEGORY_CYCLE` |
 | incompatible category | 409 | `CATEGORY_INVALID` |
+| category usage changed after preview | 409 | `CATEGORY_USAGE_CHANGED` |
 | account currency locked | 409 | `ACCOUNT_CURRENCY_LOCKED` |
 | ledger command unavailable | 409 | `LEDGER_NOT_AVAILABLE` |
 | missing/stale rate | 404 | `FX_UNAVAILABLE` |

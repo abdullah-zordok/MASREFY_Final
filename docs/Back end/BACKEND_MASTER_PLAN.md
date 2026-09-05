@@ -1423,8 +1423,9 @@ erDiagram
 | `GET /api/v1/exchange-rates?base&quote&at` | validated codes/time | closest approved `{base,quote,rate,effectiveAt,provider}` or `404 FX_UNAVAILABLE` |
 | `GET /api/v1/categories?kind&includeInactive` | owner; cursor for user categories | merged system/user category items |
 | `POST /api/v1/categories` | `{kind?,labelAr,labelEn,icon?,color?,parentId?,sortOrder?}`; omitted financial kind defaults to expense for the current Mobile adapter | created category/version |
-| `PATCH/DELETE /api/v1/categories/:id` | explicit fields + expectedVersion; delete idempotent | updated item or `204` |
-| `POST /api/v1/categories/:id/restore` and `/merge` | expectedVersion; merge also supplies targetId | restored or merged category/version |
+| `PATCH/DELETE /api/v1/categories/:id` | explicit fields + expectedVersion; delete also supplies the server-previewed linked count | updated item or `204`; changed count/version conflicts safely |
+| `GET /api/v1/categories/:id/usage` | owner-scoped custom category | authoritative `{linkedTransactionCount,version}` for lifecycle confirmation |
+| `POST /api/v1/categories/:id/restore` and `/merge` | expectedVersion; merge also supplies targetId and the server-previewed linked count | restored or merged category/version; merge atomically reassigns owned transaction headers |
 | `GET /api/v1/accounts?status` | owner | bounded account summaries with balance projection from Spec 005 |
 | `POST /api/v1/accounts` | `{name,type,currency,institutionName?,lastFour?,creditLimitMinor?,isDefault?,iconKey?,colorKey?,notes?,includeInTotals,openingBalanceMinor?}` | `{account,...,openingTransactionId?}` after Spec 005 atomic orchestration; before Spec 005 a nonzero opening balance fails atomically |
 | `GET/PATCH/DELETE /api/v1/accounts/:id` | owner; patch expectedVersion | account detail/update/`204` archive |
@@ -1437,6 +1438,10 @@ erDiagram
   active system category of compatible kind.
 - `private.resolve_exchange_rate(base,quote,at,max_age)` returns a rate or fails;
   it never invents a value.
+- `private.get_category_usage(user_id,category_id)` serializes with ledger writes
+  and returns only the owner category count/version/state. Category merge rechecks
+  that preview and uses `private.reassign_category_transactions` to preserve
+  postings while appending revisions, audit, and outbox evidence.
 - `reference.seed` is an idempotent deployment job for currencies, countries, and
   current system categories. `exchange-rate.refresh` is optional until a provider
   is approved; absence returns unavailable rather than fake data.

@@ -252,3 +252,11 @@ As a user categorizing a transaction, proposal, budget, report filter, or review
 - Recent choices are shown only if existing feature data supplies them; favorites remain the current reliable prioritization fallback.
 - Contextual category creation reuses existing creation capability and requires caller context preservation rather than a new product capability.
 - Real-device validation and validation-fix tasks will be detailed during `/tasks`; this `/specify` phase changes no production code.
+
+## 2026-09-05 Remediation Requirement
+
+Custom-category archive and merge fetch the current authoritative linked
+transaction count before showing confirmation. The count is visible in Arabic
+and English; a stale preview fails without mutation. System categories display
+no lifecycle controls. Archive does not reclassify; merge reclassifies all linked
+transactions atomically. No separate undo or bulk action is introduced.
