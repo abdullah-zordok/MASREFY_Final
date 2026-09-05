@@ -8,4 +8,4 @@ rate-limit, Storage, queue, and observability seams.
 
 Local TypeScript, lint, module-contract, configuration, scope, and checksum checks
 pass. A clean database reset applied every migration through Phase 11; schema lint
-returned zero issues and all 50 pgTAP files (1,613 assertions) passed.
+returned zero issues and all 50 pgTAP files (1,615 assertions) passed.

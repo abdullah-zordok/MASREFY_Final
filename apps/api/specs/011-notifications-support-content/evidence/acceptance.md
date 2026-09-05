@@ -20,7 +20,7 @@ success criteria to implementation, automated tests, and the focused evidence fi
   `client-integration.md`, `performance.md`, `recovery.md`, `local-verification.md`,
   `convergence.md`, `clean-code-review.md`, `test-review.md`, `security-review.md`.
 
-All 157 ledger tasks are accounted for by their implementation or named evidence.
+All 157 ledger tasks are complete and accounted for by their implementation or named evidence.
 Protected unrelated paths remain untracked/unstaged, and the diff contains no
 SPEC-BE-012+ billing/subscription ownership. External real-provider/device and
 production-observation gates remain explicitly truthful per SC-010.
