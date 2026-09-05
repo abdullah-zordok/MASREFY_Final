@@ -49,5 +49,12 @@ Windows `core.autocrlf` normalization and has no content diff. A fresh
 - Full pgTAP: PASS, 51 files and 1,633 tests.
 - Live category integration: PASS, 1 suite and 3 tests, including stale count,
   cross-owner hiding, two-row merge, and revision evidence.
-- API and Mobile focused contract/UI results are recorded in the execution plan;
-  remote CI remains pending until the slice commit is pushed.
+- API and Mobile focused contract/UI results are recorded in the execution plan.
+- Slice commits: `7a12dd42e754fc0294d12fa8663666837f822ac8` and inventory follow-up
+  `e47eff88063fc74f35ab9dc7e0651eea59a0063a`, pushed to `main`.
+- Remote Backend Foundation run
+  `https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33987079570`:
+  PASS, including application, database, Mobile, Admin, secrets, redaction,
+  image/container, and vulnerability-scan jobs. The superseded first run exposed
+  the missing migration-function inventory entries; the exact migration suite
+  passed locally and remotely after the follow-up.

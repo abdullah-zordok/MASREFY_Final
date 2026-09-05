@@ -119,11 +119,13 @@
 - [x] Run API lint, typecheck, build, relevant unit/contract/integration/security tests, clean Supabase reset/lint/full pgTAP, and Mobile lint/typecheck/relevant Jest.
 - [x] Request an independent read-only review against the Slice 1 contract and fix every critical/important finding with a regression test.
 - [x] Rerun affected checks after review fixes and inspect the complete slice diff for scope creep and baseline-file contamination.
-- [ ] Commit only Slice 1 with an item-specific message; push `main`; verify the pushed SHA and all required remote CI checks before proceeding.
+- [x] Commit only Slice 1 with item-specific messages; push `main`; verify the pushed SHA and all required remote CI checks before proceeding.
 
   Review note: the independent read-only review found no critical issues and two important issues. It identified a regression in the approved archived-source merge transition and four stale metadata-only statements in owning artifacts. The source-active restriction was removed across SQL/API/Mobile, a live archived-source regression was added, the contradictory text was replaced, and clean reset/schema lint/full pgTAP plus the narrow API/Mobile regressions passed again.
 
   Local gate note: API typecheck/build/touched-file lint passed. Full API lint reaches only seven pre-existing unrelated `no-meaningless-void-operator` errors in reports files; Slice 1 does not modify them. Full Mobile Jest passed 415 suites / 1,685 tests. Migration checksum verification passed. One parallel API Jest attempt exhausted Node's default 2 GB heap; the same selection passed alone with `NODE_OPTIONS=--max-old-space-size=4096`.
+
+  Remote gate note: `7a12dd42e754fc0294d12fa8663666837f822ac8` was followed by `e47eff88063fc74f35ab9dc7e0651eea59a0063a` after the first CI run identified two missing names in the migration inventory test. The exact migration suite passed 4/4 locally after the fix. Backend Foundation run `33987079570` then passed application, database, Mobile, Admin, secrets, redaction, image/container, and vulnerability-scan jobs.
 
 ## Slice 2 — Client item #45: per-account automatic tracking control
 

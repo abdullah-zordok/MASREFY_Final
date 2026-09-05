@@ -206,4 +206,4 @@ blockers rather than inferred passes.
 - [x] Recheck count under the ledger owner lock for archive and merge.
 - [x] Reject system/foreign/missing/invalid lifecycle targets without leakage.
 - [x] Add OpenAPI, safe-error, integration, security, pgTAP, and Mobile adapter/UI coverage.
-- [ ] Record the final pushed SHA and remote CI result in release evidence.
+- [x] Record the final pushed SHA and remote CI result in release evidence.
