@@ -108,6 +108,8 @@ npm --prefix apps/api run test:migration
 npm --prefix apps/api run test:release-image
 ```
 
+Run the local database-backed recovery suite with `MASARIFI_LIVE_DATABASE_TESTS=1` and `DATABASE_URL` set to the local Supabase database so the restore test is active rather than skipped.
+
 Expected: corruption rejection, isolated restore, RLS/application verification, domain reconciliation, outbox/worker replay, migration rollback/forward correction, and N-1 image compatibility pass; measured RPO <=900 seconds and RTO <=7,200 seconds. Hosted encrypted-backup/PITR evidence remains external until obtained from the configured environment.
 
 ## 8. Admin
@@ -148,7 +150,7 @@ Expected: zero high/critical release-blocking finding; non-root healthy image; e
 
 ## 11. Full Local Gate
 
-Run the complete existing API, database, Admin, and Mobile gate set after affected checks pass. Capture exact command, exit code, timestamp, commit SHA, and artifact path in `evidence/local-verification.md`. Do not convert unavailable hosted evidence into a pass.
+Run the complete existing API, database, Admin, and Mobile gate set after affected checks pass. Capture exact command, exit code, timestamp, commit SHA, and artifact path in `evidence/verification.md`. Do not convert unavailable hosted evidence into a pass.
 
 ## 12. Reviews and Traceability
 

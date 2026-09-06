@@ -96,11 +96,7 @@ describe('Admin reports contract', () => {
     );
     jest.useFakeTimers().setSystemTime(new Date('2026-09-04T00:00:00.000Z'));
     try {
-      await reports.getAdminExport(
-        principal,
-        '99000000-0000-4000-8000-000000000001',
-        'request',
-      );
+      await reports.getAdminExport(principal, '99000000-0000-4000-8000-000000000001', 'request');
     } finally {
       jest.useRealTimers();
     }

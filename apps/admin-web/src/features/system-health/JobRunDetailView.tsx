@@ -4,6 +4,13 @@ import { useState } from "react";
 import { PageHeader } from "@/components/admin/ui";
 import { useCancelJobRun, useJobRun, useRetryJobRun } from "./hooks";
 
+function actionMessage(result: unknown, action: "Retry" | "Cancel") {
+  if (!result || typeof result !== "object") return `${action} requested.`;
+  if ("status" in result && typeof result.status === "string") return `${action} ${result.status}.`;
+  if ("outcome" in result && result.outcome && typeof result.outcome === "object" && "message" in result.outcome && typeof result.outcome.message === "string") return result.outcome.message;
+  return `${action} requested.`;
+}
+
 export function JobRunDetailView({ jobRunId }: { jobRunId: string }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
@@ -50,7 +57,7 @@ export function JobRunDetailView({ jobRunId }: { jobRunId: string }) {
                   <button
                     className="button"
                     disabled={retry.isPending}
-                    onClick={() => retry.mutate(actionRequest, { onSuccess: (result) => setMessage(result.outcome.message) })}
+                    onClick={() => retry.mutate(actionRequest, { onSuccess: (result) => setMessage(actionMessage(result, "Retry")) })}
                     type="button"
                   >
                     Retry job
@@ -60,7 +67,7 @@ export function JobRunDetailView({ jobRunId }: { jobRunId: string }) {
                   <button
                     className="button secondary"
                     disabled={cancel.isPending}
-                    onClick={() => cancel.mutate(actionRequest, { onSuccess: (result) => setMessage(result.outcome.message) })}
+                    onClick={() => cancel.mutate(actionRequest, { onSuccess: (result) => setMessage(actionMessage(result, "Cancel")) })}
                     type="button"
                   >
                     Cancel job

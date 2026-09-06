@@ -5,6 +5,7 @@ import {
   EngagementModule,
   EngagementWorkerModule,
 } from '../../../src/engagement/engagement.module';
+import { OperationsWorkerModule } from '../../../src/operations/operations.module';
 import { WorkerModule } from '../../../src/worker.module';
 
 describe('Phase 11 module boundary', () => {
@@ -14,7 +15,12 @@ describe('Phase 11 module boundary', () => {
   });
 
   it('wires the worker engagement module exactly once', () => {
-    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, WorkerModule) as unknown[];
+    const rootImports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, WorkerModule) as unknown[];
+    const imports = Reflect.getMetadata(
+      MODULE_METADATA.IMPORTS,
+      OperationsWorkerModule,
+    ) as unknown[];
+    expect(rootImports.filter((value) => value === OperationsWorkerModule)).toHaveLength(1);
     expect(imports.filter((value) => value === EngagementWorkerModule)).toHaveLength(1);
   });
 });

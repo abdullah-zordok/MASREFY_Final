@@ -1,4 +1,4 @@
-import { apiClient, requestJson } from "@/core/api/client";
+import { apiClient, mocksAllowed, requestJson } from "@/core/api/client";
 import { z } from "zod";
 import {
   buildListQuery,
@@ -55,7 +55,8 @@ const resourcePaths: Record<Phase4Resource, string> = {
 };
 
 const unknownSchema = z.unknown();
-const mocksEnabled = () => process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
+const mocksEnabled = () =>
+  mocksAllowed() && process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
 
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)

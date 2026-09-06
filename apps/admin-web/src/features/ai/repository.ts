@@ -1,4 +1,4 @@
-import { apiClient } from "@/core/api/client";
+import { apiClient, mocksEnabled } from "@/core/api/client";
 import { z } from "zod";
 import {
   aiListQuerySchema,
@@ -59,7 +59,6 @@ export interface AiRepository {
 
 const liveProbeSchema = z.object({ status: z.enum(["available", "unavailable"]) }).strict();
 const mutationResultSchema = z.object({ id: z.uuid() }).passthrough();
-const mocksEnabled = () => process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true" || (process.env.NODE_ENV === "test" && process.env.NEXT_PUBLIC_ENABLE_MOCKS !== "false");
 const rawId = (id: string) => id.replace(/^[A-Z]+-(?=[0-9a-f]{8}-)/iu, "");
 const prefixed = (prefix: string, id: string) => `${prefix}-${id.toUpperCase()}`;
 const freshness = (data: Record<string, unknown>) => typeof data.updatedAt === "string" ? data.updatedAt : typeof data.createdAt === "string" ? data.createdAt : new Date(0).toISOString();

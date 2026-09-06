@@ -92,13 +92,14 @@ describe('account service', () => {
       monthlyInterestRateBasisPoints: 125,
       minimumPaymentMinor: 5_000,
     });
-    expect(normalizeCreateAccount({ name: 'Old card', type: 'credit_card', currency: 'SAR' }))
-      .toMatchObject({
-        statementDay: null,
-        paymentDueDay: null,
-        monthlyInterestRateBasisPoints: null,
-        minimumPaymentMinor: null,
-      });
+    expect(
+      normalizeCreateAccount({ name: 'Old card', type: 'credit_card', currency: 'SAR' }),
+    ).toMatchObject({
+      statementDay: null,
+      paymentDueDay: null,
+      monthlyInterestRateBasisPoints: null,
+      minimumPaymentMinor: null,
+    });
     expect(
       normalizeCreditCardPayoff({
         balanceMinor: 10_000,

@@ -23,6 +23,15 @@ const staleAt = "2026-08-01T12:03:00+03:00";
 
 const labels: Record<QueueKey, string> = {
   imports: "Imports",
+  ai: "AI",
+  security: "Security",
+  platform: "Platform",
+  identity: "Identity",
+  ledger: "Ledger",
+  sync: "Sync",
+  planning: "Planning",
+  tracking: "Tracking",
+  operations: "Operations",
   ai_processing: "AI Processing",
   notifications: "Notifications",
   reports: "Reports",
@@ -31,7 +40,7 @@ const labels: Record<QueueKey, string> = {
   subscription_reconciliation: "Subscription Reconciliation",
 };
 
-const queueKeys = Object.keys(labels) as QueueKey[];
+const queueKeys: QueueKey[] = ["imports", "ai_processing", "notifications", "reports", "data_exports", "account_deletion", "subscription_reconciliation"];
 
 function freshness(state: Freshness["state"] = "fresh"): Freshness {
   return { observedAt, staleAt, state, sourceLabel: "Phase 8 fixed mock state" };

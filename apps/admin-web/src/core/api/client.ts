@@ -9,6 +9,34 @@ import {
 import { ADMIN_ROLES } from "@/core/permissions/permissions";
 
 type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown };
+const cursorPages = new Map<string, Map<number, string | null>>();
+
+export function mocksAllowed(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
+export function mocksEnabled(): boolean {
+  return (
+    mocksAllowed() &&
+    (process.env.NODE_ENV === "test" ||
+      process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true") &&
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS !== "false"
+  );
+}
+
+export function liveCursor(scope: string, page: number): string | null {
+  if (page === 1) {
+    cursorPages.set(scope, new Map([[1, null]]));
+    return null;
+  }
+  const cursor = cursorPages.get(scope)?.get(page);
+  if (cursor === undefined) throw new Error("CURSOR_PAGE_UNAVAILABLE");
+  return cursor;
+}
+
+export function rememberLiveCursor(scope: string, page: number, next: string | null): void {
+  cursorPages.get(scope)?.set(page + 1, next);
+}
 
 function apiUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path;
@@ -65,15 +93,12 @@ export async function requestJson<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   try {
-    const mocksEnabled =
-      process.env.NODE_ENV === "test" ||
-      process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
     const developmentScenario =
-      mocksEnabled && typeof window !== "undefined"
+      mocksEnabled() && typeof window !== "undefined"
         ? window.sessionStorage.getItem("admin-mock-scenario")
         : null;
     const simulatedRole =
-      mocksEnabled && typeof window !== "undefined"
+      mocksEnabled() && typeof window !== "undefined"
         ? window.sessionStorage.getItem("admin-simulated-role")
         : null;
 

@@ -42,24 +42,27 @@ export class OutboxWorkerService {
     await this.loopPromise;
   }
 
+  async runOnce(): Promise<number> {
+    const claimStartedAt = Date.now();
+    const rows = await this.repository.claim(
+      this.options.workerId,
+      this.options.batchSize,
+      this.options.leaseSeconds,
+    );
+    recordPlatformMetric(OUTBOX_METRICS.claimDuration, Date.now() - claimStartedAt, {
+      outcome: 'success',
+    });
+    recordPlatformMetric(OUTBOX_METRICS.claimBatchSize, rows.length, { outcome: 'success' });
+    await Promise.all(
+      rows.map((row) => this.dispatcher.dispatch(row, this.options.workerId, row.id)),
+    );
+    return rows.length;
+  }
+
   private async run(signal: AbortSignal): Promise<void> {
     while (!signal.aborted) {
       try {
-        const claimStartedAt = Date.now();
-        const rows = await this.repository.claim(
-          this.options.workerId,
-          this.options.batchSize,
-          this.options.leaseSeconds,
-        );
-        recordPlatformMetric(OUTBOX_METRICS.claimDuration, Date.now() - claimStartedAt, {
-          outcome: 'success',
-        });
-        recordPlatformMetric(OUTBOX_METRICS.claimBatchSize, rows.length, {
-          outcome: 'success',
-        });
-        await Promise.all(
-          rows.map((row) => this.dispatcher.dispatch(row, this.options.workerId, row.id)),
-        );
+        await this.runOnce();
       } catch {
         // The retained rows or leases are retried after the bounded poll interval.
       }

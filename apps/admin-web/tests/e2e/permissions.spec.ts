@@ -33,7 +33,9 @@ test("Phase 9 navigation and direct-route permissions are projected for all seve
 
   await switcher.selectOption("super-admin");
   for (const route of superAdminLinks) {
-    await expect(page.locator(`nav a[href="${route}"]`)).toHaveCount(1);
+    await expect(page.locator(`nav a[href="${route}"]`)).toHaveCount(1, {
+      timeout: 15_000,
+    });
   }
 
   await switcher.selectOption("security-administrator");

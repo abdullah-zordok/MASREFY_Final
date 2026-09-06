@@ -1,5 +1,6 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Headers, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 import { SafeErrorDto } from '../http/platform-contract.dto';
 import { MetaAuthGuard } from './meta-auth.guard';
@@ -21,7 +22,28 @@ export class MetaController {
   @ApiResponse({ status: 429, type: SafeErrorDto })
   @ApiResponse({ status: 500, type: SafeErrorDto })
   @ApiResponse({ status: 503, type: SafeErrorDto })
-  get(): MetaResponseDto {
-    return this.meta.get();
+  async get(
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @Headers('x-masarifi-platform') platform: string | undefined,
+    @Headers('x-masarifi-app-version') appVersion: string | undefined,
+    @Headers('x-masarifi-locale') locale: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<MetaResponseDto | undefined> {
+    const context = {
+      ...(platform && ['ios', 'android', 'admin'].includes(platform)
+        ? { platform: platform as 'ios' | 'android' | 'admin' }
+        : {}),
+      ...(appVersion && /^\d+(?:\.\d+){0,2}$/u.test(appVersion) ? { appVersion } : {}),
+      ...(locale && ['ar', 'en'].includes(locale) ? { locale: locale as 'ar' | 'en' } : {}),
+    };
+    const value = await this.meta.get(context);
+    const etag = await this.meta.etag(context);
+    response.setHeader('Cache-Control', 'private, max-age=30');
+    response.setHeader('ETag', etag);
+    if (ifNoneMatch === etag) {
+      response.status(304);
+      return undefined;
+    }
+    return value;
   }
 }

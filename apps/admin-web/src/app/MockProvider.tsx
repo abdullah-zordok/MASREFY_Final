@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { mocksAllowed } from "@/core/api/client";
+
+let workerStart: Promise<unknown> | undefined;
 
 export function MockProvider({ children }: { children: React.ReactNode }) {
-  const enabled = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
+  const enabled =
+    mocksAllowed() && process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
   const [ready, setReady] = useState(!enabled);
 
   useEffect(() => {
@@ -11,7 +15,7 @@ export function MockProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     void import("@/mocks/browser")
       .then(({ mockWorker }) =>
-        mockWorker.start({ onUnhandledRequest: "bypass" }),
+        (workerStart ??= mockWorker.start({ onUnhandledRequest: "bypass" })),
       )
       .then(() => {
         if (active) setReady(true);

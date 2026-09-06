@@ -71,6 +71,12 @@ function loadContract(path: string): Contract {
   return load(readFileSync(resolve(__dirname, path), 'utf8')) as Contract;
 }
 
+function supersededFoundationSchemas(contract: Contract): Record<string, unknown> {
+  const schemas = { ...contractSurface(contract).schemas };
+  delete schemas.MetaResponse;
+  return schemas;
+}
+
 describe('OpenAPI drift', () => {
   let app: INestApplication;
 
@@ -110,6 +116,9 @@ describe('OpenAPI drift', () => {
     const engagement = loadContract(
       '../../specs/011-notifications-support-content/contracts/openapi.yaml',
     );
+    const operations = loadContract(
+      '../../specs/013-performance-caching-observability-operations/contracts/openapi.yaml',
+    );
     const generated = generateOpenApi(app, [
       identity,
       security,
@@ -121,6 +130,7 @@ describe('OpenAPI drift', () => {
       ai,
       reports,
       engagement,
+      operations,
     ]) as unknown as Contract;
 
     expect(contractSurface(generated)).toEqual({
@@ -136,9 +146,10 @@ describe('OpenAPI drift', () => {
         ...contractSurface(ai).paths,
         ...contractSurface(reports).paths,
         ...contractSurface(engagement).paths,
+        ...contractSurface(operations).paths,
       },
       schemas: {
-        ...contractSurface(foundation).schemas,
+        ...supersededFoundationSchemas(foundation),
         ...contractSurface(identity).schemas,
         ...contractSurface(security).schemas,
         ...contractSurface(reference).schemas,
@@ -149,6 +160,7 @@ describe('OpenAPI drift', () => {
         ...contractSurface(ai).schemas,
         ...contractSurface(reports).schemas,
         ...contractSurface(engagement).schemas,
+        ...contractSurface(operations).schemas,
       },
     });
   });
@@ -179,6 +191,9 @@ describe('OpenAPI drift', () => {
     const engagement = loadContract(
       '../../specs/011-notifications-support-content/contracts/openapi.yaml',
     );
+    const operations = loadContract(
+      '../../specs/013-performance-caching-observability-operations/contracts/openapi.yaml',
+    );
     const generateWithFragments = generateOpenApi as unknown as (
       target: INestApplication,
       fragments: Contract[],
@@ -194,8 +209,10 @@ describe('OpenAPI drift', () => {
       ai,
       reports,
       engagement,
+      operations,
     ]);
     const foundationSurface = contractSurface(foundation);
+    delete foundationSurface.schemas.MetaResponse;
     const identitySurface = contractSurface(identity);
     const securitySurface = contractSurface(security);
     const referenceSurface = contractSurface(reference);
@@ -206,6 +223,7 @@ describe('OpenAPI drift', () => {
     const aiSurface = contractSurface(ai);
     const reportsSurface = contractSurface(reports);
     const engagementSurface = contractSurface(engagement);
+    const operationsSurface = contractSurface(operations);
 
     expect(contractSurface(generated)).toEqual({
       paths: {
@@ -220,6 +238,7 @@ describe('OpenAPI drift', () => {
         ...aiSurface.paths,
         ...reportsSurface.paths,
         ...engagementSurface.paths,
+        ...operationsSurface.paths,
       },
       schemas: {
         ...foundationSurface.schemas,
@@ -233,6 +252,7 @@ describe('OpenAPI drift', () => {
         ...aiSurface.schemas,
         ...reportsSurface.schemas,
         ...engagementSurface.schemas,
+        ...operationsSurface.schemas,
       },
     });
     expect(
@@ -266,6 +286,8 @@ describe('OpenAPI drift', () => {
         'createAdminExport',
         'listNotifications',
         'adminActOnContent',
+        'getOperationsHealthOverview',
+        'getPlatformMetadata',
       ]),
     );
   });

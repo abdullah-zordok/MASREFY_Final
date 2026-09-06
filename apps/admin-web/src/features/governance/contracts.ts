@@ -17,7 +17,7 @@ export const adminIdSchema = prefixedId("ADM");
 export const invitationIdSchema = prefixedId("INV");
 export const roleIdSchema = prefixedId("ROLE");
 export const sessionReferenceSchema = prefixedId("ASES");
-export const flagIdSchema = prefixedId("FLAG");
+export const flagIdSchema = prefixedId("FLAG").or(z.uuid()).or(z.string().regex(/^[a-z][a-z0-9.-]{2,79}$/u));
 export const auditReferenceIdSchema = z.string().trim().regex(/^AUD-[A-Z0-9-]{3,80}$/u);
 export const submissionKeySchema = z.string().trim().min(16).max(128).regex(/^[A-Za-z0-9._~-]+$/u);
 
@@ -408,7 +408,7 @@ export const featureFlagStatusSchema = z.enum(["disabled", "scheduled", "active"
 export const platformScopeSchema = z.enum(["ios", "android", "shared"]);
 export const featureFlagSchema = z.object({
   id: flagIdSchema,
-  key: z.string().trim().min(3).max(80).regex(/^[a-z][a-z0-9-]*$/u),
+  key: z.string().trim().min(3).max(80).regex(/^[a-z][a-z0-9.-]*$/u),
   label: localizedTextSchema,
   platform: platformScopeSchema,
   audience: fixedAudienceSchema,
@@ -451,7 +451,7 @@ export const maintenanceSchema = z.object({
   endsAt: isoTimestampSchema.nullable(),
   version: versionSchema,
   updatedAt: isoTimestampSchema,
-  mockOnly: z.literal(true),
+  mockOnly: z.boolean(),
 }).strict();
 
 export const updateMaintenanceRequestSchema = z.object({
@@ -473,3 +473,53 @@ export type FeatureFlag = z.infer<typeof featureFlagSchema>;
 export type UpdateFeatureFlagRequest = z.input<typeof updateFeatureFlagRequestSchema>;
 export type Maintenance = z.infer<typeof maintenanceSchema>;
 export type UpdateMaintenanceRequest = z.input<typeof updateMaintenanceRequestSchema>;
+
+export const phase13SettingSchema = z.object({
+  key: z.string().min(3).max(128),
+  value: z.unknown().optional(),
+  sensitivity: z.enum(["public", "internal", "restricted"]),
+  redacted: z.boolean(),
+  version: versionSchema,
+  updatedAt: isoTimestampSchema,
+}).strict();
+
+const phase13FeatureRuleSchema = z.object({
+  id: z.uuid(),
+  priority: z.number().int().min(1).max(1000),
+  audience: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  enabled: z.boolean(),
+  version: versionSchema,
+}).strict();
+
+export const phase13FeatureFlagPageSchema = z.object({
+  items: z.array(z.object({
+    id: z.uuid(),
+    key: z.string().min(3).max(80),
+    description: z.string().min(10).max(240),
+    defaultEnabled: z.boolean(),
+    status: z.enum(["draft", "active", "retired"]),
+    rules: z.array(phase13FeatureRuleSchema).max(100),
+    version: versionSchema,
+  }).strict()).max(100),
+  nextCursor: z.string().max(256).nullable(),
+}).strict();
+
+export const phase13MaintenancePageSchema = z.object({
+  items: z.array(z.object({
+    id: z.uuid(),
+    startsAt: isoTimestampSchema,
+    endsAt: isoTimestampSchema,
+    scopes: z.array(z.string()).min(1).max(10),
+    message: localizedTextSchema,
+    status: z.enum(["scheduled", "active", "completed", "canceled"]),
+    version: versionSchema,
+  }).strict()).max(100),
+  nextCursor: z.string().max(256).nullable(),
+}).strict();
+
+export const phase13MutationResultSchema = z.object({
+  resourceId: z.string().min(1).max(128),
+  status: z.string().min(1).max(32),
+  version: versionSchema,
+  replayed: z.boolean().optional(),
+}).strict();

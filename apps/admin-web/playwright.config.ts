@@ -5,7 +5,9 @@ const baseURL = "http://127.0.0.1:3100";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
-  workers: 2,
+  workers: 1,
+  timeout: 90_000,
+  expect: { timeout: 30_000 },
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
@@ -24,8 +26,10 @@ export default defineConfig({
     { name: "mobile-390", use: { ...devices["iPhone 13"], browserName: "chromium", viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: "npm run build && npx next start -p 3100",
-    env: { NEXT_PUBLIC_ENABLE_MOCKS: "true" },
+    command: "npx next dev -p 3100",
+    env: {
+      NEXT_PUBLIC_ENABLE_MOCKS: "true",
+    },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

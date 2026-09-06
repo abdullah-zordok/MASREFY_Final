@@ -54,43 +54,49 @@ export class ReportsWorker implements OnModuleDestroy {
     if (this.running) return;
     this.running = true;
     try {
-      const now = new Date();
-      const due = await this.repository.listDueSchedules(
-        now,
-        this.config.getRequired('MASARIFI_REPORT_BATCH_SIZE'),
-      );
-      recordReportBacklog('report.schedule.enqueue', due.length);
-      for (const schedule of due) {
-        const startedAt = performance.now();
-        const enqueued = await this.repository.enqueueDueSchedule(schedule.id, now);
-        recordReportJob(
-          'report.schedule.enqueue',
-          enqueued ? 'success' : 'locked',
-          performance.now() - startedAt,
-        );
-      }
       for (const kind of [
+        'report.schedule.enqueue',
         'report.generate',
         'report.email.deliver',
         'report.output.expire',
       ] as const) {
-        const ids = await this.repository.listWork(
-          kind,
-          this.config.getRequired('MASARIFI_REPORT_BATCH_SIZE'),
-        );
-        recordReportBacklog(kind, ids.length);
-        for (const id of ids)
-          await this.repository.withWorkLock(kind, id, (claim) =>
-            kind === 'report.generate'
-              ? this.generate(claim)
-              : kind === 'report.email.deliver'
-                ? this.deliver(claim)
-                : this.expire(claim),
-          );
+        await this.runJob(kind);
       }
     } finally {
       this.running = false;
     }
+  }
+
+  async runJob(
+    kind:
+      | 'report.schedule.enqueue'
+      | 'report.generate'
+      | 'report.email.deliver'
+      | 'report.output.expire',
+  ): Promise<number> {
+    const limit = this.config.getRequired('MASARIFI_REPORT_BATCH_SIZE');
+    if (kind === 'report.schedule.enqueue') {
+      const now = new Date();
+      const due = await this.repository.listDueSchedules(now, limit);
+      recordReportBacklog(kind, due.length);
+      for (const schedule of due) {
+        const startedAt = performance.now();
+        const enqueued = await this.repository.enqueueDueSchedule(schedule.id, now);
+        recordReportJob(kind, enqueued ? 'success' : 'locked', performance.now() - startedAt);
+      }
+      return due.length;
+    }
+    const ids = await this.repository.listWork(kind, limit);
+    recordReportBacklog(kind, ids.length);
+    for (const id of ids)
+      await this.repository.withWorkLock(kind, id, (claim) =>
+        kind === 'report.generate'
+          ? this.generate(claim)
+          : kind === 'report.email.deliver'
+            ? this.deliver(claim)
+            : this.expire(claim),
+      );
+    return ids.length;
   }
 
   private async generate(claim: ReportWorkClaim): Promise<ReportWorkOutcome> {

@@ -64,29 +64,48 @@ export class SecurityWorkerService {
     if (this.running) return;
     this.running = true;
     try {
-      await this.runJob('support-expiry', () => this.expireSupportGrants());
-      await this.runJob('security-alerts', () => this.dispatchSecurityAlerts());
-      await this.runJob('privacy-export', async () => {
+      await this.isolated('support-expiry', () => this.expireSupportGrants());
+      await this.isolated('security-alerts', () => this.dispatchSecurityAlerts());
+      await this.isolated('privacy-export', async () => {
         await this.expireExports();
         await this.generateExport();
       });
-      await this.runJob('account-deletion', () => this.executeDeletion());
-      await this.runJob('retention', () => this.applyRetention());
+      await this.isolated('account-deletion', () => this.executeDeletion());
+      await this.isolated('retention', () => this.applyRetention());
     } finally {
       this.running = false;
     }
   }
 
-  private async runJob(job: string, action: () => Promise<void>): Promise<void> {
+  async runJob(job: string): Promise<void> {
+    const handlers: Record<string, () => Promise<void>> = {
+      'security.support-expire': () => this.expireSupportGrants(),
+      'security.alert-dispatch': () => this.dispatchSecurityAlerts(),
+      'privacy.export-generate': () => this.generateExport(),
+      'privacy.export-expire': () => this.expireExports(),
+      'privacy.account-delete': () => this.executeDeletion(),
+      'retention.apply': () => this.applyRetention(),
+    };
+    const handler = handlers[job];
+    if (!handler) throw new Error('SECURITY_JOB_UNKNOWN');
+    await this.measured(job, handler);
+  }
+
+  private async measured(job: string, action: () => Promise<void>): Promise<void> {
     const startedAt = performance.now();
     try {
       await action();
       recordPlatformMetric(SECURITY_METRICS.jobRun, 1, { job, outcome: 'success' });
-    } catch {
+    } catch (error) {
       recordPlatformMetric(SECURITY_METRICS.jobRun, 1, { job, outcome: 'failure' });
+      throw error;
     } finally {
       recordPlatformMetric(SECURITY_METRICS.jobDuration, performance.now() - startedAt, { job });
     }
+  }
+
+  private async isolated(job: string, action: () => Promise<void>): Promise<void> {
+    await this.measured(job, action).catch(() => undefined);
   }
 
   private async expireSupportGrants(): Promise<void> {

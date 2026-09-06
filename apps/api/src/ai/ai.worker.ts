@@ -331,26 +331,41 @@ export class AiWorker implements OnModuleDestroy {
     this.running = true;
     this.abortController = new AbortController();
     try {
-      if (this.config.getRequired('MASARIFI_AI_PROVIDER_ENABLED')) {
-        for (const kind of [
-          'voice.transcribe_extract',
-          'assistant.respond',
-          'ai.evaluate_route',
-        ] as const)
-          await this.processKind(kind);
-      }
-      await this.repository.expire(this.config.getRequired('MASARIFI_AI_JOB_BATCH_SIZE'));
-      await this.repository.rollup(this.config.getRequired('MASARIFI_AI_JOB_BATCH_SIZE'));
-      recordAiJob('ai.usage_rollup', 'success');
-      await this.purge();
-      await this.repository.reconcile(this.config.getRequired('MASARIFI_AI_JOB_BATCH_SIZE'));
+      for (const job of [
+        'voice.transcribe_extract',
+        'assistant.respond',
+        'ai.evaluate_route',
+        'ai.usage_rollup',
+        'voice-media.purge',
+        'ai.reconcile',
+      ] as const)
+        await this.runJob(job);
     } finally {
       this.abortController = undefined;
       this.running = false;
     }
   }
 
-  private async processKind(kind: AiWorkClaim['kind']): Promise<void> {
+  async runJob(
+    job: AiWorkClaim['kind'] | 'ai.usage_rollup' | 'voice-media.purge' | 'ai.reconcile',
+  ): Promise<number> {
+    const limit = this.config.getRequired('MASARIFI_AI_JOB_BATCH_SIZE');
+    if (['voice.transcribe_extract', 'assistant.respond', 'ai.evaluate_route'].includes(job))
+      return this.config.getRequired('MASARIFI_AI_PROVIDER_ENABLED')
+        ? this.processKind(job as AiWorkClaim['kind'])
+        : 0;
+    if (job === 'ai.usage_rollup') {
+      await this.repository.expire(limit);
+      await this.repository.rollup(limit);
+      recordAiJob(job, 'success');
+      return 1;
+    }
+    if (job === 'voice-media.purge') return this.purge();
+    await this.repository.reconcile(limit);
+    return 1;
+  }
+
+  private async processKind(kind: AiWorkClaim['kind']): Promise<number> {
     const claims = await this.repository.claimWork(
       kind,
       this.workerId(),
@@ -362,6 +377,7 @@ export class AiWorker implements OnModuleDestroy {
       await Promise.all(
         claims.slice(offset, offset + concurrency).map((claim) => this.process(claim)),
       );
+    return claims.length;
   }
 
   private async process(claim: AiWorkClaim): Promise<void> {
@@ -516,7 +532,7 @@ export class AiWorker implements OnModuleDestroy {
     await this.repository.completeWork(claim.kind, claim.id, claim.claim_token, 'completed', null);
   }
 
-  private async purge(): Promise<void> {
+  private async purge(): Promise<number> {
     const claims = await this.repository.claimPurges(
       this.workerId(),
       this.config.getRequired('MASARIFI_AI_JOB_BATCH_SIZE'),
@@ -532,6 +548,7 @@ export class AiWorker implements OnModuleDestroy {
         recordAiJob('voice-media.purge', 'failure');
       }
     }
+    return claims.length;
   }
 
   private workerId(): string {

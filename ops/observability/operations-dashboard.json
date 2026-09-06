@@ -1,0 +1,16 @@
+{
+  "title": "Masarifi Free-only operations",
+  "version": 1,
+  "panels": [
+    { "title": "Job outcomes", "metric": "masarifi_operations_job_total" },
+    { "title": "Job backlog", "metric": "masarifi_operations_job_backlog" },
+    { "title": "Provider status", "metric": "masarifi_operations_provider_total" },
+    { "title": "Provider latency", "metric": "masarifi_operations_provider_latency_ms" },
+    { "title": "Safe-meta cache", "metric": "masarifi_operations_cache_total" },
+    { "title": "Recovery checks", "metric": "masarifi_operations_recovery_total" },
+    { "title": "Recovery duration", "metric": "masarifi_operations_recovery_duration_ms" },
+    { "title": "Incidents", "metric": "masarifi_operations_incident_total" },
+    { "title": "Configuration changes", "metric": "masarifi_operations_config_change_total" },
+    { "title": "Maintenance", "metric": "masarifi_operations_maintenance_total" }
+  ]
+}

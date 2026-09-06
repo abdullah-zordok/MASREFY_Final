@@ -87,7 +87,7 @@ Indexes:
 State rules:
 
 - `queued -> running | canceled`;
-- `running -> succeeded | failed | retrying | dead_lettered | canceled`;
+- `running -> succeeded | failed | retrying | dead_lettered`;
 - `retrying -> running | dead_lettered | canceled`;
 - all final states are terminal;
 - completion is not before start; start is not before queue;

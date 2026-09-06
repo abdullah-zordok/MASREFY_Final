@@ -124,6 +124,20 @@ export const ENGAGEMENT_METRICS = {
   backlog: 'masarifi_engagement_backlog',
 } as const;
 
+export const OPERATIONS_METRICS = {
+  job: 'masarifi_operations_job_total',
+  jobDuration: 'masarifi_operations_job_duration_ms',
+  jobBacklog: 'masarifi_operations_job_backlog',
+  provider: 'masarifi_operations_provider_total',
+  providerLatency: 'masarifi_operations_provider_latency_ms',
+  cache: 'masarifi_operations_cache_total',
+  recovery: 'masarifi_operations_recovery_total',
+  recoveryDuration: 'masarifi_operations_recovery_duration_ms',
+  incident: 'masarifi_operations_incident_total',
+  configuration: 'masarifi_operations_config_change_total',
+  maintenance: 'masarifi_operations_maintenance_total',
+} as const;
+
 type MetricName =
   | (typeof PLATFORM_METRICS)[keyof typeof PLATFORM_METRICS]
   | (typeof OUTBOX_METRICS)[keyof typeof OUTBOX_METRICS]
@@ -136,7 +150,8 @@ type MetricName =
   | (typeof TRACKING_METRICS)[keyof typeof TRACKING_METRICS]
   | (typeof AI_METRICS)[keyof typeof AI_METRICS]
   | (typeof REPORT_METRICS)[keyof typeof REPORT_METRICS]
-  | (typeof ENGAGEMENT_METRICS)[keyof typeof ENGAGEMENT_METRICS];
+  | (typeof ENGAGEMENT_METRICS)[keyof typeof ENGAGEMENT_METRICS]
+  | (typeof OPERATIONS_METRICS)[keyof typeof OPERATIONS_METRICS];
 export type MetricSink = (name: MetricName, value: number, labels: Record<string, string>) => void;
 
 const allowedLabels = new Set([
@@ -156,6 +171,9 @@ const allowedLabels = new Set([
   'source_type',
   'channel',
   'provider',
+  'owner_spec',
+  'cache',
+  'status',
 ]);
 const safeLabelValue = /^[A-Za-z0-9_./:-]{1,128}$/;
 const counterNames = new Set<MetricName>([
@@ -206,6 +224,13 @@ const counterNames = new Set<MetricName>([
   AI_METRICS.purge,
   REPORT_METRICS.job,
   ENGAGEMENT_METRICS.job,
+  OPERATIONS_METRICS.job,
+  OPERATIONS_METRICS.provider,
+  OPERATIONS_METRICS.cache,
+  OPERATIONS_METRICS.recovery,
+  OPERATIONS_METRICS.incident,
+  OPERATIONS_METRICS.configuration,
+  OPERATIONS_METRICS.maintenance,
 ]);
 const meter = metrics.getMeter('masarifi-platform');
 const counters = new Map<MetricName, Counter>();

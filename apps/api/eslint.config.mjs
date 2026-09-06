@@ -8,7 +8,7 @@ export default tseslint.config(
       'coverage/**',
       'node_modules/**',
       'eslint.config.mjs',
-      'test/performance/*.js',
+      'test/performance/**/*.js',
     ],
   },
   eslint.configs.recommended,

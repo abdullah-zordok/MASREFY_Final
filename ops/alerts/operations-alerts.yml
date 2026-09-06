@@ -1,0 +1,28 @@
+groups:
+  - name: masarifi-operations
+    rules:
+      - alert: OperationsJobFailures
+        expr: increase(masarifi_operations_job_total{outcome="failed"}[5m]) > 0
+        annotations:
+          summary: A governed job failed.
+          runbook_url: ops/runbooks/operations-triage.md#job-failures
+      - alert: OperationsProviderDown
+        expr: increase(masarifi_operations_provider_total{status="down"}[5m]) > 0
+        annotations:
+          summary: A configured provider is unavailable.
+          runbook_url: ops/runbooks/operations-triage.md#provider-down
+      - alert: OperationsRecoveryStale
+        expr: increase(masarifi_operations_recovery_total{outcome=~"failed|stale"}[15m]) > 0
+        annotations:
+          summary: Recovery evidence is stale.
+          runbook_url: ops/runbooks/operations-triage.md#recovery-stale
+      - alert: OperationsCriticalIncident
+        expr: increase(masarifi_operations_incident_total{severity="critical",status!="resolved"}[5m]) > 0
+        annotations:
+          summary: A critical system incident is unresolved.
+          runbook_url: ops/runbooks/operations-triage.md#critical-incident
+      - alert: OperationsConfigurationRejected
+        expr: increase(masarifi_operations_config_change_total{outcome="rejected"}[5m]) > 0
+        annotations:
+          summary: A governed configuration change was rejected.
+          runbook_url: ops/runbooks/operations-triage.md#configuration-rejected

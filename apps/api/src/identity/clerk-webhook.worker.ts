@@ -13,6 +13,9 @@ export interface ReconciliationEvidence {
   checkpointHash: string;
 }
 
+export type ClerkJob =
+  'clerk.webhook.process' | 'clerk.identity.reconcile' | 'clerk.session-revoke.retry';
+
 @Injectable()
 export class ClerkWebhookWorker {
   private controller: AbortController | undefined;
@@ -75,6 +78,24 @@ export class ClerkWebhookWorker {
     await this.repository.completeWorkerSessionRevoke(revoked.deviceId, revoked.sessionId);
     recordPlatformMetric(IDENTITY_METRICS.deviceSessionRetry, 1, { outcome: 'success' });
     return true;
+  }
+
+  async runJob(job: ClerkJob): Promise<number> {
+    if (job === 'clerk.session-revoke.retry') return (await this.retryRevokedSession()) ? 1 : 0;
+    if (job === 'clerk.identity.reconcile') {
+      const [provider, profile] = await Promise.all([
+        this.reconcileProviderPage(),
+        this.reconcileProfilePage(),
+      ]);
+      return provider.processed + profile.processed;
+    }
+    const result = await this.repository.processNextClerkWebhook(
+      (subject) => this.clerk.getIdentityUser(subject),
+      this.config.get('MASARIFI_CLERK_WEBHOOK_MAX_ATTEMPTS'),
+    );
+    if (result.status !== 'idle')
+      recordPlatformMetric(IDENTITY_METRICS.webhookProcess, 1, { outcome: result.status });
+    return result.status === 'idle' ? 0 : 1;
   }
 
   private async run(signal: AbortSignal): Promise<void> {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AccessDeniedState, ErrorState, LoadingState, PageHeader, SuccessState } from "@/components/admin/ui";
+import { mocksAllowed } from "@/core/api/client";
 import { useLocale } from "@/core/localization/provider";
 import type { FeatureFlag, Maintenance, SettingsGroup, SettingsGroupName } from "./contracts";
 import { useFeatureFlags, useMaintenance, useSettingsGroup, useUpdateFeatureFlag, useUpdateMaintenance, useUpdateSettingsGroup } from "./hooks";
@@ -16,14 +17,14 @@ const copy = {
     changeReason: "سبب التغيير",
     currentValues: "القيم الحالية",
     defaultLanguage: "اللغة الافتراضية",
-    description: "تحديث إعدادات تجريبي بشكل ذري مع نسخة المجموعة المتوقعة.",
+    description: "تحديث إعداد تشغيلي مسموح به مع النسخة المتوقعة.",
     featureFlags: "أعلام الميزات",
     featureFlagsDescription: "أعلام تجريبية بجمهور محدد؛ الأعلام المنتهية للقراءة فقط.",
     generalSettings: "الإعدادات العامة",
     generalSettingsHelp: "قيم الإعدادات العامة الحالية.",
     group: "المجموعة",
     maintenance: "الصيانة",
-    maintenanceDescription: "انتقالات صيانة تجريبية وصريحة فقط.",
+    maintenanceDescription: "انتقالات صيانة صريحة ومدققة فقط.",
     moveTo: "نقل إلى",
     platformName: "اسم المنصة",
     rawConfiguration: "الإعداد الخام",
@@ -51,14 +52,14 @@ const copy = {
     changeReason: "Change reason",
     currentValues: "Current values",
     defaultLanguage: "Default Language",
-    description: "Atomic mock-only settings update with the expected group version.",
+    description: "Update one allowlisted operational setting with its expected version.",
     featureFlags: "Feature Flags",
-    featureFlagsDescription: "Fixed-audience mock feature flags; ended flags are read-only.",
+    featureFlagsDescription: "Bounded feature flags; retired flags are read-only.",
     generalSettings: "General settings",
     generalSettingsHelp: "Current general configuration values.",
     group: "Group",
     maintenance: "Maintenance",
-    maintenanceDescription: "Explicit mock maintenance transitions only.",
+    maintenanceDescription: "Explicit audited maintenance transitions only.",
     moveTo: "Move to",
     platformName: "Platform Name",
     rawConfiguration: "Raw configuration",
@@ -98,11 +99,35 @@ function SettingsForm({
   const c = copy[locale];
   const query = useSettingsGroup(group);
   const update = useUpdateSettingsGroup(group);
-  const payload = query.data as SettingsGroup | undefined;
+  const payload = query.data as (SettingsGroup & { operationsSetting?: boolean }) | undefined;
   const [reason, setReason] = useState("Update settings after governance review.");
   if (query.isPending) return <LoadingState />;
   if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission={`settings.${group}.read`} /> : <ErrorState />;
   if (!payload) return <ErrorState />;
+  if (payload.operationsSetting) {
+    const bounds = { general: [30, 365], mobile: [24, 720], imports: [100, 10000], ai: [5, 5] }[group as "general" | "mobile" | "imports" | "ai"];
+    const operationsValue = Number((payload.values as Record<string, unknown>).value);
+    return (
+      <section className="admin-page">
+        <PageHeader title={title} description={c.description} />
+        <dl className="settings-list">
+          <div><dt>{c.version}</dt><dd className="numbers">{payload.version}</dd></div>
+          <div><dt>{c.currentValues}</dt><dd><pre>{JSON.stringify(payload.values, null, 2)}</pre></dd></div>
+        </dl>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          const value = Number(new FormData(event.currentTarget).get("value"));
+          update.mutate({ expectedVersion: payload.version, changes: { value }, reason, submissionKey: `SUB-OPERATIONS-${group.toUpperCase()}` });
+        }}>
+          <label>{c.currentValues}<input className="input numbers" name="value" type="number" min={bounds?.[0]} max={bounds?.[1]} defaultValue={operationsValue} readOnly={group === "ai"} /></label>
+          <label>{c.reason}<textarea aria-label={c.changeReason} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+          <button className="button primary" disabled={update.isPending}>{c.save}</button>
+        </form>
+        {update.isSuccess && <SuccessState message={c.saved} />}
+        {update.isError && <ErrorState />}
+      </section>
+    );
+  }
   if (payload.group === "general") {
     return (
       <section className="admin-page">
@@ -194,7 +219,7 @@ export function SettingsOverviewView() {
 
 export function MobileSettingsView() {
   const { locale } = useLocale();
-  return <SettingsForm group="mobile" title={copy[locale].titles.mobile} changeKey="forceUpdate" changeValue={true} />;
+  return <SettingsForm group="mobile" title={copy[locale].titles.mobile} changeKey="forceUpdate" changeValue />;
 }
 
 export function ImportSettingsView() {
@@ -209,12 +234,23 @@ export function AiSettingsView() {
 
 export function SubscriptionSettingsView() {
   const { locale } = useLocale();
-  return <SettingsForm group="subscriptions" title={copy[locale].titles.subscriptions} changeKey="retryDays" changeValue={[1, 4, 8]} />;
+  if (mocksAllowed() && process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true")
+    return <SettingsForm group="subscriptions" title={copy[locale].titles.subscriptions} changeKey="retryDays" changeValue={[1, 4, 8]} />;
+  return (
+    <section className="admin-page">
+      <PageHeader
+        title={locale === "ar" ? "الإصدار المجاني" : "Free-only release"}
+        description={locale === "ar" ? "الفوترة والاشتراكات غير متاحة في هذا الإصدار. النسخة غير متاحة." : "Billing and subscriptions are unavailable in this release. No mutable configuration is exposed."}
+      />
+    </section>
+  );
 }
 
 export function SecuritySettingsView() {
   const { locale } = useLocale();
-  return <SettingsForm group="security" title={copy[locale].titles.security} changeKey="sessionMinutes" changeValue={90} />;
+  if (mocksAllowed() && process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true")
+    return <SettingsForm group="security" title={copy[locale].titles.security} changeKey="sessionMinutes" changeValue={90} />;
+  return <section className="admin-page"><PageHeader title={copy[locale].titles.security} description={locale === "ar" ? "ضوابط الأمن ليست أعلام ميزات أو إعدادات تشغيلية قابلة للتغيير في هذه النسخة." : "Security controls are not mutable feature flags or operational settings in this release."} /></section>;
 }
 
 export function FeatureFlagsSettingsView() {
@@ -253,8 +289,8 @@ export function MaintenanceSettingsView() {
       <button className="button primary" disabled={update.isPending} onClick={() => update.mutate({
         nextState,
         message: { ar: `Maintenance ${nextState}`, en: `Maintenance ${nextState}` },
-        startsAt: nextState === "scheduled" ? "2026-08-02T12:00:00+03:00" : null,
-        endsAt: nextState === "scheduled" ? "2026-08-02T13:00:00+03:00" : null,
+        startsAt: nextState === "scheduled" ? new Date(Date.now() + 300_000).toISOString() : null,
+        endsAt: nextState === "scheduled" ? new Date(Date.now() + 3_900_000).toISOString() : null,
         expectedVersion: maintenance.version,
         reason: "Update maintenance state after operator confirmation.",
         submissionKey: "SUB-DEMO-UI-MAINTENANCE",
@@ -276,7 +312,7 @@ function FeatureFlagCard({ flag }: { flag: FeatureFlag }) {
       <p>{c.rollout} <span className="numbers">{flag.rolloutPercent}%</span> · {c.version} <span className="numbers">{flag.version}</span></p>
       <button className="button" disabled={flag.status === "ended" || update.isPending} onClick={() => update.mutate({
         audience: "all_customers",
-        rolloutPercent: Math.min(100, flag.rolloutPercent + 5),
+        rolloutPercent: flag.rolloutPercent === 100 ? 0 : 100,
         expectedVersion: flag.version,
         reason: "Update fixed audience rollout after governance review.",
         submissionKey: `SUB-DEMO-UI-FLAG-${flag.id}`,

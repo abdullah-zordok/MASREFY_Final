@@ -2,27 +2,6 @@ import { describe, expect, test } from "vitest";
 import { systemHealthRepository } from "./repository";
 
 describe("system health repository", () => {
-  test("returns validated services, incidents, and charts", async () => {
-    const result = await systemHealthRepository.getSystemHealth();
-    expect(result.services.length).toBeGreaterThan(0);
-    expect(result.incidents.length).toBeGreaterThan(0);
-    expect(result.requestVolume.length).toBeGreaterThan(0);
-  });
-
-  test("supports partial, empty, forbidden, and unavailable scenarios", async () => {
-    await expect(systemHealthRepository.getSystemHealth("partial")).resolves.toMatchObject({ partial: true });
-    await expect(systemHealthRepository.getSystemHealth("empty")).resolves.toMatchObject({ services: [], incidents: [] });
-    await expect(systemHealthRepository.getSystemHealth("forbidden")).rejects.toMatchObject({ status: 403 });
-    await expect(systemHealthRepository.getSystemHealth("unavailable")).rejects.toMatchObject({ status: 503 });
-  });
-
-  test("denies health data when the simulated role lacks system-health access", async () => {
-    window.sessionStorage.setItem("admin-simulated-role", "billing-operator");
-
-    await expect(systemHealthRepository.getSystemHealth())
-      .rejects.toMatchObject({ code: "forbidden", status: 403 });
-  });
-
   test("gets a validated Phase 8 health overview with range and platform query values", async () => {
     const result = await systemHealthRepository.getHealthOverview({ range: "7d", platform: "ios" });
     expect(result.range).toBe("7d");

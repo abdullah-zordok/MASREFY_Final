@@ -21,7 +21,7 @@ import type {
 import { useApiMonitoring, useDatabaseMonitoring, useHealthOverview, useJobRuns, useProviderHealth, useQueueHealth, useScheduledJobs, useStorageMonitoring } from "./hooks";
 
 const ranges: OperationalRange[] = ["1h", "24h", "7d", "30d"];
-const providerCategories: Array<ProviderCategory | "all"> = ["all", "stripe", "ai", "email", "push", "exchange_rates"];
+const providerCategories: Array<ProviderCategory | "all"> = ["all", "database", "storage", "identity", "ai", "email", "push"];
 
 const healthCopy = {
   ar: {

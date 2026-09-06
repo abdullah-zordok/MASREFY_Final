@@ -170,6 +170,23 @@ export const SYSTEM_ROLES = Object.freeze([
 ] as const);
 export type SystemRole = (typeof SYSTEM_ROLES)[number];
 
+export const OPERATIONS_PERMISSION_KEYS = Object.freeze([
+  'operations.health.read',
+  'operations.providers.read',
+  'operations.jobs.read',
+  'operations.jobs.manage',
+  'operations.incidents.read',
+  'operations.incidents.manage',
+  'operations.settings.read',
+  'operations.settings.manage',
+  'operations.flags.read',
+  'operations.flags.manage',
+  'operations.maintenance.read',
+  'operations.maintenance.manage',
+  'operations.performance.read',
+  'operations.recovery.read',
+] as const);
+
 export const CLIENT_PERMISSION_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   'roles.read': 'access.roles.read',
   'roles.manage': 'access.roles.write',
@@ -329,7 +346,12 @@ const phase8Retry = [
   'jobs.runs.retry',
   'jobs.schedules.read',
 ] as const;
-const backendOnlyPermissions = ['reference.read', 'reference.write', 'planning.read'] as const;
+const backendOnlyPermissions = [
+  'reference.read',
+  'reference.write',
+  'planning.read',
+  ...OPERATIONS_PERMISSION_KEYS,
+] as const;
 const rawRolePermissions: Record<SystemRole, readonly string[]> = {
   'super-admin': [...CLIENT_PERMISSION_KEYS, ...backendOnlyPermissions],
   'support-agent': [

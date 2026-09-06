@@ -25,6 +25,8 @@ function stableUuid(seed: string): string {
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-4${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
 }
 
+export type TrackingJob = 'parser.corpus' | 'import.parse' | 'raw.purge' | 'tracking.reconcile';
+
 @Injectable()
 export class TrackingWorker implements OnModuleDestroy {
   private active: Promise<void> | undefined;
@@ -67,38 +69,42 @@ export class TrackingWorker implements OnModuleDestroy {
   }
 
   private async execute(): Promise<void> {
+    await Promise.all([this.runJob('parser.corpus'), this.runJob('import.parse')]);
+    await this.runJob('raw.purge');
+    await this.runJob('tracking.reconcile');
+  }
+
+  async runJob(job: TrackingJob): Promise<number> {
     const startedAt = performance.now();
-    const [corpusClaims, claims] = await Promise.all([
-      this.repository.claimParserCorpus(this.workerId),
-      this.repository.claimImports(this.workerId),
-    ]);
-    for (const claim of corpusClaims) await this.processCorpus(claim);
-    recordTrackingJob(
-      'parser.corpus',
-      corpusClaims.length ? 'success' : 'empty',
-      corpusClaims.length,
-    );
-    for (const claim of claims) await this.process(claim);
-    recordTrackingJob('import.parse', claims.length ? 'success' : 'empty', claims.length);
-    const due = await this.repository.rawDue();
-    let purged = 0;
-    let purgeFailed = false;
-    for (const item of due) {
-      try {
-        await this.storage.delete(item.storage_ref);
-        if (await this.repository.completeRaw(item.id, item.purge_token)) purged += 1;
-        else purgeFailed = true;
-      } catch {
-        purgeFailed = true;
-      }
+    if (job === 'parser.corpus') {
+      const claims = await this.repository.claimParserCorpus(this.workerId);
+      for (const claim of claims) await this.processCorpus(claim);
+      recordTrackingJob(job, claims.length ? 'success' : 'empty', claims.length);
+      return claims.length;
     }
-    recordTrackingJob(
-      'raw.purge',
-      purgeFailed ? 'failure' : due.length ? 'success' : 'empty',
-      purged,
-    );
+    if (job === 'import.parse') {
+      const claims = await this.repository.claimImports(this.workerId);
+      for (const claim of claims) await this.process(claim);
+      recordTrackingJob(job, claims.length ? 'success' : 'empty', claims.length);
+      return claims.length;
+    }
+    if (job === 'raw.purge') {
+      const due = await this.repository.rawDue();
+      let purged = 0;
+      let failed = false;
+      for (const item of due)
+        try {
+          await this.storage.delete(item.storage_ref);
+          if (await this.repository.completeRaw(item.id, item.purge_token)) purged += 1;
+          else failed = true;
+        } catch {
+          failed = true;
+        }
+      recordTrackingJob(job, failed ? 'failure' : due.length ? 'success' : 'empty', purged);
+      return purged;
+    }
     await this.repository.maintenance();
-    recordTrackingJob('tracking.reconcile', 'success', 1);
+    recordTrackingJob(job, 'success', 1);
     const operational = await this.repository.operationalMetrics();
     recordTrackingOperational('backlog', 'import.parse', Number(operational.importBacklog));
     recordTrackingOperational('backlog', 'review', Number(operational.reviewBacklog));
@@ -109,7 +115,8 @@ export class TrackingWorker implements OnModuleDestroy {
       Number(operational.oldestImportAgeSeconds),
     );
     recordTrackingOperational('rawPurgeLag', 'raw.purge', Number(operational.rawPurgeLagSeconds));
-    recordTrackingDuration('tracking.reconcile', 'success', performance.now() - startedAt);
+    recordTrackingDuration(job, 'success', performance.now() - startedAt);
+    return 1;
   }
 
   private async processCorpus(claim: { id: string; claim_token: string }): Promise<void> {

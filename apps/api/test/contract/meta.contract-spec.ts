@@ -18,6 +18,7 @@ describe('meta contract', () => {
           ({
             MASARIFI_META_MIN_MOBILE_VERSION: undefined,
             MASARIFI_META_MIN_ADMIN_VERSION: undefined,
+            MASARIFI_AI_PROVIDER_ENABLED: false,
           })[key],
       ),
     };
@@ -63,19 +64,29 @@ describe('meta contract', () => {
       .expect(200);
 
     expect(verifier).toHaveBeenCalledWith('signed.fixture.token');
-    const body = response.body as {
-      apiVersion: string;
-      serverTime: string;
-      minMobileVersion: string | null;
-      minAdminVersion: string | null;
-    };
+    const body = response.body as Awaited<ReturnType<MetaService['get']>>;
     expect(body).toEqual({
       apiVersion: 'v1',
       serverTime: body.serverTime,
       minMobileVersion: null,
       minAdminVersion: null,
+      capabilities: {
+        coreFinanceAvailable: true,
+        billingAvailable: false,
+        paidEntitlement: false,
+        checkoutAvailable: false,
+        subscriptionManagementAvailable: false,
+        promotionsAvailable: false,
+        aiAvailable: false,
+        aiAllowancePerRolling24Hours: 5,
+      },
+      maintenance: { active: false, scopes: [], message: null },
+      featureFlags: {},
+      configurationVersion: 1,
     });
     expect(body.serverTime).toMatch(/Z$/);
+    expect(response.headers['cache-control']).toBe('private, max-age=30');
+    expect(response.headers.etag).toMatch(/^"[0-9a-f]{64}"$/u);
     expect(Buffer.byteLength(JSON.stringify(body))).toBeLessThan(50_000);
     await app.close();
   });

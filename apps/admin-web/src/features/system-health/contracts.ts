@@ -36,7 +36,10 @@ export const metricValueSchema = z.object({
 }).strict();
 
 export const pageSizeSchema = z.union([z.literal(25), z.literal(50), z.literal(100)]);
-export const jobRunIdSchema = z.string().max(64).regex(/^JOB-[A-Za-z0-9-]+$/u);
+export const jobRunIdSchema = z.string().max(64).refine(
+  (value) => /^JOB-[A-Za-z0-9-]+$/u.test(value) || z.uuid().safeParse(value).success,
+  "invalid job run id",
+);
 export const searchSchema = z.string().max(120).transform((value) => value.normalize("NFC"));
 export const actionReasonSchema = z.string()
   .transform((value) => value.trim().normalize("NFC"))
@@ -179,7 +182,7 @@ export const storageMonitoringSchema = z.object({
 }).strict();
 
 export const accessProjectionSchema = z.enum(["full", "domain", "linked_status", "denied"]);
-export const providerCategorySchema = z.enum(["stripe", "ai", "email", "push", "exchange_rates"]);
+export const providerCategorySchema = z.enum(["database", "storage", "identity", "ai", "email", "push", "stripe", "exchange_rates"]);
 export const fallbackStateSchema = z.enum(["active", "available", "unavailable", "not_applicable"]);
 
 export const providerHealthSummarySchema = z.object({
@@ -221,6 +224,15 @@ export const providerHealthPageSchema = z.object({
 }).strict();
 
 export const queueKeySchema = z.enum([
+  "platform",
+  "identity",
+  "security",
+  "ledger",
+  "sync",
+  "planning",
+  "tracking",
+  "ai",
+  "operations",
   "imports",
   "ai_processing",
   "notifications",
@@ -256,7 +268,7 @@ export const queueSnapshotSchema = z.object({
 }).strict();
 
 export const queueHealthPageSchema = z.object({
-  items: z.array(queueSnapshotSchema).max(7),
+  items: z.array(queueSnapshotSchema).max(50),
   range: operationalRangeSchema,
   platform: platformScopeSchema.extract(["all", "ios", "android"]),
   freshness: freshnessSchema,
@@ -405,6 +417,136 @@ export type CancelJobResult = z.infer<typeof cancelJobResultSchema>;
 export type ScheduledJobSummary = z.infer<typeof scheduledJobSummarySchema>;
 export type ScheduledJobsPage = z.infer<typeof scheduledJobsPageSchema>;
 export type ScheduledJobsQuery = z.input<typeof scheduledJobsQuerySchema>;
+
+export const phase13FreshnessSchema = z.object({
+  observedAt: offsetDateTimeSchema,
+  staleAt: offsetDateTimeSchema,
+  state: z.enum(["fresh", "stale", "unknown"]),
+}).strict();
+
+export const phase13HealthOverviewSchema = z.object({
+  status: z.enum(["operational", "degraded", "outage", "maintenance", "unknown"]),
+  services: z.array(z.object({
+    key: z.string().min(1).max(80),
+    status: z.enum(["operational", "degraded", "outage", "maintenance", "unknown"]),
+    latencyMs: z.number().int().min(0).max(60_000).optional(),
+    safeCode: z.string().max(80).nullable().optional(),
+    freshness: phase13FreshnessSchema,
+  }).strict()).max(20),
+  partial: z.boolean(),
+  freshness: phase13FreshnessSchema,
+}).strict();
+
+export const phase13ProviderPageSchema = z.object({
+  items: z.array(z.object({
+    provider: z.enum(["database", "storage", "identity", "ai", "email", "push"]),
+    status: z.enum(["up", "degraded", "down", "unknown"]),
+    latencyMs: z.number().int().min(0).max(60_000),
+    checkedAt: offsetDateTimeSchema,
+    safeCode: z.string().max(80).nullable().optional(),
+  }).strict()).max(100),
+  nextCursor: z.string().max(256).nullable(),
+}).strict();
+
+export const phase13QueueSummarySchema = z.object({
+  items: z.array(z.object({
+    key: z.string().min(3).max(128),
+    waiting: z.number().int().nonnegative(),
+    active: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    oldestWaitingSeconds: z.number().int().nonnegative().nullable(),
+    status: z.enum(["operational", "degraded", "outage", "unknown"]),
+  }).strict()).max(50),
+  freshness: phase13FreshnessSchema,
+  partial: z.boolean(),
+}).strict();
+
+export const phase13ScheduledJobPageSchema = z.object({
+  items: z.array(z.object({
+    id: z.uuid(),
+    key: z.string().min(3).max(128),
+    ownerSpec: z.number().int(),
+    type: z.string().min(3).max(80),
+    schedule: z.object({ kind: z.literal("interval"), everySeconds: z.number().int(), timezone: z.literal("UTC") }).strict().nullable(),
+    enabled: z.boolean(),
+    timeoutSeconds: z.number().int(),
+    maxAttempts: z.number().int(),
+    retrySafe: z.boolean(),
+    cancelSafe: z.boolean(),
+    nextRunAt: offsetDateTimeSchema.nullable(),
+    version: z.number().int().positive(),
+  }).strict()).max(100),
+  nextCursor: z.string().max(256).nullable(),
+}).strict();
+
+export const phase13JobRunSchema = z.object({
+  id: z.uuid(),
+  jobKey: z.string().min(3).max(128),
+  ownerSpec: z.number().int(),
+  status: z.enum(["queued", "running", "succeeded", "failed", "retrying", "dead_lettered", "canceled"]),
+  queuedAt: offsetDateTimeSchema,
+  startedAt: offsetDateTimeSchema.nullable(),
+  completedAt: offsetDateTimeSchema.nullable(),
+  correlationId: z.string().min(1).max(128),
+  summary: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+  version: z.number().int().positive(),
+}).strict();
+
+export const phase13JobRunPageSchema = z.object({
+  items: z.array(phase13JobRunSchema).max(100),
+  nextCursor: z.string().max(256).nullable(),
+}).strict();
+
+export const phase13JobRunDetailSchema = z.object({
+  run: phase13JobRunSchema,
+  attempts: z.array(z.object({
+    attempt: z.number().int().positive(),
+    status: z.enum(["running", "succeeded", "failed"]),
+    workerId: z.string().min(1).max(128),
+    startedAt: offsetDateTimeSchema,
+    completedAt: offsetDateTimeSchema.nullable(),
+    safeCode: z.string().max(80).nullable().optional(),
+    nextAttemptAt: offsetDateTimeSchema.nullable().optional(),
+  }).strict()).max(10),
+  allowedActions: z.array(z.enum(["retry", "cancel"])).max(2),
+}).strict();
+
+const phase13PercentileSchema = z.object({
+  p50: z.number().nonnegative().nullable(),
+  p95: z.number().nonnegative().nullable(),
+  p99: z.number().nonnegative().nullable(),
+  unit: z.enum(["milliseconds", "seconds", "count", "percent", "bytes"]),
+  status: z.enum(["within_budget", "breached", "unavailable", "not_applicable"]),
+}).strict();
+
+export const phase13PerformanceSchema = z.object({
+  range: operationalRangeSchema,
+  budgets: z.record(z.string(), phase13PercentileSchema),
+  series: z.array(z.object({ at: offsetDateTimeSchema, value: z.number().nonnegative().nullable() }).strict()).max(720),
+  freshness: phase13FreshnessSchema,
+}).strict();
+
+export const phase13RecoverySchema = z.object({
+  items: z.array(z.object({
+    scope: z.string(),
+    status: z.enum(["verified", "failed", "external_required", "unavailable"]),
+    observedAt: offsetDateTimeSchema,
+    evidenceRef: z.string().min(1).max(160),
+    rpoSeconds: z.number().int().nonnegative().nullable().optional(),
+    rtoSeconds: z.number().int().nonnegative().nullable().optional(),
+    safeCode: z.string().max(80).nullable().optional(),
+  }).strict()).max(50),
+  rpoTargetSeconds: z.literal(900),
+  rtoTargetSeconds: z.literal(7200),
+}).strict();
+
+export const phase13JobActionResultSchema = z.object({
+  status: z.enum(["accepted", "canceled", "queued"]),
+  runId: z.uuid(),
+  version: z.number().int().positive(),
+  retryOfRunId: z.uuid().optional(),
+  replayed: z.boolean().optional(),
+}).strict();
 
 export const systemHealthResponseSchema = z.object({
   summary: z.array(z.object({ label: z.string(), value: z.string() })),

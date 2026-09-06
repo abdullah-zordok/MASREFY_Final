@@ -13,8 +13,8 @@ paths:
       operationId: getOperationsHealthOverview
       tags: [Operations]
       parameters:
-        - $ref: '#/components/parameters/Range'
-        - $ref: '#/components/parameters/Platform'
+        - $ref: '#/components/parameters/OperationsRange'
+        - $ref: '#/components/parameters/OperationsPlatform'
       responses:
         '200': { $ref: '#/components/responses/HealthOverview' }
         '400': { $ref: '#/components/responses/SafeError' }
@@ -26,8 +26,8 @@ paths:
       operationId: listProviderHealth
       tags: [Operations]
       parameters:
-        - { $ref: '#/components/parameters/PageSize' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/OperationsPageSize' }
+        - { $ref: '#/components/parameters/OperationsCursor' }
         - name: provider
           in: query
           schema: { $ref: '#/components/schemas/ProviderKey' }
@@ -44,7 +44,7 @@ paths:
       operationId: getQueueWorkerHealth
       tags: [Jobs]
       parameters:
-        - { $ref: '#/components/parameters/Range' }
+        - { $ref: '#/components/parameters/OperationsRange' }
       responses:
         '200': { $ref: '#/components/responses/QueueWorkerSummary' }
         '400': { $ref: '#/components/responses/SafeError' }
@@ -55,8 +55,8 @@ paths:
       operationId: listScheduledJobs
       tags: [Jobs]
       parameters:
-        - { $ref: '#/components/parameters/PageSize' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/OperationsPageSize' }
+        - { $ref: '#/components/parameters/OperationsCursor' }
         - name: ownerSpec
           in: query
           schema: { type: integer, enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13] }
@@ -73,8 +73,8 @@ paths:
       operationId: listJobRuns
       tags: [Jobs]
       parameters:
-        - { $ref: '#/components/parameters/PageSize' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/OperationsPageSize' }
+        - { $ref: '#/components/parameters/OperationsCursor' }
         - name: jobKey
           in: query
           schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[a-z][a-z0-9_.-]+$' }
@@ -136,8 +136,8 @@ paths:
       operationId: listSystemIncidents
       tags: [Incidents]
       parameters:
-        - { $ref: '#/components/parameters/PageSize' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/OperationsPageSize' }
+        - { $ref: '#/components/parameters/OperationsCursor' }
         - name: status
           in: query
           schema: { $ref: '#/components/schemas/IncidentStatus' }
@@ -145,7 +145,7 @@ paths:
           in: query
           schema: { $ref: '#/components/schemas/IncidentSeverity' }
       responses:
-        '200': { $ref: '#/components/responses/IncidentPage' }
+        '200': { $ref: '#/components/responses/OperationsIncidentPage' }
         '400': { $ref: '#/components/responses/SafeError' }
         '401': { $ref: '#/components/responses/SafeError' }
         '403': { $ref: '#/components/responses/SafeError' }
@@ -167,7 +167,7 @@ paths:
         '409': { $ref: '#/components/responses/SafeError' }
   /api/v1/admin/incidents/{incidentId}:
     parameters:
-      - { $ref: '#/components/parameters/IncidentId' }
+      - { $ref: '#/components/parameters/OperationsIncidentId' }
       - { $ref: '#/components/parameters/IdempotencyKey' }
     patch:
       operationId: updateSystemIncident
@@ -225,8 +225,8 @@ paths:
       operationId: listFeatureFlags
       tags: [Configuration]
       parameters:
-        - { $ref: '#/components/parameters/PageSize' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/OperationsPageSize' }
+        - { $ref: '#/components/parameters/OperationsCursor' }
       responses:
         '200': { $ref: '#/components/responses/FlagPage' }
         '401': { $ref: '#/components/responses/SafeError' }
@@ -292,8 +292,8 @@ paths:
       operationId: listMaintenanceWindows
       tags: [Maintenance]
       parameters:
-        - { $ref: '#/components/parameters/PageSize' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/OperationsPageSize' }
+        - { $ref: '#/components/parameters/OperationsCursor' }
       responses:
         '200': { $ref: '#/components/responses/MaintenancePage' }
         '401': { $ref: '#/components/responses/SafeError' }
@@ -338,7 +338,7 @@ paths:
       operationId: getPerformanceStatus
       tags: [Operations]
       parameters:
-        - { $ref: '#/components/parameters/Range' }
+        - { $ref: '#/components/parameters/OperationsRange' }
       responses:
         '200': { $ref: '#/components/responses/PerformanceStatus' }
         '400': { $ref: '#/components/responses/SafeError' }
@@ -385,19 +385,19 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
-    Range:
+    OperationsRange:
       name: range
       in: query
       schema: { type: string, enum: [1h, 24h, 7d, 30d], default: 24h }
-    Platform:
+    OperationsPlatform:
       name: platform
       in: query
       schema: { type: string, enum: [all, ios, android], default: all }
-    PageSize:
+    OperationsPageSize:
       name: pageSize
       in: query
       schema: { type: integer, enum: [25, 50, 100], default: 25 }
-    Cursor:
+    OperationsCursor:
       name: cursor
       in: query
       schema: { type: string, maxLength: 256 }
@@ -406,7 +406,7 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
-    IncidentId:
+    OperationsIncidentId:
       name: incidentId
       in: path
       required: true
@@ -436,13 +436,13 @@ components:
       required: true
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/VersionedReasonRequest' }
+          schema: { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
   responses:
     SafeError:
       description: Stable safe error
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/SafeError' }
+          schema: { $ref: '#/components/schemas/ApiError' }
     HealthOverview:
       description: Bounded health overview
       content:
@@ -473,16 +473,16 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/JobActionResult' }
-    IncidentPage:
+    OperationsIncidentPage:
       description: Incident page
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/IncidentPage' }
+          schema: { $ref: '#/components/schemas/OperationsIncidentPage' }
     Incident:
       description: Incident projection
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Incident' }
+          schema: { $ref: '#/components/schemas/OperationsIncident' }
     SettingPage:
       description: Safe setting metadata
       content:
@@ -524,7 +524,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/RecoveryEvidence' }
   schemas:
-    Timestamp:
+    OperationsTimestamp:
       type: string
       format: date-time
     Freshness:
@@ -532,8 +532,8 @@ components:
       additionalProperties: false
       required: [observedAt, staleAt, state]
       properties:
-        observedAt: { $ref: '#/components/schemas/Timestamp' }
-        staleAt: { $ref: '#/components/schemas/Timestamp' }
+        observedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        staleAt: { $ref: '#/components/schemas/OperationsTimestamp' }
         state: { type: string, enum: [fresh, stale, unknown] }
     SafeError:
       type: object
@@ -543,7 +543,27 @@ components:
         code: { type: string, minLength: 3, maxLength: 80, pattern: '^[A-Z][A-Z0-9_]+$' }
         message: { type: string, minLength: 1, maxLength: 240 }
         requestId: { type: string, minLength: 1, maxLength: 128 }
-    VersionedReasonRequest:
+        fieldErrors:
+          type: array
+          maxItems: 50
+          items: { type: object }
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [statusCode, code, message, requestId]
+      properties:
+        statusCode: { type: integer, minimum: 400, maximum: 599 }
+        code: { type: string, minLength: 1, maxLength: 80 }
+        message: { type: string, minLength: 1, maxLength: 240 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+        fieldErrors:
+          type: object
+          maxProperties: 50
+          additionalProperties:
+            type: array
+            maxItems: 10
+            items: { type: string, maxLength: 120 }
+    OperationsVersionedReasonRequest:
       type: object
       additionalProperties: false
       required: [expectedVersion, reason]
@@ -559,10 +579,10 @@ components:
     JobRunStatus:
       type: string
       enum: [queued, running, succeeded, failed, retrying, dead_lettered, canceled]
-    IncidentStatus:
+    OperationsIncidentStatus:
       type: string
       enum: [open, investigating, monitoring, resolved]
-    IncidentSeverity:
+    OperationsIncidentSeverity:
       type: string
       enum: [info, warning, critical]
     HealthItem:
@@ -592,11 +612,11 @@ components:
         provider: { $ref: '#/components/schemas/ProviderKey' }
         status: { $ref: '#/components/schemas/ProviderStatus' }
         latencyMs: { type: integer, minimum: 0, maximum: 60000 }
-        checkedAt: { $ref: '#/components/schemas/Timestamp' }
+        checkedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
         safeCode: { type: [string, 'null'], maxLength: 80 }
     ProviderPage:
       allOf:
-        - { $ref: '#/components/schemas/CursorPage' }
+        - { $ref: '#/components/schemas/OperationsCursorPage' }
         - type: object
           required: [items]
           properties:
@@ -643,11 +663,11 @@ components:
         maxAttempts: { type: integer, minimum: 1, maximum: 10 }
         retrySafe: { type: boolean }
         cancelSafe: { type: boolean }
-        nextRunAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        nextRunAt: { anyOf: [{ $ref: '#/components/schemas/OperationsTimestamp' }, { type: 'null' }] }
         version: { type: integer, minimum: 1 }
     ScheduledJobPage:
       allOf:
-        - { $ref: '#/components/schemas/CursorPage' }
+        - { $ref: '#/components/schemas/OperationsCursorPage' }
         - type: object
           required: [items]
           properties:
@@ -661,9 +681,9 @@ components:
         jobKey: { type: string, minLength: 3, maxLength: 128 }
         ownerSpec: { type: integer, enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13] }
         status: { $ref: '#/components/schemas/JobRunStatus' }
-        queuedAt: { $ref: '#/components/schemas/Timestamp' }
-        startedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
-        completedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        queuedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        startedAt: { anyOf: [{ $ref: '#/components/schemas/OperationsTimestamp' }, { type: 'null' }] }
+        completedAt: { anyOf: [{ $ref: '#/components/schemas/OperationsTimestamp' }, { type: 'null' }] }
         correlationId: { type: string, minLength: 1, maxLength: 128 }
         summary: { type: object, maxProperties: 20, additionalProperties: { type: [string, number, boolean, 'null'] } }
         version: { type: integer, minimum: 1 }
@@ -675,10 +695,10 @@ components:
         attempt: { type: integer, minimum: 1, maximum: 10 }
         status: { type: string, enum: [running, succeeded, failed] }
         workerId: { type: string, minLength: 1, maxLength: 128 }
-        startedAt: { $ref: '#/components/schemas/Timestamp' }
-        completedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        startedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        completedAt: { anyOf: [{ $ref: '#/components/schemas/OperationsTimestamp' }, { type: 'null' }] }
         safeCode: { type: [string, 'null'], maxLength: 80 }
-        nextAttemptAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        nextAttemptAt: { anyOf: [{ $ref: '#/components/schemas/OperationsTimestamp' }, { type: 'null' }] }
     JobRunDetail:
       type: object
       additionalProperties: false
@@ -689,7 +709,7 @@ components:
         allowedActions: { type: array, maxItems: 2, uniqueItems: true, items: { type: string, enum: [retry, cancel] } }
     JobRunPage:
       allOf:
-        - { $ref: '#/components/schemas/CursorPage' }
+        - { $ref: '#/components/schemas/OperationsCursorPage' }
         - type: object
           required: [items]
           properties:
@@ -702,17 +722,17 @@ components:
         status: { type: string, enum: [accepted, canceled] }
         runId: { type: string, format: uuid }
         version: { type: integer, minimum: 1 }
-    Incident:
+    OperationsIncident:
       type: object
       additionalProperties: false
       required: [id, title, severity, status, startedAt, version]
       properties:
         id: { type: string, format: uuid }
         title: { type: string, minLength: 5, maxLength: 160 }
-        severity: { $ref: '#/components/schemas/IncidentSeverity' }
-        status: { $ref: '#/components/schemas/IncidentStatus' }
-        startedAt: { $ref: '#/components/schemas/Timestamp' }
-        resolvedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        severity: { $ref: '#/components/schemas/OperationsIncidentSeverity' }
+        status: { $ref: '#/components/schemas/OperationsIncidentStatus' }
+        startedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        resolvedAt: { anyOf: [{ $ref: '#/components/schemas/OperationsTimestamp' }, { type: 'null' }] }
         publicSummary: { type: [string, 'null'], maxLength: 500 }
         assignedAdminId: { type: [string, 'null'], maxLength: 128 }
         version: { type: integer, minimum: 1 }
@@ -722,28 +742,28 @@ components:
       required: [title, severity, startedAt, reason]
       properties:
         title: { type: string, minLength: 5, maxLength: 160 }
-        severity: { $ref: '#/components/schemas/IncidentSeverity' }
-        startedAt: { $ref: '#/components/schemas/Timestamp' }
+        severity: { $ref: '#/components/schemas/OperationsIncidentSeverity' }
+        startedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
         publicSummary: { type: [string, 'null'], maxLength: 500 }
         assignedAdminId: { type: [string, 'null'], maxLength: 128 }
         reason: { type: string, minLength: 10, maxLength: 500 }
     UpdateIncidentRequest:
       allOf:
-        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
         - type: object
           additionalProperties: false
           properties:
-            status: { $ref: '#/components/schemas/IncidentStatus' }
-            severity: { $ref: '#/components/schemas/IncidentSeverity' }
+            status: { $ref: '#/components/schemas/OperationsIncidentStatus' }
+            severity: { $ref: '#/components/schemas/OperationsIncidentSeverity' }
             publicSummary: { type: [string, 'null'], maxLength: 500 }
             assignedAdminId: { type: [string, 'null'], maxLength: 128 }
-    IncidentPage:
+    OperationsIncidentPage:
       allOf:
-        - { $ref: '#/components/schemas/CursorPage' }
+        - { $ref: '#/components/schemas/OperationsCursorPage' }
         - type: object
           required: [items]
           properties:
-            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Incident' } }
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/OperationsIncident' } }
     Setting:
       type: object
       additionalProperties: false
@@ -754,10 +774,10 @@ components:
         value: {}
         redacted: { type: boolean }
         version: { type: integer, minimum: 1 }
-        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
     UpdateSettingRequest:
       allOf:
-        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
         - type: object
           required: [value]
           properties:
@@ -798,7 +818,7 @@ components:
         platform: { type: string, enum: [ios, android, admin] }
         appVersion: { type: string, minLength: 1, maxLength: 32 }
         locale: { type: string, enum: [ar, en] }
-        cohort: { type: string, minLength: 1, maxLength: 40 }
+        cohort: { type: string, minLength: 2, maxLength: 32, pattern: '^[a-z][a-z0-9_-]+$' }
     ResolvedFlag:
       type: object
       additionalProperties: false
@@ -819,7 +839,7 @@ components:
         reason: { type: string, minLength: 10, maxLength: 500 }
     UpdateFlagRequest:
       allOf:
-        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
         - type: object
           properties:
             description: { type: string, minLength: 10, maxLength: 240 }
@@ -828,7 +848,7 @@ components:
             rules: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/FeatureRule' } }
     FlagPage:
       allOf:
-        - { $ref: '#/components/schemas/CursorPage' }
+        - { $ref: '#/components/schemas/OperationsCursorPage' }
         - type: object
           required: [items]
           properties:
@@ -846,8 +866,8 @@ components:
       required: [id, startsAt, endsAt, scopes, message, status, version]
       properties:
         id: { type: string, format: uuid }
-        startsAt: { $ref: '#/components/schemas/Timestamp' }
-        endsAt: { $ref: '#/components/schemas/Timestamp' }
+        startsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        endsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
         scopes:
           type: array
           minItems: 1
@@ -863,24 +883,24 @@ components:
           additionalProperties: false
           required: [startsAt, endsAt, scopes, message, reason]
           properties:
-            startsAt: { $ref: '#/components/schemas/Timestamp' }
-            endsAt: { $ref: '#/components/schemas/Timestamp' }
+            startsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+            endsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
             scopes: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { type: string } }
             message: { $ref: '#/components/schemas/LocalizedMessage' }
             reason: { type: string, minLength: 10, maxLength: 500 }
     UpdateMaintenanceRequest:
       allOf:
-        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
         - type: object
           properties:
-            startsAt: { $ref: '#/components/schemas/Timestamp' }
-            endsAt: { $ref: '#/components/schemas/Timestamp' }
+            startsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+            endsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
             scopes: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { type: string } }
             message: { $ref: '#/components/schemas/LocalizedMessage' }
             status: { type: string, enum: [scheduled, active, completed, canceled] }
     MaintenancePage:
       allOf:
-        - { $ref: '#/components/schemas/CursorPage' }
+        - { $ref: '#/components/schemas/OperationsCursorPage' }
         - type: object
           required: [items]
           properties:
@@ -910,7 +930,7 @@ components:
             additionalProperties: false
             required: [at, value]
             properties:
-              at: { $ref: '#/components/schemas/Timestamp' }
+              at: { $ref: '#/components/schemas/OperationsTimestamp' }
               value: { type: [number, 'null'], minimum: 0 }
         freshness: { $ref: '#/components/schemas/Freshness' }
     RecoveryEvidenceItem:
@@ -920,7 +940,7 @@ components:
       properties:
         scope: { type: string, enum: [database, storage, application, rls, ledger, domains, workers, events, full_dr] }
         status: { type: string, enum: [verified, failed, external_required, unavailable] }
-        observedAt: { $ref: '#/components/schemas/Timestamp' }
+        observedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
         evidenceRef: { type: string, minLength: 1, maxLength: 160 }
         rpoSeconds: { type: [integer, 'null'], minimum: 0 }
         rtoSeconds: { type: [integer, 'null'], minimum: 0 }
@@ -933,43 +953,45 @@ components:
         items: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/RecoveryEvidenceItem' } }
         rpoTargetSeconds: { type: integer, const: 900 }
         rtoTargetSeconds: { type: integer, const: 7200 }
+    PlatformCapabilities:
+      type: object
+      additionalProperties: false
+      required: [coreFinanceAvailable, billingAvailable, paidEntitlement, checkoutAvailable, subscriptionManagementAvailable, promotionsAvailable, aiAvailable, aiAllowancePerRolling24Hours]
+      properties:
+        coreFinanceAvailable: { type: boolean, const: true }
+        billingAvailable: { type: boolean, const: false }
+        paidEntitlement: { type: boolean, const: false }
+        checkoutAvailable: { type: boolean, const: false }
+        subscriptionManagementAvailable: { type: boolean, const: false }
+        promotionsAvailable: { type: boolean, const: false }
+        aiAvailable: { type: boolean }
+        aiAllowancePerRolling24Hours: { type: integer, const: 5 }
+    SafeMaintenance:
+      type: object
+      additionalProperties: false
+      required: [active, scopes, message]
+      properties:
+        active: { type: boolean }
+        scopes: { type: array, maxItems: 10, uniqueItems: true, items: { type: string } }
+        message: { anyOf: [{ $ref: '#/components/schemas/LocalizedMessage' }, { type: 'null' }] }
     PlatformMetadata:
       type: object
       additionalProperties: false
       required: [apiVersion, serverTime, minMobileVersion, minAdminVersion, capabilities, maintenance, featureFlags]
       properties:
         apiVersion: { type: string, const: v1 }
-        serverTime: { $ref: '#/components/schemas/Timestamp' }
+        serverTime: { $ref: '#/components/schemas/OperationsTimestamp' }
         minMobileVersion: { type: [string, 'null'], maxLength: 32 }
         minAdminVersion: { type: [string, 'null'], maxLength: 32 }
-        capabilities:
-          type: object
-          additionalProperties: false
-          required: [coreFinanceAvailable, billingAvailable, paidEntitlement, checkoutAvailable, subscriptionManagementAvailable, promotionsAvailable, aiAvailable, aiAllowancePerRolling24Hours]
-          properties:
-            coreFinanceAvailable: { type: boolean, const: true }
-            billingAvailable: { type: boolean, const: false }
-            paidEntitlement: { type: boolean, const: false }
-            checkoutAvailable: { type: boolean, const: false }
-            subscriptionManagementAvailable: { type: boolean, const: false }
-            promotionsAvailable: { type: boolean, const: false }
-            aiAvailable: { type: boolean }
-            aiAllowancePerRolling24Hours: { type: integer, const: 5 }
-        maintenance:
-          type: object
-          additionalProperties: false
-          required: [active, scopes, message]
-          properties:
-            active: { type: boolean }
-            scopes: { type: array, maxItems: 10, uniqueItems: true, items: { type: string } }
-            message: { anyOf: [{ $ref: '#/components/schemas/LocalizedMessage' }, { type: 'null' }] }
+        capabilities: { $ref: '#/components/schemas/PlatformCapabilities' }
+        maintenance: { $ref: '#/components/schemas/SafeMaintenance' }
         featureFlags:
           type: object
           additionalProperties:
             type: boolean
           maxProperties: 50
         configurationVersion: { type: integer, minimum: 1 }
-    CursorPage:
+    OperationsCursorPage:
       type: object
       required: [nextCursor]
       properties:

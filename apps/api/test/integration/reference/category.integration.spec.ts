@@ -212,15 +212,13 @@ describeLiveDatabase('category lifecycle', () => {
     const archivePreview = (await repository.execute(
       input('getCategoryUsage', {}, { categoryId: source.id }),
     )) as { linkedTransactionCount: number; version: number };
-    await repository.execute(
-      {
-        ...input('archiveCategory', {}, { categoryId: source.id }),
-        query: {
-          expectedVersion: archivePreview.version,
-          expectedLinkedTransactionCount: archivePreview.linkedTransactionCount,
-        },
+    await repository.execute({
+      ...input('archiveCategory', {}, { categoryId: source.id }),
+      query: {
+        expectedVersion: archivePreview.version,
+        expectedLinkedTransactionCount: archivePreview.linkedTransactionCount,
       },
-    );
+    });
     await expect(
       repository.execute(
         input(

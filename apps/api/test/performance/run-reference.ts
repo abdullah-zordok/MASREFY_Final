@@ -9,6 +9,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
 
 import { ClerkAuthGuard } from '../../src/identity/clerk-auth.guard';
+import { LedgerService } from '../../src/ledger/ledger.service';
 import { ReferenceController } from '../../src/reference/reference.controller';
 import { ReferenceRepository } from '../../src/reference/reference.repository';
 import { ReferenceService } from '../../src/reference/reference.service';
@@ -62,7 +63,11 @@ async function httpEvidence(): Promise<{
   };
   const module = await Test.createTestingModule({
     controllers: [ReferenceController],
-    providers: [ReferenceService, { provide: ReferenceRepository, useValue: repository }],
+    providers: [
+      ReferenceService,
+      { provide: ReferenceRepository, useValue: repository },
+      { provide: LedgerService, useValue: {} },
+    ],
   })
     .overrideGuard(ClerkAuthGuard)
     .useValue({ canActivate: setPrincipal })

@@ -66,7 +66,7 @@ SPEC-BE-004 owns reference data but no recurring worker in the current implement
 | `operations.dr-rehearse` | null | record full documented DR rehearsal metadata | status, rpoSeconds, rtoSeconds, evidenceRef |
 | `operations.maintenance-activate` | 10s | activate due windows idempotently | activated |
 | `operations.maintenance-complete` | 10s | complete elapsed active windows idempotently | completed |
-| `operations.history-retain` | 24h | delete expired run/attempt/check history in batches | runsDeleted, attemptsDeleted, checksDeleted |
+| `operations.job-history-retain` | 24h | delete expired run/attempt/check history in batches | runsDeleted, attemptsDeleted, checksDeleted |
 
 Backup, restore, and DR jobs do not accept or execute backup commands from Admin. A trusted deployment/operator process performs external work and supplies only a prevalidated redacted evidence record through an internal interface. Local automated tests invoke deterministic isolated drill adapters.
 
@@ -76,7 +76,7 @@ Backup, restore, and DR jobs do not accept or execute backup commands from Admin
 - A retry is created only when the handler returns a safe retryable failure and attempts remain.
 - Admin retry creates a new run linked to the terminal source run, only for `retry_safe=true`.
 - Dead-lettered work stays visible; replay requires an explicit safe retry, never an arbitrary payload.
-- Cancellation sets a request on active cancel-safe work; handlers observe the internal signal. A terminal result wins if committed before cancellation.
+- Cancellation is accepted only before dispatch (`queued` or `retrying`) for `cancel_safe=true`; running handlers are never marked canceled without a cooperative abort protocol.
 
 ## Event Envelope
 
@@ -104,7 +104,6 @@ No event contains configuration, result payload, provider output, setting value,
 
 | Type | Required safe data |
 |---|---|
-| `operations.job-registered` | jobKey, ownerSpec, version, outcome |
 | `operations.job-succeeded` | jobKey, ownerSpec, version, durationBucket |
 | `operations.job-failed` | jobKey, ownerSpec, version, safeCode |
 | `operations.job-dead-lettered` | jobKey, ownerSpec, version, safeCode |

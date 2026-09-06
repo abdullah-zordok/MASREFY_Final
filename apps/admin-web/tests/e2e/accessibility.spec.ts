@@ -157,6 +157,7 @@ test("Spec 005 tables, filters, dialogs, and mobile parser guidance are accessib
     await expect(action).toBeFocused();
   } else {
     const controls = await page
+      .getByRole("main")
       .locator("button, input, select, textarea")
       .all();
     for (const control of controls.slice(0, 8)) {

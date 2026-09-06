@@ -6,6 +6,7 @@ import { permissionsByRole as adminPermissionsByRole } from '../../../../admin-w
 import {
   CLIENT_PERMISSION_ALIASES,
   CLIENT_PERMISSION_KEYS,
+  OPERATIONS_PERMISSION_KEYS,
   PERMISSION_KEYS,
   SYSTEM_ROLE_PERMISSIONS,
   SYSTEM_ROLES,
@@ -35,7 +36,7 @@ describe('permission manifest contract', () => {
     for (const role of ADMIN_ROLES) {
       const backend =
         role === 'super-admin'
-          ? ['reference.read', 'reference.write', 'planning.read']
+          ? ['reference.read', 'reference.write', 'planning.read', ...OPERATIONS_PERMISSION_KEYS]
           : role === 'security-administrator'
             ? ['reference.read']
             : [];
@@ -52,7 +53,12 @@ describe('permission manifest contract', () => {
 
   it('adds backend-only permissions without changing the pinned client list', () => {
     expect(PERMISSION_KEYS).toEqual(
-      expect.arrayContaining(['reference.read', 'reference.write', 'planning.read']),
+      expect.arrayContaining([
+        'reference.read',
+        'reference.write',
+        'planning.read',
+        ...OPERATIONS_PERMISSION_KEYS,
+      ]),
     );
     expect(CLIENT_PERMISSION_KEYS).not.toContain('reference.read');
     expect(SYSTEM_ROLE_PERMISSIONS['super-admin']).toEqual(

@@ -15,6 +15,7 @@ import { TrackingModule } from './tracking/tracking.module';
 import { AiModule } from './ai/ai.module';
 import { ReportsModule } from './reports/reports.module';
 import { EngagementModule } from './engagement/engagement.module';
+import { OperationsModule } from './operations/operations.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { EngagementModule } from './engagement/engagement.module';
     AiModule,
     ReportsModule,
     EngagementModule,
+    OperationsModule,
   ],
   providers: [RequestIdMiddleware],
 })

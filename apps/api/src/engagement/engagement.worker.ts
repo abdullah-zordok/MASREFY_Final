@@ -29,6 +29,23 @@ import { renderNotification } from './notification.renderer';
 import { ClamAvAttachmentScanner, DeterministicAttachmentScanner } from './support.scanner';
 import { SupportStorage } from './support.storage';
 
+export type EngagementJob =
+  | 'source.consume'
+  | 'notification.dispatch'
+  | 'notification.expire'
+  | 'notification.campaign.expand'
+  | 'support-attachment.scan'
+  | 'support-attachment.cleanup';
+
+const ENGAGEMENT_JOBS: readonly EngagementJob[] = [
+  'source.consume',
+  'notification.dispatch',
+  'notification.expire',
+  'notification.campaign.expand',
+  'support-attachment.scan',
+  'support-attachment.cleanup',
+];
+
 @Injectable()
 export class EngagementWorker implements OnModuleDestroy {
   private timer?: NodeJS.Timeout;
@@ -64,134 +81,167 @@ export class EngagementWorker implements OnModuleDestroy {
     await this.stop();
   }
 
+  runJob(job: string): Promise<number> {
+    if (!(ENGAGEMENT_JOBS as readonly string[]).includes(job))
+      return Promise.reject(new Error('ENGAGEMENT_JOB_UNKNOWN'));
+    if (job === 'source.consume') return this.consumeSources();
+    if (job === 'notification.dispatch') return this.dispatchNotifications();
+    if (job === 'notification.expire') return this.expireNotifications();
+    if (job === 'notification.campaign.expand') return this.expandCampaigns();
+    if (job === 'support-attachment.scan') return this.scanAttachments();
+    return this.cleanupAttachments();
+  }
+
   async runOnce(): Promise<void> {
     if (this.running) return;
     this.running = true;
     try {
-      const sourceStartedAt = performance.now();
-      const sources = await this.repository.claimSourceEvents(
-        [...ENGAGEMENT_SOURCE_EVENTS],
-        this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),
-      );
-      let sourceSuccesses = 0;
-      for (const source of sources) {
-        try {
-          await this.ingest(source);
-          sourceSuccesses += 1;
-        } catch {
-          this.observability?.job('source.consume', 'failure');
-        }
-      }
-      this.observability?.job(
-        'source.consume',
-        'success',
-        'none',
-        'none',
-        sourceSuccesses,
-        performance.now() - sourceStartedAt,
-      );
-      this.observability?.backlog('source.consume', sources.length);
-      const expiryStartedAt = performance.now();
-      const expired = await this.repository.expireNotifications();
-      this.observability?.job(
-        'notification.expire',
-        'success',
-        'none',
-        'none',
-        expired,
-        performance.now() - expiryStartedAt,
-      );
-      const campaignStartedAt = performance.now();
-      const expanded = await this.repository.expandCampaigns(
-        this.config.getRequired('MASARIFI_CAMPAIGN_BATCH_SIZE'),
-      );
-      this.observability?.job(
-        'notification.campaign.expand',
-        'success',
-        'none',
-        'none',
-        expanded,
-        performance.now() - campaignStartedAt,
-      );
-      this.observability?.backlog('notification.campaign.expand', expanded);
-      const deliveries = await this.repository.claimNotificationDeliveries(
-        this.workerId,
-        this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),
-      );
-      this.observability?.backlog('notification.dispatch', deliveries.length);
-      await Promise.all(deliveries.map((delivery) => this.deliver(delivery)));
-      const attachments = await this.repository.claimAttachments(
-        this.workerId,
-        this.config.getRequired('MASARIFI_ATTACHMENT_SCAN_BATCH_SIZE'),
-      );
-      this.observability?.backlog('support-attachment.scan', attachments.length);
-      for (const attachment of attachments) {
-        const scanStartedAt = performance.now();
-        try {
-          const content = await this.storage.read(attachment.storage_ref);
-          const valid =
-            content.length === Number(attachment.size_bytes) &&
-            createHash('sha256').update(content).digest('hex') === attachment.sha256 &&
-            matchesType(content, attachment.content_type);
-          const scan = valid
-            ? await this.scanner().scan(content)
-            : { status: 'rejected' as const, code: 'ATTACHMENT_METADATA_MISMATCH' };
-          const status =
-            scan.status === 'clean'
-              ? 'clean'
-              : scan.status === 'rejected'
-                ? 'rejected'
-                : attachment.attempt_count >= 5
-                  ? 'rejected'
-                  : 'failed';
-          await this.repository.finishAttachment(
-            attachment.id,
-            attachment.claim_token,
-            status,
-            'code' in scan ? scan.code : undefined,
-          );
-          if (status === 'rejected') await this.storage.delete(attachment.storage_ref);
-          this.observability?.job(
-            'support-attachment.scan',
-            status === 'clean' ? 'success' : status === 'failed' ? 'retry' : 'suppressed',
-            'none',
-            'none',
-            1,
-            performance.now() - scanStartedAt,
-          );
-        } catch {
-          const terminal = attachment.attempt_count >= 5;
-          await this.repository.finishAttachment(
-            attachment.id,
-            attachment.claim_token,
-            terminal ? 'rejected' : 'failed',
-            'SCANNER_UNAVAILABLE',
-          );
-          if (terminal) await this.storage.delete(attachment.storage_ref).catch(() => undefined);
-          this.observability?.job(
-            'support-attachment.scan',
-            terminal ? 'suppressed' : 'retry',
-            'none',
-            'none',
-            1,
-            performance.now() - scanStartedAt,
-          );
-        }
-      }
-      const orphans = await this.repository.removeOrphanedAttachmentUploads(
-        this.config.getRequired('MASARIFI_ATTACHMENT_SCAN_BATCH_SIZE'),
-      );
-      for (const key of orphans) await this.storage.delete(key).catch(() => undefined);
-      this.observability?.job(
-        'support-attachment.cleanup',
-        'success',
-        'none',
-        'none',
-        orphans.length,
-      );
+      for (const job of ENGAGEMENT_JOBS) await this.runJob(job);
     } finally {
       this.running = false;
     }
+  }
+
+  private async consumeSources(): Promise<number> {
+    const startedAt = performance.now();
+    const sources = await this.repository.claimSourceEvents(
+      [...ENGAGEMENT_SOURCE_EVENTS],
+      this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),
+    );
+    let succeeded = 0;
+    for (const source of sources)
+      try {
+        await this.ingest(source);
+        succeeded += 1;
+      } catch {
+        this.observability?.job('source.consume', 'failure');
+      }
+    this.observability?.job(
+      'source.consume',
+      'success',
+      'none',
+      'none',
+      succeeded,
+      performance.now() - startedAt,
+    );
+    this.observability?.backlog('source.consume', sources.length);
+    return sources.length;
+  }
+
+  private async expireNotifications(): Promise<number> {
+    const startedAt = performance.now();
+    const expired = await this.repository.expireNotifications();
+    this.observability?.job(
+      'notification.expire',
+      'success',
+      'none',
+      'none',
+      expired,
+      performance.now() - startedAt,
+    );
+    return expired;
+  }
+
+  private async expandCampaigns(): Promise<number> {
+    const startedAt = performance.now();
+    const expanded = await this.repository.expandCampaigns(
+      this.config.getRequired('MASARIFI_CAMPAIGN_BATCH_SIZE'),
+    );
+    this.observability?.job(
+      'notification.campaign.expand',
+      'success',
+      'none',
+      'none',
+      expanded,
+      performance.now() - startedAt,
+    );
+    this.observability?.backlog('notification.campaign.expand', expanded);
+    return expanded;
+  }
+
+  private async dispatchNotifications(): Promise<number> {
+    const deliveries = await this.repository.claimNotificationDeliveries(
+      this.workerId,
+      this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),
+    );
+    this.observability?.backlog('notification.dispatch', deliveries.length);
+    await Promise.all(deliveries.map((delivery) => this.deliver(delivery)));
+    return deliveries.length;
+  }
+
+  private async scanAttachments(): Promise<number> {
+    const attachments = await this.repository.claimAttachments(
+      this.workerId,
+      this.config.getRequired('MASARIFI_ATTACHMENT_SCAN_BATCH_SIZE'),
+    );
+    this.observability?.backlog('support-attachment.scan', attachments.length);
+    for (const attachment of attachments) {
+      const startedAt = performance.now();
+      try {
+        const content = await this.storage.read(attachment.storage_ref);
+        const valid =
+          content.length === Number(attachment.size_bytes) &&
+          createHash('sha256').update(content).digest('hex') === attachment.sha256 &&
+          matchesType(content, attachment.content_type);
+        const scan = valid
+          ? await this.scanner().scan(content)
+          : { status: 'rejected' as const, code: 'ATTACHMENT_METADATA_MISMATCH' };
+        const status =
+          scan.status === 'clean'
+            ? 'clean'
+            : scan.status === 'rejected' || attachment.attempt_count >= 5
+              ? 'rejected'
+              : 'failed';
+        await this.repository.finishAttachment(
+          attachment.id,
+          attachment.claim_token,
+          status,
+          'code' in scan ? scan.code : undefined,
+        );
+        if (status === 'rejected') await this.storage.delete(attachment.storage_ref);
+        this.observability?.job(
+          'support-attachment.scan',
+          status === 'clean' ? 'success' : status === 'failed' ? 'retry' : 'suppressed',
+          'none',
+          'none',
+          1,
+          performance.now() - startedAt,
+        );
+      } catch {
+        const terminal = attachment.attempt_count >= 5;
+        await this.repository.finishAttachment(
+          attachment.id,
+          attachment.claim_token,
+          terminal ? 'rejected' : 'failed',
+          'SCANNER_UNAVAILABLE',
+        );
+        if (terminal) await this.storage.delete(attachment.storage_ref).catch(() => undefined);
+        this.observability?.job(
+          'support-attachment.scan',
+          terminal ? 'suppressed' : 'retry',
+          'none',
+          'none',
+          1,
+          performance.now() - startedAt,
+        );
+      }
+    }
+    return attachments.length;
+  }
+
+  private async cleanupAttachments(): Promise<number> {
+    const orphans = await this.repository.removeOrphanedAttachmentUploads(
+      this.config.getRequired('MASARIFI_ATTACHMENT_SCAN_BATCH_SIZE'),
+    );
+    for (const key of orphans) await this.storage.delete(key).catch(() => undefined);
+    this.observability?.job(
+      'support-attachment.cleanup',
+      'success',
+      'none',
+      'none',
+      orphans.length,
+    );
+    return orphans.length;
   }
 
   private async ingest(source: SourceNotificationClaim): Promise<void> {

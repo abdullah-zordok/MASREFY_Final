@@ -97,9 +97,7 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
       await client.query('delete from public.user_devices where user_id=any($1)', [
         [ownerId, otherId],
       ]);
-      await client.query('delete from public.accounts where user_id=any($1)', [
-        [ownerId, otherId],
-      ]);
+      await client.query('delete from public.accounts where user_id=any($1)', [[ownerId, otherId]]);
       await client.query('delete from public.profiles where id=any($1)', [[ownerId, otherId]]);
       await client.query('commit');
     });

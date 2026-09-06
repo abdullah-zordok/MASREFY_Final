@@ -7,7 +7,7 @@ import {
   type PlanningClaim,
 } from './planning.repository';
 
-export type PlanningJob = ClaimedPlanningJob;
+export type PlanningJob = ClaimedPlanningJob | 'planning.reconcile';
 const JOBS: readonly PlanningJob[] = [
   'planning.salary-cycle.generate',
   'planning.obligation-schedule.generate',
@@ -37,6 +37,11 @@ export class PlanningWorker implements OnModuleDestroy {
   }
 
   async runJob(job: PlanningJob): Promise<number> {
+    if (job === 'planning.reconcile') {
+      const rows = await this.repository.reconcilePlanning(true, 100);
+      recordPlanningReconciliation(rows.length ? 'repaired' : 'clean', rows.length);
+      return rows.length;
+    }
     const claims = await this.repository.claimPlanning(job, 100, 60);
     for (const claim of claims) await this.process(job, claim);
     return claims.length;
