@@ -64,6 +64,10 @@ export interface Account {
   institution: string | null;
   lastFour: string | null;
   creditLimitMinor: number | null;
+  statementDay: number | null;
+  paymentDueDay: number | null;
+  monthlyInterestRateBasisPoints: number | null;
+  minimumPaymentMinor: number | null;
   automaticTrackingEnabled: boolean;
   isDefault: boolean;
   iconKey: string | null;
@@ -235,22 +239,49 @@ const currencyCodeSchema = z
   .regex(/^[A-Z]{3}$/);
 const safeMinorSchema = z.number().int().safe();
 
-export const accountInputSchema = z.object({
-  name: z.string().trim().min(1),
-  type: z.enum(accountTypes),
-  currencyCode: currencyCodeSchema,
-  openingBalanceMinor: safeMinorSchema,
-  institution: z.string().trim().max(100).nullable().default(null),
-  lastFour: z
-    .string()
-    .regex(/^\d{4}$/)
-    .nullable()
-    .default(null),
-  creditLimitMinor: safeMinorSchema.nonnegative().nullable().default(null),
-  automaticTrackingEnabled: z.boolean().default(true),
-  isDefault: z.boolean().default(false),
-  notes: z.string().trim().max(500).nullable().default(null)
-});
+export const accountInputSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    type: z.enum(accountTypes),
+    currencyCode: currencyCodeSchema,
+    openingBalanceMinor: safeMinorSchema,
+    institution: z.string().trim().max(100).nullable().default(null),
+    lastFour: z
+      .string()
+      .regex(/^\d{4}$/)
+      .nullable()
+      .default(null),
+    creditLimitMinor: safeMinorSchema.nonnegative().nullable().default(null),
+    statementDay: z.number().int().min(1).max(28).nullable().default(null),
+    paymentDueDay: z.number().int().min(1).max(28).nullable().default(null),
+    monthlyInterestRateBasisPoints: z
+      .number()
+      .int()
+      .min(0)
+      .max(10_000)
+      .nullable()
+      .default(null),
+    minimumPaymentMinor: safeMinorSchema.positive().nullable().default(null),
+    automaticTrackingEnabled: z.boolean().default(true),
+    isDefault: z.boolean().default(false),
+    notes: z.string().trim().max(500).nullable().default(null)
+  })
+  .superRefine((value, context) => {
+    if (
+      value.type !== 'credit_card' &&
+      [
+        value.statementDay,
+        value.paymentDueDay,
+        value.monthlyInterestRateBasisPoints,
+        value.minimumPaymentMinor
+      ].some((item) => item !== null)
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['type'],
+        message: 'coreFinance.validation.cardTermsRequireCreditCard'
+      });
+  });
 
 export const categoryInputSchema = z
   .object({

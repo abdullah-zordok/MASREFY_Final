@@ -8,7 +8,7 @@ test('turns a committed registered source event into preference-aware channel wo
   const source = {
     source_event_id: '10000000-0000-4000-8000-000000000001',
     source_id: '20000000-0000-4000-8000-000000000001',
-    event_type: 'planning.obligation_overdue',
+    event_type: 'account.credit_card_payment_due',
     user_id: 'user-1',
     locale: 'en' as const,
     time_zone: 'Asia/Riyadh',

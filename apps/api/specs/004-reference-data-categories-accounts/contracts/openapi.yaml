@@ -240,6 +240,18 @@ paths:
       responses:
         '200': { description: Closed, content: { application/json: { schema: { $ref: '#/components/schemas/AccountResponse' } } } }
         default: { $ref: '#/components/responses/Error' }
+  /api/v1/credit-card-payoff:
+    post:
+      tags: [Accounts]
+      operationId: calculateCreditCardPayoff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreditCardPayoffRequest' }
+      responses:
+        '200': { description: Deterministic payoff or non-payoff result, content: { application/json: { schema: { $ref: '#/components/schemas/CreditCardPayoffResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
   /api/v1/admin/reference/currencies:
     get:
       tags: [Admin Reference]
@@ -402,7 +414,7 @@ components:
     Account:
       type: object
       additionalProperties: false
-      required: [id, name, type, currency, isDefault, status, sortOrder, includeInTotals, automaticTrackingEnabled, version, createdAt, updatedAt]
+      required: [id, name, type, currency, isDefault, status, sortOrder, includeInTotals, automaticTrackingEnabled, statementDay, paymentDueDay, monthlyInterestRateBasisPoints, minimumPaymentMinor, version, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string, maxLength: 100 }
@@ -419,6 +431,10 @@ components:
         sortOrder: { type: integer }
         includeInTotals: { type: boolean }
         automaticTrackingEnabled: { type: boolean }
+        statementDay: { type: [integer, 'null'], minimum: 1, maximum: 28 }
+        paymentDueDay: { type: [integer, 'null'], minimum: 1, maximum: 28 }
+        monthlyInterestRateBasisPoints: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
+        minimumPaymentMinor: { type: [integer, 'null'], minimum: 1, maximum: 9007199254740991 }
         openedAt: { type: [string, 'null'], format: date }
         closedAt: { type: [string, 'null'], format: date }
         version: { type: integer, minimum: 1 }
@@ -492,6 +508,10 @@ components:
         sortOrder: { type: integer, minimum: -100000, maximum: 100000 }
         includeInTotals: { type: boolean, default: true }
         automaticTrackingEnabled: { type: boolean, default: true }
+        statementDay: { type: [integer, 'null'], minimum: 1, maximum: 28 }
+        paymentDueDay: { type: [integer, 'null'], minimum: 1, maximum: 28 }
+        monthlyInterestRateBasisPoints: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
+        minimumPaymentMinor: { type: [integer, 'null'], minimum: 1, maximum: 9007199254740991 }
         openedAt: { type: [string, 'null'], format: date }
         openingBalanceMinor: { type: integer, minimum: -9007199254740991, maximum: 9007199254740991, default: 0 }
     UpdateAccountRequest:
@@ -514,7 +534,37 @@ components:
         sortOrder: { type: integer, minimum: -100000, maximum: 100000 }
         includeInTotals: { type: boolean }
         automaticTrackingEnabled: { type: boolean }
+        statementDay: { type: [integer, 'null'], minimum: 1, maximum: 28 }
+        paymentDueDay: { type: [integer, 'null'], minimum: 1, maximum: 28 }
+        monthlyInterestRateBasisPoints: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
+        minimumPaymentMinor: { type: [integer, 'null'], minimum: 1, maximum: 9007199254740991 }
         openedAt: { type: [string, 'null'], format: date }
+    CreditCardPayoffRequest:
+      type: object
+      additionalProperties: false
+      required: [balanceMinor, monthlyInterestRateBasisPoints, paymentMinor]
+      properties:
+        balanceMinor: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        monthlyInterestRateBasisPoints: { type: integer, minimum: 0, maximum: 10000 }
+        paymentMinor: { type: integer, minimum: 1, maximum: 9007199254740991 }
+    CreditCardPayoffResponse:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [status, months, totalInterestMinor, totalPaidMinor, finalPaymentMinor]
+          properties:
+            status: { type: string, enum: [payoff] }
+            months: { type: integer, minimum: 0, maximum: 1200 }
+            totalInterestMinor: { type: integer, minimum: 0, maximum: 9007199254740991 }
+            totalPaidMinor: { type: integer, minimum: 0, maximum: 9007199254740991 }
+            finalPaymentMinor: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        - type: object
+          additionalProperties: false
+          required: [status, reason, monthlyInterestMinor]
+          properties:
+            status: { type: string, enum: [non_payoff] }
+            reason: { type: string, enum: [payment_not_above_interest, month_limit_exceeded] }
+            monthlyInterestMinor: { type: integer, minimum: 0, maximum: 9007199254740991 }
     CloseAccountRequest:
       type: object
       additionalProperties: false

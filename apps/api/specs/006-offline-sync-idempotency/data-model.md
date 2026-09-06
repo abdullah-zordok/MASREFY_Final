@@ -204,3 +204,10 @@ Account upsert snapshots carry `automatic_tracking_enabled` as a non-null
 boolean. Deletion continues to emit only the existing account tombstone
 identity/version with `snapshot = null`, so no account preference leaks after
 deletion. Missing fields from older snapshots retain the compatible value true.
+
+## Credit-Card Terms Projection
+
+Account upsert snapshots also carry nullable `statement_day`,
+`payment_due_day`, `monthly_interest_rate_basis_points`, and
+`minimum_payment_minor`. Omitted legacy values map to null. Deletion continues
+to use the existing `snapshot = null` tombstone and exposes no financial terms.

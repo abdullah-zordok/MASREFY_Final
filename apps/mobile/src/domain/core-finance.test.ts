@@ -20,6 +20,10 @@ const account: Account = {
   institution: null,
   lastFour: '1234',
   creditLimitMinor: null,
+  statementDay: null,
+  paymentDueDay: null,
+  monthlyInterestRateBasisPoints: null,
+  minimumPaymentMinor: null,
   automaticTrackingEnabled: true,
   isDefault: true,
   iconKey: null,
@@ -42,6 +46,35 @@ it('defaults account automatic tracking on and preserves an explicit opt-out', (
     accountInputSchema.parse({ ...base, automaticTrackingEnabled: false })
       .automaticTrackingEnabled
   ).toBe(false);
+});
+
+it('validates card-only statement terms with monthly basis-point semantics', () => {
+  expect(
+    accountInputSchema.parse({
+      name: 'Card',
+      type: 'credit_card',
+      currencyCode: 'SAR',
+      openingBalanceMinor: 0,
+      statementDay: 7,
+      paymentDueDay: 21,
+      monthlyInterestRateBasisPoints: 125,
+      minimumPaymentMinor: 5_000,
+    }),
+  ).toMatchObject({
+    statementDay: 7,
+    paymentDueDay: 21,
+    monthlyInterestRateBasisPoints: 125,
+    minimumPaymentMinor: 5_000,
+  });
+  expect(() =>
+    accountInputSchema.parse({
+      name: 'Cash',
+      type: 'cash',
+      currencyCode: 'SAR',
+      openingBalanceMinor: 0,
+      statementDay: 7,
+    }),
+  ).toThrow();
 });
 const transaction = (overrides: Partial<Transaction>): Transaction => ({
   id: 't1',

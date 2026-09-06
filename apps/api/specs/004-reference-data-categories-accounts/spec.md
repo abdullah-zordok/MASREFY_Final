@@ -634,3 +634,25 @@ been executed.
 - Create/update audit and outbox events include this allowlisted field, and the
   existing account routes remain the sole mutation surface.
 - This additive control does not perform the Phase 14 production cutover.
+
+## 2026-09-06 Client Remediation Addendum — Credit-Card Terms and Payoff
+
+- Credit-card accounts expose nullable `statementDay`, `paymentDueDay`,
+  `monthlyInterestRateBasisPoints`, and `minimumPaymentMinor` fields. Existing
+  rows remain null; both day fields are integers from 1 through 28, the monthly
+  rate is an integer from 0 through 10,000 basis points, and minimum payment is
+  a positive JS-safe integer minor-unit amount.
+- The four terms are valid only for `credit_card`. Create requests for another
+  type reject non-null terms, while changing an existing card to another type
+  clears all card-only terms and the existing credit limit atomically.
+- `POST /api/v1/credit-card-payoff` is authenticated and stateless. It accepts
+  explicit non-negative JS-safe `balanceMinor`, 0..10,000
+  `monthlyInterestRateBasisPoints`, and positive JS-safe `paymentMinor` values.
+- Each month computes interest as
+  `roundHalfUp(balanceMinor * monthlyBasisPoints / 10,000)`, applies no provider
+  rules, and makes at most 1,200 iterations. Payment not exceeding the first
+  accrued interest and a balance remaining after 1,200 months return explicit
+  non-payoff results. Zero balance returns zero months and zero amounts.
+- All calculator money outputs are exact JS-safe integer minor units. The
+  calculation fails validation rather than returning an inexact number if an
+  output would exceed that boundary.

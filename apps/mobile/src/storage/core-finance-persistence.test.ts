@@ -105,6 +105,37 @@ it('restores ledger, draft, conflict metadata, and undo state after restart', as
   );
 });
 
+it('persists and reloads credit-card statement terms', async () => {
+  const repository = new CoreFinanceRepository();
+  const card = repository.saveAccount({
+    name: 'Persisted card',
+    type: 'credit_card',
+    currencyCode: 'SAR',
+    openingBalanceMinor: 0,
+    statementDay: 7,
+    paymentDueDay: 21,
+    monthlyInterestRateBasisPoints: 125,
+    minimumPaymentMinor: 5_000
+  });
+  await repository.persistAccounts();
+  const write = mockRunAsync.mock.calls.find(
+    (call) => String(call[0]).includes('finance_accounts') && call[1] === card.id
+  );
+  const payload = String(write?.[2]);
+  mockGetAllAsync.mockImplementation(async (...arguments_: unknown[]) =>
+    String(arguments_[0]).includes('finance_accounts') ? [{ payload }] : []
+  );
+
+  const reloaded = new CoreFinanceRepository();
+  await reloaded.hydrate();
+  expect(reloaded.requireAccount(card.id)).toMatchObject({
+    statementDay: 7,
+    paymentDueDay: 21,
+    monthlyInterestRateBasisPoints: 125,
+    minimumPaymentMinor: 5_000
+  });
+});
+
 it('seeds an empty database atomically with foreign-key-safe upserts', async () => {
   mockGetAllAsync.mockResolvedValue([]);
   const repository = new CoreFinanceRepository({

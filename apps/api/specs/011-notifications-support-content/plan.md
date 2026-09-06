@@ -257,3 +257,11 @@ verification. No abstraction or dependency is added for a future Spec.
 | Violation | Why Required | Approved By | Follow-up |
 |---|---|---|---|
 | None | N/A | N/A | N/A |
+
+## 2026-09-06 Credit-Card Due Reminder Addendum
+
+The existing engagement worker calls one bounded database producer before its
+normal source-event claim. The producer emits `account.credit_card_payment_due`
+outbox events idempotently per account and customer-local due date, with expiry
+at the next local midnight. Existing Phase 11 template, preference, policy,
+delivery, and Mobile action-routing paths remain the only notification system.

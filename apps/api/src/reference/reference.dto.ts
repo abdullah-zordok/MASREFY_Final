@@ -150,6 +150,10 @@ export function normalizeCreateAccount(value: unknown): Record<string, unknown> 
     'sortOrder',
     'includeInTotals',
     'automaticTrackingEnabled',
+    'statementDay',
+    'paymentDueDay',
+    'monthlyInterestRateBasisPoints',
+    'minimumPaymentMinor',
     'openedAt',
     'openingBalanceMinor',
   ]);
@@ -170,6 +174,21 @@ export function normalizeCreateAccount(value: unknown): Record<string, unknown> 
         ? null
         : integer(input.creditLimitMinor, 0, MAX_SAFE);
   if (input.type !== 'credit_card' && credit !== undefined && credit !== null) failure();
+  const statementDay = nullableInteger(input.statementDay, 1, 28);
+  const paymentDueDay = nullableInteger(input.paymentDueDay, 1, 28);
+  const monthlyInterestRateBasisPoints = nullableInteger(
+    input.monthlyInterestRateBasisPoints,
+    0,
+    10_000,
+  );
+  const minimumPaymentMinor = nullableInteger(input.minimumPaymentMinor, 1, MAX_SAFE);
+  if (
+    input.type !== 'credit_card' &&
+    [statementDay, paymentDueDay, monthlyInterestRateBasisPoints, minimumPaymentMinor].some(
+      (term) => term !== null,
+    )
+  )
+    failure();
   if (
     input.lastFour !== undefined &&
     input.lastFour !== null &&
@@ -192,6 +211,10 @@ export function normalizeCreateAccount(value: unknown): Record<string, unknown> 
     sortOrder: input.sortOrder === undefined ? 0 : integer(input.sortOrder, -100000, 100000),
     includeInTotals: optionalBoolean(input.includeInTotals, true),
     automaticTrackingEnabled: optionalBoolean(input.automaticTrackingEnabled, true),
+    statementDay,
+    paymentDueDay,
+    monthlyInterestRateBasisPoints,
+    minimumPaymentMinor,
     openedAt: input.openedAt,
     openingBalanceMinor: opening,
   };
@@ -213,6 +236,10 @@ export function normalizeAccountPatch(value: unknown): Record<string, unknown> {
     'sortOrder',
     'includeInTotals',
     'automaticTrackingEnabled',
+    'statementDay',
+    'paymentDueDay',
+    'monthlyInterestRateBasisPoints',
+    'minimumPaymentMinor',
     'openedAt',
   ]);
   if ('currency' in input) failure('ACCOUNT_CURRENCY_LOCKED');
@@ -253,7 +280,39 @@ export function normalizeAccountPatch(value: unknown): Record<string, unknown> {
     if (input.openedAt !== null && !isIsoDate(input.openedAt)) failure();
     result.openedAt = input.openedAt;
   }
+  for (const [key, minimum, maximum] of [
+    ['statementDay', 1, 28],
+    ['paymentDueDay', 1, 28],
+    ['monthlyInterestRateBasisPoints', 0, 10_000],
+    ['minimumPaymentMinor', 1, MAX_SAFE],
+  ] as const)
+    if (key in input) result[key] = nullableInteger(input[key], minimum, maximum);
+  if (input.type !== undefined && input.type !== 'credit_card') {
+    result.creditLimitMinor = null;
+    result.statementDay = null;
+    result.paymentDueDay = null;
+    result.monthlyInterestRateBasisPoints = null;
+    result.minimumPaymentMinor = null;
+  }
   return result;
+}
+
+export function normalizeCreditCardPayoff(value: unknown): {
+  balanceMinor: number;
+  monthlyInterestRateBasisPoints: number;
+  paymentMinor: number;
+} {
+  const input = object(value);
+  exact(input, ['balanceMinor', 'monthlyInterestRateBasisPoints', 'paymentMinor']);
+  return {
+    balanceMinor: integer(input.balanceMinor, 0, MAX_SAFE),
+    monthlyInterestRateBasisPoints: integer(input.monthlyInterestRateBasisPoints, 0, 10_000),
+    paymentMinor: integer(input.paymentMinor, 1, MAX_SAFE),
+  };
+}
+
+function nullableInteger(value: unknown, minimum: number, maximum: number): number | null {
+  return value === undefined || value === null ? null : integer(value, minimum, maximum);
 }
 export function normalizeVersionBody(
   value: unknown,

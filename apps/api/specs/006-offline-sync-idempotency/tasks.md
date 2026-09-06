@@ -279,3 +279,11 @@ changes.
 - [x] Attach the field to account upsert deltas while preserving null tombstones.
 - [x] Prove false survives bootstrap/delta and old Mobile snapshots default true.
 - [x] Record the Slice 2 pushed SHA and remote CI result in acceptance evidence.
+
+## 2026-09-06 Credit-Card Terms Sync Remediation
+
+- [x] Project every nullable card term in account bootstrap snapshots.
+- [x] Attach every card term to account upsert deltas and keep tombstones private.
+- [x] Prove legacy snapshots map omitted terms to null and live owner bootstrap excludes foreign accounts.
+- [x] Prove Mobile persists/reloads the terms and applies both snake-case and camel-case deltas.
+- [ ] Record the Slice 3 pushed SHA and successful remote CI in acceptance evidence.

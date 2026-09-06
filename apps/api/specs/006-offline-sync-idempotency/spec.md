@@ -500,3 +500,13 @@ Verification listed here is required evidence, not a claim it has already run.
 - Older snapshots that omit the field are interpreted as enabled by clients,
   matching the database default without rewriting or deleting local data.
 - Sync transports the value only; it does not decide tracking eligibility.
+
+## 2026-09-06 Credit-Card Terms Sync Addendum
+
+- Account bootstrap, delta, mutation, and conflict flows carry nullable
+  `statement_day`, `payment_due_day`, `monthly_interest_rate_basis_points`, and
+  `minimum_payment_minor` values without changing the account sync schema version.
+- Old snapshots omit these additive values and Mobile interprets each as null.
+  Account tombstones remain snapshot-free; no card term appears on a tombstone.
+- Existing owner isolation, optimistic version checks, mutation idempotency, and
+  conflict resolution remain authoritative for these fields.

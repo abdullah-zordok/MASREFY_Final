@@ -202,6 +202,9 @@ export class EngagementRepository {
     limit: number,
   ): Promise<SourceNotificationClaim[]> {
     return this.worker(async (client) => {
+      await client.query('select private.enqueue_credit_card_due_reminders(current_timestamp,$1)', [
+        limit,
+      ]);
       const result = await client.query<SourceNotificationClaim>(
         `select o.id source_event_id,o.aggregate_id::text source_id,o.event_type,owner.user_id,
            case when coalesce(o.payload->>'locale',p.locale)='en' then 'en' else 'ar' end locale,
@@ -265,6 +268,7 @@ export class EngagementRepository {
            'targetKind',case
              when $3 like 'transaction.%' or $3 like 'transfer.%' then 'transaction'
              when $3 like 'planning.obligation_%' then 'obligation'
+             when $3='account.credit_card_payment_due' then 'account'
              when $3 like 'planning.savings_%' then 'goal'
              when $3 like 'tracking.review.%' then 'review'
              else 'settings' end,

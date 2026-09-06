@@ -346,3 +346,14 @@ The core-finance service exposes an authoritative category usage preview with a
 linked transaction count and opaque version. Archive/merge confirmation must use
 that preview, and mock persistence rejects changed counts. System categories are
 read-only. Merge retains the existing atomic local reclassification behavior.
+
+## 2026-09-06 Credit-Card Terms and Payoff Addendum
+
+Credit-card accounts persist nullable statement day, payment due day, monthly
+interest basis points, and minimum payment minor units. Days are 1..28, monthly
+basis points are 0..10,000, and minimum payment is positive. Non-card records
+retain none of these values. The card detail owns an offline-capable calculator
+with explicit balance, saved-or-edited monthly rate, and payment inputs; it uses
+integer half-up monthly interest, reports insufficient payment, and stops after
+1,200 months. Due reminders reuse the existing notification capability and make
+no provider/device-delivery claim.

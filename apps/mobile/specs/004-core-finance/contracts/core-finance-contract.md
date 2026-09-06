@@ -208,3 +208,14 @@ merge accept that exact preview, fail with `conflict` when it is stale, and neve
 accept system categories. The live adapter sends the preview to the owner API;
 the local adapter derives it from the persisted repository immediately before
 confirmation.
+
+## 15. Credit-Card Terms and Payoff
+
+- `Account` carries nullable `statementDay`, `paymentDueDay`,
+  `monthlyInterestRateBasisPoints`, and `minimumPaymentMinor` values.
+- Old local or sync records default all four values to null. Changing account
+  type away from `credit_card` clears them and `creditLimitMinor`.
+- `calculateCreditCardPayoff` accepts explicit integer minor-unit balance and
+  payment plus integer monthly basis points. It rounds each positive monthly
+  interest charge half up at 10,000 bps per 100%, uses at most 1,200 months, and
+  returns the same payoff/non-payoff union as the owner API.

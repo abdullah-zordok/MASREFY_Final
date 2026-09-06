@@ -36,6 +36,18 @@ test('live notification provider maps safe server fields and unread totals', asy
   expect(JSON.stringify(result)).not.toMatch(/dataSafe|provider|deviceToken/u);
 });
 
+test('credit-card reminders resolve to their authenticated account target', async () => {
+  const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValue(response(200, {
+    id: 'reminder', type: 'account.credit_card_payment_due',
+    dataSafe: { targetKind: 'account', targetId: 'card-1' },
+    actions: [{ key: 'view' }], version: 1, createdAt: '2026-09-06T08:00:00Z'
+  }));
+  const service = createLiveNotificationService({ baseUrl: 'https://api.example', token: async () => 'session', request });
+  await expect(service.resolveTarget('reminder')).resolves.toEqual({
+    status: 'exact', target: { kind: 'account', accountId: 'card-1' }
+  });
+});
+
 test('protected target resolution always refetches the authenticated detail', async () => {
   const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValue(response(200, { id: '10000000-0000-4000-8000-000000000001', type: 'transaction.created', title: 'Update', body: 'Review details', dataSafe: { targetKind: 'transaction', targetId: '20000000-0000-4000-8000-000000000002' }, readAt: null, actedAt: null, expiresAt: null, actions: [{ key: 'view', expiresAt: null }], version: 1, createdAt: '2026-09-05T08:00:00Z' }));
   const service = createLiveNotificationService({ baseUrl: 'https://api.example', token: () => Promise.resolve('session'), request });

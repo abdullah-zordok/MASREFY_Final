@@ -1,5 +1,6 @@
 import {
   normalizeAccountPatch,
+  normalizeCreditCardPayoff,
   normalizeCreateAccount,
 } from '../../../src/reference/reference.dto';
 
@@ -72,5 +73,90 @@ describe('account service', () => {
         openingBalanceMinor: Number.MAX_SAFE_INTEGER + 1,
       }),
     ).toThrow('VALIDATION_FAILED');
+  });
+
+  it('normalizes nullable credit-card terms and explicit payoff inputs', () => {
+    expect(
+      normalizeCreateAccount({
+        name: 'Card',
+        type: 'credit_card',
+        currency: 'SAR',
+        statementDay: 7,
+        paymentDueDay: 21,
+        monthlyInterestRateBasisPoints: 125,
+        minimumPaymentMinor: 5_000,
+      }),
+    ).toMatchObject({
+      statementDay: 7,
+      paymentDueDay: 21,
+      monthlyInterestRateBasisPoints: 125,
+      minimumPaymentMinor: 5_000,
+    });
+    expect(normalizeCreateAccount({ name: 'Old card', type: 'credit_card', currency: 'SAR' }))
+      .toMatchObject({
+        statementDay: null,
+        paymentDueDay: null,
+        monthlyInterestRateBasisPoints: null,
+        minimumPaymentMinor: null,
+      });
+    expect(
+      normalizeCreditCardPayoff({
+        balanceMinor: 10_000,
+        monthlyInterestRateBasisPoints: 100,
+        paymentMinor: 3_000,
+      }),
+    ).toEqual({
+      balanceMinor: 10_000,
+      monthlyInterestRateBasisPoints: 100,
+      paymentMinor: 3_000,
+    });
+  });
+
+  it.each([
+    { statementDay: 0 },
+    { statementDay: 29 },
+    { paymentDueDay: 0 },
+    { paymentDueDay: 29 },
+    { monthlyInterestRateBasisPoints: -1 },
+    { monthlyInterestRateBasisPoints: 10_001 },
+    { minimumPaymentMinor: 0 },
+  ])('rejects invalid credit-card terms %#', (term) => {
+    expect(() =>
+      normalizeCreateAccount({
+        name: 'Card',
+        type: 'credit_card',
+        currency: 'SAR',
+        ...term,
+      }),
+    ).toThrow('VALIDATION_FAILED');
+  });
+
+  it('rejects card terms on non-card accounts while allowing a type transition patch', () => {
+    expect(() =>
+      normalizeCreateAccount({
+        name: 'Cash',
+        type: 'cash',
+        currency: 'SAR',
+        statementDay: 1,
+      }),
+    ).toThrow('VALIDATION_FAILED');
+    expect(normalizeAccountPatch({ expectedVersion: 1, type: 'bank' })).toEqual({
+      expectedVersion: 1,
+      type: 'bank',
+      creditLimitMinor: null,
+      statementDay: null,
+      paymentDueDay: null,
+      monthlyInterestRateBasisPoints: null,
+      minimumPaymentMinor: null,
+    });
+  });
+
+  it.each([
+    { balanceMinor: -1, monthlyInterestRateBasisPoints: 100, paymentMinor: 100 },
+    { balanceMinor: 1, monthlyInterestRateBasisPoints: 10_001, paymentMinor: 100 },
+    { balanceMinor: 1, monthlyInterestRateBasisPoints: 100, paymentMinor: 0 },
+    { balanceMinor: 1, monthlyInterestRateBasisPoints: 1.5, paymentMinor: 100 },
+  ])('rejects invalid payoff inputs %#', (input) => {
+    expect(() => normalizeCreditCardPayoff(input)).toThrow('VALIDATION_FAILED');
   });
 });

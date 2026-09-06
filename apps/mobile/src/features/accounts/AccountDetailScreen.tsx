@@ -5,16 +5,19 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
+import { FormField } from '@/design-system/components/forms/FormField';
 import { StateView } from '@/design-system/components/feedback/StateView';
 import { FinancialPulse } from '@/design-system/components/financial/FinancialPulse';
 import { TransactionRow } from '@/design-system/components/financial/TransactionRow';
 import { GroupedList } from '@/design-system/components/navigation/GroupedList';
 import {
   emptyTransactionFilters,
+  parseAmountToMinor,
   supportsAutomaticTrackingAccountType,
   type Category,
   type Transaction
 } from '@/domain/core-finance';
+import { calculateCreditCardPayoff } from '@/domain/credit-card-payoff';
 import {
   invalidateCoreFinanceScopes,
   useAccount,
@@ -40,6 +43,10 @@ export function AccountDetailScreen({ id }: { id: string }) {
   const client = useQueryClient();
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string>();
+  const [payoffBalance, setPayoffBalance] = useState('');
+  const [payoffRate, setPayoffRate] = useState('');
+  const [payoffPayment, setPayoffPayment] = useState('');
+  const [payoffResult, setPayoffResult] = useState<string>();
   const account = useAccount(id);
   const balances = useAccountBalances(true);
   const activity = useTransactions({
@@ -134,6 +141,39 @@ export function AccountDetailScreen({ id }: { id: string }) {
       ]
     );
   };
+  const calculatePayoff = () => {
+    const balanceMinor = parseAmountToMinor(payoffBalance, value.currencyCode);
+    const paymentMinor = parseAmountToMinor(payoffPayment, value.currencyCode);
+    const rate = /^\d+$/.test(payoffRate.trim()) ? Number(payoffRate) : NaN;
+    if (
+      balanceMinor === null ||
+      balanceMinor < 0 ||
+      paymentMinor === null ||
+      paymentMinor <= 0 ||
+      !Number.isSafeInteger(rate) ||
+      rate < 0 ||
+      rate > 10_000
+    ) {
+      setPayoffResult(translate('coreFinance.validation.invalid'));
+      return;
+    }
+    const result = calculateCreditCardPayoff({
+      balanceMinor: BigInt(balanceMinor),
+      monthlyInterestRateBasisPoints: BigInt(rate),
+      paymentMinor: BigInt(paymentMinor)
+    });
+    setPayoffResult(
+      result.status === 'payoff'
+        ? translateDynamic('coreFinance.accounts.payoff.months', {
+            months: result.months
+          })
+        : translate(
+            result.reason === 'payment_not_above_interest'
+              ? 'coreFinance.accounts.payoff.paymentNotAboveInterest'
+              : 'coreFinance.accounts.payoff.monthLimitExceeded'
+          )
+    );
+  };
   return (
     <ScrollView contentContainerStyle={styles.stack}>
       <FinancialPulse
@@ -153,6 +193,69 @@ export function AccountDetailScreen({ id }: { id: string }) {
               : 'coreFinance.accounts.automaticTrackingDisabled'
           )}
         </StyledText>
+      ) : null}
+      {value.type === 'credit_card' ? (
+        <View style={styles.stack}>
+          {value.statementDay !== null ? (
+            <TermRow
+              label={translate('coreFinance.accounts.setup.statementDay')}
+              value={String(value.statementDay)}
+            />
+          ) : null}
+          {value.paymentDueDay !== null ? (
+            <TermRow
+              label={translate('coreFinance.accounts.setup.dueDay')}
+              value={String(value.paymentDueDay)}
+            />
+          ) : null}
+          {value.monthlyInterestRateBasisPoints !== null ? (
+            <TermRow
+              label={translate(
+                'coreFinance.accounts.setup.monthlyInterestBasisPoints'
+              )}
+              value={String(value.monthlyInterestRateBasisPoints)}
+            />
+          ) : null}
+          {value.minimumPaymentMinor !== null ? (
+            <TermRow
+              label={translate('coreFinance.accounts.setup.minimumPayment')}
+              value={formatFinancialDisplayValue({
+                minorUnits: value.minimumPaymentMinor,
+                currencyCode: value.currencyCode,
+                locale,
+                sign: 'none',
+                state: hidden ? 'hidden' : 'confirmed'
+              }).text}
+            />
+          ) : null}
+          <StyledText variant="subtitle">
+            {translate('coreFinance.accounts.payoff.title')}
+          </StyledText>
+          <FormField
+            label={translate('coreFinance.accounts.payoff.balance')}
+            value={payoffBalance}
+            onChangeText={setPayoffBalance}
+            variant="amount"
+          />
+          <FormField
+            label={translate('coreFinance.accounts.payoff.rateBasisPoints')}
+            value={payoffRate}
+            onChangeText={setPayoffRate}
+            keyboardType="number-pad"
+          />
+          <FormField
+            label={translate('coreFinance.accounts.payoff.payment')}
+            value={payoffPayment}
+            onChangeText={setPayoffPayment}
+            variant="amount"
+          />
+          <ActionButton
+            label={translate('coreFinance.accounts.payoff.calculate')}
+            variant="secondary"
+            onPress={calculatePayoff}
+          />
+          {payoffResult ? <StyledText>{payoffResult}</StyledText> : null}
+        </View>
       ) : null}
       <View style={styles.stack}>
         <StyledText variant="subtitle">
@@ -235,6 +338,15 @@ export function AccountDetailScreen({ id }: { id: string }) {
         onPress={() => router.push(`/(tabs)/add?type=transfer&accountId=${id}`)}
       />
     </ScrollView>
+  );
+}
+
+function TermRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <StyledText variant="caption">{label}</StyledText>
+      <StyledText>{value}</StyledText>
+    </View>
   );
 }
 const styles = StyleSheet.create({

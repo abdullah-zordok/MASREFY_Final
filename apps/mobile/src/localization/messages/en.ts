@@ -695,9 +695,24 @@ const en = {
   'coreFinance.accounts.setup.cardBasics': 'Card Basics',
   'coreFinance.accounts.setup.creditDetails': 'Credit Details',
   'coreFinance.accounts.setup.creditLimit': 'Credit Limit',
+  'coreFinance.accounts.setup.statementDay': 'Monthly Statement Day',
+  'coreFinance.accounts.setup.monthlyInterestBasisPoints':
+    'Monthly Interest (basis points)',
+  'coreFinance.accounts.setup.minimumPayment': 'Minimum Monthly Payment',
   'coreFinance.accounts.setup.availableBalance': 'Current Available Balance',
   'coreFinance.accounts.setup.billing': 'Billing & Due Date',
   'coreFinance.accounts.setup.dueDay': 'Monthly Due Day',
+  'coreFinance.accounts.payoff.title': 'Payoff calculator',
+  'coreFinance.accounts.payoff.balance': 'Balance to repay',
+  'coreFinance.accounts.payoff.rateBasisPoints':
+    'Calculator monthly interest (basis points)',
+  'coreFinance.accounts.payoff.payment': 'Monthly payment',
+  'coreFinance.accounts.payoff.calculate': 'Calculate payoff',
+  'coreFinance.accounts.payoff.months': 'Estimated payoff: {{months}} months',
+  'coreFinance.accounts.payoff.paymentNotAboveInterest':
+    'The payment must be greater than the monthly interest.',
+  'coreFinance.accounts.payoff.monthLimitExceeded':
+    'This balance is not paid off within 1,200 months.',
   'coreFinance.accounts.setup.lastFour': 'Last 4 Digits (Optional)',
   'coreFinance.accounts.setup.educationTitle':
     'Why do we need the last 4 digits?',

@@ -143,6 +143,77 @@ describe('transactional Mobile delta apply', () => {
     }
   );
 
+  it('maps credit-card terms and defaults legacy snapshots to null', async () => {
+    const transaction = {
+      getFirstAsync: jest.fn(async () => null),
+      runAsync: jest.fn(async (..._args: unknown[]) => undefined)
+    };
+    const database = {
+      ...transaction,
+      withExclusiveTransactionAsync: jest.fn(
+        async (action: (value: unknown) => Promise<void>) => action(transaction)
+      )
+    };
+    const adapter = new CoreFinanceSyncAdapter(database as never);
+
+    await adapter.applyDelta(
+      'accounts',
+      [
+        {
+          resourceId: 'terms-card',
+          operation: 'upsert',
+          version: 1,
+          deletedAt: null,
+          snapshot: {
+            id: 'terms-card',
+            name: 'Terms card',
+            type: 'credit_card',
+            currency_code: 'SAR',
+            status: 'active',
+            statement_day: 7,
+            payment_due_day: 21,
+            monthly_interest_rate_basis_points: 125,
+            minimum_payment_minor: 5_000,
+            created_at: '2026-08-31T00:00:00.000Z',
+            updated_at: '2026-08-31T00:00:00.000Z'
+          }
+        },
+        {
+          resourceId: 'legacy-card',
+          operation: 'upsert',
+          version: 1,
+          deletedAt: null,
+          snapshot: {
+            id: 'legacy-card',
+            name: 'Legacy card',
+            type: 'credit_card',
+            currency_code: 'SAR',
+            status: 'active',
+            created_at: '2026-08-31T00:00:00.000Z',
+            updated_at: '2026-08-31T00:00:00.000Z'
+          }
+        }
+      ],
+      'cursor-terms',
+      null
+    );
+    const payloads = transaction.runAsync.mock.calls
+      .filter(([sql]) => String(sql).includes('finance_accounts'))
+      .map((call) => JSON.parse(String(call[2])));
+    expect(payloads[0]).toMatchObject({
+      statementDay: 7,
+      paymentDueDay: 21,
+      monthlyInterestRateBasisPoints: 125,
+      minimumPaymentMinor: 5_000
+    });
+    expect(payloads[1]).toMatchObject({
+      statementDay: null,
+      paymentDueDay: null,
+      monthlyInterestRateBasisPoints: null,
+      minimumPaymentMinor: null
+    });
+  });
+
   it('advances the cursor only after every local apply succeeds', async () => {
     const events: string[] = [];
     const transaction = {

@@ -204,3 +204,24 @@ request time. No denormalized usage column or client-authoritative count exists.
 owner-controlled through the existing account API. The default preserves old
 accounts/clients; effective eligibility is still decided by SPEC-BE-008 using
 global consent, ownership, lifecycle, supported type, and this flag together.
+
+## Credit-Card Terms
+
+`public.accounts` adds four nullable card-only columns:
+
+| Column | Type | Rule |
+|---|---|---|
+| `statement_day` | `smallint` | null or 1..28 |
+| `payment_due_day` | `smallint` | null or 1..28 |
+| `monthly_interest_rate_basis_points` | `integer` | null or 0..10,000 monthly bps |
+| `minimum_payment_minor` | `bigint` | null or 1..9,007,199,254,740,991 minor units |
+
+A table constraint permits non-null values only when `type='credit_card'`. A
+before-update trigger clears these values and `credit_limit_minor` when a card
+changes to a non-card type, so stale incompatible financial metadata cannot
+survive the transition.
+
+The payoff projection is stateless. Each month it computes half-up-rounded
+interest as `(balance_minor * monthly_bps + 5000) / 10000`, applies the explicit
+payment, and returns either payoff totals or a non-payoff reason. It never uses
+floating point and stops after 1,200 months.

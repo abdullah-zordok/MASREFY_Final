@@ -50,6 +50,37 @@ it('preserves the per-account automatic-tracking opt-out', () => {
   ).toBe(true);
 });
 
+it('stores card terms and clears them when the account stops being a credit card', () => {
+  const repo = repository();
+  const card = repo.saveAccount({
+    name: 'Terms card',
+    type: 'credit_card',
+    currencyCode: 'SAR',
+    openingBalanceMinor: 0,
+    creditLimitMinor: 200_000,
+    statementDay: 7,
+    paymentDueDay: 21,
+    monthlyInterestRateBasisPoints: 125,
+    minimumPaymentMinor: 5_000
+  });
+  expect(repo.requireAccount(card.id)).toMatchObject({
+    statementDay: 7,
+    paymentDueDay: 21,
+    monthlyInterestRateBasisPoints: 125,
+    minimumPaymentMinor: 5_000
+  });
+
+  expect(
+    repo.saveAccount({ ...card, type: 'bank' }, card.id)
+  ).toMatchObject({
+    creditLimitMinor: null,
+    statementDay: null,
+    paymentDueDay: null,
+    monthlyInterestRateBasisPoints: null,
+    minimumPaymentMinor: null
+  });
+});
+
 it('paginates without duplicate records', () => {
   const repo = repository();
   const first = repo.listTransactions(emptyTransactionFilters, null, 4);

@@ -681,9 +681,24 @@ const ar: MessageCatalog = {
   'coreFinance.accounts.setup.cardBasics': 'بيانات البطاقة',
   'coreFinance.accounts.setup.creditDetails': 'تفاصيل الائتمان',
   'coreFinance.accounts.setup.creditLimit': 'الحد الائتماني',
+  'coreFinance.accounts.setup.statementDay': 'يوم كشف الحساب الشهري',
+  'coreFinance.accounts.setup.monthlyInterestBasisPoints':
+    'الفائدة الشهرية (نقاط أساس)',
+  'coreFinance.accounts.setup.minimumPayment': 'الحد الأدنى للسداد الشهري',
   'coreFinance.accounts.setup.availableBalance': 'الرصيد المتاح الحالي',
   'coreFinance.accounts.setup.billing': 'الفوترة وموعد السداد',
   'coreFinance.accounts.setup.dueDay': 'يوم الاستحقاق الشهري',
+  'coreFinance.accounts.payoff.title': 'حاسبة سداد البطاقة',
+  'coreFinance.accounts.payoff.balance': 'الرصيد المطلوب سداده',
+  'coreFinance.accounts.payoff.rateBasisPoints':
+    'فائدة الحاسبة الشهرية (نقاط أساس)',
+  'coreFinance.accounts.payoff.payment': 'السداد الشهري',
+  'coreFinance.accounts.payoff.calculate': 'احسب مدة السداد',
+  'coreFinance.accounts.payoff.months': 'مدة السداد المقدرة: {{months}} شهرًا',
+  'coreFinance.accounts.payoff.paymentNotAboveInterest':
+    'يجب أن يكون السداد أكبر من الفائدة الشهرية.',
+  'coreFinance.accounts.payoff.monthLimitExceeded':
+    'لن يُسدد هذا الرصيد خلال ١٢٠٠ شهر.',
   'coreFinance.accounts.setup.lastFour': 'آخر 4 أرقام من البطاقة (اختياري)',
   'coreFinance.accounts.setup.educationTitle': `لماذا نحتاج ${glossary.lastFourDigits}؟`,
   'coreFinance.accounts.setup.educationBody':

@@ -211,3 +211,10 @@ never inferred. No push occurs under this goal.
 Extend the existing account bootstrap projection and outbox sync metadata
 trigger with `automatic_tracking_enabled`. Reuse current cursor, delta,
 tombstone, and conflict behavior; add no sync resource or queue.
+
+## 2026-09-06 Credit-Card Terms Projection
+
+Extend the same account bootstrap and upsert-delta snapshots with the four
+nullable card-term fields. Older snapshots map omitted fields to null, while
+account tombstones remain snapshot-free. No new sync domain, queue, or conflict
+subsystem is introduced.

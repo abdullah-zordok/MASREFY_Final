@@ -237,3 +237,12 @@ Complete T001–T022: baseline, Shared Account Foundation, and Account List. Thi
 - [x] Render the saved state on account detail for supported account types only.
 - [x] Prove create/edit/storage/bootstrap/delta/default compatibility in Jest.
 - [x] Record independent review and Slice 2 remote CI evidence.
+
+## 2026-09-06 Credit-Card Terms and Payoff
+
+- [x] Add statement day, due day, monthly-basis-point rate, and minimum-payment inputs to credit-card create/edit only.
+- [x] Show stored card terms and the explicit-input payoff calculator on card detail without changing routes or visual primitives.
+- [x] Clear incompatible terms when type changes and preserve them through local persistence, sync, and explicit conflict retry.
+- [x] Add account-target due-reminder routing through the existing notification controller.
+- [x] Pass full Mobile automated verification; Android/iOS device acceptance and production account cutover remain external/Phase 14 gates.
+- [ ] Record the Slice 3 pushed SHA and successful remote CI before release completion.

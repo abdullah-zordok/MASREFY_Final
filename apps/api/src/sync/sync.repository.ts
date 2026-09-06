@@ -317,6 +317,10 @@ export class SyncRepository {
                   'status',source.status,'sort_order',source.sort_order,
                   'include_in_totals',source.include_in_totals,'opened_at',source.opened_at,
                   'automatic_tracking_enabled',source.automatic_tracking_enabled,
+                  'statement_day',source.statement_day,
+                  'payment_due_day',source.payment_due_day,
+                  'monthly_interest_rate_basis_points',source.monthly_interest_rate_basis_points,
+                  'minimum_payment_minor',source.minimum_payment_minor,
                   'closed_at',source.closed_at,'deleted_at',source.deleted_at,
                   'created_at',source.created_at,'updated_at',source.updated_at,
                   'version',source.version)`

@@ -769,3 +769,15 @@ identity, or unauthorized resource metadata.
 - [ ] SPEC-BE-012 and later Specs remain unimplemented.
 
 Verification listed here is required evidence, not a claim that it has already run.
+
+## 2026-09-06 Credit-Card Due Reminder Addendum
+
+- The existing engagement worker asks one server-only, bounded, idempotent
+  producer to enqueue `account.credit_card_payment_due` on the card's configured
+  due calendar day. The natural key is account plus due date.
+- The event contains only owner ID, due date, locale/timezone routing metadata,
+  and the account aggregate ID. Phase 11 templates, preferences, quiet hours,
+  delivery retry/suppression, and safe notification rendering remain unchanged.
+- Cards without a due day, non-card/inactive accounts, and a repeated producer
+  run create no reminder. Provider delivery and physical-device evidence remain
+  external Phase 14 gates; local evidence proves only event creation and policy.

@@ -26,4 +26,8 @@ describe('engagement event contracts', () => {
   it('does not register a future-owned event', () => {
     expect(ENGAGEMENT_SOURCE_EVENTS.has('subscription.renewed')).toBe(false);
   });
+
+  it('routes credit-card due dates through the existing engagement source set', () => {
+    expect(ENGAGEMENT_SOURCE_EVENTS.has('account.credit_card_payment_due')).toBe(true);
+  });
 });

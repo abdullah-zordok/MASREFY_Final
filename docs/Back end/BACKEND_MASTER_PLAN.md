@@ -1390,7 +1390,7 @@ request an opening balance, but only Spec 005 commits it as a ledger transaction
 | `public.currencies` | `code char(3) PK`; `name text`; `minor_unit smallint`; `enabled boolean=true`; `created_at=now()`; `updated_at=now()`; `version=1` | uppercase code; minor 0..4; index enabled/code |
 | `public.supported_countries` | `code char(2) PK`; `name text`; `default_currency char(3) FK currencies`; `enabled boolean=true`; timestamps/version | uppercase code; index enabled/code |
 | `public.categories` | `M`; `user_id text? FK profiles`; `parent_id uuid? FK categories`; `merged_into_id uuid? FK categories`; `kind text`; `label_ar text`; `label_en text`; `icon text?`; `color text?`; `system_key text?`; `sort_order int=0`; `active boolean=true`; `deleted_at timestamptz?` | kind `income/expense/transfer`; hierarchy/merge graph acyclic and owner/kind compatible; UQ system_key where user null; separate active partial UQ indexes for user/lower(label_ar)/kind and user/lower(label_en)/kind; indexes user/kind/active/sort, parent, merged target |
-| `public.accounts` | `M+U`; `name text`; `type text`; `currency_code char(3) FK currencies`; `institution_name text?`; `last_four char(4)?`; `credit_limit_minor bigint?`; `is_default boolean=false`; `icon_key text?`; `color_key text?`; `notes text?`; `status text='active'`; `sort_order int=0`; `include_in_totals boolean=true`; `opened_at date?`; `closed_at date?`; `deleted_at timestamptz?` | type `bank/debit_card/credit_card/wallet/cash/savings/other` to preserve the executable Mobile contract; status `active/archived/closed`; last_four digits; nonnegative credit limit only for credit cards; closed>=opened; one active default per user; indexes user/status/sort, user/currency, active partial |
+| `public.accounts` | `M+U`; `name text`; `type text`; `currency_code char(3) FK currencies`; `institution_name text?`; `last_four char(4)?`; `credit_limit_minor bigint?`; `statement_day smallint?`; `payment_due_day smallint?`; `monthly_interest_rate_basis_points int?`; `minimum_payment_minor bigint?`; `automatic_tracking_enabled boolean=true`; `is_default boolean=false`; `icon_key text?`; `color_key text?`; `notes text?`; `status text='active'`; `sort_order int=0`; `include_in_totals boolean=true`; `opened_at date?`; `closed_at date?`; `deleted_at timestamptz?` | type `bank/debit_card/credit_card/wallet/cash/savings/other`; card days 1..28, monthly rate 0..10,000 bps, positive JS-safe minimum payment, card-only terms/limit cleared on type change; status `active/archived/closed`; last_four digits; one active default per user; indexes user/status/sort, user/currency, active partial |
 | `public.exchange_rates` | `I`; `base_currency char(3) FK currencies`; `quote_currency char(3) FK currencies`; `rate numeric(24,12)`; `effective_at timestamptz`; `provider text`; `provider_ref text?` | rate>0; base<>quote; UQ base/quote/effective/provider; index pair/effective desc |
 
 #### Dedicated ERD
@@ -1508,6 +1508,22 @@ erDiagram
 - SPEC-BE-008 owns the conjunctive global/account eligibility decision and its
   financial boundary; SPEC-BE-004 owns only the account field and mutation rules.
 - This additive remediation does not activate the Phase 14 client cutover.
+
+#### Client Items #38/#39 Additive Card Contract (2026-09-06)
+
+- Credit-card terms are nullable for old rows and use `statement_day` /
+  `payment_due_day` 1..28, `monthly_interest_rate_basis_points` 0..10,000, and
+  positive integer `minimum_payment_minor`; non-card accounts reject or clear them.
+- `POST /api/v1/credit-card-payoff` is authenticated and stateless. It accepts an
+  explicit balance, monthly rate basis points, and payment in minor units, rounds
+  each month's interest half-up using integer arithmetic, detects non-payoff, and
+  stops after 1,200 months.
+- SPEC-BE-006 carries the fields through existing account bootstrap/delta/tombstone
+  behavior. SPEC-BE-011 produces one idempotent due event per account/customer-local
+  due date and reuses its existing templates, preferences, policy, and delivery.
+- Local migration, pgTAP, API, sync, Mobile, Admin, and independent-review gates
+  pass. Release CI is still pending; Phase 14 client binding and provider/device
+  delivery evidence are explicitly outside this additive release.
 
 ### Phase 05 - SPEC-BE-005: Transactions, Ledger, Transfers & Financial Integrity
 

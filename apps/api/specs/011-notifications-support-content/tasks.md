@@ -275,3 +275,12 @@ not scaffold SPEC-BE-012+ or generic operations.
 
 All executable tasks use `- [ ] TNNN`, user-story tasks include `[USN]`, `[P]` is
 used only for different-file independent work, and every task names an exact path.
+
+## 2026-09-06 Credit-Card Due Reminder Remediation
+
+- [x] Seed Arabic/English in-app, push, and email templates plus default preferences.
+- [x] Produce one bounded, idempotent event per eligible card/customer-local due date.
+- [x] Prevent batch starvation and expire each action at the customer's next local midnight.
+- [x] Keep financial values out of reminder payloads and route account actions through existing Mobile notification handling.
+- [x] Prove preference/policy integration, batching, timezone behavior, and payload privacy in pgTAP/API/Mobile tests.
+- [ ] Record the Slice 3 pushed SHA and successful remote CI; provider/device delivery remains external evidence.

@@ -236,3 +236,11 @@ an authorization substitute; repositories call exact guard functions first.
 Rollback disables Phase 11 routes/workers first and uses a forward corrective
 migration. It never drops messages/events/audit, restores rejected malware, exposes
 draft content/notes, or rewinds prior-Spec objects.
+
+## Credit-Card Due Reminder Source
+
+`private.enqueue_credit_card_due_reminders(timestamptz, integer)` joins active
+cards to active profiles and derives each profile's local date from its validated
+IANA timezone. A partial unique index on account plus `payload.dueDate` provides
+idempotency. The payload contains only owner/account routing metadata, due date,
+and expiry; balances, rates, limits, and minimum payments are excluded.

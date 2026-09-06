@@ -56,6 +56,21 @@ function phoneService(lastResponse: PhoneNotificationResponse | null = null) {
 }
 
 describe('notification response controller', () => {
+  it('opens the credit card from a due reminder', async () => {
+    const target = { kind: 'account' as const, accountId: 'card-1' };
+    const navigate = jest.fn();
+    const controller = createNotificationResponseController({
+      notificationService: targetService({
+        resolveTarget: jest.fn(async () => ({ status: 'exact' as const, target })),
+        revalidateAction: jest.fn(async (_id, action) => ({ status: 'available' as const, target, action }))
+      }),
+      phoneService: phoneService().phone,
+      navigate,
+      unlock: async () => true
+    });
+    await controller.handle({ notificationId: 'reminder', action: 'view' });
+    expect(navigate).toHaveBeenCalledWith('/accounts/card-1');
+  });
   it('routes an exact resolved view target through the typed mapping', async () => {
     const navigate = jest.fn();
     const controller = createNotificationResponseController({

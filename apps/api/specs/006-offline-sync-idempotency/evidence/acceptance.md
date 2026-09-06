@@ -41,3 +41,14 @@ operator recovery visibility.
   `cd3bafc28a42b758f6670d2d5b6087cd63abaefc`; Backend Foundation run
   [`33994830522`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33994830522)
   passed all required jobs.
+
+## 2026-09-06 Client Items #38/#39 Local Sync Evidence
+
+- Live bootstrap/delta integration passes with all four card terms and rejects the
+  foreign owner projection; cleanup keeps the full database suite isolated.
+- Mobile persistence and delta tests pass for present terms, omitted legacy terms,
+  type-change clearing, and snapshot-free tombstones.
+- The injectable live account seam validates authenticated create/read/update,
+  idempotency keys, optimistic versions, conflict detection, and explicit retry
+  without dropping card terms. Production account upload/cutover remains Phase 14.
+- Release SHA and remote CI remain pending and are not claimed by this local record.

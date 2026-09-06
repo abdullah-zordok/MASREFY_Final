@@ -51,6 +51,10 @@ interface ReferenceRow extends QueryResultRow {
   status: string;
   include_in_totals: boolean;
   automatic_tracking_enabled: boolean;
+  statement_day: number | null;
+  payment_due_day: number | null;
+  monthly_interest_rate_basis_points: number | null;
+  minimum_payment_minor: string | null;
   opened_at: Date | null;
   closed_at: Date | null;
   base_currency: string;
@@ -293,7 +297,7 @@ export class ReferenceRepository {
         if (b.isDefault) await this.clearDefault(client, user);
         const row = (
           await client.query<ReferenceRow>(
-            `insert into public.accounts(user_id,name,type,currency_code,institution_name,last_four,credit_limit_minor,is_default,icon_key,color_key,notes,sort_order,include_in_totals,opened_at,automatic_tracking_enabled) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning *`,
+            `insert into public.accounts(user_id,name,type,currency_code,institution_name,last_four,credit_limit_minor,is_default,icon_key,color_key,notes,sort_order,include_in_totals,opened_at,automatic_tracking_enabled,statement_day,payment_due_day,monthly_interest_rate_basis_points,minimum_payment_minor) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) returning *`,
             [
               user,
               b.name,
@@ -310,6 +314,10 @@ export class ReferenceRepository {
               b.includeInTotals,
               b.openedAt ?? null,
               b.automaticTrackingEnabled ?? true,
+              b.statementDay ?? null,
+              b.paymentDueDay ?? null,
+              b.monthlyInterestRateBasisPoints ?? null,
+              b.minimumPaymentMinor ?? null,
             ],
           )
         ).rows[0];
@@ -694,6 +702,10 @@ export class ReferenceRepository {
       includeInTotals: 'include_in_totals',
       automaticTrackingEnabled: 'automatic_tracking_enabled',
       openedAt: 'opened_at',
+      statementDay: 'statement_day',
+      paymentDueDay: 'payment_due_day',
+      monthlyInterestRateBasisPoints: 'monthly_interest_rate_basis_points',
+      minimumPaymentMinor: 'minimum_payment_minor',
     };
     const { sql, values } = this.patch(map, input.body, 2);
     const row = (
@@ -982,6 +994,11 @@ export class ReferenceRepository {
       sortOrder: row.sort_order,
       includeInTotals: row.include_in_totals,
       automaticTrackingEnabled: row.automatic_tracking_enabled,
+      statementDay: row.statement_day,
+      paymentDueDay: row.payment_due_day,
+      monthlyInterestRateBasisPoints: row.monthly_interest_rate_basis_points,
+      minimumPaymentMinor:
+        row.minimum_payment_minor === null ? null : Number(row.minimum_payment_minor),
       openedAt: row.opened_at,
       closedAt: row.closed_at,
       version: Number(row.version),

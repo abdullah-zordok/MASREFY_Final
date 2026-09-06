@@ -7,6 +7,7 @@ export const ENGAGEMENT_SOURCE_EVENTS = new Set<string>([
   'transaction.deleted',
   'transaction.restored',
   'balance.changed',
+  'account.credit_card_payment_due',
   'ledger.reconciliation_failed',
   'planning.salary_receipt_expected',
   'planning.salary_receipt_received',

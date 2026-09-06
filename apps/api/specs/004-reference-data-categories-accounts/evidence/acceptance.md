@@ -72,3 +72,17 @@ Windows `core.autocrlf` normalization and has no content diff. A fresh
   `cd3bafc28a42b758f6670d2d5b6087cd63abaefc`; Backend Foundation run
   [`33994830522`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/33994830522)
   passed all required jobs.
+
+## 2026-09-06 Client Items #38/#39 Local Acceptance Evidence
+
+- Clean reset, migration checksums, and schema lint: PASS for
+  `20260905082000_credit_card_terms.sql` plus the forward reminder correction.
+- Full pgTAP: PASS, 53 files / 1,687 tests, including nullable old rows, 1–28
+  bounds, explicit monthly basis points, positive minor-unit payment, non-card
+  rejection/clearing, sync fields, reminder batching, timezone, and payload privacy.
+- API: PASS, 112 unit suites / 838 tests, 63 contract suites / 193 tests, 86 live
+  integration suites / 217 tests, 38 E2E suites / 67 tests, and 40 security suites /
+  139 tests; lint, typecheck, build, and checksums also pass.
+- Independent review findings on hidden-value display, timezone handling, batching,
+  account notification routing, and the injectable live retry seam were fixed and
+  reverified. Release SHA and remote CI remain pending and are not inferred here.

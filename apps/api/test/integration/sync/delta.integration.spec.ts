@@ -28,8 +28,12 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
         [deviceId, ownerId, `h1:${'d'.repeat(64)}`],
       );
       await client.query(
-        `insert into public.accounts(id,user_id,name,type,currency_code,automatic_tracking_enabled) values
-         ($1,$3,'Cash','cash','SAR',false),($2,$4,'Other','cash','SAR',true)`,
+        `insert into public.accounts(
+          id,user_id,name,type,currency_code,automatic_tracking_enabled,
+          statement_day,payment_due_day,monthly_interest_rate_basis_points,minimum_payment_minor
+        ) values
+         ($1,$3,'Card','credit_card','SAR',false,7,21,125,5000),
+         ($2,$4,'Other','cash','SAR',true,null,null,null,null)`,
         [accountId, otherAccountId, ownerId, otherId],
       );
       await client.query(
@@ -80,7 +84,27 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
       await client.query('commit');
     });
   });
-  afterAll(() => pool.onModuleDestroy());
+  afterAll(async () => {
+    await pool.withClient(async (client) => {
+      await client.query('begin');
+      await client.query('set local role masarifi_migration');
+      await client.query("delete from private.outbox_events where payload->>'userId'=any($1)", [
+        [ownerId, otherId],
+      ]);
+      await client.query('delete from public.client_sync_state where user_id=any($1)', [
+        [ownerId, otherId],
+      ]);
+      await client.query('delete from public.user_devices where user_id=any($1)', [
+        [ownerId, otherId],
+      ]);
+      await client.query('delete from public.accounts where user_id=any($1)', [
+        [ownerId, otherId],
+      ]);
+      await client.query('delete from public.profiles where id=any($1)', [[ownerId, otherId]]);
+      await client.query('commit');
+    });
+    await pool.onModuleDestroy();
+  });
 
   it('bootstraps only owner snapshots at the current domain cursor', async () => {
     const [domain] = await repository.bootstrap(principal, ['accounts'], null, 500, null);
@@ -91,6 +115,12 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
       snapshot: { id: accountId, name: 'Cash updated' },
     });
     expect(domain?.items[0]?.snapshot.automatic_tracking_enabled).toBe(false);
+    expect(domain?.items[0]?.snapshot).toMatchObject({
+      statement_day: 7,
+      payment_due_day: 21,
+      monthly_interest_rate_basis_points: 125,
+      minimum_payment_minor: 5_000,
+    });
     expect(domain?.items.some((item) => item.id === otherAccountId)).toBe(false);
   });
 
@@ -107,6 +137,17 @@ describeLiveDatabase('sync bootstrap, delta ordering, and checkpoints', () => {
       first.changes
         .filter(({ snapshot }) => snapshot !== null)
         .every(({ snapshot }) => snapshot?.automatic_tracking_enabled === false),
+    ).toBe(true);
+    expect(
+      first.changes
+        .filter(({ snapshot }) => snapshot !== null)
+        .every(
+          ({ snapshot }) =>
+            snapshot?.statement_day === 7 &&
+            snapshot.payment_due_day === 21 &&
+            snapshot.monthly_interest_rate_basis_points === 125 &&
+            snapshot.minimum_payment_minor === 5_000,
+        ),
     ).toBe(true);
     await repository.recordIssuedCursor(principal, deviceId, 'accounts', 502n);
     const ack = await repository.acknowledge(principal, deviceId, 'accounts', 502n, null);

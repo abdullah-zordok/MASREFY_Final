@@ -92,3 +92,17 @@ They require deployment credentials or infrastructure and are not claimed as loc
 or branch-CI successes.
 
 Signed off: Codex verification agent, 2026-09-05.
+
+## 2026-09-06 Credit-Card Due Reminder Local Evidence
+
+- The additive migrations seed six localized/channel templates, default existing
+  preferences, and preserve the date overload for N-1 worker compatibility.
+- Full pgTAP passes 53 files / 1,687 tests, including multi-batch progress,
+  account/date idempotency, customer-local due-day selection, local-midnight
+  expiry, worker-only execution, and absence of financial payload values.
+- API engagement integration and the full 86-suite live integration run pass;
+  Mobile parses the account target and routes view/edit actions through its
+  existing protected notification controller.
+- This proves local event creation and Phase 11 policy integration only. APNs,
+  FCM, SMTP receipt, and physical-device action acceptance remain external.
+- Release SHA and Backend Foundation CI are pending and not claimed here.

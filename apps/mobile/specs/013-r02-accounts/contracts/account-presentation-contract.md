@@ -83,3 +83,16 @@ state. Cash and other accounts render neither control nor state. Presentation
 does not promise tracking eligibility: global consent and the server gate remain
 authoritative.
 
+## 9. Credit-Card Terms and Calculator Presentation
+
+- Card-only term fields use localized labels, numeric keyboards, 1..28 day
+  validation, 0..10,000 monthly basis-point validation, and positive minor-unit
+  minimum payment parsing through the account currency scale.
+- Detail presents statement/due days, a monthly-basis-point rate, and minimum
+  payment only for credit cards. The calculator requires explicit balance,
+  monthly rate, and payment fields and exposes payoff or non-payoff text without
+  using color alone.
+- All controls remain in the existing vertical ScrollView and shared form/button
+  primitives so 320-pixel width, large text, RTL/LTR, and screen-reader ordering
+  remain supported without a screen redesign.
+

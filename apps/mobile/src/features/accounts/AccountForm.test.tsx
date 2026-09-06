@@ -39,7 +39,35 @@ describe('AccountForm', () => {
 
     expect(screen.getByText(translate('coreFinance.accounts.typeSelect.credit_card'))).toBeTruthy();
     expect(screen.getByText(translate('coreFinance.accounts.setup.creditLimit'))).toBeTruthy();
-    expect(screen.queryByText(translate('coreFinance.accounts.setup.dueDay'))).toBeNull();
+    expect(screen.getByText(translate('coreFinance.accounts.setup.statementDay'))).toBeTruthy();
+    expect(screen.getByText(translate('coreFinance.accounts.setup.dueDay'))).toBeTruthy();
+    expect(screen.getByText(translate('coreFinance.accounts.setup.monthlyInterestBasisPoints'))).toBeTruthy();
+    expect(screen.getByText(translate('coreFinance.accounts.setup.minimumPayment'))).toBeTruthy();
+  });
+
+  it('submits validated credit-card terms in their explicit units', async () => {
+    const create = jest.spyOn(coreFinanceService, 'createAccount').mockResolvedValue({
+      value: { ...fixtureAccounts[3], id: 'created-card' },
+      affectedScopes: [],
+    });
+    renderWithProviders(<AccountForm initialType="credit_card" />);
+
+    fireEvent.changeText(screen.getByLabelText(translate('coreFinance.accounts.name')), 'Travel card');
+    fireEvent.changeText(screen.getByLabelText(translate('coreFinance.accounts.setup.statementDay')), '7');
+    fireEvent.changeText(screen.getByLabelText(translate('coreFinance.accounts.setup.dueDay')), '21');
+    fireEvent.changeText(
+      screen.getByLabelText(translate('coreFinance.accounts.setup.monthlyInterestBasisPoints')),
+      '125',
+    );
+    fireEvent.changeText(screen.getByLabelText(translate('coreFinance.accounts.setup.minimumPayment')), '50');
+    fireEvent.press(screen.getByText(translate('coreFinance.accounts.create')));
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      statementDay: 7,
+      paymentDueDay: 21,
+      monthlyInterestRateBasisPoints: 125,
+      minimumPaymentMinor: 5_000,
+    })));
   });
 
   it('defaults automatic tracking on and submits an explicit opt-out', async () => {

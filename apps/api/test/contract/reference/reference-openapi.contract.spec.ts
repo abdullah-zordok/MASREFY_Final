@@ -18,8 +18,9 @@ describe('reference OpenAPI contract', () => {
           typeof operation === 'object' && operation !== null && 'operationId' in operation,
       ),
     );
-    expect(operations).toHaveLength(25);
+    expect(operations).toHaveLength(26);
     expect(document.paths['/api/v1/categories/{categoryId}/usage']).toBeDefined();
+    expect(document.paths['/api/v1/credit-card-payoff']).toBeDefined();
   });
 
   it('keeps typed pages, errors, and account responses explicit', () => {
@@ -65,5 +66,29 @@ describe('reference OpenAPI contract', () => {
     expect(schemas.UpdateAccountRequest?.properties?.automaticTrackingEnabled).toMatchObject({
       type: 'boolean',
     });
+  });
+
+  it('publishes nullable card terms and the integer payoff contract', () => {
+    const schemas = document.components.schemas as Record<
+      string,
+      { required?: string[]; properties?: Record<string, Record<string, unknown>> }
+    >;
+    for (const field of [
+      'statementDay',
+      'paymentDueDay',
+      'monthlyInterestRateBasisPoints',
+      'minimumPaymentMinor',
+    ]) {
+      expect(schemas.Account?.required).toContain(field);
+      expect(schemas.Account?.properties?.[field]?.type).toEqual(['integer', 'null']);
+      expect(schemas.CreateAccountRequest?.properties?.[field]).toBeDefined();
+      expect(schemas.UpdateAccountRequest?.properties?.[field]).toBeDefined();
+    }
+    expect(schemas.CreditCardPayoffRequest?.required).toEqual([
+      'balanceMinor',
+      'monthlyInterestRateBasisPoints',
+      'paymentMinor',
+    ]);
+    expect(schemas.CreditCardPayoffResponse).toBeDefined();
   });
 });

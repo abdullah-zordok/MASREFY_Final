@@ -346,7 +346,18 @@ export class CoreFinanceRepository {
   }
 
   saveAccount(input: AccountInput, id?: string): Account {
-    const value = accountInputSchema.parse(input);
+    const value = accountInputSchema.parse(
+      id && input.type !== 'credit_card'
+        ? {
+            ...input,
+            creditLimitMinor: null,
+            statementDay: null,
+            paymentDueDay: null,
+            monthlyInterestRateBasisPoints: null,
+            minimumPaymentMinor: null
+          }
+        : input
+    );
     const now = Date.now();
     if (id) {
       const index = this.accounts.findIndex((item) => item.id === id);
@@ -374,9 +385,35 @@ export class CoreFinanceRepository {
         lastFour:
           input.lastFour !== undefined ? value.lastFour : current.lastFour,
         creditLimitMinor:
-          input.creditLimitMinor !== undefined
+          value.type !== 'credit_card'
+            ? null
+            : input.creditLimitMinor !== undefined
             ? value.creditLimitMinor
             : current.creditLimitMinor,
+        statementDay:
+          value.type !== 'credit_card'
+            ? null
+            : input.statementDay !== undefined
+              ? value.statementDay
+              : current.statementDay,
+        paymentDueDay:
+          value.type !== 'credit_card'
+            ? null
+            : input.paymentDueDay !== undefined
+              ? value.paymentDueDay
+              : current.paymentDueDay,
+        monthlyInterestRateBasisPoints:
+          value.type !== 'credit_card'
+            ? null
+            : input.monthlyInterestRateBasisPoints !== undefined
+              ? value.monthlyInterestRateBasisPoints
+              : current.monthlyInterestRateBasisPoints,
+        minimumPaymentMinor:
+          value.type !== 'credit_card'
+            ? null
+            : input.minimumPaymentMinor !== undefined
+              ? value.minimumPaymentMinor
+              : current.minimumPaymentMinor,
         automaticTrackingEnabled:
           input.automaticTrackingEnabled !== undefined
             ? value.automaticTrackingEnabled
@@ -1297,6 +1334,11 @@ function copy<T>(value: T): T {
 function accountWithTrackingDefault(account: Account): Account {
   return {
     ...copy(account),
+    statementDay: account.statementDay ?? null,
+    paymentDueDay: account.paymentDueDay ?? null,
+    monthlyInterestRateBasisPoints:
+      account.monthlyInterestRateBasisPoints ?? null,
+    minimumPaymentMinor: account.minimumPaymentMinor ?? null,
     automaticTrackingEnabled: account.automaticTrackingEnabled ?? true
   };
 }
@@ -1311,6 +1353,10 @@ function isEmptyDefaultAccount(account: Account): boolean {
     account.institution === null &&
     account.lastFour === null &&
     account.creditLimitMinor === null &&
+    account.statementDay === null &&
+    account.paymentDueDay === null &&
+    account.monthlyInterestRateBasisPoints === null &&
+    account.minimumPaymentMinor === null &&
     account.isDefault &&
     account.iconKey === 'bank' &&
     account.colorKey === 'account-teal' &&

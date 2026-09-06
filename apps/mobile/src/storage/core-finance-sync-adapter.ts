@@ -419,6 +419,19 @@ export class CoreFinanceSyncAdapter {
       creditLimitMinor: this.numberOrNull(
         value.credit_limit_minor ?? value.creditLimitMinor
       ),
+      statementDay: this.numberOrNull(
+        value.statement_day ?? value.statementDay
+      ),
+      paymentDueDay: this.numberOrNull(
+        value.payment_due_day ?? value.paymentDueDay
+      ),
+      monthlyInterestRateBasisPoints: this.numberOrNull(
+        value.monthly_interest_rate_basis_points ??
+          value.monthlyInterestRateBasisPoints
+      ),
+      minimumPaymentMinor: this.numberOrNull(
+        value.minimum_payment_minor ?? value.minimumPaymentMinor
+      ),
       automaticTrackingEnabled:
         (value.automatic_tracking_enabled ?? value.automaticTrackingEnabled) !==
         false,

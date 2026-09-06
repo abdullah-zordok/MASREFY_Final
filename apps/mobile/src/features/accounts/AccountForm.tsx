@@ -73,6 +73,26 @@ export function AccountForm({
       ? minorToMajorAmountText(account.creditLimitMinor, account.currencyCode)
       : ''
   );
+  const [statementDay, setStatementDay] = useState(
+    account?.statementDay == null ? '' : String(account.statementDay)
+  );
+  const [paymentDueDay, setPaymentDueDay] = useState(
+    account?.paymentDueDay == null ? '' : String(account.paymentDueDay)
+  );
+  const [monthlyInterestRateBasisPoints, setMonthlyInterestRateBasisPoints] =
+    useState(
+      account?.monthlyInterestRateBasisPoints == null
+        ? ''
+        : String(account.monthlyInterestRateBasisPoints)
+    );
+  const [minimumPayment, setMinimumPayment] = useState(
+    account?.minimumPaymentMinor == null
+      ? ''
+      : minorToMajorAmountText(
+          account.minimumPaymentMinor,
+          account.currencyCode
+        )
+  );
   const [lastFour, setLastFour] = useState(account?.lastFour ?? '');
   const [isDefault, setDefault] = useState(account?.isDefault ?? false);
   const [automaticTrackingEnabled, setAutomaticTrackingEnabled] = useState(
@@ -82,7 +102,14 @@ export function AccountForm({
   const [currencySheetVisible, setCurrencySheetVisible] = useState(false);
   const [error, setError] = useState<string>();
   const [errorField, setErrorField] = useState<
-    'name' | 'balance' | 'creditLimit' | 'form'
+    | 'name'
+    | 'balance'
+    | 'creditLimit'
+    | 'statementDay'
+    | 'paymentDueDay'
+    | 'monthlyInterestRateBasisPoints'
+    | 'minimumPayment'
+    | 'form'
   >();
   const [saving, setSaving] = useState(false);
 
@@ -102,6 +129,21 @@ export function AccountForm({
       (account?.creditLimitMinor
         ? minorToMajorAmountText(account.creditLimitMinor, account.currencyCode)
         : '') ||
+    statementDay !==
+      (account?.statementDay == null ? '' : String(account.statementDay)) ||
+    paymentDueDay !==
+      (account?.paymentDueDay == null ? '' : String(account.paymentDueDay)) ||
+    monthlyInterestRateBasisPoints !==
+      (account?.monthlyInterestRateBasisPoints == null
+        ? ''
+        : String(account.monthlyInterestRateBasisPoints)) ||
+    minimumPayment !==
+      (account?.minimumPaymentMinor == null
+        ? ''
+        : minorToMajorAmountText(
+            account.minimumPaymentMinor,
+            account.currencyCode
+          )) ||
     isDefault !== (account?.isDefault ?? false) ||
     automaticTrackingEnabled !==
       (account?.automaticTrackingEnabled ?? true) ||
@@ -117,6 +159,25 @@ export function AccountForm({
       account.creditLimitMinor
         ? minorToMajorAmountText(account.creditLimitMinor, account.currencyCode)
         : ''
+    );
+    setStatementDay(
+      account.statementDay == null ? '' : String(account.statementDay)
+    );
+    setPaymentDueDay(
+      account.paymentDueDay == null ? '' : String(account.paymentDueDay)
+    );
+    setMonthlyInterestRateBasisPoints(
+      account.monthlyInterestRateBasisPoints == null
+        ? ''
+        : String(account.monthlyInterestRateBasisPoints)
+    );
+    setMinimumPayment(
+      account.minimumPaymentMinor == null
+        ? ''
+        : minorToMajorAmountText(
+            account.minimumPaymentMinor,
+            account.currencyCode
+          )
     );
     setLastFour(account.lastFour ?? '');
     setDefault(account.isDefault);
@@ -166,6 +227,45 @@ export function AccountForm({
       }
     }
 
+    const parsedStatementDay = parseOptionalInteger(statementDay, 1, 28);
+    if (isCreditCard && parsedStatementDay === undefined) {
+      setError(translate('coreFinance.validation.invalid'));
+      setErrorField('statementDay');
+      return;
+    }
+    const parsedPaymentDueDay = parseOptionalInteger(paymentDueDay, 1, 28);
+    if (isCreditCard && parsedPaymentDueDay === undefined) {
+      setError(translate('coreFinance.validation.invalid'));
+      setErrorField('paymentDueDay');
+      return;
+    }
+    const parsedMonthlyInterestRateBasisPoints = parseOptionalInteger(
+      monthlyInterestRateBasisPoints,
+      0,
+      10_000
+    );
+    if (
+      isCreditCard &&
+      parsedMonthlyInterestRateBasisPoints === undefined
+    ) {
+      setError(translate('coreFinance.validation.invalid'));
+      setErrorField('monthlyInterestRateBasisPoints');
+      return;
+    }
+    const minimumPaymentMinor =
+      isCreditCard && minimumPayment.trim()
+        ? parseAmountToMinor(minimumPayment, currency)
+        : null;
+    if (
+      isCreditCard &&
+      minimumPayment.trim() &&
+      (minimumPaymentMinor === null || minimumPaymentMinor <= 0)
+    ) {
+      setError(translate('coreFinance.validation.invalid'));
+      setErrorField('minimumPayment');
+      return;
+    }
+
     const input = {
       name: name.trim(),
       type,
@@ -173,7 +273,13 @@ export function AccountForm({
       openingBalanceMinor,
       institution: account?.institution ?? null,
       lastFour: lastFour.trim() ? lastFour.trim().slice(-4) : null,
-      creditLimitMinor: creditLimitMinor ?? account?.creditLimitMinor ?? null,
+      creditLimitMinor: isCreditCard ? creditLimitMinor : null,
+      statementDay: isCreditCard ? parsedStatementDay : null,
+      paymentDueDay: isCreditCard ? parsedPaymentDueDay : null,
+      monthlyInterestRateBasisPoints: isCreditCard
+        ? parsedMonthlyInterestRateBasisPoints
+        : null,
+      minimumPaymentMinor: isCreditCard ? minimumPaymentMinor : null,
       isDefault,
       automaticTrackingEnabled,
       notes: account?.notes ?? null
@@ -351,7 +457,42 @@ export function AccountForm({
                 errorText={errorField === 'creditLimit' ? error : undefined}
                 placeholder={t('common.zeroPlaceholder')}
               />
-
+              <FormField
+                label={t('coreFinance.accounts.setup.statementDay')}
+                value={statementDay}
+                onChangeText={setStatementDay}
+                keyboardType="number-pad"
+                errorText={errorField === 'statementDay' ? error : undefined}
+              />
+              <FormField
+                label={t('coreFinance.accounts.setup.dueDay')}
+                value={paymentDueDay}
+                onChangeText={setPaymentDueDay}
+                keyboardType="number-pad"
+                errorText={errorField === 'paymentDueDay' ? error : undefined}
+              />
+              <FormField
+                label={t(
+                  'coreFinance.accounts.setup.monthlyInterestBasisPoints'
+                )}
+                value={monthlyInterestRateBasisPoints}
+                onChangeText={setMonthlyInterestRateBasisPoints}
+                keyboardType="number-pad"
+                errorText={
+                  errorField === 'monthlyInterestRateBasisPoints'
+                    ? error
+                    : undefined
+                }
+              />
+              <FormField
+                label={t('coreFinance.accounts.setup.minimumPayment')}
+                value={minimumPayment}
+                onChangeText={setMinimumPayment}
+                variant="amount"
+                errorText={
+                  errorField === 'minimumPayment' ? error : undefined
+                }
+              />
             </>
           ) : null}
 
@@ -514,3 +655,16 @@ const styles = StyleSheet.create({
     elevation: 4
   }
 });
+
+function parseOptionalInteger(
+  text: string,
+  minimum: number,
+  maximum: number
+): number | null | undefined {
+  if (!text.trim()) return null;
+  if (!/^\d+$/.test(text.trim())) return undefined;
+  const value = Number(text);
+  return Number.isSafeInteger(value) && value >= minimum && value <= maximum
+    ? value
+    : undefined;
+}

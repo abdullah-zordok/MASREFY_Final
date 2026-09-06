@@ -22,6 +22,10 @@ describe('Phase 04 security boundaries', () => {
     '../../supabase/migrations/20260905081000_account_automatic_tracking.sql',
     'utf8',
   );
+  const cardTermsMigration = readFileSync(
+    '../../supabase/migrations/20260905082000_credit_card_terms.sql',
+    'utf8',
+  );
 
   it('forces RLS, revokes anonymous access, and keeps mutation functions server-only', () => {
     for (const table of [
@@ -58,6 +62,12 @@ describe('Phase 04 security boundaries', () => {
     );
     expect(accountTrackingMigration).toContain("message='TRACKING_ACCOUNT_BLOCKED'");
     expect(accountTrackingMigration).toContain('transaction_postings_tracking_account_gate');
+    expect(cardTermsMigration).toContain(
+      'revoke all on function private.enqueue_credit_card_due_reminders',
+    );
+    expect(cardTermsMigration.replace(/\s+/g, ' ')).toContain(
+      'grant execute on function private.enqueue_credit_card_due_reminders(date,integer) to masarifi_worker',
+    );
   });
 
   it('uses exact BFLA permissions and no generic Admin resource route', () => {

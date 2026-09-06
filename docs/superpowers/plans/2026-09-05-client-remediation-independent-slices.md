@@ -138,9 +138,9 @@
 - Modify: `apps/api/specs/004-reference-data-categories-accounts/tasks.md`
 - Modify: `apps/api/specs/004-reference-data-categories-accounts/data-model.md`
 - Modify: `apps/api/specs/004-reference-data-categories-accounts/contracts/openapi.yaml`
-- Modify: `apps/api/specs/006-sync-offline-idempotency/spec.md`
-- Modify: `apps/api/specs/006-sync-offline-idempotency/plan.md`
-- Modify: `apps/api/specs/006-sync-offline-idempotency/tasks.md`
+- Modify: `apps/api/specs/006-offline-sync-idempotency/spec.md`
+- Modify: `apps/api/specs/006-offline-sync-idempotency/plan.md`
+- Modify: `apps/api/specs/006-offline-sync-idempotency/tasks.md`
 - Modify: `apps/api/specs/006-sync-offline-idempotency/data-model.md`
 - Modify: `apps/api/specs/008-tracking-imports-deduplication/spec.md`
 - Modify: `apps/api/specs/008-tracking-imports-deduplication/plan.md`
@@ -267,18 +267,19 @@
 - Modify: `apps/mobile/src/features/accounts/AccountForm.test.tsx`
 - Modify: `apps/mobile/src/features/accounts/AccountDetailScreen.test.tsx`
 
-- [ ] Define nullable `statementDay`, `paymentDueDay`, `monthlyInterestRateBasisPoints`, and `minimumPaymentMinor` fields, with days restricted to 1–28 and non-card incompatibility rejected or cleared.
-- [ ] State unambiguously that interest is a monthly rate in integer basis points; money is integer minor units; every monthly interest charge rounds half-up to the nearest minor unit.
-- [ ] Define calculator inputs/outputs and golden cases for zero balance, zero interest, insufficient payment, exact final payment, multi-month rounding, and a case that would expose any 100x scale error.
-- [ ] Define a finite 1,200-month safety ceiling and a non-payoff result when payment does not exceed accrued interest.
-- [ ] Define due reminders as reuse of Phase 11 notification events/delivery policy, with device execution remaining behind the existing external-delivery gate.
-- [ ] Add failing contract/domain/UI golden tests and run focused RED checks.
+- [x] Define nullable `statementDay`, `paymentDueDay`, `monthlyInterestRateBasisPoints`, and `minimumPaymentMinor` fields, with days restricted to 1–28 and non-card incompatibility rejected or cleared.
+- [x] State unambiguously that interest is a monthly rate in integer basis points; money is integer minor units; every monthly interest charge rounds half-up to the nearest minor unit.
+- [x] Define calculator inputs/outputs and golden cases for zero balance, zero interest, insufficient payment, exact final payment, multi-month rounding, and a case that would expose any 100x scale error.
+- [x] Define a finite 1,200-month safety ceiling and a non-payoff result when payment does not exceed accrued interest.
+- [x] Define due reminders as reuse of Phase 11 notification events/delivery policy, with device execution remaining behind the existing external-delivery gate.
+- [x] Add failing contract/domain/UI golden tests and run focused RED checks.
 
 ### Task 3.2 — Add account terms, calculator, sync, and reminder integration
 
 **Files:**
 
 - Create: `supabase/migrations/20260905082000_credit_card_terms.sql`
+- Create: `supabase/migrations/20260906080000_credit_card_reminder_batches.sql`
 - Create: `supabase/tests/053_credit_card_terms.sql`
 - Modify: `apps/api/src/reference/reference.dto.ts`
 - Modify: `apps/api/src/reference/reference.controller.ts`
@@ -290,14 +291,14 @@
 - Modify: `apps/api/test/integration/reference/account.integration.spec.ts`
 - Modify: `apps/api/test/integration/sync/delta.integration.spec.ts`
 - Modify: `apps/api/test/security/reference/reference-boundaries.spec.ts`
-- Modify: `supabase/tests/044_phase11_notifications.sql`
+- Modify: `supabase/tests/050_phase11_content_commands.sql`
 
-- [ ] Add constrained account columns with existing rows left null and clear all card-only fields when an account changes to a non-credit-card type.
-- [ ] Map fields through CRUD, audit/events, OpenAPI, sync snapshots/deltas, and tombstones without leakage or silent loss.
-- [ ] Implement the payoff calculator as a small pure BigInt function and authenticated stateless API operation; use no float/decimal arithmetic or provider assumptions.
-- [ ] Add a due-reminder producer that calls existing Phase 11 notification-event policy/infrastructure and is idempotent for account/due date; do not add another scheduler or delivery system.
-- [ ] Cover DB constraints, old rows, incompatible types, BOLA, idempotent reminders, notification preference suppression, and all golden payoff cases.
-- [ ] Run clean DB, pgTAP, API lint/typecheck/build, and focused GREEN checks.
+- [x] Add constrained account columns with existing rows left null and clear all card-only fields when an account changes to a non-credit-card type.
+- [x] Map fields through CRUD, audit/events, OpenAPI, sync snapshots/deltas, and tombstones without leakage or silent loss.
+- [x] Implement the payoff calculator as a small pure BigInt function and authenticated stateless API operation; use no float/decimal arithmetic or provider assumptions.
+- [x] Add a due-reminder producer that calls existing Phase 11 notification-event policy/infrastructure and is idempotent for account/due date; do not add another scheduler or delivery system.
+- [x] Cover DB constraints, old rows, incompatible types, BOLA, idempotent reminders, notification preference suppression, and all golden payoff cases.
+- [x] Run clean DB, pgTAP, API lint/typecheck/build, and focused GREEN checks.
 
 ### Task 3.3 — Add offline-capable Mobile fields and calculator UI
 
@@ -308,8 +309,8 @@
 - Create: `apps/mobile/src/domain/credit-card-payoff.test.ts`
 - Modify: `apps/mobile/src/storage/core-finance-repository.ts`
 - Modify: `apps/mobile/src/storage/core-finance-sync-adapter.ts`
-- Modify: `apps/mobile/src/services/contracts/core-finance-service.ts`
-- Modify: `apps/mobile/src/services/mocks/core-finance-service.ts`
+- Create: `apps/mobile/src/services/live/account-service.ts`
+- Create: `apps/mobile/src/services/live/account-service.test.ts`
 - Modify: `apps/mobile/src/features/accounts/AccountForm.tsx`
 - Modify: `apps/mobile/src/features/accounts/AccountDetailScreen.tsx`
 - Modify: `apps/mobile/src/localization/i18n.ts`
@@ -317,19 +318,19 @@
 - Modify: `apps/mobile/src/storage/sync-delta.test.ts`
 - Modify: `apps/mobile/src/localization/core-finance-messages.test.ts`
 
-- [ ] Add card-only form inputs and validation with native numeric entry, accessible labels, localized errors, and no incompatible data retained for non-card accounts.
-- [ ] Persist and sync all fields offline with old-record defaults; show terms on card detail only.
-- [ ] Implement the same pure integer payoff algorithm locally for offline use and render a small calculator on credit-card detail with explicit balance/rate/payment inputs and payoff/non-payoff output.
-- [ ] Reuse the existing notification settings/infrastructure; do not claim external device delivery without its configured credentials/build gate.
-- [ ] Prove Arabic/English, accessibility, small-screen layout, persistence, sync, and exact API/mobile golden-vector parity.
-- [ ] Run Mobile lint/typecheck and focused/full Jest as proportional to changes.
+- [x] Add card-only form inputs and validation with native numeric entry, accessible labels, localized errors, and no incompatible data retained for non-card accounts.
+- [x] Persist and sync all fields offline with old-record defaults; show terms on card detail only.
+- [x] Implement the same pure integer payoff algorithm locally for offline use and render a small calculator on credit-card detail with explicit balance/rate/payment inputs and payoff/non-payoff output.
+- [x] Reuse the existing notification settings/infrastructure; do not claim external device delivery without its configured credentials/build gate.
+- [x] Prove Arabic/English, accessibility, persistence, sync, and exact API/mobile golden-vector parity; native small-screen/device acceptance remains an external gate.
+- [x] Run Mobile lint/typecheck and focused/full Jest as proportional to changes.
 
 ### Task 3.4 — Close evidence, verify, review, commit, push, and confirm CI
 
 **Files:**
 
-- Modify: `apps/api/specs/004-reference-data-categories-accounts/evidence/phase4-closeout.md`
-- Modify: `apps/api/specs/006-sync-offline-idempotency/evidence/phase6-closeout.md`
+- Modify: `apps/api/specs/004-reference-data-categories-accounts/evidence/acceptance.md`
+- Modify: `apps/api/specs/006-offline-sync-idempotency/evidence/acceptance.md`
 - Modify: `apps/api/specs/011-notifications-support-content/evidence/phase11-closeout.md`
 - Modify: `apps/mobile/specs/004-core-finance/tasks.md`
 - Modify: `apps/mobile/specs/013-r02-accounts/tasks.md`
@@ -337,12 +338,35 @@
 - Modify: `docs/Back end/BACKEND_MASTER_PLAN.md`
 - Modify: this plan
 
-- [ ] Record results and close #38/#39 only; distinguish locally proven reminder creation/policy from external device delivery still gated by existing environment credentials/builds.
-- [ ] Run complete API gates, clean Supabase reset, DB lint, full pgTAP, Mobile lint/typecheck/full Jest, admin checks only if shared admin contracts changed, secret scan, and boundary tests.
-- [ ] Request an independent read-only Slice 3 review; fix every critical/important finding and rerun affected/full gates.
+- [x] Record local results for #38/#39 only; keep release completion pending remote CI and distinguish reminder creation/policy from external device delivery.
+- [x] Run complete API gates, clean Supabase reset, DB lint, full pgTAP, Mobile lint/typecheck/full Jest, affected Admin checks, and boundary/security tests; remote Gitleaks remains part of the push CI gate.
+- [x] Request an independent read-only Slice 3 review; fix every critical/important finding and rerun affected/full gates.
 - [ ] Inspect final slice and cumulative diffs, commit only Slice 3, push `main`, verify pushed SHA, and confirm required CI success.
 
 ## Final release gate
+
+### Slice 3 local verification checkpoint — 2026-09-06
+
+Slice 3 is implemented and locally verified but is not release-complete until its
+scoped push passes Backend Foundation CI. A clean Supabase reset applied every
+migration; database lint passed; full pgTAP passed 53 files / 1,687 tests. The API
+passed 112 unit suites / 838 tests, 63 contract suites / 193 tests, 86 live
+integration suites / 217 tests, 38 E2E suites / 67 tests, and 40 security suites /
+139 tests, plus lint, typecheck, build, performance syntax checks, and migration
+checksums. The configured dependency audit threshold passed with one non-blocking
+moderate transitive `qs` advisory.
+
+Mobile passed typecheck, all frontend boundary checks, and 417 Jest suites / 1,717
+tests. Lint has zero errors and 79 pre-existing warnings outside the Slice 3 files.
+Affected Admin Web passed typecheck, lint, 72 Vitest files / 796 tests, and its
+82-route production build. Independent review found and drove fixes for financial
+privacy display, customer-timezone reminder dates/expiry, account notification
+routing, batching starvation, and the injectable live account conflict/retry seam.
+
+The local database producer creates idempotent Phase 11 events and policy inputs;
+it does not prove APNs/FCM/SMTP receipt. The live account adapter is an injectable
+contract seam only. Binding account CRUD/offline upload to production providers is
+still Phase 14 work and was intentionally not added.
 
 - [ ] Confirm `main` and `origin/main` match at the final pushed SHA and no slice commit contains any baseline user-owned file.
 - [ ] Confirm the working tree differs from clean only by the recorded pre-existing paths (plus any explicitly documented external evidence artifact that cannot be committed).

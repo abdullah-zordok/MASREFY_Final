@@ -121,6 +121,7 @@ function notificationTarget(item: Json): NotificationEvent['target'] {
   const id = stringValue(data.targetId);
   if (kind === 'settings') return { kind: 'settings', key: 'notifications' };
   if (!id) return null;
+  if (kind === 'account') return { kind, accountId: id };
   if (kind === 'transaction') return { kind, transactionId: id };
   if (kind === 'obligation') return { kind, obligationId: id };
   if (kind === 'goal') return { kind, goalId: id };

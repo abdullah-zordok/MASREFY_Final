@@ -259,3 +259,11 @@ Supported account forms expose an `automaticTrackingEnabled` switch and details
 show its enabled/disabled state. Cash and other unsupported account types omit
 the control. Create defaults true; edit preserves the stored value; existing
 records missing the field normalize to true without changing other account data.
+
+## 2026-09-06 Credit-Card Terms and Payoff Addendum
+
+Credit-card create/edit renders labeled native numeric inputs for statement day,
+payment due day, monthly interest basis points, and minimum payment. Card detail
+renders only persisted terms plus a compact, scroll-safe payoff calculator with
+explicit balance/rate/payment inputs and a localized deterministic result.
+Non-card forms and details render no card terms, and changing type clears them.

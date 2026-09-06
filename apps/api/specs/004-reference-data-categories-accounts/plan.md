@@ -235,3 +235,11 @@ audit/outbox, and Mobile category flow are extended without another subsystem.
 One forward migration extends `public.accounts` with a default-true boolean and
 the existing column-level API grants. Existing DTO, repository, audit/event,
 OpenAPI, and sync paths carry the field; no new account service is introduced.
+
+## 2026-09-06 Credit-Card Terms and Payoff Additive Release
+
+Two forward migrations add nullable card terms with database constraints and a
+card-to-non-card clearing trigger. The existing account CRUD, audit/event,
+OpenAPI, and sync paths carry the fields. A stateless authenticated calculator
+uses BigInt monthly-basis-point arithmetic and half-up minor-unit rounding; it
+does not create ledger entries or provider-specific payment rules.

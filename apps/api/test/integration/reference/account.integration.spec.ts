@@ -41,6 +41,42 @@ describeLiveDatabase('account lifecycle', () => {
         automaticTrackingEnabled: boolean;
       };
     }>;
+  const createCard = () =>
+    repository.execute({
+      operation: 'createAccount',
+      principal: owner,
+      requestId,
+      query: {},
+      params: {},
+      body: {
+        name: `Card ${runId.slice(0, 5)}`,
+        type: 'credit_card',
+        currency: 'SAR',
+        institutionName: null,
+        lastFour: '1234',
+        creditLimitMinor: 200_000,
+        statementDay: 7,
+        paymentDueDay: 21,
+        monthlyInterestRateBasisPoints: 125,
+        minimumPaymentMinor: 5_000,
+        isDefault: false,
+        iconKey: null,
+        colorKey: null,
+        notes: null,
+        sortOrder: 0,
+        includeInTotals: true,
+        openedAt: null,
+      },
+    }) as Promise<{
+      account: {
+        id: string;
+        version: number;
+        statementDay: number | null;
+        paymentDueDay: number | null;
+        monthlyInterestRateBasisPoints: number | null;
+        minimumPaymentMinor: number | null;
+      };
+    }>;
 
   beforeAll(async () => {
     pool = new PoolService({
@@ -141,5 +177,60 @@ describeLiveDatabase('account lifecycle', () => {
         [created.account.id],
       ),
     ).resolves.toMatchObject({ rows: [{ changed_fields: ['automaticTrackingEnabled'] }] });
+  });
+
+  it('persists card terms, hides them from another owner, and clears them on type change', async () => {
+    const created = await createCard();
+    expect(created.account).toMatchObject({
+      statementDay: 7,
+      paymentDueDay: 21,
+      monthlyInterestRateBasisPoints: 125,
+      minimumPaymentMinor: 5_000,
+    });
+    await expect(
+      repository.execute({
+        operation: 'getAccount',
+        principal: other,
+        requestId,
+        body: {},
+        query: {},
+        params: { accountId: created.account.id },
+      }),
+    ).rejects.toThrow('NOT_FOUND');
+
+    await repository.execute({
+      operation: 'updateAccount',
+      principal: owner,
+      requestId,
+      query: {},
+      params: { accountId: created.account.id },
+      body: {
+        expectedVersion: created.account.version,
+        type: 'bank',
+        creditLimitMinor: null,
+        statementDay: null,
+        paymentDueDay: null,
+        monthlyInterestRateBasisPoints: null,
+        minimumPaymentMinor: null,
+      },
+    });
+    await expect(
+      pool.query(
+        `select credit_limit_minor,statement_day,payment_due_day,
+          monthly_interest_rate_basis_points,minimum_payment_minor
+         from public.accounts where id=$1`,
+        [created.account.id],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          credit_limit_minor: null,
+          statement_day: null,
+          payment_due_day: null,
+          monthly_interest_rate_basis_points: null,
+          minimum_payment_minor: null,
+        },
+      ],
+    });
   });
 });

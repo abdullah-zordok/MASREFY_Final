@@ -15,12 +15,14 @@ import {
   isIsoDate,
   isUuid,
   normalizeAccountPatch,
+  normalizeCreditCardPayoff,
   normalizeCategoryPatch,
   normalizeCreateAccount,
   normalizeCreateCategory,
   normalizeReason,
   normalizeVersionBody,
 } from './reference.dto';
+import { calculateCreditCardPayoffResponse } from './credit-card-payoff';
 import { ReferenceRepository, type ReferenceOperation } from './reference.repository';
 
 export interface ReferenceRequest {
@@ -43,6 +45,7 @@ const readOperations = new Set([
   'getCategoryUsage',
   'listAccounts',
   'getAccount',
+  'calculateCreditCardPayoff',
   'getExchangeRate',
   'listAdminCurrencies',
   'listAdminCountries',
@@ -189,6 +192,10 @@ export class ReferenceService {
       else if (input.operation === 'listCategories') result = await this.categories(input);
       else if (input.operation === 'createAccount')
         result = await this.ledger.createAccount(input, this.repository);
+      else if (input.operation === 'calculateCreditCardPayoff')
+        result = calculateCreditCardPayoffResponse(
+          input.body as ReturnType<typeof normalizeCreditCardPayoff>,
+        );
       else result = await this.repository.execute(input);
       if (input.permission === 'reference.write') {
         this.cache.clear();
@@ -310,6 +317,9 @@ export class ReferenceService {
         break;
       case 'getAccount':
         this.uuid(params.accountId);
+        break;
+      case 'calculateCreditCardPayoff':
+        Object.assign(body, normalizeCreditCardPayoff(body));
         break;
       case 'createAccount':
         Object.assign(body, normalizeCreateAccount(body));

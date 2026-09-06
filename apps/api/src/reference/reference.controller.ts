@@ -74,6 +74,7 @@ export const REFERENCE_ROUTES: readonly Route[] = Object.freeze(
     ['DELETE', 'api/v1/accounts/:accountId', 'archiveAccount', 204],
     ['POST', 'api/v1/accounts/:accountId/restore', 'restoreAccount', 200],
     ['POST', 'api/v1/accounts/:accountId/close', 'closeAccount', 200],
+    ['POST', 'api/v1/credit-card-payoff', 'calculateCreditCardPayoff', 200],
     ['GET', 'api/v1/admin/reference/currencies', 'listAdminCurrencies', 200, 'reference.read'],
     [
       'PATCH',
