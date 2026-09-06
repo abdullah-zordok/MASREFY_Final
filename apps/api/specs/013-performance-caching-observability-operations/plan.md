@@ -1,10 +1,10 @@
 # Implementation Plan: Performance, Caching, Observability & Operations
 
-**Phase / Spec**: Phase 13 / SPEC-BE-013  
-**Branch**: `main`  
-**Base Revision**: `2e2bf13f409e4a891fc3d8072cf07a26d7685392`  
-**Date**: 2026-09-06  
-**Spec**: [spec.md](spec.md)  
+**Phase / Spec**: Phase 13 / SPEC-BE-013
+**Branch**: `main`
+**Base Revision**: `2e2bf13f409e4a891fc3d8072cf07a26d7685392`
+**Date**: 2026-09-06
+**Spec**: [spec.md](spec.md)
 **Input**: Backend feature specification and `docs/Back end/BACKEND_MASTER_PLAN.md`
 
 ## Summary
@@ -13,15 +13,15 @@ Add the minimum operations control plane to the existing NestJS API/worker and P
 
 ## Technical Context
 
-**Language / Runtime**: TypeScript 5.9 on Node.js 24 (`>=24 <25`)  
-**Framework**: NestJS 11 with Express 5; separate API and worker entry points  
-**Primary Dependencies**: existing `pg`, NestJS Config/Swagger/Terminus, Clerk backend, OpenTelemetry API/SDK, Joi, class-validator/transformer; no new runtime dependency  
-**Storage**: PostgreSQL 17 through local/hosted Supabase; private Phase 13 tables; existing audit, identity, queue/outbox, domain, and Storage metadata consumed  
-**Testing**: Jest unit/contract/integration/E2E/security/container, pgTAP, k6/production-like plans, Admin Vitest/Playwright, Mobile Jest, secret/dependency/container scans  
-**Target Platform**: existing pinned multi-stage Node/distroless container and Supabase deployment model  
-**Project Type**: NestJS modular monolith with separate API and worker entry points  
-**Performance Goals**: bounded operational reads with P95 <= 300 ms and P99 <= 750 ms under the approved local profile; due-job claim P95 <= 100 ms for 10,000 schedules; 100-item pages and 720-point series maximum; safe meta cache <= 30 seconds; RPO <= 15 minutes and RTO <= 2 hours  
-**Constraints**: Free-only; private/API-only data; exact permissions/recent MFA/reason/audit; fixed search paths; no arbitrary execution/network; no sensitive data; no Redis; additive checksum-protected migrations; N-1 compatibility; preserve five user-owned paths  
+**Language / Runtime**: TypeScript 5.9 on Node.js 24 (`>=24 <25`)
+**Framework**: NestJS 11 with Express 5; separate API and worker entry points
+**Primary Dependencies**: existing `pg`, NestJS Config/Swagger/Terminus, Clerk backend, OpenTelemetry API/SDK, Joi, class-validator/transformer; no new runtime dependency
+**Storage**: PostgreSQL 17 through local/hosted Supabase; private Phase 13 tables; existing audit, identity, queue/outbox, domain, and Storage metadata consumed
+**Testing**: Jest unit/contract/integration/E2E/security/container, pgTAP, k6/production-like plans, Admin Vitest/Playwright, Mobile Jest, secret/dependency/container scans
+**Target Platform**: existing pinned multi-stage Node/distroless container and Supabase deployment model
+**Project Type**: NestJS modular monolith with separate API and worker entry points
+**Performance Goals**: bounded operational reads with P95 <= 300 ms and P99 <= 750 ms under the approved local profile; due-job claim P95 <= 100 ms for 10,000 schedules; 100-item pages and 720-point series maximum; safe meta cache <= 30 seconds; RPO <= 15 minutes and RTO <= 2 hours
+**Constraints**: Free-only; private/API-only data; exact permissions/recent MFA/reason/audit; fixed search paths; no arbitrary execution/network; no sensitive data; no Redis; additive checksum-protected migrations; N-1 compatibility; preserve five user-owned paths
 **Scale / Scope**: 50 or fewer registered MVP job keys, 10,000 schedule rows, 1,000,000 retained run rows before retention, 100 concurrent claimers in stress evidence, six provider categories maximum, 100 open incidents, 500 settings/flags, 720 time-series points per response
 
 No unresolved clarification remains.
@@ -96,9 +96,9 @@ docker/{backend.Dockerfile,local/compose.backend.yml,test/compose.backend.yml}
 
 ## Ownership And Boundaries
 
-**Owned resources**: nine private operational tables; registration/evaluation/claim/lifecycle functions; exact operations permissions; nine Phase 13 jobs; operations API projections/actions; safe platform meta; operations metrics/alerts/dashboards/runbooks; performance/cache/recovery inventories and evidence.  
-**Consumed contracts**: Specs 001-011 job handlers, queues/outbox, audit, Admin guard, Clerk principal, database pool, OpenTelemetry sink, health/meta, migration runner/checksums, Storage bucket metadata, Admin repositories, Mobile capability provider.  
-**Explicit exclusions**: all billing/Stripe/paid work and SPEC-BE-012; production cutover and SPEC-BE-014; domain job logic; arbitrary diagnostics/execution; Redis; UI redesign; protected user-owned files.  
+**Owned resources**: nine private operational tables; registration/evaluation/claim/lifecycle functions; exact operations permissions; nine Phase 13 jobs; operations API projections/actions; safe platform meta; operations metrics/alerts/dashboards/runbooks; performance/cache/recovery inventories and evidence.
+**Consumed contracts**: Specs 001-011 job handlers, queues/outbox, audit, Admin guard, Clerk principal, database pool, OpenTelemetry sink, health/meta, migration runner/checksums, Storage bucket metadata, Admin repositories, Mobile capability provider.
+**Explicit exclusions**: all billing/Stripe/paid work and SPEC-BE-012; production cutover and SPEC-BE-014; domain job logic; arbitrary diagnostics/execution; Redis; UI redesign; protected user-owned files.
 **Client contract impact**: Admin operations/governance repositories become live against Phase 13 routes and remove production-facing billing provider/queue/settings assumptions. Mobile gains a separate safe operations/meta adapter; its active assistant/subscription contract is not edited.
 
 ## Phase 0: Research

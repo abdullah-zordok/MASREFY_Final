@@ -1,7 +1,7 @@
 # Tasks: Performance, Caching, Observability & Operations
 
-**Input**: `apps/api/specs/013-performance-caching-observability-operations/spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/`, and `quickstart.md`  
-**Scope**: SPEC-BE-013 only; Free-only MVP; SPEC-BE-012 billing and SPEC-BE-014 launch remain deferred  
+**Input**: `apps/api/specs/013-performance-caching-observability-operations/spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/`, and `quickstart.md`
+**Scope**: SPEC-BE-013 only; Free-only MVP; SPEC-BE-012 billing and SPEC-BE-014 launch remain deferred
 **Tests**: Required and written before each non-trivial behavior
 
 Every task uses the repository's existing modules, dependencies, scripts, and client seams. The protected user-owned paths listed in `quickstart.md` must never be staged, overwritten, stashed, reset, or cleaned.

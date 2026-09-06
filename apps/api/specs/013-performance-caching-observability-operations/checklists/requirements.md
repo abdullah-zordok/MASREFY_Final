@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Performance, Caching, Observability & Operations
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: 2026-09-06  
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: 2026-09-06
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality

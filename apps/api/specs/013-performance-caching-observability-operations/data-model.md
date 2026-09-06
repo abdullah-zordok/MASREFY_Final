@@ -1,8 +1,8 @@
 # Data Model: Performance, Caching, Observability & Operations
 
-**Spec**: SPEC-BE-013  
-**Schema**: `private` only  
-**Persistence clock**: UTC (`timestamptz`)  
+**Spec**: SPEC-BE-013
+**Schema**: `private` only
+**Persistence clock**: UTC (`timestamptz`)
 **Identifiers**: UUID primary keys unless a stable text key is the business identity
 
 ## Common Rules

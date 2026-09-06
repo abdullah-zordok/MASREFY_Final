@@ -1,7 +1,7 @@
 # Research: Performance, Caching, Observability & Operations
 
-**Spec**: SPEC-BE-013  
-**Date**: 2026-09-06  
+**Spec**: SPEC-BE-013
+**Date**: 2026-09-06
 **Base revision**: `2e2bf13f409e4a891fc3d8072cf07a26d7685392`
 
 All planning unknowns are resolved. Hosted-console evidence remains an execution-time external dependency, not a design clarification.

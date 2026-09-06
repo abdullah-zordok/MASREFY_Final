@@ -1,11 +1,11 @@
 # Backend Feature Specification: Performance, Caching, Observability & Operations
 
-**Phase / Spec**: Phase 13 / SPEC-BE-013 of 014  
-**Working Branch**: `main`  
-**Feature Directory**: `apps/api/specs/013-performance-caching-observability-operations`  
-**Base Revision**: `2e2bf13f409e4a891fc3d8072cf07a26d7685392`  
-**Created**: 2026-09-06  
-**Status**: Draft  
+**Phase / Spec**: Phase 13 / SPEC-BE-013 of 014
+**Working Branch**: `main`
+**Feature Directory**: `apps/api/specs/013-performance-caching-observability-operations`
+**Base Revision**: `2e2bf13f409e4a891fc3d8072cf07a26d7685392`
+**Created**: 2026-09-06
+**Status**: Draft
 **Input**: "Harden the Free-only Masarifi MVP with governed scheduling, operational visibility, safe configuration, performance and cache governance, and verified recovery for implemented Specs 001-011."
 
 ## Objective and Scope
