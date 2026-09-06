@@ -245,4 +245,4 @@ Complete T001–T022: baseline, Shared Account Foundation, and Account List. Thi
 - [x] Clear incompatible terms when type changes and preserve them through local persistence, sync, and explicit conflict retry.
 - [x] Add account-target due-reminder routing through the existing notification controller.
 - [x] Pass full Mobile automated verification; Android/iOS device acceptance and production account cutover remain external/Phase 14 gates.
-- [ ] Record the Slice 3 pushed SHA and successful remote CI before release completion.
+- [x] Record the Slice 3 pushed SHA and successful remote CI before release completion.

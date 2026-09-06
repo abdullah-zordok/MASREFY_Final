@@ -221,4 +221,4 @@ blockers rather than inferred passes.
 - [x] Map create/update/read, audit events, OpenAPI, and owner-scoped access without exposing foreign accounts.
 - [x] Add the integer-only payoff endpoint and golden cases for zero, scale, interest coverage, final rounding, and the 1,200-month ceiling.
 - [x] Prove clean migration, existing-row compatibility, and card-to-non-card clearing.
-- [ ] Record the Slice 3 pushed SHA and successful remote CI before declaring client items #38/#39 released.
+- [x] Record the Slice 3 pushed SHA and successful remote CI before declaring client items #38/#39 released.

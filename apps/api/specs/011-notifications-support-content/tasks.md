@@ -283,4 +283,4 @@ used only for different-file independent work, and every task names an exact pat
 - [x] Prevent batch starvation and expire each action at the customer's next local midnight.
 - [x] Keep financial values out of reminder payloads and route account actions through existing Mobile notification handling.
 - [x] Prove preference/policy integration, batching, timezone behavior, and payload privacy in pgTAP/API/Mobile tests.
-- [ ] Record the Slice 3 pushed SHA and successful remote CI; provider/device delivery remains external evidence.
+- [x] Record the Slice 3 pushed SHA and successful remote CI; provider/device delivery remains external evidence.

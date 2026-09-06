@@ -1522,8 +1522,9 @@ erDiagram
   behavior. SPEC-BE-011 produces one idempotent due event per account/customer-local
   due date and reuses its existing templates, preferences, policy, and delivery.
 - Local migration, pgTAP, API, sync, Mobile, Admin, and independent-review gates
-  pass. Release CI is still pending; Phase 14 client binding and provider/device
-  delivery evidence are explicitly outside this additive release.
+  pass. Slice 3 commit `812935f2e7be1b8054070d3155c13e770c63e3eb`
+  passed Backend Foundation run `34018736375`. Phase 14 client binding and
+  provider/device delivery evidence remain explicitly outside this additive release.
 
 ### Phase 05 - SPEC-BE-005: Transactions, Ledger, Transfers & Financial Integrity
 

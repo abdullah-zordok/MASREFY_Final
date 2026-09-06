@@ -338,17 +338,17 @@
 - Modify: `docs/Back end/BACKEND_MASTER_PLAN.md`
 - Modify: this plan
 
-- [x] Record local results for #38/#39 only; keep release completion pending remote CI and distinguish reminder creation/policy from external device delivery.
+- [x] Record local results for #38/#39, then close release completion only after remote CI; distinguish reminder creation/policy from external device delivery.
 - [x] Run complete API gates, clean Supabase reset, DB lint, full pgTAP, Mobile lint/typecheck/full Jest, affected Admin checks, and boundary/security tests; remote Gitleaks remains part of the push CI gate.
 - [x] Request an independent read-only Slice 3 review; fix every critical/important finding and rerun affected/full gates.
-- [ ] Inspect final slice and cumulative diffs, commit only Slice 3, push `main`, verify pushed SHA, and confirm required CI success.
+- [x] Inspect final slice and cumulative diffs, commit only Slice 3, push `main`, verify pushed SHA, and confirm required CI success.
 
 ## Final release gate
 
 ### Slice 3 local verification checkpoint — 2026-09-06
 
-Slice 3 is implemented and locally verified but is not release-complete until its
-scoped push passes Backend Foundation CI. A clean Supabase reset applied every
+Slice 3 is implemented, locally verified, and release-complete after its scoped
+push passed Backend Foundation CI. A clean Supabase reset applied every
 migration; database lint passed; full pgTAP passed 53 files / 1,687 tests. The API
 passed 112 unit suites / 838 tests, 63 contract suites / 193 tests, 86 live
 integration suites / 217 tests, 38 E2E suites / 67 tests, and 40 security suites /
@@ -368,9 +368,16 @@ it does not prove APNs/FCM/SMTP receipt. The live account adapter is an injectab
 contract seam only. Binding account CRUD/offline upload to production providers is
 still Phase 14 work and was intentionally not added.
 
-- [ ] Confirm `main` and `origin/main` match at the final pushed SHA and no slice commit contains any baseline user-owned file.
-- [ ] Confirm the working tree differs from clean only by the recorded pre-existing paths (plus any explicitly documented external evidence artifact that cannot be committed).
-- [ ] Re-run or cite fresh successful results for API lint/typecheck/build/test, clean Supabase reset/lint/full pgTAP, Mobile lint/typecheck/full Jest, applicable admin checks, secret scan, and boundary/security suites.
-- [ ] Verify the latest required remote CI checks on the final SHA.
-- [ ] Ensure `docs/CLIENT_REMEDIATION_PLAN.md`, `docs/Back end/BACKEND_MASTER_PLAN.md`, owning spec evidence, and every checkbox above reflect actual—not intended—completion.
-- [ ] Report exact commit SHAs, pushed branch, local and remote evidence, unresolved Phase 14/live delivery gates, and preserved user changes.
+Implementation commit `812935f2e7be1b8054070d3155c13e770c63e3eb`
+was pushed to `origin/main`. Backend Foundation run
+[`34018736375`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34018736375)
+passed Admin, Application, Mobile, Database, secrets/redaction, image/container,
+non-root, and Critical/High vulnerability-scan jobs. Client items #38/#39 are
+release-complete within the approved scope.
+
+- [x] Confirm `main` and `origin/main` match at the final pushed SHA and no slice commit contains any baseline user-owned file.
+- [x] Confirm the working tree differs from clean only by the recorded pre-existing paths.
+- [x] Cite fresh successful results for API lint/typecheck/build/test, clean Supabase reset/lint/full pgTAP, Mobile lint/typecheck/full Jest, applicable Admin checks, secret scan, and boundary/security suites.
+- [x] Verify the latest required remote CI checks on the released implementation SHA.
+- [x] Ensure `docs/CLIENT_REMEDIATION_PLAN.md`, `docs/Back end/BACKEND_MASTER_PLAN.md`, owning spec evidence, and every checkbox above reflect actual—not intended—completion.
+- [x] Report exact commit SHAs, pushed branch, local and remote evidence, unresolved Phase 14/live delivery gates, and preserved user changes.

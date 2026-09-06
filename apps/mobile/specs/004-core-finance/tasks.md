@@ -348,4 +348,4 @@ before T097-T099 and T101 complete the journey.
 - [x] Add the integer-only offline payoff calculator with API-parity golden vectors.
 - [x] Render accessible Arabic/English form/detail/calculator states and protect minimum payment behind financial-value privacy.
 - [x] Pass Mobile typecheck, frontend boundary checks, and the complete 417-suite / 1,717-test Jest run.
-- [ ] Record the Slice 3 pushed SHA and successful remote CI before release completion.
+- [x] Record the Slice 3 pushed SHA and successful remote CI before release completion.

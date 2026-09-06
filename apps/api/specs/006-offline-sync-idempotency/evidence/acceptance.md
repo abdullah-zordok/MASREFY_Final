@@ -51,4 +51,7 @@ operator recovery visibility.
 - The injectable live account seam validates authenticated create/read/update,
   idempotency keys, optimistic versions, conflict detection, and explicit retry
   without dropping card terms. Production account upload/cutover remains Phase 14.
-- Release SHA and remote CI remain pending and are not claimed by this local record.
+- Slice 3 shipped in `812935f2e7be1b8054070d3155c13e770c63e3eb`;
+  Backend Foundation run
+  [`34018736375`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34018736375)
+  passed all required jobs.

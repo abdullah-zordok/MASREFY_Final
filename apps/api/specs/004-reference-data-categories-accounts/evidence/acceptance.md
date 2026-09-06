@@ -85,4 +85,7 @@ Windows `core.autocrlf` normalization and has no content diff. A fresh
   139 tests; lint, typecheck, build, and checksums also pass.
 - Independent review findings on hidden-value display, timezone handling, batching,
   account notification routing, and the injectable live retry seam were fixed and
-  reverified. Release SHA and remote CI remain pending and are not inferred here.
+  reverified. Slice 3 shipped in `812935f2e7be1b8054070d3155c13e770c63e3eb`;
+  Backend Foundation run
+  [`34018736375`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34018736375)
+  passed all required jobs.

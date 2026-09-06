@@ -105,4 +105,8 @@ Signed off: Codex verification agent, 2026-09-05.
   existing protected notification controller.
 - This proves local event creation and Phase 11 policy integration only. APNs,
   FCM, SMTP receipt, and physical-device action acceptance remain external.
-- Release SHA and Backend Foundation CI are pending and not claimed here.
+- Slice 3 shipped in `812935f2e7be1b8054070d3155c13e770c63e3eb`;
+  Backend Foundation run
+  [`34018736375`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34018736375)
+  passed all required jobs, including secrets, database, image/container, and
+  Critical/High vulnerability scanning.

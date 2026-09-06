@@ -286,4 +286,4 @@ changes.
 - [x] Attach every card term to account upsert deltas and keep tombstones private.
 - [x] Prove legacy snapshots map omitted terms to null and live owner bootstrap excludes foreign accounts.
 - [x] Prove Mobile persists/reloads the terms and applies both snake-case and camel-case deltas.
-- [ ] Record the Slice 3 pushed SHA and successful remote CI in acceptance evidence.
+- [x] Record the Slice 3 pushed SHA and successful remote CI in acceptance evidence.
