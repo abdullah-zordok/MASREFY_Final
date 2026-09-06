@@ -1,0 +1,976 @@
+openapi: 3.1.0
+info:
+  title: Masarifi SPEC-BE-013 Operations API
+  version: 1.0.0
+  description: Bounded Free-only operations, configuration, performance, recovery, and safe client metadata contracts.
+servers:
+  - url: /
+security:
+  - ClerkBearer: []
+paths:
+  /api/v1/admin/system-health/overview:
+    get:
+      operationId: getOperationsHealthOverview
+      tags: [Operations]
+      parameters:
+        - $ref: '#/components/parameters/Range'
+        - $ref: '#/components/parameters/Platform'
+      responses:
+        '200': { $ref: '#/components/responses/HealthOverview' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '503': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/system-health/providers:
+    get:
+      operationId: listProviderHealth
+      tags: [Operations]
+      parameters:
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - name: provider
+          in: query
+          schema: { $ref: '#/components/schemas/ProviderKey' }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ProviderStatus' }
+      responses:
+        '200': { $ref: '#/components/responses/ProviderPage' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/jobs/queues:
+    get:
+      operationId: getQueueWorkerHealth
+      tags: [Jobs]
+      parameters:
+        - { $ref: '#/components/parameters/Range' }
+      responses:
+        '200': { $ref: '#/components/responses/QueueWorkerSummary' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/jobs/scheduled:
+    get:
+      operationId: listScheduledJobs
+      tags: [Jobs]
+      parameters:
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - name: ownerSpec
+          in: query
+          schema: { type: integer, enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13] }
+        - name: enabled
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduledJobPage' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/jobs/runs:
+    get:
+      operationId: listJobRuns
+      tags: [Jobs]
+      parameters:
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - name: jobKey
+          in: query
+          schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[a-z][a-z0-9_.-]+$' }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/JobRunStatus' }
+      responses:
+        '200': { $ref: '#/components/responses/JobRunPage' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/jobs/runs/{runId}:
+    parameters:
+      - { $ref: '#/components/parameters/RunId' }
+    get:
+      operationId: getJobRun
+      tags: [Jobs]
+      responses:
+        '200':
+          description: Safe run detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRunDetail' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/jobs/runs/{runId}/retry:
+    parameters:
+      - { $ref: '#/components/parameters/RunId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    post:
+      operationId: retryJobRun
+      tags: [Jobs]
+      requestBody: { $ref: '#/components/requestBodies/VersionedReason' }
+      responses:
+        '202': { $ref: '#/components/responses/JobAction' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/jobs/runs/{runId}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/RunId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    post:
+      operationId: cancelJobRun
+      tags: [Jobs]
+      requestBody: { $ref: '#/components/requestBodies/VersionedReason' }
+      responses:
+        '202': { $ref: '#/components/responses/JobAction' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/incidents:
+    get:
+      operationId: listSystemIncidents
+      tags: [Incidents]
+      parameters:
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/IncidentStatus' }
+        - name: severity
+          in: query
+          schema: { $ref: '#/components/schemas/IncidentSeverity' }
+      responses:
+        '200': { $ref: '#/components/responses/IncidentPage' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+    post:
+      operationId: createSystemIncident
+      tags: [Incidents]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateIncidentRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Incident' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/incidents/{incidentId}:
+    parameters:
+      - { $ref: '#/components/parameters/IncidentId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    patch:
+      operationId: updateSystemIncident
+      tags: [Incidents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateIncidentRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Incident' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/settings:
+    get:
+      operationId: listSystemSettings
+      tags: [Configuration]
+      responses:
+        '200': { $ref: '#/components/responses/SettingPage' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/settings/{settingKey}:
+    parameters:
+      - { $ref: '#/components/parameters/SettingKey' }
+    get:
+      operationId: getSystemSetting
+      tags: [Configuration]
+      responses:
+        '200': { $ref: '#/components/responses/Setting' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+    patch:
+      operationId: updateSystemSetting
+      tags: [Configuration]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSettingRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Setting' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/feature-flags:
+    get:
+      operationId: listFeatureFlags
+      tags: [Configuration]
+      parameters:
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { $ref: '#/components/responses/FlagPage' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+    post:
+      operationId: createFeatureFlag
+      tags: [Configuration]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFlagRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Flag' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/feature-flags/{flagKey}:
+    parameters:
+      - { $ref: '#/components/parameters/FlagKey' }
+    patch:
+      operationId: updateFeatureFlag
+      tags: [Configuration]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateFlagRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Flag' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/feature-flags/{flagKey}/preview:
+    parameters:
+      - { $ref: '#/components/parameters/FlagKey' }
+    post:
+      operationId: previewFeatureFlag
+      tags: [Configuration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeatureContext' }
+      responses:
+        '200':
+          description: Resolved preview
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResolvedFlag' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/maintenance:
+    get:
+      operationId: listMaintenanceWindows
+      tags: [Maintenance]
+      parameters:
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { $ref: '#/components/responses/MaintenancePage' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+    post:
+      operationId: createMaintenanceWindow
+      tags: [Maintenance]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMaintenanceRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Maintenance' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/maintenance/{windowId}:
+    parameters:
+      - { $ref: '#/components/parameters/WindowId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    patch:
+      operationId: updateMaintenanceWindow
+      tags: [Maintenance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMaintenanceRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Maintenance' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+        '404': { $ref: '#/components/responses/SafeError' }
+        '409': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/performance:
+    get:
+      operationId: getPerformanceStatus
+      tags: [Operations]
+      parameters:
+        - { $ref: '#/components/parameters/Range' }
+      responses:
+        '200': { $ref: '#/components/responses/PerformanceStatus' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/recovery:
+    get:
+      operationId: getRecoveryEvidence
+      tags: [Operations]
+      responses:
+        '200': { $ref: '#/components/responses/RecoveryEvidence' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '403': { $ref: '#/components/responses/SafeError' }
+  /api/v1/meta:
+    get:
+      operationId: getPlatformMetadata
+      tags: [Client configuration]
+      parameters:
+        - name: X-Masarifi-Platform
+          in: header
+          schema: { type: string, enum: [ios, android, admin] }
+        - name: X-Masarifi-App-Version
+          in: header
+          schema: { type: string, maxLength: 32 }
+        - name: X-Masarifi-Locale
+          in: header
+          schema: { type: string, enum: [ar, en] }
+      responses:
+        '200':
+          description: Safe Free-only metadata
+          headers:
+            Cache-Control:
+              schema: { type: string, const: 'private, max-age=30' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformMetadata' }
+        '400': { $ref: '#/components/responses/SafeError' }
+        '401': { $ref: '#/components/responses/SafeError' }
+        '503': { $ref: '#/components/responses/SafeError' }
+components:
+  securitySchemes:
+    ClerkBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Range:
+      name: range
+      in: query
+      schema: { type: string, enum: [1h, 24h, 7d, 30d], default: 24h }
+    Platform:
+      name: platform
+      in: query
+      schema: { type: string, enum: [all, ios, android], default: all }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, enum: [25, 50, 100], default: 25 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string, maxLength: 256 }
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IncidentId:
+      name: incidentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    WindowId:
+      name: windowId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SettingKey:
+      name: settingKey
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[a-z][a-z0-9_.-]+$' }
+    FlagKey:
+      name: flagKey
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 80, pattern: '^[a-z][a-z0-9.-]+$' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+  requestBodies:
+    VersionedReason:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VersionedReasonRequest' }
+  responses:
+    SafeError:
+      description: Stable safe error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SafeError' }
+    HealthOverview:
+      description: Bounded health overview
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/HealthOverview' }
+    ProviderPage:
+      description: Provider health page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProviderPage' }
+    QueueWorkerSummary:
+      description: Queue and worker summary
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/QueueWorkerSummary' }
+    ScheduledJobPage:
+      description: Scheduled job page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ScheduledJobPage' }
+    JobRunPage:
+      description: Job run page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JobRunPage' }
+    JobAction:
+      description: Safe job action accepted
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JobActionResult' }
+    IncidentPage:
+      description: Incident page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/IncidentPage' }
+    Incident:
+      description: Incident projection
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Incident' }
+    SettingPage:
+      description: Safe setting metadata
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SettingPage' }
+    Setting:
+      description: Safe setting projection
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Setting' }
+    FlagPage:
+      description: Feature flag page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FlagPage' }
+    Flag:
+      description: Safe feature flag projection
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FeatureFlag' }
+    MaintenancePage:
+      description: Maintenance page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MaintenancePage' }
+    Maintenance:
+      description: Maintenance projection
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MaintenanceWindow' }
+    PerformanceStatus:
+      description: Bounded performance status
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PerformanceStatus' }
+    RecoveryEvidence:
+      description: Redacted recovery evidence metadata
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/RecoveryEvidence' }
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    Freshness:
+      type: object
+      additionalProperties: false
+      required: [observedAt, staleAt, state]
+      properties:
+        observedAt: { $ref: '#/components/schemas/Timestamp' }
+        staleAt: { $ref: '#/components/schemas/Timestamp' }
+        state: { type: string, enum: [fresh, stale, unknown] }
+    SafeError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string, minLength: 3, maxLength: 80, pattern: '^[A-Z][A-Z0-9_]+$' }
+        message: { type: string, minLength: 1, maxLength: 240 }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+    VersionedReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    ProviderKey:
+      type: string
+      enum: [database, storage, identity, ai, email, push]
+    ProviderStatus:
+      type: string
+      enum: [up, degraded, down, unknown]
+    JobRunStatus:
+      type: string
+      enum: [queued, running, succeeded, failed, retrying, dead_lettered, canceled]
+    IncidentStatus:
+      type: string
+      enum: [open, investigating, monitoring, resolved]
+    IncidentSeverity:
+      type: string
+      enum: [info, warning, critical]
+    HealthItem:
+      type: object
+      additionalProperties: false
+      required: [key, status, freshness]
+      properties:
+        key: { type: string, minLength: 3, maxLength: 80 }
+        status: { type: string, enum: [operational, degraded, outage, maintenance, unknown] }
+        latencyMs: { type: integer, minimum: 0, maximum: 60000 }
+        safeCode: { type: [string, 'null'], maxLength: 80 }
+        freshness: { $ref: '#/components/schemas/Freshness' }
+    HealthOverview:
+      type: object
+      additionalProperties: false
+      required: [status, services, partial, freshness]
+      properties:
+        status: { type: string, enum: [operational, degraded, outage, maintenance, unknown] }
+        services: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/HealthItem' } }
+        partial: { type: boolean }
+        freshness: { $ref: '#/components/schemas/Freshness' }
+    ProviderHealth:
+      type: object
+      additionalProperties: false
+      required: [provider, status, latencyMs, checkedAt]
+      properties:
+        provider: { $ref: '#/components/schemas/ProviderKey' }
+        status: { $ref: '#/components/schemas/ProviderStatus' }
+        latencyMs: { type: integer, minimum: 0, maximum: 60000 }
+        checkedAt: { $ref: '#/components/schemas/Timestamp' }
+        safeCode: { type: [string, 'null'], maxLength: 80 }
+    ProviderPage:
+      allOf:
+        - { $ref: '#/components/schemas/CursorPage' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ProviderHealth' } }
+    QueueWorkerItem:
+      type: object
+      additionalProperties: false
+      required: [key, waiting, active, failed, oldestWaitingSeconds, status]
+      properties:
+        key: { type: string, minLength: 3, maxLength: 80 }
+        waiting: { type: integer, minimum: 0 }
+        active: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+        oldestWaitingSeconds: { type: [integer, 'null'], minimum: 0 }
+        status: { type: string, enum: [operational, degraded, outage, unknown] }
+    QueueWorkerSummary:
+      type: object
+      additionalProperties: false
+      required: [items, freshness, partial]
+      properties:
+        items: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/QueueWorkerItem' } }
+        freshness: { $ref: '#/components/schemas/Freshness' }
+        partial: { type: boolean }
+    Schedule:
+      type: object
+      additionalProperties: false
+      required: [kind, everySeconds, timezone]
+      properties:
+        kind: { type: string, const: interval }
+        everySeconds: { type: integer, minimum: 10, maximum: 2678400 }
+        timezone: { type: string, const: UTC }
+    ScheduledJob:
+      type: object
+      additionalProperties: false
+      required: [id, key, ownerSpec, type, enabled, timeoutSeconds, maxAttempts, retrySafe, cancelSafe, version]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string, minLength: 3, maxLength: 128 }
+        ownerSpec: { type: integer, enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13] }
+        type: { type: string, minLength: 3, maxLength: 80 }
+        schedule: { anyOf: [{ $ref: '#/components/schemas/Schedule' }, { type: 'null' }] }
+        enabled: { type: boolean }
+        timeoutSeconds: { type: integer, minimum: 1, maximum: 600 }
+        maxAttempts: { type: integer, minimum: 1, maximum: 10 }
+        retrySafe: { type: boolean }
+        cancelSafe: { type: boolean }
+        nextRunAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        version: { type: integer, minimum: 1 }
+    ScheduledJobPage:
+      allOf:
+        - { $ref: '#/components/schemas/CursorPage' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ScheduledJob' } }
+    JobRun:
+      type: object
+      additionalProperties: false
+      required: [id, jobKey, ownerSpec, status, queuedAt, correlationId, summary, version]
+      properties:
+        id: { type: string, format: uuid }
+        jobKey: { type: string, minLength: 3, maxLength: 128 }
+        ownerSpec: { type: integer, enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13] }
+        status: { $ref: '#/components/schemas/JobRunStatus' }
+        queuedAt: { $ref: '#/components/schemas/Timestamp' }
+        startedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        completedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        correlationId: { type: string, minLength: 1, maxLength: 128 }
+        summary: { type: object, maxProperties: 20, additionalProperties: { type: [string, number, boolean, 'null'] } }
+        version: { type: integer, minimum: 1 }
+    JobAttempt:
+      type: object
+      additionalProperties: false
+      required: [attempt, status, workerId, startedAt]
+      properties:
+        attempt: { type: integer, minimum: 1, maximum: 10 }
+        status: { type: string, enum: [running, succeeded, failed] }
+        workerId: { type: string, minLength: 1, maxLength: 128 }
+        startedAt: { $ref: '#/components/schemas/Timestamp' }
+        completedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        safeCode: { type: [string, 'null'], maxLength: 80 }
+        nextAttemptAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+    JobRunDetail:
+      type: object
+      additionalProperties: false
+      required: [run, attempts, allowedActions]
+      properties:
+        run: { $ref: '#/components/schemas/JobRun' }
+        attempts: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/JobAttempt' } }
+        allowedActions: { type: array, maxItems: 2, uniqueItems: true, items: { type: string, enum: [retry, cancel] } }
+    JobRunPage:
+      allOf:
+        - { $ref: '#/components/schemas/CursorPage' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/JobRun' } }
+    JobActionResult:
+      type: object
+      additionalProperties: false
+      required: [status, runId, version]
+      properties:
+        status: { type: string, enum: [accepted, canceled] }
+        runId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+    Incident:
+      type: object
+      additionalProperties: false
+      required: [id, title, severity, status, startedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 5, maxLength: 160 }
+        severity: { $ref: '#/components/schemas/IncidentSeverity' }
+        status: { $ref: '#/components/schemas/IncidentStatus' }
+        startedAt: { $ref: '#/components/schemas/Timestamp' }
+        resolvedAt: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        publicSummary: { type: [string, 'null'], maxLength: 500 }
+        assignedAdminId: { type: [string, 'null'], maxLength: 128 }
+        version: { type: integer, minimum: 1 }
+    CreateIncidentRequest:
+      type: object
+      additionalProperties: false
+      required: [title, severity, startedAt, reason]
+      properties:
+        title: { type: string, minLength: 5, maxLength: 160 }
+        severity: { $ref: '#/components/schemas/IncidentSeverity' }
+        startedAt: { $ref: '#/components/schemas/Timestamp' }
+        publicSummary: { type: [string, 'null'], maxLength: 500 }
+        assignedAdminId: { type: [string, 'null'], maxLength: 128 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    UpdateIncidentRequest:
+      allOf:
+        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - type: object
+          additionalProperties: false
+          properties:
+            status: { $ref: '#/components/schemas/IncidentStatus' }
+            severity: { $ref: '#/components/schemas/IncidentSeverity' }
+            publicSummary: { type: [string, 'null'], maxLength: 500 }
+            assignedAdminId: { type: [string, 'null'], maxLength: 128 }
+    IncidentPage:
+      allOf:
+        - { $ref: '#/components/schemas/CursorPage' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Incident' } }
+    Setting:
+      type: object
+      additionalProperties: false
+      required: [key, sensitivity, redacted, version, updatedAt]
+      properties:
+        key: { type: string, minLength: 3, maxLength: 128 }
+        sensitivity: { type: string, enum: [public, internal, restricted] }
+        value: {}
+        redacted: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    UpdateSettingRequest:
+      allOf:
+        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - type: object
+          required: [value]
+          properties:
+            value: {}
+    SettingPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, maxItems: 500, items: { $ref: '#/components/schemas/Setting' } }
+    FeatureRule:
+      type: object
+      additionalProperties: false
+      required: [id, priority, audience, enabled, version]
+      properties:
+        id: { type: string, format: uuid }
+        priority: { type: integer, minimum: 1, maximum: 1000 }
+        audience: { $ref: '#/components/schemas/FeatureContext' }
+        enabled: { type: boolean }
+        version: { type: integer, minimum: 1 }
+    FeatureFlag:
+      type: object
+      additionalProperties: false
+      required: [id, key, description, defaultEnabled, status, rules, version]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string, minLength: 3, maxLength: 80 }
+        description: { type: string, minLength: 10, maxLength: 240 }
+        defaultEnabled: { type: boolean }
+        status: { type: string, enum: [draft, active, retired] }
+        rules: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/FeatureRule' } }
+        version: { type: integer, minimum: 1 }
+    FeatureContext:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        platform: { type: string, enum: [ios, android, admin] }
+        appVersion: { type: string, minLength: 1, maxLength: 32 }
+        locale: { type: string, enum: [ar, en] }
+        cohort: { type: string, minLength: 1, maxLength: 40 }
+    ResolvedFlag:
+      type: object
+      additionalProperties: false
+      required: [key, enabled, version, source]
+      properties:
+        key: { type: string, minLength: 3, maxLength: 80 }
+        enabled: { type: boolean }
+        version: { type: integer, minimum: 0 }
+        source: { type: string, enum: [rule, default, missing, retired, invalid_context] }
+    CreateFlagRequest:
+      type: object
+      additionalProperties: false
+      required: [key, description, defaultEnabled, reason]
+      properties:
+        key: { type: string, minLength: 3, maxLength: 80 }
+        description: { type: string, minLength: 10, maxLength: 240 }
+        defaultEnabled: { type: boolean }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    UpdateFlagRequest:
+      allOf:
+        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - type: object
+          properties:
+            description: { type: string, minLength: 10, maxLength: 240 }
+            defaultEnabled: { type: boolean }
+            status: { type: string, enum: [draft, active, retired] }
+            rules: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/FeatureRule' } }
+    FlagPage:
+      allOf:
+        - { $ref: '#/components/schemas/CursorPage' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/FeatureFlag' } }
+    LocalizedMessage:
+      type: object
+      additionalProperties: false
+      required: [ar, en]
+      properties:
+        ar: { type: string, minLength: 1, maxLength: 240 }
+        en: { type: string, minLength: 1, maxLength: 240 }
+    MaintenanceWindow:
+      type: object
+      additionalProperties: false
+      required: [id, startsAt, endsAt, scopes, message, status, version]
+      properties:
+        id: { type: string, format: uuid }
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        endsAt: { $ref: '#/components/schemas/Timestamp' }
+        scopes:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items: { type: string, enum: [api, database, storage, identity, ai, email, push, imports, reports, notifications] }
+        message: { $ref: '#/components/schemas/LocalizedMessage' }
+        status: { type: string, enum: [scheduled, active, completed, canceled] }
+        version: { type: integer, minimum: 1 }
+    CreateMaintenanceRequest:
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [startsAt, endsAt, scopes, message, reason]
+          properties:
+            startsAt: { $ref: '#/components/schemas/Timestamp' }
+            endsAt: { $ref: '#/components/schemas/Timestamp' }
+            scopes: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { type: string } }
+            message: { $ref: '#/components/schemas/LocalizedMessage' }
+            reason: { type: string, minLength: 10, maxLength: 500 }
+    UpdateMaintenanceRequest:
+      allOf:
+        - { $ref: '#/components/schemas/VersionedReasonRequest' }
+        - type: object
+          properties:
+            startsAt: { $ref: '#/components/schemas/Timestamp' }
+            endsAt: { $ref: '#/components/schemas/Timestamp' }
+            scopes: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { type: string } }
+            message: { $ref: '#/components/schemas/LocalizedMessage' }
+            status: { type: string, enum: [scheduled, active, completed, canceled] }
+    MaintenancePage:
+      allOf:
+        - { $ref: '#/components/schemas/CursorPage' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/MaintenanceWindow' } }
+    Percentiles:
+      type: object
+      additionalProperties: false
+      required: [p50, p95, p99, unit, status]
+      properties:
+        p50: { type: [number, 'null'], minimum: 0 }
+        p95: { type: [number, 'null'], minimum: 0 }
+        p99: { type: [number, 'null'], minimum: 0 }
+        unit: { type: string, enum: [milliseconds, seconds, count, percent, bytes] }
+        status: { type: string, enum: [within_budget, breached, unavailable, not_applicable] }
+    PerformanceStatus:
+      type: object
+      additionalProperties: false
+      required: [range, budgets, series, freshness]
+      properties:
+        range: { type: string, enum: [1h, 24h, 7d, 30d] }
+        budgets: { type: object, maxProperties: 50, additionalProperties: { $ref: '#/components/schemas/Percentiles' } }
+        series:
+          type: array
+          maxItems: 720
+          items:
+            type: object
+            additionalProperties: false
+            required: [at, value]
+            properties:
+              at: { $ref: '#/components/schemas/Timestamp' }
+              value: { type: [number, 'null'], minimum: 0 }
+        freshness: { $ref: '#/components/schemas/Freshness' }
+    RecoveryEvidenceItem:
+      type: object
+      additionalProperties: false
+      required: [scope, status, observedAt, evidenceRef]
+      properties:
+        scope: { type: string, enum: [database, storage, application, rls, ledger, domains, workers, events, full_dr] }
+        status: { type: string, enum: [verified, failed, external_required, unavailable] }
+        observedAt: { $ref: '#/components/schemas/Timestamp' }
+        evidenceRef: { type: string, minLength: 1, maxLength: 160 }
+        rpoSeconds: { type: [integer, 'null'], minimum: 0 }
+        rtoSeconds: { type: [integer, 'null'], minimum: 0 }
+        safeCode: { type: [string, 'null'], maxLength: 80 }
+    RecoveryEvidence:
+      type: object
+      additionalProperties: false
+      required: [items, rpoTargetSeconds, rtoTargetSeconds]
+      properties:
+        items: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/RecoveryEvidenceItem' } }
+        rpoTargetSeconds: { type: integer, const: 900 }
+        rtoTargetSeconds: { type: integer, const: 7200 }
+    PlatformMetadata:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, serverTime, minMobileVersion, minAdminVersion, capabilities, maintenance, featureFlags]
+      properties:
+        apiVersion: { type: string, const: v1 }
+        serverTime: { $ref: '#/components/schemas/Timestamp' }
+        minMobileVersion: { type: [string, 'null'], maxLength: 32 }
+        minAdminVersion: { type: [string, 'null'], maxLength: 32 }
+        capabilities:
+          type: object
+          additionalProperties: false
+          required: [coreFinanceAvailable, billingAvailable, paidEntitlement, checkoutAvailable, subscriptionManagementAvailable, promotionsAvailable, aiAvailable, aiAllowancePerRolling24Hours]
+          properties:
+            coreFinanceAvailable: { type: boolean, const: true }
+            billingAvailable: { type: boolean, const: false }
+            paidEntitlement: { type: boolean, const: false }
+            checkoutAvailable: { type: boolean, const: false }
+            subscriptionManagementAvailable: { type: boolean, const: false }
+            promotionsAvailable: { type: boolean, const: false }
+            aiAvailable: { type: boolean }
+            aiAllowancePerRolling24Hours: { type: integer, const: 5 }
+        maintenance:
+          type: object
+          additionalProperties: false
+          required: [active, scopes, message]
+          properties:
+            active: { type: boolean }
+            scopes: { type: array, maxItems: 10, uniqueItems: true, items: { type: string } }
+            message: { anyOf: [{ $ref: '#/components/schemas/LocalizedMessage' }, { type: 'null' }] }
+        featureFlags:
+          type: object
+          additionalProperties:
+            type: boolean
+          maxProperties: 50
+        configurationVersion: { type: integer, minimum: 1 }
+    CursorPage:
+      type: object
+      required: [nextCursor]
+      properties:
+        nextCursor: { type: [string, 'null'], maxLength: 256 }
