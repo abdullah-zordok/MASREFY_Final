@@ -16,6 +16,17 @@
 > This Mobile worktree integrated SPEC-BE-006 at `2eeb00bdc6687602c2fb807b88eeb1f71bfc5807`
 > and did not modify backend code, schemas, migrations, specifications, or the Backend Master Plan.
 
+> **Free-only MVP governance update (2026-09-06):** The independent remediation
+> package for #30, #45, and #38/#39 is complete and remote-CI verified. Client
+> consistency for #29/#60 is accepted; live billing is deferred. SPEC-BE-012 is
+> a reserved Post-MVP slot, not an active MVP dependency or Phase 14 blocker.
+> Existing Mobile/Admin subscription and billing mocks are demo/test-only and
+> must not claim paid capability is live. The billing-cancellation portion of #1
+> is deferred; account deletion has no provider-cancellation step while the MVP
+> has no live subscriptions. Phase 13 validates Specs 001-011, and the free-only
+> Phase 14 has nine active waves with Billing omitted. A future SPEC-BE-012 needs
+> a separate explicitly approved Post-MVP goal.
+
 ## Global Constraints
 
 - Analysis date: 2026-08-27, Asia/Riyadh.

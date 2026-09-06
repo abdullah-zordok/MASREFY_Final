@@ -1,9 +1,40 @@
 # Masarifi Backend Master Plan
 
-Status: Planning and documentation only
+Status: SPEC-BE-001 through SPEC-BE-011 implemented; SPEC-BE-013 is the next active MVP phase
 Target branch: `main`
 Canonical implementation sequence: 14 backend Specs
-Backend state at publication: `apps/api` is an uninitialized NestJS placeholder
+Backend state at publication: Free-only MVP through SPEC-BE-011; SPEC-BE-012 is reserved Post-MVP
+
+## 0. Free-Only MVP Governance Decision (2026-09-06)
+
+This decision supersedes any active-MVP billing language elsewhere in this
+document while preserving the detailed Phase 12 design as a reserved Post-MVP
+blueprint.
+
+- SPEC-BE-012 remains a reserved numbered slot and is deferred to Post-MVP.
+- The active MVP is free-only. No Stripe, billing, paid subscription, checkout,
+  portal, payment-processing, promotion, paid entitlement, or plan-upgrade
+  implementation is authorized in SPEC-BE-013 or SPEC-BE-014.
+- SPEC-BE-009 continues to use its safe server-owned default allowance of five
+  accepted AI work requests per user per rolling 24 hours. Missing billing or
+  entitlement state cannot block that free allowance.
+- No current Mobile or Admin surface may claim that paid billing is live. Existing
+  subscription and billing mocks are demo/test-only and are not production truth.
+- Account deletion does not invoke provider subscription cancellation while the
+  free-only MVP has no live subscriptions.
+- Client-remediation items #29 and #60 are complete for current client consistency;
+  their live-billing portion is deferred with SPEC-BE-012.
+- The subscription-cancellation portion of client-remediation item #1 is deferred
+  with SPEC-BE-012; the non-billing deletion lifecycle remains governed by
+  SPEC-BE-003.
+- SPEC-BE-013 validates and operates SPEC-BE-001 through SPEC-BE-011 only.
+- SPEC-BE-014 has nine active cutover waves: Identity, Reference/accounts,
+  Ledger/sync, Planning, Tracking, Voice/AI, Reports, Engagement, and Operations.
+  The Billing wave is deferred and is not an MVP release gate.
+- SPEC-BE-014 may close the free-only MVP without Stripe, paid subscription,
+  checkout, portal, payment, promotion, or paid-entitlement capability.
+- SPEC-BE-012 may begin only under a separate, explicitly approved Post-MVP goal
+  after SPEC-BE-013 and the free-only SPEC-BE-014 cutover are complete.
 
 ## 1. Purpose
 
@@ -13,7 +44,7 @@ into an implementation-ready Supabase and NestJS plan without changing either
 client.
 
 This plan preserves the previously agreed database, financial-integrity,
-security, Docker, OpenRouter, Stripe, performance, caching, observability,
+security, Docker, OpenRouter, reserved Post-MVP Stripe, performance, caching, observability,
 testing, migration, backup, recovery, and client-cutover requirements. They are
 regrouped into exactly 14 Specs; they are not reduced.
 
@@ -24,12 +55,13 @@ regrouped into exactly 14 Specs; they are not reduced.
   cache and projection, not the server schema.
 - Admin is a Next.js application with `/api/v1/admin` repository contracts,
   Zod schemas, MSW handlers, fixtures, role/permission screens, and tests.
-- `apps/api` contains only a README describing a future NestJS modular monolith.
-- `supabase` contains placeholders only; there are no canonical migrations,
-  RLS policies, functions, seeds, or database tests yet.
+- `apps/api` contains the implemented SPEC-BE-001 through SPEC-BE-011 modular
+  backend and their verified contracts.
+- Root `supabase` contains the canonical migrations, RLS policies, functions,
+  seeds, and database tests through SPEC-BE-011.
 - Clerk is the authentication authority for both customers and administrators.
 - Supabase Postgres is the financial source of truth. OpenRouter is the AI
-  gateway. Stripe is the initial billing provider.
+  gateway. Stripe is reserved for a separately approved Post-MVP SPEC-BE-012.
 - Existing Mobile and Admin contracts are the primary behavior reference when
   older documentation conflicts with running code.
 
@@ -57,7 +89,7 @@ Clerk session JWT ----------------+       |-- OpenAPI contracts
                                           |-- API process
                                           |-- Worker process
                                           |-- OpenRouter gateway
-                                          |-- Stripe and email ingress/egress
+                                          |-- Email ingress/egress
                                           |
                                           +--> Supabase Postgres
                                           |       |-- SQL migrations
@@ -2543,7 +2575,12 @@ ciphertext, audience SQL, and scan internals are never returned.
   mocks/tests/performance/cache/migration/rollback/metrics/alerts and provider
   runbook pass.
 
-### Phase 12 - SPEC-BE-012: Stripe Billing, Plans & Entitlements
+### Phase 12 - SPEC-BE-012: Stripe Billing, Plans & Entitlements (Reserved Post-MVP)
+
+> **Not active MVP scope.** This section is retained only as a future design
+> reference. It is not a dependency for SPEC-BE-013, not a cutover wave or
+> release blocker for the free-only SPEC-BE-014, and must not be implemented
+> without a separate explicitly approved Post-MVP goal.
 
 #### Objective and Scope
 
@@ -2678,7 +2715,7 @@ behavior remains owned by its domain Spec; this Spec owns scheduling/visibility.
 
 #### Dependencies
 
-- Spec 001 begins instrumentation; Specs 002-012 expose owned metrics/jobs/events
+- Spec 001 begins instrumentation; Specs 002-011 expose owned metrics/jobs/events
   and satisfy their local budgets. This phase validates them together.
 - Spec 014 consumes release evidence and runbooks.
 
@@ -2765,7 +2802,7 @@ contents, provider responses, internal incident notes, and cache keys are exclud
 - Redis remains absent until evidence documents failing requirement, measured
   Postgres/in-process/gateway alternative, data/security model, capacity/cost,
   invalidation/HA/rollback, and approval. Adding Redis requires a plan revision.
-- Collect endpoint/database/cache/queue/worker/provider/sync/AI/billing/reconcile
+- Collect endpoint/database/cache/queue/worker/provider/sync/AI/reconcile
   metrics with safe cardinality. Alerts exist before production and carry runbook.
 - Production database target RPO <=15 minutes and RTO <=2 hours. Encrypted backup,
   PITR, Storage coverage, quarterly isolated restore, ledger/RLS/file/application
@@ -2819,7 +2856,8 @@ table, endpoint, function, job, or event.
 
 #### Dependencies
 
-- Specs 001-013 accepted with live adapters available behind current interfaces.
+- Specs 001-011 and SPEC-BE-013 accepted with live adapters available behind
+  current interfaces. SPEC-BE-012 remains reserved Post-MVP and is not a gate.
 - Current Mobile/Admin tests, fixtures, Zod schemas, repository contracts, and
   explicit demo mode remain reference inputs.
 
@@ -2879,8 +2917,11 @@ These entities are contract boundaries, not new database tables.
 | 6 Voice/AI | voice analyzer/fixtures, assistant service, Admin AI handlers | 009 | evaluation/ZDR/proposal/confirmation safety |
 | 7 Reports | report repository/schedules/recipient simulation/Admin analytics | 010 | shadow aggregates/export/email delivery |
 | 8 Engagement | notifications/support/articles/Admin communication handlers | 011 | delivery/ticket/content/internal-note isolation |
-| 9 Billing | subscription/settings and Admin billing/Stripe mocks | 012 | signed sandbox webhook/entitlement/reconcile |
-| 10 Operations | Admin health/jobs/governance/settings/flags | 013 | metrics/alerts/job/flag/DR UI parity |
+| 9 Operations | Admin health/jobs/governance/settings/flags | 013 | metrics/alerts/job/flag/DR UI parity |
+
+The former Billing wave is deferred with SPEC-BE-012. Subscription and billing
+mocks remain explicit demo/test data and must not be selected or represented as
+live production capability.
 
 Production rules:
 
@@ -2909,13 +2950,13 @@ Production rules:
 
 - Run complete OWASP ASVS/API/MASVS traceability and release-blocking gates from
   Section 6. Zero exploitable Critical/High findings.
-- Verify P95/P99/payload/query/cache/sync/queue/provider/AI/billing budgets and no
+- Verify P95/P99/payload/query/cache/sync/queue/provider/AI budgets and no
   unbounded/N+1 query on release candidate data.
 - Verify secrets absent from bundles/images/logs, production mocks/debug disabled,
-  signed webhooks, AI ZDR/allowlist, Stripe entitlements, encrypted Mobile local
+  signed active-provider webhooks, AI ZDR/allowlist, encrypted Mobile local
   data, RLS, audit, and fail-closed errors.
 - Rehearse N-1 app rollback, migration failure/forward fix, worker/webhook replay,
-  backup restore/DR RPO/RTO, Storage, and ledger/billing/report reconciliation.
+  backup restore/DR RPO/RTO, Storage, and ledger/report reconciliation.
 
 #### Tests
 
@@ -2928,7 +2969,7 @@ Production rules:
 - Domain E2E, OWASP/security, concurrency, load/stress, provider outage, migration,
   rollback, restore/DR, reconciliation, and smoke tests from Specs 001-013.
 - Bundle/static scan for mock imports, test utilities, provider/service secrets,
-  unsafe URLs, and direct OpenRouter/Supabase service-role/Stripe calls.
+  unsafe URLs, and direct OpenRouter/Supabase service-role calls.
 
 #### Migration, Rollback, and Observability
 
@@ -2944,9 +2985,10 @@ Production rules:
 
 #### Acceptance Criteria and Definition of Done
 
-- All ten waves pass contract and behavior parity with no hidden production mock.
+- All nine active MVP waves pass contract and behavior parity with no hidden
+  production mock. The deferred Billing wave is not an MVP gate.
 - Mobile SQLite and pending mutations survive; Admin permissions are server-owned;
-  all financial/report/billing values reconcile; security/performance/recovery
+  all financial/report values reconcile; security/performance/recovery
   gates pass; rollback/DR are demonstrated.
 - Contract manifest, mock-removal report, test results, migration/rollback/runbooks,
   OWASP evidence, performance/query plans, provider approvals, RPO/RTO proof,
@@ -3080,15 +3122,14 @@ Acceptance: lock-screen content contains no sensitive finance data, internal not
 never reach customers, campaigns are bounded/authorized, attachment quarantine
 works, and retries/deduplication are observable.
 
-#### SPEC-BE-012 - Stripe Billing, Plans & Entitlements
+#### SPEC-BE-012 - Stripe Billing, Plans & Entitlements (Reserved Post-MVP)
 
 Owns plans/prices/customers/subscriptions/operations, Stripe signed event inbox,
 payments/failures/promotions/redemptions, server-derived entitlements, retries,
 provider timeouts, reconciliation, and billing mock replacement.
 
-Acceptance: signatures/replay/idempotency pass, clients cannot grant entitlement,
-provider/local state reconciles, sensitive actions reverify identity, and Stripe
-outage does not affect core finance.
+Acceptance is intentionally deferred. A separate approved Post-MVP goal must
+reactivate and revalidate this blueprint before any implementation begins.
 
 ### Hardening and Cutover
 
@@ -3112,9 +3153,9 @@ demo/test separation, shadow reads, phased write cutover, production mock remova
 N-1 compatibility, migration/deployment/rollback rehearsals, final security/
 performance/recovery gates, runbooks, and launch evidence.
 
-Acceptance: all required domains run live without hidden mock fallback; Mobile
-offline data survives; Admin permissions are server-enforced; ledger/reports/
-billing reconcile; rollback is demonstrated; and every release-blocking gate in
+Acceptance: all active free-only MVP domains run live without hidden mock fallback;
+Mobile offline data survives; Admin permissions are server-enforced; ledger and
+reports reconcile; rollback is demonstrated; and every active release-blocking gate in
 this document has evidence.
 
 ## 15. Dependency and Delivery Order
@@ -3127,11 +3168,13 @@ this document has evidence.
                   |      |
                   +-- 008 -- 009 -- 010
                          |       |
-                         +-- 011 -- 012
+                         +-- 011
 
-013 begins with 001 instrumentation and hardens every completed domain.
+012 is a reserved Post-MVP branch and is not on the active MVP path.
+
+013 begins with 001 instrumentation and hardens completed Specs 001-011.
 014 starts adapter preparation early but performs final cutover only after
-001-013 satisfy their acceptance gates.
+001-011 and 013 satisfy their active acceptance gates.
 ```
 
 - Spec 001 provides queue/outbox/worker primitives so asynchronous domain Specs
