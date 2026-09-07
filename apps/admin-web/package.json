@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test --project=desktop-1440 && playwright test --project=desktop-1280 && playwright test --project=tablet-1024 && playwright test --project=tablet-768 && playwright test --project=mobile-390"
+    "test:e2e": "npm run build && playwright test --config=playwright.performance.config.ts && playwright test --project=desktop-1440 && playwright test --project=desktop-1280 && playwright test --project=tablet-1024 && playwright test --project=tablet-768 && playwright test --project=mobile-390"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",

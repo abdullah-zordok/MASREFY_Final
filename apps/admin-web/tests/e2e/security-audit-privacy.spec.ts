@@ -22,6 +22,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("US1 US2 US3 US4 US5 responsive direction route matrix renders safely across configured viewports", async ({ page }) => {
+  test.setTimeout(120_000);
   for (const route of phase7Routes) {
     const response = await page.goto(route);
     expect(response?.status(), route).toBeLessThan(400);

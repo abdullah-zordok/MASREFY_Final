@@ -8,6 +8,7 @@ export default defineConfig({
   workers: 1,
   timeout: 90_000,
   expect: { timeout: 30_000 },
+  grepInvert: /reference shell and local interactions meet Phase 0 responsiveness gates/,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
