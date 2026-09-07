@@ -25,6 +25,8 @@ export function useSimulatedRole(): AdminRole {
 }
 
 export function setSimulatedRole(role: AdminRole): void {
+  const changed = getSnapshot() !== role;
   window.sessionStorage.setItem(STORAGE_KEY, role);
+  if (!changed) return;
   window.dispatchEvent(new Event(ROLE_CHANGE_EVENT));
 }

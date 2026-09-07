@@ -26,7 +26,7 @@ export default defineConfig({
     { name: "mobile-390", use: { ...devices["iPhone 13"], browserName: "chromium", viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: "npx next dev -p 3100",
+    command: "npx next dev --webpack -p 3100",
     env: {
       NEXT_PUBLIC_ENABLE_MOCKS: "true",
     },
