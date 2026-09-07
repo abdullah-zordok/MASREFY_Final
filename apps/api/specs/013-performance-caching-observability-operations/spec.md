@@ -450,13 +450,13 @@ Required evidence includes:
 
 ## Definition of Done
 
-- [ ] All owned scope, tests, security, performance, observability, migration, rollback, recovery, and acceptance evidence required by this Spec passes.
-- [ ] All requirements and acceptance criteria have explicit local, remote, external, or not-applicable evidence without fake passes.
-- [ ] Every SPEC-BE-013 task is checked after evidence exists and no material analyze/converge gap remains.
-- [ ] Clean Code, test, security-diff, and independent reviews have no unresolved material finding.
-- [ ] SPEC-BE-012 and SPEC-BE-014 remain unimplemented; the release profile is explicitly Free-only.
-- [ ] Protected user-owned paths remain unmodified by Phase 13 and excluded from staging.
-- [ ] After local pre-push gates pass, the verified Spec is committed and pushed directly to `main` so remote-only evidence can run.
-- [ ] The Spec is complete only after all local and remote release blockers pass; remote failures are corrected by forward-fix commits on `main`.
+- [x] All owned scope, tests, security, performance, observability, migration, rollback, recovery, and acceptance evidence required by this Spec passes.
+- [x] All requirements and acceptance criteria have explicit local, remote, external, or not-applicable evidence without fake passes.
+- [x] Every SPEC-BE-013 task is checked after evidence exists and no material analyze/converge gap remains.
+- [x] Clean Code, test, security-diff, and independent reviews have no unresolved material finding.
+- [x] SPEC-BE-012 and SPEC-BE-014 remain unimplemented; the release profile is explicitly Free-only.
+- [x] Protected user-owned paths remain unmodified by Phase 13 and excluded from staging.
+- [x] After local pre-push gates pass, the verified Spec is committed and pushed directly to `main` so remote-only evidence can run.
+- [x] The Spec is complete only after all local and remote release blockers pass; remote failures are corrected by forward-fix commits on `main`.
 
 Verification listed in this document is required evidence, not a claim that it has already been executed.
