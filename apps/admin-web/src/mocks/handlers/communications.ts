@@ -78,7 +78,7 @@ export const communicationsHandlers: RequestHandler[] = [
   http.post(`${base}/feedback/:feedbackId/actions`, async ({ request, params }) => denied(request, "feedback.manage") ?? HttpResponse.json(action(String(params.feedbackId), await readActionName(request)))),
 
   http.get(`${base}/content/:collection`, ({ request }) => denied(request, "content.manage") ?? HttpResponse.json(communicationsPage("content"))),
-  http.post(`${base}/content/:collection`, async ({ request, params }) => denied(request, "content.manage") ?? HttpResponse.json(action(`CNT-${String(params.collection).toUpperCase()}-NEW`, await readActionName(request)))),
+  http.post(`${base}/content/:collection`, async ({ request }) => denied(request, "content.manage") ?? HttpResponse.json(action("CNT-1003-NEW", await readActionName(request)))),
   http.get(`${base}/content/:collection/:itemId`, ({ request, params }) => denied(request, "content.manage") ?? detail(String(params.itemId))),
   http.post(`${base}/content/:collection/:itemId/actions`, async ({ request, params }) => denied(request, "content.manage") ?? HttpResponse.json(action(String(params.itemId), await readActionName(request)))),
 

@@ -157,7 +157,7 @@ export const deliveryStatusSchema = z.enum(["queued", "sending", "delivered", "f
 export type DeliveryStatus = z.infer<typeof deliveryStatusSchema>;
 
 export const actionResultSchema = z.object({
-  resourceId: sharedIdSchema,
+  resourceId: z.union([sharedIdSchema, routeRecordIdSchema, z.uuid()]),
   previousState: z.string().optional(),
   currentState: z.string().optional(),
   outcome: z.enum(["success", "conflict", "forbidden", "not_found", "validation_error"]),
