@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import {
+  actionResultSchema,
   engagementAdminActionSchema,
   safeErrorSchema as productionSafeErrorSchema,
 } from "./contracts";
@@ -16,6 +17,21 @@ describe("communications strict schema tests", () => {
     expect(() => idSchema.parse("tkt-1001-abc")).toThrow();
     expect(() => idSchema.parse("TKT-1001")).toThrow();
     expect(() => idSchema.parse("INVALID-ID")).toThrow();
+  });
+
+  test("action results accept documented resource ID formats", () => {
+    const actionResultFields = {
+      previousState: "draft",
+      currentState: "published",
+      outcome: "success" as const,
+      message: "Mock action accepted",
+      timestamp: "2026-07-29T12:00:00+03:00",
+      auditReference: "AUDIT-7777-ACT",
+    };
+
+    expect(() => actionResultSchema.parse({ ...actionResultFields, resourceId: "TKT-1001" })).not.toThrow();
+    expect(() => actionResultSchema.parse({ ...actionResultFields, resourceId: "TKT-1001-A" })).not.toThrow();
+    expect(() => actionResultSchema.parse({ ...actionResultFields, resourceId: "10000000-0000-4000-8000-000000000001" })).not.toThrow();
   });
 
   test("masked reference schema preserves masking and rejects unmasked data", () => {

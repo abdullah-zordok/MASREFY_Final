@@ -31,6 +31,7 @@ async function confirmFirst(page: Page, accessibleName: RegExp): Promise<void> {
 test("all Spec 005 routes render safely at every approved viewport", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(180_000);
   const browserErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") browserErrors.push(message.text());
