@@ -59,6 +59,7 @@ describe("communications shared components", () => {
       <SafeText direction="ltr" maxLength={18} reducedMotion text="<script>alert('xss')</script>" />,
     );
 
+    expect(markup).toMatch(/^<span\b/);
     expect(markup).toContain("&lt;script&gt;");
     expect(markup).toContain("dir=\"ltr\"");
     expect(markup).toContain("transition:none");

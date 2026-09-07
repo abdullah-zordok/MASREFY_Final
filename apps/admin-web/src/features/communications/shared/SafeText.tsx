@@ -26,15 +26,15 @@ export function SafeText({
   className,
 }: SafeTextProps) {
   if (loading) {
-    return <p aria-live="polite" className={classNames("safe-text loading", className)}>جار التحميل...</p>;
+    return <span aria-live="polite" className={classNames("safe-text loading", className)}>جار التحميل...</span>;
   }
 
   if (!text && unavailableMessage) {
-    return <p aria-live="polite" className={classNames("safe-text unavailable", className)}>{unavailableMessage}</p>;
+    return <span aria-live="polite" className={classNames("safe-text unavailable", className)}>{unavailableMessage}</span>;
   }
 
   if (!text && emptyMessage) {
-    return <p aria-live="polite" className={classNames("safe-text empty", className)}>{emptyMessage}</p>;
+    return <span aria-live="polite" className={classNames("safe-text empty", className)}>{emptyMessage}</span>;
   }
 
   if (!text) {
@@ -46,8 +46,8 @@ export function SafeText({
     : text;
 
   return (
-    <p className={classNames("safe-text", className)} dir={direction} style={reducedMotion ? { transition: "none" } : undefined}>
+    <span className={classNames("safe-text", className)} dir={direction} style={reducedMotion ? { transition: "none" } : undefined}>
       {clippedText}
-    </p>
+    </span>
   );
 }
