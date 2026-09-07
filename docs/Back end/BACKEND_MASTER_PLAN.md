@@ -1,9 +1,9 @@
 # Masarifi Backend Master Plan
 
-Status: SPEC-BE-001 through SPEC-BE-011 implemented; SPEC-BE-013 is the next active MVP phase
+Status: SPEC-BE-001 through SPEC-BE-011 and SPEC-BE-013 implemented; SPEC-BE-014 is the next active MVP phase
 Target branch: `main`
 Canonical implementation sequence: 14 backend Specs
-Backend state at publication: Free-only MVP through SPEC-BE-011; SPEC-BE-012 is reserved Post-MVP
+Backend state at publication: Free-only MVP through SPEC-BE-013; SPEC-BE-012 is reserved Post-MVP
 
 ## 0. Free-Only MVP Governance Decision (2026-09-06)
 
@@ -2704,6 +2704,20 @@ erDiagram
   rollback/metrics/alerts and billing runbook pass.
 
 ### Phase 13 - SPEC-BE-013: Performance, Caching, Observability & Operations
+
+#### Implementation Status (2026-09-07)
+
+Implemented and accepted on synchronized `main`. Local verification, review,
+performance, recovery, traceability, and remote exact-SHA evidence are retained in
+[verification](../../apps/api/specs/013-performance-caching-observability-operations/evidence/verification.md),
+[reviews](../../apps/api/specs/013-performance-caching-observability-operations/evidence/reviews.md),
+[performance](../../apps/api/specs/013-performance-caching-observability-operations/evidence/performance.md),
+[recovery](../../apps/api/specs/013-performance-caching-observability-operations/evidence/recovery.md),
+[traceability](../../apps/api/specs/013-performance-caching-observability-operations/evidence/traceability.md),
+and [remote CI](../../apps/api/specs/013-performance-caching-observability-operations/evidence/remote-ci.md).
+SPEC-BE-012 remains deferred to Post-MVP; SPEC-BE-014 remains unstarted and is the
+next active MVP phase. Hosted recovery/provider-console and native-device/manual
+client evidence remains explicitly external and is not represented as green.
 
 #### Objective and Scope
 

@@ -1,6 +1,6 @@
 # Phase 13 local verification
 
-Date: 2026-09-06
+Date: 2026-09-07
 
 Base: `ddec10683e88a3fd5e471f1d627e5ed3676a14f3` on synchronized `main`
 
@@ -41,7 +41,7 @@ Hosted encrypted backup retention, PITR, cross-region DR, production credential 
 | Surface | Result |
 |---|---|
 | Admin typecheck/lint | PASS |
-| Admin Vitest | PASS: 73 files / 799 tests |
+| Admin Vitest | PASS: 73 files / 800 tests |
 | Admin production build | PASS: 82 routes; production mock mode is hard denied |
 | Admin Playwright | PASS: 311 passed / 284 viewport-conditioned skips across the 595-case matrix |
 | Mobile typecheck/lint | PASS; lint retains 79 pre-existing warnings and zero errors |
@@ -49,7 +49,7 @@ Hosted encrypted backup retention, PITR, cross-region DR, production credential 
 | Mobile Jest in band | PASS: 419 suites / 1,722 tests |
 | Mobile native/participant/final-consistency gate | EXTERNAL/MANUAL: Android native, iOS native, participant study, and final end-to-end consistency are correctly reported `blocked without current exception` by the repository gate |
 
-The first unconstrained parallel Mobile runs each exposed a different timing-sensitive legacy UI test; both focused reruns passed and the required deterministic `npx jest --runInBand` full run passed all 1,722 tests. The Admin matrix initially exposed one dev-toolbar selector leak; scoping the accessibility assertion to the main content fixed the root cause and the full rerun passed.
+The first unconstrained parallel Mobile runs each exposed a different timing-sensitive legacy UI test; both focused reruns passed and the required deterministic `npx jest --runInBand` full run passed all 1,722 tests. The Admin matrix initially exposed one dev-toolbar selector leak; scoping the accessibility assertion to the main content fixed the root cause and the full rerun passed. Remote closeout then exposed invalid nested paragraph markup in the shared communication text component; the inline-root regression, 7/7 focused unit tests, and the three implicated tablet suites (15 passed / 9 expected skips) passed before the five viewports were isolated into successful remote matrix jobs.
 
 ## SpecKit and scope
 

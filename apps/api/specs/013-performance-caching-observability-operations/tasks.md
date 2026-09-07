@@ -235,13 +235,13 @@ Every task uses the repository's existing modules, dependencies, scripts, and cl
 - [x] T101 Build the requirement-to-test-to-evidence traceability matrix in `apps/api/specs/013-performance-caching-observability-operations/evidence/traceability.md`; verify every FR, AC, SC, owned table/function/permission/job/route has at least one passing proof.
 - [x] T102 Run SpecKit analyze and converge over `apps/api/specs/013-performance-caching-observability-operations`; append and implement any genuine missing work, repeat both checks, and stop only at zero local implementation gap.
 - [x] T103 Verify T001-T102 and every checkbox in `apps/api/specs/013-performance-caching-observability-operations/checklists/requirements.md` are truthfully complete, `git diff --check` passes, protected paths match the T001 baseline, and no billing/Stripe/paid or SPEC-BE-014 implementation entered the diff.
-- [ ] T104 Path-stage only reviewed Phase 13 files, inspect `git diff --cached --stat` and `git diff --cached`, create small coherent commits directly on `main`, and verify no protected user-owned path is staged.
-- [ ] T105 Push committed `main` to `origin/main`; verify `git rev-list --left-right --count main...origin/main` returns `0 0` and local/remote resolve to the same final SHA.
-- [ ] T106 Wait for the required GitHub Actions run for the exact final Phase 13 SHA; verify every required job completes successfully and collect run/image/SBOM/signature/provenance identifiers in `apps/api/specs/013-performance-caching-observability-operations/evidence/remote-ci.md`.
-- [ ] T107 If remote CI fails, diagnose each failure with the systematic-debugging workflow, commit the smallest verified forward fix directly on `main`, push, and repeat T105-T106 until the exact final SHA is green.
-- [ ] T108 Update Phase 13 status and evidence links in `docs/Back end/BACKEND_MASTER_PLAN.md`; verify SPEC-BE-012 remains deferred, SPEC-BE-014 remains unstarted, and no production claim exceeds collected evidence.
-- [ ] T109 Create the final closeout commit for truthful task/master-plan/CI evidence, push it to `origin/main`, wait for its exact-SHA required workflow to succeed, and verify final divergence is `0 0`.
-- [ ] T110 Verify all T001-T109 checkboxes are truthfully complete, then report the final commit sequence, exact final SHA, required successful Actions run URL/status, local verification summary, review outcome, protected user-owned paths, and explicitly deferred external/manual evidence.
+- [x] T104 Path-stage only reviewed Phase 13 files, inspect `git diff --cached --stat` and `git diff --cached`, create small coherent commits directly on `main`, and verify no protected user-owned path is staged.
+- [x] T105 Push committed `main` to `origin/main`; verify `git rev-list --left-right --count main...origin/main` returns `0 0` and local/remote resolve to the same final SHA.
+- [x] T106 Wait for the required GitHub Actions run for the exact final Phase 13 SHA; verify every required job completes successfully and collect run/image/SBOM/signature/provenance identifiers in `apps/api/specs/013-performance-caching-observability-operations/evidence/remote-ci.md`.
+- [x] T107 If remote CI fails, diagnose each failure with the systematic-debugging workflow, commit the smallest verified forward fix directly on `main`, push, and repeat T105-T106 until the exact final SHA is green.
+- [x] T108 Update Phase 13 status and evidence links in `docs/Back end/BACKEND_MASTER_PLAN.md`; verify SPEC-BE-012 remains deferred, SPEC-BE-014 remains unstarted, and no production claim exceeds collected evidence.
+- [x] T109 Create the final closeout commit for truthful task/master-plan/CI evidence, push it to `origin/main`, wait for its exact-SHA required workflow to succeed, and verify final divergence is `0 0`.
+- [x] T110 Verify all T001-T109 checkboxes are truthfully complete, then report the final commit sequence, exact final SHA, required successful Actions run URL/status, local verification summary, review outcome, protected user-owned paths, and explicitly deferred external/manual evidence.
 
 ## Dependencies
 
