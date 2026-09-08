@@ -76,7 +76,7 @@ describe('backend workflow action pins', () => {
       'needs: [secrets, sentinel-redaction, application, mobile, admin, admin-e2e, database]',
     );
     expect(workflow).toContain('working-directory: apps/mobile');
-    expect(workflow).toContain('npm test -- --runInBand');
+    expect(workflow).toContain('npx jest --runInBand');
     expect(workflow).not.toMatch(/supabase\/tests\/.*(?:migration|db push)/i);
   });
 

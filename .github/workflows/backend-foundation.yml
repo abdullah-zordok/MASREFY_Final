@@ -100,7 +100,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npx expo prebuild --platform android --no-install
-      - run: npm test -- --runInBand
+      - run: npx jest --runInBand
 
   admin:
     runs-on: ubuntu-24.04
