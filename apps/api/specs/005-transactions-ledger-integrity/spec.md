@@ -405,8 +405,8 @@ minor units with an uppercase enabled currency.
 | GET | `/api/v1/accounts/:id/summary` | owner | UUID; optional bounded period | account, projection, recent transactions, ledgerVersion | `NOT_FOUND`, validation errors |
 
 `TransactionSummary` preserves the future adapter fields: `id`, `type`, `status`,
-absolute `amountMinor`, wire `currency`, source/destination account IDs where owner
-safe, `feeMinor`, `categoryId`, `title`, `merchant`, `paymentMethod`, `occurredAt`,
+absolute `amountMinor`, wire `currency`, membership `accountIds`, explicit
+`sourceAccountId`/`destinationAccountId`, `feeMinor`, `categoryId`, `title`, `merchant`, `paymentMethod`, `occurredAt`,
 `source`, `originalTransactionId`, `version`, `deletedAt`, and
 `undoExpiresAt`. The future Mobile adapter maps wire `currency` to its existing
 `currencyCode` field. Signed postings remain detail/internal financial truth.

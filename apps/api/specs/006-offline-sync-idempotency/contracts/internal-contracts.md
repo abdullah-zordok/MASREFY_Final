@@ -87,16 +87,20 @@ Resolution itself is idempotent under the request idempotency key.
 
 ## Cursor Codec
 
-The external cursor is opaque base64url JSON containing only:
+The external cursor is an opaque base64url payload plus HMAC-SHA256 signature. A
+regular sync cursor's decoded payload contains only:
 
 ```json
-{ "v": 1, "domain": "transactions", "position": "42" }
+{ "v": 2, "t": "s", "d": "transactions", "p": "42", "s": "scope-hmac" }
 ```
 
-Validation binds it to the requested registered domain. Ownership is enforced by
-the query's authenticated user predicate rather than encoded in the cursor.
-Malformed/version-mismatched values return `SYNC_CURSOR_INVALID`. A position
-older than retained history returns `SYNC_CURSOR_EXPIRED`.
+Bootstrap continuations use `"t": "b"` and add the UUIDv4 keyset field `"a"`.
+The scope HMAC binds every signed-v2 cursor to the authenticated user, UUIDv4
+device, and registered domain without exposing those identifiers. Malformed,
+tampered, wrong-version, wrong-type, wrong-domain, or wrong-scope values return
+`SYNC_CURSOR_INVALID`. A position older than retained history returns
+`SYNC_CURSOR_EXPIRED`; acknowledging a valid cursor not issued to that device
+returns `SYNC_CURSOR_NOT_ISSUED`.
 
 ## Transaction Boundaries
 

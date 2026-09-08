@@ -13,7 +13,7 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 ## Per-Wave Gates
 
 - [x] Wave 1 Identity accepted at `4f1ba15d2c21fe1af897beda1d1ef3a1c08c6ae7`; all required jobs in Backend Foundation run `34217625981` passed.
-- [ ] Wave 2 Reference/accounts accepted, pushed, and remotely green.
+- [x] Wave 2 Reference/accounts accepted at `4fa062691d9977c5d70062b9ada0a2c45cf4505c`; all required jobs in Backend Foundation run `34266115054` passed.
 - [ ] Wave 3 Ledger/sync accepted, pushed, and remotely green.
 - [ ] Wave 4 Planning accepted, pushed, and remotely green.
 - [ ] Wave 5 Tracking/imports accepted, pushed, and remotely green.

@@ -90,6 +90,8 @@ interface LedgerDetailResponse {
 interface ListRow extends TransactionRow {
   account_ids: string[];
   ledger_version: string;
+  source_account_id: string | null;
+  destination_account_id: string | null;
 }
 interface ReconciliationRow extends QueryResultRow {
   account_id: string;
@@ -104,6 +106,19 @@ interface ReconciliationRow extends QueryResultRow {
 
 const digest = (value: string): string =>
   `sha256:${createHash('sha256').update(value).digest('hex')}`;
+
+function transactionAccountRoles(
+  kind: string,
+  sourceAccountId: string | null | undefined,
+  destinationAccountId: string | null | undefined,
+): { sourceAccountId: string; destinationAccountId: string | null } {
+  const source = kind === 'income' ? destinationAccountId : sourceAccountId;
+  if (!source) throw new Error('LEDGER_RESULT_MISSING');
+  return {
+    sourceAccountId: source,
+    destinationAccountId: kind === 'transfer' ? (destinationAccountId ?? null) : null,
+  };
+}
 
 function domainError(code: string, status: number, currentVersion?: number): HttpException {
   return new HttpException(
@@ -435,6 +450,11 @@ export class LedgerRepository {
           t.note,t.occurred_at,t.source,t.reverses_transaction_id,t.version,t.deleted_at,
           t.undo_expires_at,
           private.ledger_account_ids(t.id) account_ids,
+          (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+            and p.posting_role in ('source','opening','refund','reversal','adjustment')
+            order by p.created_at,p.id limit 1) source_account_id,
+          (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+            and p.posting_role='destination' order by p.created_at,p.id limit 1) destination_account_id,
           coalesce((select max(b.ledger_version) from public.account_balances b
             join public.accounts a on a.id=b.account_id where a.user_id=$1),0)::text ledger_version
         from public.transactions t
@@ -497,6 +517,11 @@ export class LedgerRepository {
           t.note,t.occurred_at,t.source,t.reverses_transaction_id,t.version,t.deleted_at,
           t.undo_expires_at,
           private.ledger_account_ids(t.id) account_ids,
+          (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+            and p.posting_role in ('source','opening','refund','reversal','adjustment')
+            order by p.created_at,p.id limit 1) source_account_id,
+          (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+            and p.posting_role='destination' order by p.created_at,p.id limit 1) destination_account_id,
           coalesce((select max(b.ledger_version) from public.account_balances b
             join public.accounts a on a.id=b.account_id where a.user_id=$2),0)::text ledger_version,
           coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'accountId',p.account_id,
@@ -556,7 +581,12 @@ export class LedgerRepository {
           select t.id,t.kind,t.status,t.amount_minor,t.fee_minor,btrim(t.currency_code::text) currency,
             t.category_id,t.title,t.merchant,t.payment_method,t.note,t.occurred_at,t.source,
             t.reverses_transaction_id,t.version,t.deleted_at,t.undo_expires_at,
-            private.ledger_account_ids(t.id) account_ids
+            private.ledger_account_ids(t.id) account_ids,
+            (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+              and p.posting_role in ('source','opening','refund','reversal','adjustment')
+              order by p.created_at,p.id limit 1) source_account_id,
+            (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+              and p.posting_role='destination' order by p.created_at,p.id limit 1) destination_account_id
           from public.transactions t where t.user_id=$1
             and exists(select 1 from public.transaction_postings p
               where p.transaction_id=t.id and p.account_id=$2)
@@ -1068,6 +1098,13 @@ export class LedgerRepository {
       amountMinor: Number(transaction.amount_minor),
       currency: transaction.currency,
       accountIds,
+      ...transactionAccountRoles(
+        transaction.kind,
+        postings.find((row) =>
+          ['source', 'opening', 'refund', 'reversal', 'adjustment'].includes(row.posting_role),
+        )?.account_id,
+        postings.find((row) => row.posting_role === 'destination')?.account_id,
+      ),
       feeMinor: Number(transaction.fee_minor),
       categoryId: transaction.category_id,
       title: transaction.title,
@@ -1107,10 +1144,17 @@ export class LedgerRepository {
     transactionId: string,
   ): Promise<Record<string, unknown>> {
     const transaction = (
-      await client.query<TransactionRow>(
+      await client.query<
+        TransactionRow & Pick<ListRow, 'source_account_id' | 'destination_account_id'>
+      >(
         `select id,kind,status,amount_minor,fee_minor,btrim(currency_code::text) currency,category_id,title,
-       merchant,payment_method,note,occurred_at,source,reverses_transaction_id,version,deleted_at,undo_expires_at
-       from public.transactions where id=$1`,
+       merchant,payment_method,note,occurred_at,source,reverses_transaction_id,version,deleted_at,undo_expires_at,
+       (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+         and p.posting_role in ('source','opening','refund','reversal','adjustment')
+         order by p.created_at,p.id limit 1) source_account_id,
+       (select p.account_id from public.transaction_postings p where p.transaction_id=t.id
+         and p.posting_role='destination' order by p.created_at,p.id limit 1) destination_account_id
+       from public.transactions t where id=$1`,
         [transactionId],
       )
     ).rows[0];
@@ -1129,6 +1173,11 @@ export class LedgerRepository {
       amountMinor: Number(transaction.amount_minor),
       currency: transaction.currency,
       accountIds,
+      ...transactionAccountRoles(
+        transaction.kind,
+        transaction.source_account_id,
+        transaction.destination_account_id,
+      ),
       feeMinor: Number(transaction.fee_minor),
       categoryId: transaction.category_id,
       title: transaction.title,
@@ -1144,7 +1193,7 @@ export class LedgerRepository {
     };
   }
 
-  private mapSummary(transaction: TransactionRow, accountIds: string[]): Record<string, unknown> {
+  private mapSummary(transaction: ListRow, accountIds: string[]): Record<string, unknown> {
     return {
       id: transaction.id,
       kind: transaction.kind,
@@ -1152,6 +1201,11 @@ export class LedgerRepository {
       amountMinor: Number(transaction.amount_minor),
       currency: transaction.currency,
       accountIds,
+      ...transactionAccountRoles(
+        transaction.kind,
+        transaction.source_account_id,
+        transaction.destination_account_id,
+      ),
       feeMinor: Number(transaction.fee_minor),
       categoryId: transaction.category_id,
       title: transaction.title,

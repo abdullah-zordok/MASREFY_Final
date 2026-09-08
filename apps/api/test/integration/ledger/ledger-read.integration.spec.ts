@@ -5,12 +5,28 @@ import { createLivePool, describeLiveDatabase } from '../../live-database';
 
 type Principal = { userId: string; sessionId: string; factorAgeSeconds: number };
 type Page = {
-  items: Array<{ id: string; title: string; occurredAt: string }>;
+  items: Array<{
+    id: string;
+    title: string;
+    occurredAt: string;
+    sourceAccountId: string;
+    destinationAccountId: string | null;
+  }>;
   nextCursor: string | null;
   ledgerVersion: number;
 };
 type ReadRepository = LedgerRepository & {
   listTransactions(principal: Principal, query: Record<string, unknown>): Promise<Page>;
+  getTransaction(
+    principal: Principal,
+    transactionId: string,
+  ): Promise<{
+    transaction: {
+      id: string;
+      sourceAccountId: string;
+      destinationAccountId: string | null;
+    };
+  }>;
   getAccountSummary(
     principal: Principal,
     accountId: string,
@@ -29,6 +45,7 @@ describeLiveDatabase('ledger read repository', () => {
     factorAgeSeconds: 0,
   };
   const accountId = randomUUID();
+  const transferAccountId = randomUUID();
   const pool = createLivePool();
   const reads = new LedgerRepository(pool) as ReadRepository;
   const occurredAt = '2026-08-30T08:00:00.000Z';
@@ -41,8 +58,8 @@ describeLiveDatabase('ledger read repository', () => {
         owner.userId,
       ]);
       await client.query(
-        "insert into public.accounts(id,user_id,name,type,currency_code) values($1,$2,'Cash','cash','SAR')",
-        [accountId, owner.userId],
+        "insert into public.accounts(id,user_id,name,type,currency_code) values($1,$3,'Cash','cash','SAR'),($2,$3,'Bank','bank','SAR')",
+        [accountId, transferAccountId, owner.userId],
       );
       await client.query('commit');
     });
@@ -106,6 +123,77 @@ describeLiveDatabase('ledger read repository', () => {
       balance: { confirmedMinor: -300, pendingMinor: 0, ledgerVersion: 3 },
       ledgerVersion: 3,
     });
+  });
+
+  it('returns transfer roles independently from sorted account membership', async () => {
+    const [destinationAccountId, sourceAccountId] = [accountId, transferAccountId].sort();
+    const transfer = (await reads.mutate({
+      operation: 'transfer',
+      scope: 'ledger.transfer.create',
+      principal: owner,
+      command: {
+        sourceAccountId,
+        destinationAccountId,
+        amountMinor: 100,
+        currency: 'SAR',
+        feeMinor: 0,
+        feeAccountId: sourceAccountId,
+        occurredAt,
+        title: 'Role ordered transfer',
+        note: null,
+      },
+      idempotencyKey: 'ledger-read-transfer-role',
+      requestId: 'ledger-read-transfer-role',
+      status: 201,
+    })) as { transaction: { transaction: { id: string } } };
+
+    const page = await reads.listTransactions(owner, { limit: 25 });
+
+    expect(page.items.find(({ id }) => id === transfer.transaction.transaction.id)).toMatchObject({
+      sourceAccountId,
+      destinationAccountId,
+    });
+  });
+
+  it('maps an income account as source in mutation, list, and detail summaries', async () => {
+    const response = (await reads.mutate({
+      operation: 'createTransaction',
+      scope: 'ledger.transaction.create',
+      principal: owner,
+      command: {
+        kind: 'income',
+        amountMinor: 250,
+        currency: 'SAR',
+        accountId,
+        categoryId: null,
+        title: 'Income role mapping',
+        merchant: null,
+        paymentMethod: null,
+        note: null,
+        occurredAt,
+        source: 'manual',
+        externalRef: null,
+      },
+      idempotencyKey: 'ledger-read-income-role',
+      requestId: 'ledger-read-income-role',
+      status: 201,
+    })) as {
+      transaction: {
+        transaction: {
+          id: string;
+          sourceAccountId: string;
+          destinationAccountId: string | null;
+        };
+      };
+    };
+    const expected = { sourceAccountId: accountId, destinationAccountId: null };
+    const id = response.transaction.transaction.id;
+
+    expect(response.transaction.transaction).toMatchObject(expected);
+    const page = await reads.listTransactions(owner, { limit: 25 });
+    const detail = await reads.getTransaction(owner, id);
+    expect(page.items.find((item) => item.id === id)).toMatchObject(expected);
+    expect(detail.transaction).toMatchObject({ id, ...expected });
   });
 
   it('uses a bounded number of database statements for a 100-row page rather than one query per row', async () => {

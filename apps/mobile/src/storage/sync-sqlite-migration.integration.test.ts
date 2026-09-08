@@ -72,5 +72,62 @@ const sqliteAvailable =
         rmSync(directory, { recursive: true, force: true });
       }
     });
+
+    it('keeps queued dependencies and unresolved conflicts across a database restart', () => {
+      const directory = mkdtempSync(join(tmpdir(), 'masarifi-restart-'));
+      const database = join(directory, 'owner-a.db');
+      const otherOwner = join(directory, 'owner-b.db');
+      try {
+        const migrations = migrationSql();
+        const schema = Array.from({ length: migrations.size }, (_, index) => {
+          const version = index + 1;
+          return `${migrations.get(version)}\nINSERT INTO schema_migrations(version,applied_at) VALUES(${version},0);`;
+        }).join('\n');
+        const create = spawnSync('sqlite3', ['-batch', database], {
+          encoding: 'utf8',
+          input: `
+            CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,applied_at INTEGER NOT NULL);
+            ${schema}
+            INSERT INTO sync_mutation_queue(operation_id,domain,resource_type,operation,resource_id,depends_on,payload,status,created_at,updated_at)
+              VALUES('parent','transactions','transaction','create','local-parent','[]','{}','pending',1,1),
+                    ('child','transactions','transaction','create','local-child','["parent"]','{}','pending',2,2);
+            INSERT INTO finance_sync_conflicts(id,transaction_id,payload,status,created_at)
+              VALUES('conflict','local-parent','{}','pending',1);
+          `
+        });
+        expect(create.status).toBe(0);
+        expect(create.stderr).toBe('');
+
+        const reopened = spawnSync(
+          'sqlite3',
+          [
+            '-batch',
+            '-separator',
+            '|',
+            database,
+            'SELECT operation_id,depends_on,status FROM sync_mutation_queue ORDER BY created_at; SELECT id,status FROM finance_sync_conflicts;'
+          ],
+          { encoding: 'utf8' }
+        );
+        expect(reopened.status).toBe(0);
+        expect(reopened.stdout.trim().split(/\r?\n/)).toEqual([
+          'parent|[]|pending',
+          'child|["parent"]|pending',
+          'conflict|pending'
+        ]);
+        const isolated = spawnSync(
+          'sqlite3',
+          [
+            '-batch',
+            otherOwner,
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='sync_mutation_queue';"
+          ],
+          { encoding: 'utf8' }
+        );
+        expect(isolated.stdout.trim()).toBe('0');
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    });
   }
 );

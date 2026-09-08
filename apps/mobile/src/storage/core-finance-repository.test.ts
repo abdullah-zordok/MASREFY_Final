@@ -6,6 +6,7 @@ import {
   makeConflict
 } from '@/test-utils/core-finance-fixtures';
 import { CoreFinanceRepository } from './core-finance-repository';
+import * as databaseModule from './database';
 
 function repository() {
   return new CoreFinanceRepository({
@@ -43,10 +44,8 @@ it('preserves the per-account automatic-tracking opt-out', () => {
   });
   expect(repo.requireAccount(created.id).automaticTrackingEnabled).toBe(false);
   expect(
-    repo.saveAccount(
-      { ...created, automaticTrackingEnabled: true },
-      created.id
-    ).automaticTrackingEnabled
+    repo.saveAccount({ ...created, automaticTrackingEnabled: true }, created.id)
+      .automaticTrackingEnabled
   ).toBe(true);
 });
 
@@ -70,9 +69,7 @@ it('stores card terms and clears them when the account stops being a credit card
     minimumPaymentMinor: 5_000
   });
 
-  expect(
-    repo.saveAccount({ ...card, type: 'bank' }, card.id)
-  ).toMatchObject({
+  expect(repo.saveAccount({ ...card, type: 'bank' }, card.id)).toMatchObject({
     creditLimitMinor: null,
     statementDay: null,
     paymentDueDay: null,
@@ -284,4 +281,156 @@ it('rolls back a staged planning ledger write when planning fails', async () => 
     )
   ).rejects.toThrow('planning failed');
   expect(repo.allTransactions()).toHaveLength(before);
+});
+
+it('reloads authoritative direct-sync SQL without a cache-wide overwrite', async () => {
+  let stored = { ...fixtureTransactions[0], title: 'Before sync' };
+  const database = {
+    getAllAsync: jest.fn(async (sql: string) => {
+      if (sql.includes('finance_transactions'))
+        return [{ payload: JSON.stringify(stored) }];
+      return [];
+    }),
+    runAsync: jest.fn(async () => undefined),
+    execAsync: jest.fn(async () => undefined),
+    withExclusiveTransactionAsync: jest.fn()
+  };
+  database.withExclusiveTransactionAsync.mockImplementation(
+    async (action: (value: unknown) => Promise<void>) => action(database)
+  );
+  const open = jest
+    .spyOn(databaseModule, 'openDatabase')
+    .mockResolvedValue(database as never);
+  try {
+    const repo = new CoreFinanceRepository();
+    await repo.hydrate();
+    expect(repo.requireTransaction(stored.id).title).toBe('Before sync');
+
+    stored = { ...stored, title: 'After sync', version: stored.version + 1 };
+    await repo.hydrate();
+    expect(repo.requireTransaction(stored.id)).toMatchObject({
+      title: 'After sync',
+      version: stored.version
+    });
+    expect(database.execAsync).not.toHaveBeenCalledWith(
+      expect.stringMatching(/DELETE FROM finance_transactions/i)
+    );
+  } finally {
+    open.mockRestore();
+  }
+});
+
+it('replays a durable multi-transaction operation receipt after restart', async () => {
+  const transactions: { payload: string }[] = [];
+  const operations: {
+    operation_id: string;
+    transaction_id: string;
+    payload: string;
+    kind: string;
+    status: string;
+  }[] = [];
+  const database = {
+    getAllAsync: jest.fn(async (sql: string) => {
+      if (sql.includes('finance_transactions')) return transactions;
+      if (sql.includes('finance_operations')) return operations;
+      return [];
+    }),
+    runAsync: jest.fn(async (sql: string, ...values: unknown[]) => {
+      if (sql.includes('INSERT INTO finance_transactions'))
+        transactions.push({ payload: String(values[1]) });
+      if (sql.includes('INSERT INTO finance_operations'))
+        operations.push({
+          operation_id: String(values[1]),
+          transaction_id: String(values[2]),
+          payload: String(values[3]),
+          kind: String(values[4]),
+          status: String(values[5])
+        });
+    }),
+    execAsync: jest.fn(async () => undefined),
+    withExclusiveTransactionAsync: jest.fn()
+  };
+  database.withExclusiveTransactionAsync.mockImplementation(
+    async (action: (value: unknown) => Promise<void>) => action(database)
+  );
+  const open = jest
+    .spyOn(databaseModule, 'openDatabase')
+    .mockResolvedValue(database as never);
+  const input = {
+    type: 'expense' as const,
+    amountMinor: 100,
+    currencyCode: 'SAR',
+    accountId: fixtureAccounts[0]!.id,
+    categoryId: fixtureCategories[0]!.id,
+    title: 'Voice expense',
+    occurredAt: 1
+  };
+  try {
+    const firstRepository = repository();
+    const first = await firstRepository.saveTransactionsAtomically(
+      [input],
+      'voice-operation',
+      'voice',
+      true
+    );
+    expect(operations).toEqual([
+      expect.objectContaining({
+        operation_id: 'voice-operation',
+        kind: 'transaction_batch',
+        status: 'succeeded'
+      })
+    ]);
+
+    const restarted = new CoreFinanceRepository();
+    await restarted.hydrate();
+    const writesBeforeReplay = database.runAsync.mock.calls.length;
+    const replay = await restarted.saveTransactionsAtomically(
+      [input],
+      'voice-operation',
+      'voice',
+      true
+    );
+    expect(replay.map((item) => item.id)).toEqual(first.map((item) => item.id));
+    expect(database.runAsync).toHaveBeenCalledTimes(writesBeforeReplay);
+  } finally {
+    open.mockRestore();
+  }
+});
+
+it('hydrates a draft-only ledger without replacing the persisted store', async () => {
+  const draft = {
+    id: 'draft-only',
+    transactionType: 'expense' as const,
+    amountText: '25',
+    accountId: null,
+    destinationAccountId: null,
+    categoryId: null,
+    merchant: null,
+    notes: null,
+    occurredAt: null,
+    status: 'editing' as const,
+    updatedAt: 1
+  };
+  const database = {
+    getAllAsync: jest.fn(async (sql: string) =>
+      sql.includes('finance_drafts') ? [{ payload: JSON.stringify(draft) }] : []
+    ),
+    runAsync: jest.fn(async () => undefined),
+    execAsync: jest.fn(async () => undefined),
+    withExclusiveTransactionAsync: jest.fn()
+  };
+  database.withExclusiveTransactionAsync.mockImplementation(
+    async (action: (value: unknown) => Promise<void>) => action(database)
+  );
+  const open = jest
+    .spyOn(databaseModule, 'openDatabase')
+    .mockResolvedValue(database as never);
+  try {
+    const restarted = new CoreFinanceRepository();
+    await restarted.hydrate();
+    expect(restarted.loadDraft(draft.id)).toEqual(draft);
+    expect(database.execAsync).not.toHaveBeenCalled();
+  } finally {
+    open.mockRestore();
+  }
 });

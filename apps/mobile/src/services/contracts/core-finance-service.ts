@@ -35,13 +35,14 @@ export const exchangeRateServiceCapability: CapabilityContractMetadata = {
 export interface TransactionPage {
   items: Transaction[];
   nextCursor: string | null;
-  total: number;
+  total?: number;
 }
 
 export interface AccountBalanceProjection {
   accountId: string;
   balanceMinor: number;
   currencyCode: string;
+  asOf?: number | null;
 }
 
 export interface MutationResult<T> {

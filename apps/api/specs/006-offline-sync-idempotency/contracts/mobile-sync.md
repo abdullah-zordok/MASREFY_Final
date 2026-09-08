@@ -9,7 +9,7 @@ Upgrade schema version 9 to 10 without deleting or rewriting existing data.
 | Column                                           | Purpose                                     |
 | ------------------------------------------------ | ------------------------------------------- |
 | `domain TEXT PRIMARY KEY`                        | registered domain                           |
-| `cursor TEXT NOT NULL`                           | last applied and acknowledged opaque cursor |
+| `cursor TEXT NOT NULL`                           | last applied and acknowledged signed-v2 owner/device/domain-bound cursor |
 | `last_synced_at TEXT`                            | ISO timestamp                               |
 | `bootstrap_completed INTEGER NOT NULL DEFAULT 0` | durable bootstrap marker                    |
 
@@ -56,8 +56,10 @@ Primary key `(domain, local_id)` and unique non-null `(domain, server_id)`.
 7. Repeat while `hasMore`; apply retry backoff for transient failures.
 
 Bootstrap follows the same atomic apply rule and sets its marker only after all
-requested domain snapshots and cursors commit. It merges by mappings and server
-IDs; it does not wipe local pending work.
+requested domain snapshots and cursors commit. A page returns `hasMore` and a
+nullable signed-v2 `nextPage`; continuations request one domain with `after` and
+the same bounded `limit`. It merges by mappings and server IDs; it does not wipe
+local pending work.
 
 ## Repository Adapter
 

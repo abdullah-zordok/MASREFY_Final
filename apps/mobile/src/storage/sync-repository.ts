@@ -75,9 +75,15 @@ export class SyncRepository {
       next_attempt_at: number | null;
       last_error_code: string | null;
     }>(
-      `SELECT * FROM sync_mutation_queue
-       WHERE status='pending' AND (next_attempt_at IS NULL OR next_attempt_at<=?)
-       ORDER BY created_at,operation_id LIMIT ?`,
+      `SELECT q.* FROM sync_mutation_queue q
+       WHERE q.status='pending' AND (q.next_attempt_at IS NULL OR q.next_attempt_at<=?)
+         AND NOT EXISTS (
+           SELECT 1 FROM json_each(q.depends_on) dependency
+           LEFT JOIN sync_mutation_queue prerequisite
+             ON prerequisite.operation_id=dependency.value
+           WHERE prerequisite.status IS NULL OR prerequisite.status!='applied'
+         )
+       ORDER BY q.created_at,q.operation_id LIMIT ?`,
       now,
       limit
     );

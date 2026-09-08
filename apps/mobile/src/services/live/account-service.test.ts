@@ -321,7 +321,8 @@ it('reads the BE005 balance projection without inventing a local balance', async
   await expect(service.getAccountBalance(account.id, 'SAR')).resolves.toEqual({
     accountId: account.id,
     balanceMinor: 12_345,
-    currencyCode: 'SAR'
+    currencyCode: 'SAR',
+    asOf: null
   });
   expect(request).toHaveBeenCalledWith(
     `https://api.test/api/v1/accounts/${account.id}/summary`,

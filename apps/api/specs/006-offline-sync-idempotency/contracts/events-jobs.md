@@ -8,7 +8,9 @@ category, and transaction owner events. There is no second sync event bus.
 
 Required metadata fields are `userId`, `domain`, `cursor`, `resourceId`,
 `resourceType`, `operation`, and `version`; `snapshot` is required for upserts and
-`deletedAt` for tombstones. The payload is immutable after insert.
+`deletedAt` for tombstones. The stored cursor is the server position used to
+derive a signed-v2 client cursor; signed client cursor values are never placed in
+events or logs. The payload is immutable after insert.
 
 ## Scheduled Jobs
 

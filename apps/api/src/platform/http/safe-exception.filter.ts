@@ -100,6 +100,10 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   SYNC_CURSOR_INVALID: { status: 400, message: 'Sync cursor is invalid' },
   SYNC_CURSOR_AHEAD: { status: 409, message: 'Sync cursor is ahead of the server' },
   SYNC_CURSOR_EXPIRED: { status: 409, message: 'Sync cursor has expired' },
+  SYNC_CURSOR_NOT_ISSUED: {
+    status: 409,
+    message: 'Sync cursor was not issued to this device',
+  },
   SYNC_PAYLOAD_TOO_LARGE: { status: 413, message: 'Sync payload is too large' },
   SYNC_OPERATION_ID_REUSED: { status: 409, message: 'Sync operation ID was already used' },
   SYNC_MUTATION_NOT_FOUND: { status: 404, message: 'Sync mutation was not found' },

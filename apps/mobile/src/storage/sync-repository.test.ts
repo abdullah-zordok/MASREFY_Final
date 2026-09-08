@@ -56,4 +56,55 @@ describe('mobile sync repository', () => {
       /DELETE FROM sync_mutation_queue/i
     );
   });
+
+  it('does not upload a dependent mutation until every dependency is durably applied', async () => {
+    const rows = [
+      {
+        operation_id: 'parent-operation',
+        domain: 'transactions',
+        resource_type: 'transaction',
+        schema_version: 1,
+        depends_on: '[]',
+        operation: 'create',
+        resource_id: 'parent',
+        base_version: null,
+        payload: '{}',
+        status: 'pending',
+        attempt_count: 0,
+        next_attempt_at: null,
+        last_error_code: null
+      },
+      {
+        operation_id: 'child-operation',
+        domain: 'transactions',
+        resource_type: 'transaction',
+        schema_version: 1,
+        depends_on: '["parent-operation"]',
+        operation: 'create',
+        resource_id: 'child',
+        base_version: null,
+        payload: '{}',
+        status: 'pending',
+        attempt_count: 0,
+        next_attempt_at: null,
+        last_error_code: null
+      }
+    ];
+    const database = {
+      getAllAsync: jest.fn(async (sql: string) =>
+        sql.includes('json_each') ? rows.slice(0, 1) : rows
+      ),
+      runAsync: jest.fn(async () => undefined),
+      getFirstAsync: jest.fn(async () => null),
+      withExclusiveTransactionAsync: jest.fn()
+    };
+    const repository = new SyncRepository(database as never);
+
+    await expect(repository.ready()).resolves.toEqual([
+      expect.objectContaining({ operationId: 'parent-operation' })
+    ]);
+    expect(String(database.getAllAsync.mock.calls[0]?.[0])).toMatch(
+      /depends_on|json_each/i
+    );
+  });
 });

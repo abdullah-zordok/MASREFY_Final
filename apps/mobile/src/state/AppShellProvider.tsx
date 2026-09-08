@@ -9,6 +9,7 @@ import { resolveClientMode } from '@/config/client-runtime';
 import { authService } from '@/features/auth/auth-flow';
 import { restoreAppShellSession } from '@/features/auth/session-controller';
 import { useLiveClerkSessionKey } from '@/services/live/clerk-provider';
+import { synchronizeLiveCoreFinance } from '@/services/live/core-finance-service';
 
 interface AppShellProviderProps {
   children: ReactNode;
@@ -56,10 +57,12 @@ export function AppShellProvider({
     restoreQueue.current = restoreQueue.current
       .catch(() => undefined)
       .then(() =>
-        current
-          ? restoreAppShellSession(authService, () => current)
-          : undefined
+        current ? restoreAppShellSession(authService, () => current) : undefined
       )
+      .then(() => {
+        if (current && liveClerkSessionKey)
+          void synchronizeLiveCoreFinance().catch(() => undefined);
+      })
       .catch(() =>
         current ? useAppShellStore.getState().signOut() : undefined
       );
@@ -100,9 +103,15 @@ export function AppShellProvider({
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       onAppStateChange?.(state);
+      if (
+        state === 'active' &&
+        resolveClientMode() === 'live' &&
+        liveClerkSessionKey
+      )
+        void synchronizeLiveCoreFinance().catch(() => undefined);
     });
     return () => subscription.remove();
-  }, [onAppStateChange]);
+  }, [liveClerkSessionKey, onAppStateChange]);
 
   return <>{children}</>;
 }

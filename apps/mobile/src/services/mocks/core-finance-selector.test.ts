@@ -159,7 +159,12 @@ it('serves account balances from the live BE005 summary endpoint', async () => {
   });
 
   await expect(service.listAccountBalances(true)).resolves.toEqual([
-    { accountId: account.id, balanceMinor: 50_000, currencyCode: 'SAR' }
+    {
+      accountId: account.id,
+      balanceMinor: 50_000,
+      currencyCode: 'SAR',
+      asOf: null
+    }
   ]);
 });
 

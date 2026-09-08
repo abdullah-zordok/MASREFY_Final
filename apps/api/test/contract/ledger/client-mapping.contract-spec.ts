@@ -10,6 +10,8 @@ type Summary = {
   amountMinor: number;
   currency: string;
   accountIds: string[];
+  sourceAccountId: string;
+  destinationAccountId: string | null;
   feeMinor: number;
   title: string;
   note: string | null;
@@ -26,8 +28,8 @@ const toMobile = (value: Summary) => ({
   status: value.status === 'confirmed' ? 'posted' : value.status,
   amountMinor: value.amountMinor,
   currencyCode: value.currency,
-  accountId: value.accountIds[0],
-  destinationAccountId: value.kind === 'transfer' ? (value.accountIds[1] ?? null) : null,
+  accountId: value.sourceAccountId,
+  destinationAccountId: value.destinationAccountId,
   feeMinor: value.feeMinor,
   notes: value.note,
   occurredAt: Date.parse(value.occurredAt),
@@ -99,6 +101,8 @@ describe('Phase 05 client compatibility boundary', () => {
         amountMinor: 125,
         currency: 'SAR',
         accountIds: ['10000000-0000-4000-8000-000000000002'],
+        sourceAccountId: '10000000-0000-4000-8000-000000000002',
+        destinationAccountId: null,
         feeMinor: 0,
         title: 'Groceries',
         note: null,
@@ -123,7 +127,7 @@ describe('Phase 05 client compatibility boundary', () => {
   it('maps Mobile list/detail reads and the account balance projection without a client adapter cutover', () => {
     expect(mapping).toContain('`GET /transactions`, `GET /transactions/:id`');
     expect(mapping).toContain('account summary `confirmedMinor`, `pendingMinor`, `ledgerVersion`');
-    expect(mapping).toContain('ordered `accountIds` and detail postings');
+    expect(mapping).toContain('`accountIds` remains membership-only');
     expect(mapping).toContain('offline mutation storage remain SPEC-BE-006');
   });
 

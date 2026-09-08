@@ -150,7 +150,15 @@ export class CoreFinanceRepository {
         'SELECT operation_id, transaction_id, payload, status FROM finance_operations'
       )
     ]);
-    if (!accounts.length && !categories.length && !transactions.length) {
+    if (
+      !accounts.length &&
+      !categories.length &&
+      !transactions.length &&
+      !drafts.length &&
+      !conflicts.length &&
+      !corrections.length &&
+      !operations.length
+    ) {
       await this.persistAll();
       return;
     }
@@ -173,10 +181,25 @@ export class CoreFinanceRepository {
     );
     this.operationResults = new Map(
       operations
-        .filter((row) => row.status === 'succeeded')
+        .filter(
+          (row) =>
+            row.status === 'succeeded' &&
+            !Array.isArray(JSON.parse(row.payload))
+        )
         .map((row) => [
           row.operation_id,
           JSON.parse(row.payload) as Transaction
+        ])
+    );
+    this.batchOperationResults = new Map(
+      operations
+        .filter(
+          (row) =>
+            row.status === 'succeeded' && Array.isArray(JSON.parse(row.payload))
+        )
+        .map((row) => [
+          row.operation_id,
+          JSON.parse(row.payload) as Transaction[]
         ])
     );
     if (
@@ -316,6 +339,24 @@ export class CoreFinanceRepository {
 
   async persistDraft(draft: TransactionDraft): Promise<void> {
     await persistDraft(await openDatabase(), draft);
+  }
+
+  batchOperationResult(operationId: string): Transaction[] | null {
+    const value = this.batchOperationResults.get(operationId);
+    return value ? copy(value) : null;
+  }
+
+  async persistBatchOperationResult(
+    operationId: string,
+    transactions: readonly Transaction[]
+  ): Promise<void> {
+    const database = await openDatabase();
+    await runExclusiveDatabaseTransaction(database, async (transaction) => {
+      for (const item of transactions)
+        await persistTransaction(transaction, item);
+      await persistBatchOperation(transaction, operationId, transactions);
+    });
+    this.batchOperationResults.set(operationId, transactions.map(copy));
   }
 
   async removePersistedDraft(id: string): Promise<void> {
@@ -821,6 +862,7 @@ export class CoreFinanceRepository {
         await runExclusiveDatabaseTransaction(database, async (transaction) => {
           for (const item of created)
             await persistTransaction(transaction, item);
+          await persistBatchOperation(transaction, operationId, created);
         });
       }
       this.batchOperationResults.set(operationId, created);
@@ -912,6 +954,16 @@ export class CoreFinanceRepository {
 
   addConflict(conflict: SyncConflict): void {
     this.conflicts.push(copy(conflict));
+  }
+
+  saveConflict(conflict: SyncConflict): void {
+    const index = this.conflicts.findIndex((item) => item.id === conflict.id);
+    if (index < 0) this.conflicts.push(copy(conflict));
+    else this.conflicts[index] = copy(conflict);
+  }
+
+  async persistConflictRecord(conflict: SyncConflict): Promise<void> {
+    await persistConflict(await openDatabase(), conflict);
   }
 
   requireConflict(id: string): SyncConflict {
@@ -1324,6 +1376,25 @@ async function persistOperation(
     'transaction_create',
     'succeeded',
     transaction.createdAt
+  );
+}
+
+async function persistBatchOperation(
+  database: SqlRunner,
+  operationId: string,
+  transactions: readonly Transaction[]
+): Promise<void> {
+  const first = transactions[0];
+  if (!first) throw new CoreFinanceError('validation');
+  await database.runAsync(
+    'INSERT INTO finance_operations (id, operation_id, transaction_id, payload, kind, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, status = excluded.status, created_at = excluded.created_at',
+    `operation-${operationId}`,
+    operationId,
+    first.id,
+    JSON.stringify(transactions),
+    'transaction_batch',
+    'succeeded',
+    first.createdAt
   );
 }
 

@@ -4,6 +4,7 @@ import { compareShadow } from './shadow-comparison';
 import { createLiveAccountService } from '@/services/live/account-service';
 import { createLiveCategoryLifecycleService } from '@/services/live/category-lifecycle-service';
 import { registerLiveClerkBridge } from '@/services/live/auth-service';
+import { createLiveLedgerService } from '@/services/live/core-finance-service';
 
 jest.mock('@/storage/database', () => ({
   runExclusiveDatabaseTransaction: async (
@@ -265,6 +266,131 @@ describe('Mobile redacted shadow comparison', () => {
     ).resolves.toMatchObject({
       outcome: 'blocked',
       differenceCodes: ['HASH_MISMATCH']
+    });
+  });
+
+  it('reconciles the Wave 3 live ledger mapper with zero financial tolerance', async () => {
+    registerLiveClerkBridge({
+      getSession: async () => ({
+        id: 'session-owner',
+        userId: 'user_owner',
+        method: 'google',
+        issuedAt: 1,
+        expiresAt: 9999999999999
+      }),
+      getToken: async () => 'owner-token',
+      startPhone: jest.fn(),
+      verifyPhone: jest.fn(),
+      resendPhone: jest.fn(),
+      signInWithGoogle: jest.fn(),
+      reverifyConflict: jest.fn(),
+      signOut: jest.fn()
+    });
+    const transaction = {
+      id: '30000000-0000-4000-8000-000000000001',
+      kind: 'expense',
+      status: 'confirmed',
+      amountMinor: 12_345,
+      currency: 'SAR',
+      accountIds: ['10000000-0000-4000-8000-000000000001'],
+      sourceAccountId: '10000000-0000-4000-8000-000000000001',
+      destinationAccountId: null,
+      feeMinor: 0,
+      categoryId: '20000000-0000-4000-8000-000000000001',
+      title: 'Redacted expense',
+      merchant: null,
+      paymentMethod: null,
+      note: null,
+      occurredAt: '2026-09-08T00:00:00.000Z',
+      source: 'manual',
+      originalTransactionId: null,
+      version: 4,
+      deletedAt: null,
+      undoExpiresAt: null
+    };
+    const service = createLiveLedgerService({
+      baseUrl: 'https://api.test',
+      request: jest.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            items: [transaction],
+            nextCursor: null,
+            ledgerVersion: 9,
+            requestId: 'wave-3-shadow'
+          })
+        )
+      )
+    });
+    const live = (
+      await service.listTransactions({
+        search: '',
+        periodStart: null,
+        periodEnd: null,
+        accountIds: [],
+        categoryIds: [],
+        types: [],
+        sources: [],
+        statuses: [],
+        syncStatuses: [],
+        reviewRequired: null,
+        amountCurrencyCode: null,
+        minMinor: null,
+        maxMinor: null,
+        sort: 'newest'
+      })
+    ).items;
+    const baseline = [
+      {
+        id: transaction.id,
+        type: 'expense',
+        amountMinor: 12_345,
+        currencyCode: 'SAR',
+        accountId: transaction.accountIds[0],
+        destinationAccountId: null,
+        transferPurpose: null,
+        feeMinor: 0,
+        categoryId: transaction.categoryId,
+        title: transaction.title,
+        merchant: null,
+        paymentMethod: null,
+        occurredAt: Date.parse(transaction.occurredAt),
+        source: 'manual',
+        status: 'posted',
+        reviewStatus: 'none',
+        syncStatus: 'synced',
+        originalTransactionId: null,
+        obligationId: null,
+        notes: null,
+        version: 4,
+        adjustmentSign: 1,
+        deletedAt: null,
+        undoExpiresAt: null,
+        createdAt: Date.parse(transaction.occurredAt),
+        updatedAt: Date.parse(transaction.occurredAt)
+      }
+    ];
+    await expect(
+      compareShadow({
+        ...metadata,
+        operationId: 'mobile.finance.wave-3',
+        contractVersion: 'be005-be006-wave-3-v1',
+        baseline,
+        live,
+        financialDifferenceMinor: 0
+      })
+    ).resolves.toMatchObject({ outcome: 'match', differenceCodes: [] });
+    await expect(
+      compareShadow({
+        ...metadata,
+        operationId: 'mobile.finance.wave-3',
+        contractVersion: 'be005-be006-wave-3-v1',
+        baseline,
+        live: [{ ...live[0]!, amountMinor: 12_346 }],
+        financialDifferenceMinor: 1
+      })
+    ).resolves.toMatchObject({
+      outcome: 'blocked',
+      differenceCodes: ['HASH_MISMATCH', 'FINANCIAL_MISMATCH']
     });
   });
 });

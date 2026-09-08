@@ -270,7 +270,10 @@ export function createLiveAccountService({
       return {
         accountId: id,
         balanceMinor: value.balance.confirmedMinor,
-        currencyCode: value.currency
+        currencyCode: value.currency,
+        asOf: value.balance.reconciledAt
+          ? Date.parse(value.balance.reconciledAt)
+          : null
       };
     },
     async calculateCreditCardPayoff(

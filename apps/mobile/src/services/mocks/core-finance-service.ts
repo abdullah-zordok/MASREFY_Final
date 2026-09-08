@@ -7,11 +7,13 @@ import {
   emptyTransactionFilters,
   matchesFilters,
   projectTransactionEffects,
+  safeMinorSum,
   transactionInputSchema,
   type AccountInput,
   type CategoryInput,
   type HomeSummary,
   type SyncConflict,
+  type Transaction,
   type TransactionDraft,
   type TransactionFilterSet,
   type TransactionInput
@@ -46,6 +48,8 @@ import { createLiveAccountService } from '@/services/live/account-service';
 import { createLiveCategoryLifecycleService } from '@/services/live/category-lifecycle-service';
 import { HttpError } from '@/services/live/http-client';
 import { calculateCreditCardPayoff } from '@/domain/credit-card-payoff';
+import { createLiveLedgerService } from '@/services/live/core-finance-service';
+import { ZodError } from 'zod';
 
 const scopes = {
   account: (id: string) => [
@@ -673,6 +677,113 @@ export function createLiveCoreFinanceService(
       ]);
     }
   };
+  const ledger = createLiveLedgerService(options);
+  Object.assign(target, ledger, {
+    async getHomeSummary(
+      profileCurrency: string,
+      filters: TransactionFilterSet = emptyTransactionFilters
+    ): Promise<HomeSummary> {
+      const [liveAccounts, balances] = await Promise.all([
+        target.listAccounts(),
+        target.listAccountBalances()
+      ]);
+      const selectedAccounts = liveAccounts.filter(
+        (account) =>
+          !filters.accountIds.length || filters.accountIds.includes(account.id)
+      );
+      const balanceByAccount = new Map(
+        balances.map((balance) => [balance.accountId, balance])
+      );
+      const hasUnreconciledBalance = balances.some(
+        (balance) => balance.asOf === null
+      );
+      const components = selectedAccounts
+        .filter((account) => account.currencyCode === profileCurrency)
+        .flatMap((account) => {
+          const balance = balanceByAccount.get(account.id);
+          return balance
+            ? [
+                {
+                  accountId: account.id,
+                  originalMinor: balance.balanceMinor,
+                  currencyCode: account.currencyCode,
+                  convertedMinor: balance.balanceMinor,
+                  rate: 1,
+                  asOf: balance.asOf ?? account.updatedAt
+                }
+              ]
+            : [];
+        });
+      const excludedAccountIds = selectedAccounts
+        .filter((account) => account.currencyCode !== profileCurrency)
+        .map((account) => account.id);
+      const transactions: Transaction[] = [];
+      let cursor: string | null = null;
+      const cursors = new Set<string>();
+      do {
+        const page = await ledger.listTransactions(filters, cursor, 100);
+        transactions.push(...page.items);
+        cursor = page.nextCursor;
+        if (cursor && cursors.has(cursor))
+          throw new CoreFinanceError('unknown');
+        if (cursor) cursors.add(cursor);
+      } while (cursor);
+      const comparableTransactions = transactions.filter(
+        (transaction) => transaction.currencyCode === profileCurrency
+      );
+      const projections = projectTransactionEffects(transactions, null);
+      const periodTotals = comparableTransactions.reduce(
+        (totals, transaction) => {
+          const confirmed = projections.get(transaction.id)?.confirmed;
+          const incomeMinor = safeMinorSum(
+            totals.incomeMinor,
+            confirmed?.incomeMinor ?? 0
+          );
+          const expenseMinor = safeMinorSum(
+            totals.expenseMinor,
+            confirmed?.expenseMinor ?? 0
+          );
+          if (incomeMinor === null || expenseMinor === null)
+            throw new CoreFinanceError('unknown');
+          return {
+            incomeMinor,
+            expenseMinor
+          };
+        },
+        { incomeMinor: 0, expenseMinor: 0 }
+      );
+      return {
+        totalBalanceMinor: components.reduce((total, component) => {
+          const sum = safeMinorSum(total, component.convertedMinor);
+          if (sum === null) throw new CoreFinanceError('unknown');
+          return sum;
+        }, 0),
+        currencyCode: profileCurrency,
+        isEstimated:
+          hasUnreconciledBalance ||
+          excludedAccountIds.length > 0 ||
+          comparableTransactions.length !== transactions.length,
+        components,
+        excludedAccountIds,
+        periodIncomeMinor: periodTotals.incomeMinor,
+        periodExpenseMinor: periodTotals.expenseMinor,
+        activeAccountCount: selectedAccounts.length,
+        recentTransactions: transactions.slice(0, 5),
+        reviewCount: transactions.filter(
+          (transaction) => transaction.reviewStatus === 'required'
+        ).length,
+        pendingSyncCount: transactions.filter(
+          (transaction) => transaction.syncStatus !== 'synced'
+        ).length,
+        dataState:
+          selectedAccounts.length === 0 && transactions.length === 0
+            ? 'empty'
+            : excludedAccountIds.length > 0
+              ? 'partial'
+              : 'ready'
+      };
+    }
+  });
   return new Proxy(
     target as unknown as CapabilityProviderHandle<CoreFinanceService>,
     {
@@ -702,6 +813,7 @@ export function createLiveCoreFinanceService(
 
 function coreFinanceError(error: unknown): CoreFinanceError {
   if (error instanceof CoreFinanceError) return error;
+  if (error instanceof ZodError) return new CoreFinanceError('validation');
   if (!(error instanceof HttpError)) return new CoreFinanceError('unknown');
   if (error.code === 'validation_error')
     return new CoreFinanceError('validation');

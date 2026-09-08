@@ -112,7 +112,7 @@ export class CoreFinanceSyncAdapter {
           )
         );
       for (const change of changes) {
-        this.version(change.version);
+        this.changeVersion(change.version);
         const state = await this.sync.resourceState(
           transaction,
           domain,
@@ -301,12 +301,28 @@ export class CoreFinanceSyncAdapter {
       return false;
     }
     const table = `finance_${domain}`;
-    await transaction.runAsync(
-      `UPDATE ${table} SET status=?,updated_at=? WHERE id=?`,
-      domain === 'transactions' ? 'deleted' : 'archived',
-      change.deletedAt ? Date.parse(change.deletedAt) : Date.now(),
-      localId
-    );
+    const status = domain === 'transactions' ? 'deleted' : 'archived';
+    const deletedAt = change.deletedAt
+      ? Date.parse(change.deletedAt)
+      : Date.now();
+    if (domain === 'transactions')
+      await transaction.runAsync(
+        `UPDATE ${table} SET payload=json_set(payload,'$.status',?,'$.deletedAt',?,'$.undoExpiresAt',NULL),
+           status=?,updated_at=? WHERE id=?`,
+        status,
+        deletedAt,
+        status,
+        deletedAt,
+        localId
+      );
+    else
+      await transaction.runAsync(
+        `UPDATE ${table} SET payload=json_set(payload,'$.status',?),status=?,updated_at=? WHERE id=?`,
+        status,
+        status,
+        deletedAt,
+        localId
+      );
     await this.saveIdMapping(
       transaction,
       domain,
@@ -464,6 +480,12 @@ export class CoreFinanceSyncAdapter {
   private version(value: unknown): number {
     const version = this.safeInteger(value);
     if (version < 1) throw new Error('SYNC_SNAPSHOT_INVALID');
+    return version;
+  }
+
+  private changeVersion(value: unknown): number {
+    const version = this.safeInteger(value);
+    if (version < 0) throw new Error('SYNC_SNAPSHOT_INVALID');
     return version;
   }
 

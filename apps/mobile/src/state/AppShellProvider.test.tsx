@@ -7,15 +7,22 @@ import { AppShellProvider } from './AppShellProvider';
 import { useAppShellStore } from './app-shell';
 import { usePreferenceStore } from './preferences';
 
-const mockRestoreAppShellSession = jest.fn(async (..._args: unknown[]) => undefined);
+const mockRestoreAppShellSession = jest.fn(
+  async (..._args: unknown[]) => undefined
+);
+const mockSynchronizeLiveCoreFinance = jest.fn(async () => undefined);
 let mockLiveClerkSessionKey: string | null | undefined;
 
 jest.mock('@/features/auth/session-controller', () => ({
-  restoreAppShellSession: (...args: unknown[]) => mockRestoreAppShellSession(...args)
+  restoreAppShellSession: (...args: unknown[]) =>
+    mockRestoreAppShellSession(...args)
 }));
 jest.mock('@/features/auth/auth-flow', () => ({ authService: {} }));
 jest.mock('@/services/live/clerk-provider', () => ({
   useLiveClerkSessionKey: () => mockLiveClerkSessionKey
+}));
+jest.mock('@/services/live/core-finance-service', () => ({
+  synchronizeLiveCoreFinance: () => mockSynchronizeLiveCoreFinance()
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -94,6 +101,7 @@ describe('AppShellProvider', () => {
     });
 
     expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(1);
+    expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
     expect(hydrate).not.toHaveBeenCalled();
     hydrate.mockRestore();
   });
@@ -164,6 +172,33 @@ describe('AppShellProvider', () => {
       locale: 'en',
       direction: 'ltr'
     });
+  });
+
+  it('retries live core-finance sync when an authenticated app becomes active', async () => {
+    process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+    mockLiveClerkSessionKey = 'sess_live_123';
+    let listener: ((state: string) => void) | null = null;
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, callback) => {
+        listener = callback as (state: string) => void;
+        return { remove: jest.fn() };
+      });
+
+    render(
+      <AppShellProvider>
+        <ProtectedContent />
+      </AppShellProvider>
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    mockSynchronizeLiveCoreFinance.mockClear();
+    const emitAppState = listener as ((state: string) => void) | null;
+    emitAppState?.('active');
+
+    expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
   });
 
   it('retains only a safe initial deep-link destination across authentication gates', async () => {

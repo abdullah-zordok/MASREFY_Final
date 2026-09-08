@@ -71,3 +71,46 @@ it('applies a repeated tombstone to a missing row without failing cursor progres
   ).toBe(true);
   expect(statements.at(-1)).toContain('sync_state');
 });
+
+it.each([
+  ['accounts', 'archived'],
+  ['categories', 'archived'],
+  ['transactions', 'deleted']
+] as const)(
+  'updates the persisted %s payload and indexed status for exact hydration',
+  async (domain, expectedStatus) => {
+    const calls: unknown[][] = [];
+    const transaction = {
+      getFirstAsync: jest.fn(async () => null),
+      runAsync: jest.fn(async (...args: unknown[]) => {
+        calls.push(args);
+      })
+    };
+    const database = {
+      ...transaction,
+      withExclusiveTransactionAsync: jest.fn(
+        async (action: (value: unknown) => Promise<void>) => action(transaction)
+      )
+    };
+    await new CoreFinanceSyncAdapter(database as never).applyDelta(
+      domain,
+      [
+        {
+          resourceId: 'server-record',
+          operation: 'delete',
+          version: 3,
+          deletedAt: '2026-08-31T00:00:00.000Z'
+        }
+      ],
+      'cursor-three',
+      null
+    );
+    const tombstone = calls.find(([sql]) =>
+      String(sql).includes(`UPDATE finance_${domain}`)
+    );
+    expect(String(tombstone?.[0])).toContain('payload=');
+    expect(tombstone).toEqual(
+      expect.arrayContaining([expect.any(String), expectedStatus])
+    );
+  }
+);

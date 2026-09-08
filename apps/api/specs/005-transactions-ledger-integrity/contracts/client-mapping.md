@@ -12,7 +12,7 @@ add Admin financial screens, or implement SPEC-BE-006 sync behavior.
 | `title`, `merchant`, `paymentMethod`, `notes` | `title`, `merchant`, `paymentMethod`, `note` |
 | signed Mobile `amountMinor` | backend kind plus positive declared amount; adapter applies the existing sign convention |
 | `currencyCode` | wire `currency` |
-| `accountId`, `destinationAccountId` | ordered `accountIds` and detail postings |
+| `accountId`, `destinationAccountId` | explicit `sourceAccountId`, `destinationAccountId`; `accountIds` remains membership-only |
 | `feeMinor` | `feeMinor` |
 | `occurredAt` | `occurredAt` |
 | Mobile epoch timestamps | parse the corresponding wire ISO-8601 timestamps; nullable timestamps stay null |

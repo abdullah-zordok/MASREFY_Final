@@ -4,6 +4,14 @@ All gates start `open`. Change to `passed` only with current real-world evidence
 
 Wave 2 local acceptance is recorded in [reference/accounts evidence](wave-02-reference-accounts.md). It does not establish a hosted rollout, real Clerk identity test, physical-device pass, or hosted shadow evidence sink.
 
+Wave 3 local acceptance is recorded in [ledger/sync evidence](wave-03-ledger-sync.md). It does not establish hosted identity/database behavior, physical-device background/restart behavior, or deployed cohort/rollback evidence.
+
+| Wave 3 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Hosted Clerk/Supabase ledger and sync | open | BE005/006 contract, local PostgreSQL integration/E2E/security, exact ledger role mapping and signed cursor/device tests | On designated staging, use two real Clerk owners and registered devices to run create/revise/delete/restore/refund/reversal/transfer plus mutation upload/bootstrap/delta/conflict flows; prove cross-owner/device denial and retain redacted request IDs | Platform and identity owners |
+| Physical iOS/Android restart and background sync | open | Native SQLite schema 1..11 restart test, owner partition, dependency queue, tombstones, durable receipts and app restore/resume triggers | Install the accepted signed build on supported devices; interrupt upload, terminate/restart, background/resume and reconnect while drafts, dependent operations, unresolved conflicts and tombstones exist; reconcile exact counts and hashes | Mobile QA/release owner |
+| Deployed Wave 3 shadow, cohort and rollback | open | Actual live mapper shadow equality, zero financial tolerance and source-level N-1 rollback policy tests | Run read shadow, internal/bounded writes and approved cohorts against staging; observe the required interval, exercise rollback to the accepted Wave 2 version, then forward resync without duplicate or lost ledger effects | Release/operations owner |
+
 | Wave 2 follow-up | Status | Local supporting proof | Required external action | Owner |
 |---|---|---|---|---|
 | Hosted Supabase and real owner/non-owner access | open | BE004 local Supabase/Postgres integration: 7 suites/19 tests; E2E: 5 suites/9 tests; security/contract checks | On designated hosted staging, use two real Clerk identities to create/list/update/archive/restore accounts and categories, prove cross-owner denial, reconcile BE005 account-summary integer balances and BE004 category usage/version checks; retain redacted identities, timestamps and job URLs | Platform and identity owners |

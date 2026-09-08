@@ -139,4 +139,44 @@ describe('Mobile cutover policy', () => {
         .acceptedVersion
     ).toBe('4f1ba15');
   });
+
+  it('keeps the accepted Wave 2 version as the Wave 3 rollback target', () => {
+    const acceptedWave2 = {
+      ...createInitialCutoverPolicy('mobile', '4fa0626'),
+      configVersion: 'mobile-wave-2-full-v1',
+      wave: 2,
+      acceptedVersion: '4fa0626',
+      rollbackVersion: '4f1ba15'
+    };
+    const wave3 = {
+      ...next,
+      wave: 3,
+      acceptedVersion: '4fa0626',
+      rollbackVersion: '4fa0626'
+    };
+    const shadow = advanceCutover(acceptedWave2, {
+      ...wave3,
+      configVersion: 'mobile-wave-3-shadow-v1'
+    });
+    const internal = advanceCutover(shadow, {
+      ...wave3,
+      configVersion: 'mobile-wave-3-internal-v1',
+      stage: 'internal'
+    });
+    const bounded = advanceCutover(internal, {
+      ...wave3,
+      configVersion: 'mobile-wave-3-bounded-v1',
+      stage: 'bounded-write'
+    });
+    expect(bounded).toMatchObject({
+      wave: 3,
+      stage: 'bounded-write',
+      rollbackVersion: '4fa0626',
+      billingAvailable: false
+    });
+    expect(
+      createInitialCutoverPolicy('mobile', bounded.rollbackVersion)
+        .acceptedVersion
+    ).toBe('4fa0626');
+  });
 });
