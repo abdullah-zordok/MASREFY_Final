@@ -70,6 +70,14 @@ Executed on `2026-09-08` from the exact Wave 1 working tree:
 | Admin identity browser | `npx playwright test tests/e2e/permissions.spec.ts tests/e2e/users-access.spec.ts --project=desktop-1440`: all 29 cases passed. The Windows Next development-server child did not terminate after the result stream and was stopped manually; no browser assertion failed. |
 | Production mock/secret boundary | Admin runtime and production-mock tests: 2 files, 15 tests passed in 2.61 s. The browser mock worker exposes the public flag through a statically bundled environment access, permits framework navigation, and fails every unhandled `/api/` request. Mobile production/provider/secret scans passed through `check:frontend-quality`. |
 
+## Remote acceptance
+
+- Accepted implementation SHA: `4f1ba15d2c21fe1af897beda1d1ef3a1c08c6ae7`.
+- Backend Foundation run: [34217625981](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34217625981), push event, `2026-09-08T10:51:19Z` to `2026-09-08T11:17:49Z`.
+- All 12 required jobs passed: application, Mobile, Admin, secrets, sentinel redaction, database, five Admin browser viewports, and the backend image/container/Trivy gate. The tag-only signed-release-evidence job was correctly skipped for the `main` branch push.
+- Forward fixes retained strict acceptance coverage while correcting CI-only faults: the Admin live build received valid public/server-shaped placeholder configuration; browser and performance fixtures were isolated from inherited credentials; Mobile Jest was serialized and force-terminated after all 427 suites and 1,780 tests completed; and the second outbox stress run reused the already-provisioned `k6/x/sql` binary after an extension-only probe, avoiding duplicate Grafana extension resolution and its rate limit.
+- The accepted database job passed both one-million-row outbox load/stress runs, all owning thresholds, artifact upload, and cleanup with automatic extension resolution disabled for the second run.
+
 ## Review and security disposition
 
 - Independent architecture, Mobile, and Admin/API reviews found the missing Clerk lifecycle connection, owner-switch storage/database risks, provider-failure sign-out exposure, incomplete SQLCipher cleanup state transitions, unsafe Admin mapping claims, stale linked-device session counts, and ambiguous retry identity. Each locally actionable blocker was fixed and its affected checks rerun; the final architecture re-review reported no remaining actionable blocker.

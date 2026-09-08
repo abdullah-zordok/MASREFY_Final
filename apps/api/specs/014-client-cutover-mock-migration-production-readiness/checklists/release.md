@@ -12,7 +12,7 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 
 ## Per-Wave Gates
 
-- [x] Wave 1 Identity local implementation, verification, and review complete; acceptance waits for the pushed-SHA remote gate.
+- [x] Wave 1 Identity accepted at `4f1ba15d2c21fe1af897beda1d1ef3a1c08c6ae7`; all required jobs in Backend Foundation run `34217625981` passed.
 - [ ] Wave 2 Reference/accounts accepted, pushed, and remotely green.
 - [ ] Wave 3 Ledger/sync accepted, pushed, and remotely green.
 - [ ] Wave 4 Planning accepted, pushed, and remotely green.

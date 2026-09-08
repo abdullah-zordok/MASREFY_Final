@@ -64,7 +64,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T033 [US1] Run Wave 1 API identity/security tests, Mobile typecheck/lint/focused/full Jest, Admin typecheck/lint/build/full Vitest/identity Playwright, production mock/secret scans, and focused performance gates; record exact commands, results, skips, durations, and external Clerk/device gates in the wave evidence.
 - [x] T034 [US1] Update the manifest, mock-removal report, release checklist, and external-gate ledger for Wave 1; run T005 and `git diff --check`.
 - [x] T035 [US1] Run independent code review, Clean Code review, test review, and security diff scan for the Wave 1 diff; resolve every blocker and rerun affected checks.
-- [ ] T036 [US1] Hunk/path-stage only Wave 1 and attributed BE003 files, prove preserved paths unchanged, commit `feat(cutover): complete identity wave`, push `main`, wait for all required workflows on the exact SHA, forward-fix failures, and record final remote evidence before T037.
+- [x] T036 [US1] Hunk/path-stage only Wave 1 and attributed BE003 files, prove preserved paths unchanged, commit `feat(cutover): complete identity wave`, push `main`, wait for all required workflows on the exact SHA, forward-fix failures, and record final remote evidence before T037.
 
 **Checkpoint**: Wave 1 is accepted only when its pushed SHA is green; genuine Clerk/OTP/physical-device proof may remain explicitly open.
 
