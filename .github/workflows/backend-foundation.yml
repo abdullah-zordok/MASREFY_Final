@@ -263,8 +263,13 @@ jobs:
         name: Reuse provisioned outbox k6 binary
         shell: bash
         run: |
+          cat > /tmp/outbox-extension-check.js <<'EOF'
+          import sql from 'k6/x/sql';
+          import postgres from 'k6/x/sql/driver/postgres';
+          export default function () {}
+          EOF
           for binary in "$HOME"/.cache/k6/builds/*/k6; do
-            if K6_AUTO_EXTENSION_RESOLUTION=false "$binary" inspect test/performance/outbox-dispatch.k6.js >/dev/null 2>&1; then
+            if K6_AUTO_EXTENSION_RESOLUTION=false "$binary" inspect /tmp/outbox-extension-check.js >/dev/null 2>&1; then
               echo "$(dirname "$binary")" >> "$GITHUB_PATH"
               exit 0
             fi
