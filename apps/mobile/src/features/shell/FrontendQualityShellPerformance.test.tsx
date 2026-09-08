@@ -36,7 +36,9 @@ test('returning shell shows useful financial content in at least 19 of 20 runs w
     screen.unmount();
   }
 
-  expect(timings.filter((value) => value < 2_000)).toHaveLength(20);
+  expect(
+    timings.filter((value) => value < 2_000).length
+  ).toBeGreaterThanOrEqual(19);
 });
 
 function DelayedOptionalPanel() {
