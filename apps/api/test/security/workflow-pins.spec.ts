@@ -73,6 +73,12 @@ describe('backend workflow action pins', () => {
     expect(stressSeedIndex).toBeGreaterThan(loadIndex);
     expect(stressSeedIndex).toBeLessThan(stressIndex);
     expect(workflow).toContain(
+      'K6_AUTO_EXTENSION_RESOLUTION: "false"',
+    );
+    expect(workflow).toContain(
+      'K6_AUTO_EXTENSION_RESOLUTION=false "$binary" inspect test/performance/outbox-dispatch.k6.js',
+    );
+    expect(workflow).toContain(
       'needs: [secrets, sentinel-redaction, application, mobile, admin, admin-e2e, database]',
     );
     expect(workflow).toContain('working-directory: apps/mobile');

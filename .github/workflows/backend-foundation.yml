@@ -260,9 +260,22 @@ jobs:
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:outbox:performance
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
+        name: Reuse provisioned outbox k6 binary
+        shell: bash
+        run: |
+          for binary in "$HOME"/.cache/k6/builds/*/k6; do
+            if K6_AUTO_EXTENSION_RESOLUTION=false "$binary" inspect test/performance/outbox-dispatch.k6.js >/dev/null 2>&1; then
+              echo "$(dirname "$binary")" >> "$GITHUB_PATH"
+              exit 0
+            fi
+          done
+          exit 1
+      - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run perf:seed:outbox
       - if: github.event_name != 'workflow_dispatch' || inputs.run_k6
         run: npm run test:stress
+        env:
+          K6_AUTO_EXTENSION_RESOLUTION: "false"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
