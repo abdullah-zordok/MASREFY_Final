@@ -12,6 +12,10 @@ description: "Task list template for feature implementation"
 **Tests**: Include the smallest tests required by the constitution for financial logic,
 validation, permission mapping, state transitions, and critical user journeys.
 
+For production integration, include failing tests before implementation for live/demo/test
+selection, invalid configuration, mock isolation, server-owned authorization, owner-scoped
+local-data preservation, upgrade, account switch/sign-out, and rollback.
+
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -162,6 +166,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Verify light/dark themes, accessibility text, and small/large phones
 - [ ] TXXX Verify loading, empty, error, offline, permission, and sync states as applicable
 - [ ] TXXX Confirm semantic tokens are used and no production secrets are present
+- [ ] TXXX Prove production selects live adapters, rejects mock/demo fallback and invalid config,
+  and preserves owner-scoped local data through upgrade, sign-out/account switch, and rollback
 
 ---
 

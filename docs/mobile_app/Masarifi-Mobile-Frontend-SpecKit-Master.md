@@ -17,6 +17,14 @@ Both Arabic and English are first-class product languages. Every screen, feature
 
 **Specifications:** 10 implementation specs
 
+**Production cutover amendment (2026-09-08):** The approved Phase 14 backend work authorizes
+production Mobile integration through the accepted typed backend contracts. Historical
+frontend-only and mock-only statements below describe the original UI delivery boundary; they
+no longer prohibit live adapters. Production must fail closed, preserve owner-scoped local and
+offline state, keep mocks limited to explicit demo/test modes, and report unfinished providers
+as unavailable. The initial production release is free-only: billing, checkout, subscriptions,
+promotions, and paid entitlement remain unavailable.
+
 ---
 
 # 0. Document Purpose

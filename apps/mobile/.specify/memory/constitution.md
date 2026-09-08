@@ -1,21 +1,23 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
-- Added principles:
-  - I. Financial Trust and User Control
-  - II. Automatic First, Platform Honest
-  - III. Arabic-First, Accessible Parity
-  - IV. Semantic Design System Only
-  - V. Typed, Replaceable, and Verifiable Frontend
-- Added sections:
-  - Product and Technical Constraints
-  - Delivery and Quality Gates
+- Version change: 1.0.0 -> 2.0.0
+- Modified principles:
+  - II. Automatic First, Platform Honest — approved production backend/provider cutover is now allowed through typed adapters
+  - V. Typed, Replaceable, and Verifiable Frontend — production selection must fail closed and preserve local ownership
+- Modified sections:
+  - Product and Technical Constraints — frontend-only/mock-only restriction replaced by live-production and explicit demo/test modes
+  - Delivery and Quality Gates — production mock isolation and local-data migration proof added
 - Removed sections: none
 - Templates:
   - updated: .specify/templates/plan-template.md
   - updated: .specify/templates/spec-template.md
   - updated: .specify/templates/tasks-template.md
 - Agent command review: no stale agent-specific references found
+- Dependent documents:
+  - updated: docs/mobile_app/Masarifi-Mobile-Frontend-SpecKit-Master.md
+  - updated: apps/api/specs/014-client-cutover-mock-migration-production-readiness
+- Amendment rationale: Phase 14 integrates the already-approved backend while retaining typed boundaries, platform honesty, local/offline preservation, and security controls.
+- Owner approval: the project owner's approved Phase 14 request on 2026-09-08 explicitly authorizes production client cutover and this prerequisite amendment.
 - Follow-up TODOs: none
 -->
 
@@ -40,8 +42,9 @@ a usable manual fallback. Android SMS access MUST require an educational permiss
 and explicit consent. iOS MUST NOT display or imply Android SMS capabilities; it MUST offer
 honest manual, voice, and approved platform alternatives. Permission denial, automation
 failure, or offline operation MUST NOT block the core application. Camera capture, receipt
-scanning, investments, production backend behavior, and production provider integrations
-remain outside Core V1 unless the constitution is amended.
+scanning, and investments remain outside Core V1. Approved production backend and provider
+integrations MUST use typed adapters, server-owned authorization, explicit capability and
+configuration checks, and an honest unavailable state when the service cannot run.
 
 Rationale: the product promise depends on low-effort capture without misleading or
 excluding users whose platform or permissions differ.
@@ -77,7 +80,10 @@ feature. Server-dependent behavior MUST be represented by typed contracts, mock 
 and replaceable adapters. Platform-specific behavior MUST remain behind adapters. The
 mobile client MUST NOT contain production secrets, direct database access, direct AI
 provider calls, or business rules hidden inside presentation components. Server-shaped
-state MUST have one owner and MUST NOT be duplicated across query and local stores.
+state MUST have one owner and MUST NOT be duplicated across query and local stores. Production
+builds MUST select only approved live adapters and MUST fail closed when required identity,
+endpoint, contract, or provider configuration is missing or invalid. Mock adapters MUST remain
+reachable only in explicit demo and test modes.
 
 Each feature MUST include the smallest tests that prove its financial calculations,
 validation, permission mapping, state transitions, and critical user journeys. A feature
@@ -90,13 +96,16 @@ exist, while focused verification protects money-related behavior and platform f
 
 ## Product and Technical Constraints
 
-- The mobile phase is frontend-only and MUST use typed mock adapters for unfinished services.
+- Approved production features MUST use typed live adapters; unfinished external services MUST
+  expose an explicit unavailable state. Deterministic mocks remain limited to demo and test modes.
 - The baseline stack is React Native, Expo Development Builds, TypeScript, and Expo Router.
   Any deviation MUST be justified in the feature plan.
 - Financial strings MUST use locale-aware formatters; manual string assembly is prohibited.
 - Financial semantic colors and operational status colors MUST remain distinct.
 - Forms MUST preserve entered data after validation errors and accidental navigation where
   loss would be harmful.
+- Live cutover, sign-out, account switching, rollback, and upgrade MUST preserve owner-scoped
+  drafts, pending mutations, conflicts, device-only preferences, and protected local material.
 - Async features MUST provide actionable recovery and MUST NOT expose stack traces or
   provider errors.
 - Lists and charts MUST remain usable with realistic dense data; large transaction lists
@@ -117,6 +126,10 @@ production secrets, inaccessible status meaning, or unverified critical flows. E
 require a documented violation, why it is necessary, and why a simpler compliant option
 cannot meet the requirement.
 
+Production reviews MUST also reject mock/demo fallback, client-supplied authorization,
+cross-owner local state, destructive local-data migration, unknown-state coercion, and direct
+third-party provider calls.
+
 ## Governance
 
 This constitution supersedes conflicting project practices and feature documents.
@@ -130,4 +143,4 @@ The authoritative product references are
 `docs/mobile_app/Masarifi-Mobile-Frontend-SpecKit-Master.md` and
 `docs/design-system/masarifi-gulf-premium-design-system-v2.1.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-05 | **Last Amended**: 2026-08-05
+**Version**: 2.0.0 | **Ratified**: 2026-08-05 | **Last Amended**: 2026-09-08

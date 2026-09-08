@@ -50,6 +50,8 @@
   accessibility, loading, empty, error, offline, permission, and sync states as applicable.
 - **Architecture and proof**: Use typed contracts and replaceable adapters, keep secrets and
   provider calls out of the client, and name the focused tests and visual QA required.
+- **Production cutover**: Name the live/demo/test selector, fail-closed configuration checks,
+  server-owned authorization, mock isolation, owner-scoped local-data migration, and rollback proof.
 
 ## Project Structure
 

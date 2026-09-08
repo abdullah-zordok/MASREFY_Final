@@ -105,6 +105,8 @@
 - **Localization and accessibility**: [Arabic RTL, English LTR, formatting, and access needs]
 - **UI states and tokens**: [semantic tokens plus loading, empty, error, offline, and sync states]
 - **Verification**: [focused tests and visual QA needed for this feature]
+- **Provider and local-data safety**: [live/demo/test selection, fail-closed configuration,
+  server-owned authorization, owner scope, migration, offline preservation, and rollback]
 
 ### Key Entities *(include if feature involves data)*
 
