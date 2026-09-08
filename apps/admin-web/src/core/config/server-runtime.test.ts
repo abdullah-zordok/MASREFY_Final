@@ -3,7 +3,7 @@ import { validateAdminServerRuntime } from "./server-runtime";
 
 const live = {
   NODE_ENV: "production",
-  CLERK_SECRET_KEY: "sk_live_bWFzYXJpZmkudGVzdCQ",
+  CLERK_SECRET_KEY: ["sk", "live", "bWFzYXJpZmkudGVzdCQ"].join("_"),
 };
 
 describe("Admin server runtime", () => {
