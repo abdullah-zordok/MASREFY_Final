@@ -29,6 +29,9 @@ export default defineConfig({
   webServer: {
     command: "npx next dev --webpack -p 3100",
     env: {
+      CLERK_SECRET_KEY: "",
+      NEXT_PUBLIC_API_URL: "",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
       NEXT_PUBLIC_ENABLE_MOCKS: "true",
     },
     url: `${baseURL}/admin`,
