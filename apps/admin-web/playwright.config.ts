@@ -31,7 +31,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_ENABLE_MOCKS: "true",
     },
-    url: baseURL,
+    url: `${baseURL}/admin`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },

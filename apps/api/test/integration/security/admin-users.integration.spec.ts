@@ -51,11 +51,11 @@ describeLiveDatabase('Admin authoritative projections', () => {
       );
       await client.query(
         `insert into public.user_devices(user_id,device_fingerprint,clerk_session_id,platform,app_version,revoked_at) values
-          ($3,'h1:'||repeat('1',64),'target_session_a','web','1.0.0',null),
-          ($3,'h1:'||repeat('2',64),'target_session_a','web','1.0.0',null),
-          ($3,'h1:'||repeat('3',64),'target_session_b','web','1.0.0',null),
-          ($3,'h1:'||repeat('4',64),'target_session_c','web','1.0.0',clock_timestamp())`,
-        ids,
+          ($1,'h1:'||repeat('1',64),'target_session_a','web','1.0.0',null),
+          ($1,'h1:'||repeat('2',64),'target_session_a','web','1.0.0',null),
+          ($1,'h1:'||repeat('3',64),'target_session_b','web','1.0.0',null),
+          ($1,'h1:'||repeat('4',64),'target_session_c','web','1.0.0',clock_timestamp())`,
+        [targetAdminId],
       );
       await client.query('commit');
     });
