@@ -12,7 +12,7 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 
 ## Per-Wave Gates
 
-- [ ] Wave 1 Identity accepted, pushed, and remotely green.
+- [x] Wave 1 Identity local implementation, verification, and review complete; acceptance waits for the pushed-SHA remote gate.
 - [ ] Wave 2 Reference/accounts accepted, pushed, and remotely green.
 - [ ] Wave 3 Ledger/sync accepted, pushed, and remotely green.
 - [ ] Wave 4 Planning accepted, pushed, and remotely green.
@@ -24,9 +24,9 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 
 ## Client and Data Gates
 
-- [ ] Production Mobile selects live providers explicitly and rejects missing/invalid API or Clerk configuration.
-- [ ] Production Admin rejects MSW and uses Clerk-authenticated live repositories.
-- [ ] Unhandled MSW requests fail in test/development rather than bypass.
+- [x] Production Mobile identity selects Clerk/live owner providers explicitly and rejects missing/invalid API or Clerk configuration.
+- [x] Production Admin rejects MSW and uses Clerk-authenticated Wave 1 repositories.
+- [x] Unhandled MSW API requests fail in test/development while framework navigation remains available.
 - [ ] Production static/bundle scan finds no mock/demo route, provider secret, service-role call, direct OpenRouter call, unsafe URL, or hidden debug mode.
 - [ ] SQLite records, pending mutations, conflicts, drafts, device-only preferences, PIN/biometric material, and encryption guarantees survive upgrade/cutover/rollback.
 - [ ] Unknown fields, states, errors, and malformed responses fail explicitly.

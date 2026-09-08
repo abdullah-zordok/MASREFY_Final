@@ -207,7 +207,7 @@ describe("billing repository", () => {
       expectedIssueState: "reviewing",
       providerFreshness: "stale",
       confirmationToken: CONFIRM_TOKEN,
-    })).rejects.toMatchObject({ code: "conflict" });
+    })).rejects.toMatchObject({ code: "contract_mismatch" });
   });
 
   test("classifies unhandled errors as safe ApiError envelopes", async () => {

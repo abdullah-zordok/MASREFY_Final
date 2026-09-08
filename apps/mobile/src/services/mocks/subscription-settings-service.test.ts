@@ -103,19 +103,16 @@ describe('SubscriptionService lifecycle', () => {
 
 describe('SettingsService lifecycle', () => {
   it('keeps backend-owned identity, sessions, events, and privacy requests out of production defaults', async () => {
-    await expect(settingsService.getProfile()).resolves.toMatchObject({
-      name: null,
-      phone: null,
-      email: null
+    expect(settingsService.metadata.kind).toBe('live');
+    await expect(settingsService.getProfile()).rejects.toMatchObject({
+      code: 'session_expired'
     });
-    await expect(settingsService.listSessions()).resolves.toEqual([]);
-    await expect(settingsService.listSecurityEvents()).resolves.toMatchObject({
-      items: [],
-      total: 0
+    await expect(settingsService.listSessions()).rejects.toMatchObject({
+      code: 'session_expired'
     });
     await expect(
       settingsService.requestPrivacyAction('data_export', 'production-export')
-    ).rejects.toMatchObject({ code: 'unavailable' });
+    ).rejects.toMatchObject({ code: 'provider_unavailable' });
   });
 
   it('selects fixture settings for explicit demo mode', async () => {

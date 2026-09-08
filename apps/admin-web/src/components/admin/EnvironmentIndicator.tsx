@@ -1,11 +1,14 @@
-import type { AdminSession } from "@/features/foundation/contracts";
+import type { Locale } from "@/core/localization/direction";
 import { getEnvironmentLabel } from "@/core/localization/display-labels";
 import { t } from "@/core/localization/messages";
 
 export function EnvironmentIndicator({
   environment,
   locale,
-}: Pick<AdminSession, "environment" | "locale">) {
+}: {
+  environment: "production" | "staging" | "development";
+  locale: Locale;
+}) {
   const label = getEnvironmentLabel(locale, environment);
   return (
     <span className={`environment environment-${environment}`} aria-label={t(locale, "environment.aria", { label })}>

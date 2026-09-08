@@ -4,9 +4,11 @@ export type ApiErrorCode =
   | "not_found"
   | "conflict"
   | "session_expired"
+  | "recent_auth_required"
   | "gone"
   | "rate_limited"
   | "provider_unavailable"
+  | "contract_mismatch"
   | "internal_error";
 
 export class ApiError extends Error {
@@ -26,9 +28,11 @@ const SAFE_MESSAGES: Record<ApiErrorCode, string> = {
   not_found: "تعذر العثور على العنصر المطلوب.",
   conflict: "تعارض الطلب مع الحالة الحالية.",
   session_expired: "انتهت الجلسة. سجّل الدخول مرة أخرى.",
+  recent_auth_required: "أعد التحقق من هويتك لإكمال هذا الإجراء.",
   gone: "انتهت صلاحية هذا المحتوى ولم يعد متاحاً.",
   rate_limited: "تجاوزت عدد المحاولات المسموح. حاول لاحقاً.",
   provider_unavailable: "الخدمة غير متاحة مؤقتاً.",
+  contract_mismatch: "أعادت الخدمة استجابة غير مدعومة.",
   internal_error: "تعذر إكمال الطلب. حاول مرة أخرى.",
 };
 

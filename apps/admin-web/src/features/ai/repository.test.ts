@@ -40,7 +40,7 @@ describe("Spec 006 shared AI repository boundary", () => {
       rawPrompt: "private",
     })));
 
-    await expect(aiRepository.probe()).rejects.toMatchObject({ code: "validation_error" });
+    await expect(aiRepository.probe()).rejects.toMatchObject({ code: "contract_mismatch" });
   });
 
   test("gets the AI overview through validated query filters", async () => {

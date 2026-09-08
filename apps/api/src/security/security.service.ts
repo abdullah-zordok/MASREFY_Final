@@ -176,15 +176,10 @@ function retainedCategories(value: unknown): string[] {
 
 function projectRecord(operation: string, value: unknown): Record<string, unknown> {
   const result = { ...record(value) };
-  if (['listAdmins', 'getAdmin', 'disableAdmin'].includes(operation)) {
+  if (operation === 'disableAdmin') {
     result.roleKeys ??= [];
     result.mfaStatus ??= 'unknown';
     result.activeSessionCount ??= 0;
-  }
-  if (operation === 'getAdmin') {
-    result.assignments ??= [];
-    result.effectivePermissionKeys ??= [];
-    result.eligibleActions ??= [];
   }
   if (['listRoles', 'getRole', 'createRole', 'updateRole'].includes(operation)) {
     result.assignmentCount ??= 0;
@@ -384,6 +379,13 @@ export class SecurityService {
         input.operation,
         await this.repository.execute({ ...input, body }),
       );
+      if (input.operation === 'getAdminSelf') {
+        return {
+          ...record(result),
+          activeSessionCount: await this.clerk.countActiveSessions(input.principal.userId),
+          mfaStatus: input.principal.mfaAgeSeconds === null ? 'missing' : 'enabled',
+        };
+      }
       if (
         input.operation === 'getMyPrivacyExport' &&
         typeof result === 'object' &&

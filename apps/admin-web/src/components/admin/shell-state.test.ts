@@ -85,9 +85,9 @@ describe("Spec 009 system health and jobs route permissions", () => {
 
   test("uses the specific job-run detail rule before broad jobs rules", () => {
     expect(resolveRoutePermission("/admin/jobs/runs/JOB-DEMO-FAILED-01")).toBe("jobs.runs.read");
-    expect(resolveRoutePermission("/admin/jobs/runs/JOB-DEMO-FAILED-01/retry")).toBeUndefined();
-    expect(resolveRoutePermission("/admin/jobs/runs/not-a-job-id")).toBeUndefined();
-    expect(resolveRoutePermission("/admin/jobs")).toBeUndefined();
+    expect(resolveRoutePermission("/admin/jobs/runs/JOB-DEMO-FAILED-01/retry")).toBe("forbidden");
+    expect(resolveRoutePermission("/admin/jobs/runs/not-a-job-id")).toBe("forbidden");
+    expect(resolveRoutePermission("/admin/jobs")).toBe("forbidden");
   });
 });
 
@@ -207,7 +207,7 @@ describe("Spec 010 governance and settings route permissions", () => {
     "/admin/roles/ROLE-/edit",
     "/admin/roles/ROLE-DEMO-CUSTOM-01/delete",
   ])("denies malformed or unsupported Spec 010 path %s", (path) => {
-    expect(resolveRoutePermission(path)).toBeUndefined();
+    expect(resolveRoutePermission(path)).toBe("forbidden");
   });
 });
 

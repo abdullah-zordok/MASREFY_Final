@@ -19,6 +19,8 @@ import { usePreferenceStore } from '@/state/preferences';
 import { useTheme } from '@/state/theme-context';
 import { colorTokens } from '@/design-system/tokens';
 import { isFixtureModeEnabled } from '@/config/demo-mode';
+import { authService } from '@/features/auth/auth-flow';
+import { signOutAppShellSession } from '@/features/auth/session-controller';
 
 export default function MoreRoute() {
   const theme = useTheme();
@@ -53,7 +55,6 @@ export default function MoreRoute() {
   const profileLabel = translate('appShell.more.profileSummary', locale);
   const basicPlanLabel = translate('appShell.more.planBasic', locale);
 
-  const signOut = useAppShellStore((state) => state.signOut);
   return (
     <ScrollView
       contentContainerStyle={[
@@ -308,7 +309,7 @@ export default function MoreRoute() {
         <ActionButton
           label={translate('appShell.auth.signOut')}
           onPress={async () => {
-            await signOut();
+            await signOutAppShellSession(authService, 'local');
             router.replace('/(public)/language');
           }}
           variant="destructive"
@@ -317,7 +318,7 @@ export default function MoreRoute() {
           <ActionButton
             label={translate('appShell.security.mockSignOutAll')}
             onPress={async () => {
-              await signOut();
+              await signOutAppShellSession(authService, 'all');
               router.replace('/(public)/language');
             }}
             variant="secondary"

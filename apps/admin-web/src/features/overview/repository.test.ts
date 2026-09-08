@@ -27,7 +27,7 @@ describe("overview summary repository", () => {
       ),
     );
     await expect(overviewRepository.getOverviewSummary({})).rejects.toMatchObject({
-      code: "validation_error",
+      code: "contract_mismatch",
       status: 502,
     });
   });
@@ -67,7 +67,7 @@ describe("platform analytics repository", () => {
   test("rejects an impossible customer breakdown regionally", async () => {
     await expect(
       overviewRepository.getPlatformAnalytics({ platform: "all", scenario: "impossible" }),
-    ).rejects.toMatchObject({ code: "validation_error" });
+    ).rejects.toMatchObject({ code: "contract_mismatch" });
   });
 
   test("rejects malformed pagination-independent fields", async () => {
@@ -80,7 +80,7 @@ describe("platform analytics repository", () => {
       ),
     );
     await expect(overviewRepository.getPlatformAnalytics({})).rejects.toMatchObject({
-      code: "validation_error",
+      code: "contract_mismatch",
     });
   });
 });

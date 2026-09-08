@@ -1,5 +1,6 @@
 import { createMockAuthService } from '@/services/mocks/auth-service';
 import { useAppShellStore } from '@/state/app-shell';
+import { registerRuntimeIdentityReset } from '@/storage/runtime-user-data-reset';
 
 import {
   completeAuthenticatedSession,
@@ -21,7 +22,12 @@ jest.mock('@/storage/local-data-reset', () => ({
 }));
 
 beforeEach(() => {
+  process.env.EXPO_PUBLIC_DEMO_MODE = '1';
   useAppShellStore.getState().reset();
+});
+
+afterAll(() => {
+  delete process.env.EXPO_PUBLIC_DEMO_MODE;
 });
 
 describe('session-controller', () => {
@@ -48,6 +54,22 @@ describe('session-controller', () => {
     await expect(auth.restoreSession()).resolves.toMatchObject({
       status: 'signed_out'
     });
+  });
+
+  it('clears local private state when provider sign-out fails', async () => {
+    const auth = createMockAuthService();
+    await auth.signInWithGoogle();
+    await restoreAppShellSession(auth);
+    const resetIdentity = jest.fn();
+    const unregister = registerRuntimeIdentityReset(resetIdentity);
+    const providerFailure = new Error('provider unavailable');
+    jest.spyOn(auth, 'signOut').mockRejectedValueOnce(providerFailure);
+
+    await expect(signOutAppShellSession(auth, 'all')).rejects.toBe(providerFailure);
+
+    expect(useAppShellStore.getState().session?.status).toBe('signed_out');
+    expect(resetIdentity).toHaveBeenCalledTimes(1);
+    unregister();
   });
 
   it('starts the correct onboarding path after authentication', async () => {
@@ -102,5 +124,33 @@ describe('session-controller', () => {
     ).resolves.toBe('/(tabs)/home');
 
     expect(useAppShellStore.getState().onboarding?.status).toBe('completed');
+  });
+
+  it('routes from the newly authenticated owner state instead of the previous owner view', async () => {
+    useAppShellStore.setState({
+      onboarding: {
+        platformPath: 'android',
+        status: 'completed',
+        completedSteps: ['complete'],
+        skippedSteps: [],
+        currentStep: null,
+        permissionEducationSeen: true,
+        trackingPreference: null,
+        updatedAt: 10
+      }
+    });
+    const authenticate = jest
+      .spyOn(useAppShellStore.getState(), 'authenticate')
+      .mockImplementation(async () => {
+        useAppShellStore.setState({ onboarding: null });
+      });
+
+    await expect(
+      completeAuthenticatedSession(authenticatedSession, {
+        platform: { os: 'android', smsAvailable: true },
+        now: () => 20
+      })
+    ).resolves.toBe('/(onboarding)/tracking-intro');
+    authenticate.mockRestore();
   });
 });

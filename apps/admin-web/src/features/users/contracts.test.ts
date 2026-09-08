@@ -40,11 +40,12 @@ const validItem = {
 };
 
 describe("userId schema", () => {
-  test("accepts valid user ids and rejects malformed values", () => {
+  test("accepts opaque API and demo user ids and rejects malformed values", () => {
     expect(userIdSchema.safeParse("USR-10482").success).toBe(true);
+    expect(userIdSchema.safeParse("user_2abcDEF123").success).toBe(true);
     expect(userIdSchema.safeParse("usr-10482").success).toBe(false);
-    expect(userIdSchema.safeParse("XYZ-10482").success).toBe(false);
-    expect(userIdSchema.safeParse(`USR-${"A".repeat(50)}`).success).toBe(false);
+    expect(userIdSchema.safeParse("user id").success).toBe(false);
+    expect(userIdSchema.safeParse(`user_${"A".repeat(130)}`).success).toBe(false);
   });
 });
 

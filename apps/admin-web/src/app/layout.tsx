@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { DM_Sans, Tajawal } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -29,9 +30,15 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const content = <Providers identityEnabled={Boolean(clerkKey)}>{children}</Providers>;
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body className={`${dmSans.variable} ${tajawal.variable}`} suppressHydrationWarning><Providers>{children}</Providers></body>
+      <body className={`${dmSans.variable} ${tajawal.variable}`} suppressHydrationWarning>
+        {clerkKey
+          ? <ClerkProvider publishableKey={clerkKey}>{content}</ClerkProvider>
+          : content}
+      </body>
     </html>
   );
 }

@@ -7,18 +7,60 @@
  */
 
 import * as SQLite from 'expo-sqlite';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
+import { File } from 'expo-file-system';
+import { resolveClientMode } from '@/config/client-runtime';
 
 const DATABASE_NAME = 'masarifi.db';
 const CURRENT_SCHEMA_VERSION = 11;
+const LEGACY_OWNER_KEY = 'masarifi.database.legacyOwnerHash';
+const DATABASE_KEY_PREFIX = 'masarifi.database.key.';
+const LEGACY_MIGRATION_TABLE = '_masarifi_migration_state';
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
-let databaseWriteQueue: Promise<void> = Promise.resolve();
+let databaseLifecycleQueue: Promise<void> = Promise.resolve();
+let activeDatabase: SQLite.SQLiteDatabase | null = null;
+let databaseName = DATABASE_NAME;
+let databaseOwnerHash: string | null = null;
+
+export async function configureDatabaseOwner(userId: string): Promise<void> {
+  if (!userId || /^(?:mock|demo|fixture|test)(?:[-_]|$)/i.test(userId))
+    throw new Error('invalid database owner');
+  await enqueueDatabaseLifecycle(async () => {
+    const ownerHash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      userId
+    );
+    if (ownerHash === databaseOwnerHash) return;
+    await closeActiveDatabase();
+    databaseOwnerHash = ownerHash;
+    databaseName = `masarifi-${ownerHash.slice(0, 24)}.db`;
+  });
+}
+
+export async function clearDatabaseOwner(): Promise<void> {
+  await enqueueDatabaseLifecycle(async () => {
+    await closeActiveDatabase();
+    databaseOwnerHash = null;
+    databaseName = DATABASE_NAME;
+  });
+}
 
 export async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!databasePromise) {
-    databasePromise = createAndMigrate();
-  }
-  return databasePromise;
+  return enqueueDatabaseLifecycle(async () => {
+    if (resolveClientMode() === 'live' && !databaseOwnerHash)
+      throw new Error('database owner required');
+    if (!databasePromise) {
+      const opening = createAndMigrate();
+      databasePromise = opening;
+      opening.catch(() => {
+        if (databasePromise === opening) databasePromise = null;
+      });
+    }
+    activeDatabase = await databasePromise;
+    return activeDatabase;
+  });
 }
 
 /**
@@ -26,24 +68,184 @@ export async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
  */
 export function resetDatabaseForTests(): void {
   databasePromise = null;
-  databaseWriteQueue = Promise.resolve();
+  databaseLifecycleQueue = Promise.resolve();
+  activeDatabase = null;
 }
 
 export function runExclusiveDatabaseTransaction(
   database: SQLite.SQLiteDatabase,
   operation: (transaction: SQLite.SQLiteDatabase) => Promise<void>
 ): Promise<void> {
-  const next = databaseWriteQueue.then(() =>
-    database.withExclusiveTransactionAsync(operation)
-  );
-  databaseWriteQueue = next.catch(() => undefined);
-  return next;
+  return enqueueDatabaseLifecycle(async () => {
+    if (resolveClientMode() === 'live' && database !== activeDatabase)
+      throw new Error('stale database owner');
+    await database.withExclusiveTransactionAsync(operation);
+  });
 }
 
 async function createAndMigrate(): Promise<SQLite.SQLiteDatabase> {
-  const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
-  await runMigrations(db);
+  const ownerHash = databaseOwnerHash;
+  const targetExisted = ownerHash ? databaseFile(databaseName).exists : false;
+  let removeLegacyAfterMigration = false;
+  const db = await SQLite.openDatabaseAsync(databaseName);
+  try {
+    if (ownerHash) {
+      const key = await databaseKey(ownerHash);
+      await db.execAsync(`PRAGMA key = "x'${key}'";`);
+      const cipher = await db.getFirstAsync<{ cipher_version: string }>(
+        'PRAGMA cipher_version'
+      );
+      if (!cipher?.cipher_version) throw new Error('SQLCipher unavailable');
+      removeLegacyAfterMigration = !targetExisted
+        ? await migrateLegacyDatabase(db, ownerHash)
+        : await verifyLegacyMigration(db, ownerHash);
+      await db.getFirstAsync('SELECT count(*) AS count FROM sqlite_master');
+    }
+    await runMigrations(db);
+  } catch (error) {
+    await db.closeAsync();
+    if (ownerHash && !targetExisted && !removeLegacyAfterMigration)
+      removeDatabaseFiles(databaseName);
+    throw error;
+  }
+  if (removeLegacyAfterMigration) {
+    try {
+      removeDatabaseFiles(DATABASE_NAME);
+    } catch (error) {
+      await db.closeAsync();
+      throw error;
+    }
+  }
   return db;
+}
+
+async function verifyLegacyMigration(
+  db: SQLite.SQLiteDatabase,
+  ownerHash: string
+): Promise<boolean> {
+  if (
+    databaseFilesExist(DATABASE_NAME) &&
+    (await SecureStore.getItemAsync(LEGACY_OWNER_KEY)) === ownerHash
+  ) {
+    let marker: { value: string } | null;
+    try {
+      marker = await db.getFirstAsync<{ value: string }>(
+        `SELECT value FROM ${LEGACY_MIGRATION_TABLE} WHERE key = 'legacy-export-owner'`
+      );
+    } catch {
+      throw new Error('legacy database migration incomplete');
+    }
+    if (marker?.value !== ownerHash)
+      throw new Error('legacy database migration incomplete');
+    return true;
+  }
+  return false;
+}
+
+async function closeActiveDatabase(): Promise<void> {
+  const active = databasePromise;
+  databasePromise = null;
+  activeDatabase = null;
+  if (active) await (await active).closeAsync();
+}
+
+function enqueueDatabaseLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+  const result = databaseLifecycleQueue.then(operation);
+  databaseLifecycleQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
+async function databaseKey(ownerHash: string): Promise<string> {
+  const storageKey = `${DATABASE_KEY_PREFIX}${ownerHash}`;
+  const stored = await SecureStore.getItemAsync(storageKey);
+  if (stored && /^[0-9a-f]{64}$/i.test(stored)) return stored.toLowerCase();
+  const bytes = await Crypto.getRandomBytesAsync(32);
+  const key = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
+  await SecureStore.setItemAsync(storageKey, key);
+  return key;
+}
+
+async function migrateLegacyDatabase(
+  db: SQLite.SQLiteDatabase,
+  ownerHash: string
+): Promise<boolean> {
+  const legacy = databaseFile(DATABASE_NAME);
+  if (!legacy.exists) return false;
+  const claimedOwner = await SecureStore.getItemAsync(LEGACY_OWNER_KEY);
+  if (claimedOwner !== ownerHash) return false;
+  const legacyPath = legacy.uri.replace(/'/g, "''");
+  await db.execAsync(`ATTACH DATABASE '${legacyPath}' AS legacy KEY '';`);
+  try {
+    const tables = await db.getAllAsync<{ name: string }>(
+      "SELECT name FROM legacy.sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    );
+    const before = await tableCounts(db, 'legacy', tables);
+    await db.execAsync("SELECT sqlcipher_export('main', 'legacy');");
+    const after = await tableCounts(db, 'main', tables);
+    if (tables.some(({ name }) => before.get(name) !== after.get(name)))
+      throw new Error('legacy database row-count mismatch');
+  } finally {
+    await db.execAsync('DETACH DATABASE legacy;');
+  }
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.execAsync(`
+      CREATE TABLE IF NOT EXISTS ${LEGACY_MIGRATION_TABLE} (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      );
+      INSERT OR REPLACE INTO ${LEGACY_MIGRATION_TABLE} (key, value)
+      VALUES ('legacy-export-owner', '${ownerHash}');
+    `);
+  });
+  await SecureStore.setItemAsync(LEGACY_OWNER_KEY, ownerHash);
+  return true;
+}
+
+function removeDatabaseFiles(name: string): void {
+  let failure: unknown;
+  for (const candidate of [`${name}-wal`, `${name}-shm`, name]) {
+    const file = databaseFile(candidate);
+    if (!file.exists) continue;
+    try {
+      file.delete();
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+  if (failure !== undefined) throw failure;
+}
+
+function databaseFilesExist(name: string): boolean {
+  return [name, `${name}-wal`, `${name}-shm`].some(
+    (candidate) => databaseFile(candidate).exists
+  );
+}
+
+async function tableCounts(
+  db: SQLite.SQLiteDatabase,
+  schema: 'main' | 'legacy',
+  tables: readonly { name: string }[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  for (const { name } of tables) {
+    const identifier = name.replace(/"/g, '""');
+    const row = await db.getFirstAsync<{ count: number }>(
+      `SELECT count(*) AS count FROM ${schema}."${identifier}"`
+    );
+    if (!row || !Number.isSafeInteger(row.count) || row.count < 0)
+      throw new Error('invalid legacy database row count');
+    counts.set(name, row.count);
+  }
+  return counts;
+}
+
+function databaseFile(name: string): File {
+  return new File(SQLite.defaultDatabaseDirectory, name);
 }
 
 async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -51,7 +253,7 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
   `);
-  await runExclusiveDatabaseTransaction(db, async (transaction) => {
+  await db.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.execAsync(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY,

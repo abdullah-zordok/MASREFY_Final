@@ -33,7 +33,7 @@ describe('Phase 03 OpenAPI composition', () => {
         if (operationId && approvedIds.has(operationId)) phase3Count += 1;
       }
     }
-    expect(phase3Count).toBe(45);
+    expect(phase3Count).toBe(46);
     await app.close();
   });
 });

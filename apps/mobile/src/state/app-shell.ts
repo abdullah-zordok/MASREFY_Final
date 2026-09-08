@@ -12,16 +12,24 @@ import {
   type StepResult
 } from '@/features/onboarding/onboarding-progress';
 import { isDemoModeEnabled } from '@/config/demo-mode';
+import { resolveClientMode } from '@/config/client-runtime';
 import {
   createClientDemoSession,
   createCompletedDemoOnboarding
 } from '@/domain/demo-session';
 import { failUnlock, resetLock } from '@/features/security/privacy-lock';
-import { createAppShellStorage } from '@/storage/app-shell-storage';
+import {
+  clearAppShellStorageOwner,
+  configureAppShellStorageOwner,
+  createAppShellStorage
+} from '@/storage/app-shell-storage';
 import { synchronizeClientDemoLocale } from '@/services/mocks/client-demo-locale';
 import { usePreferenceStore } from '@/state/preferences';
-import { resetLocalUserData } from '@/storage/local-data-reset';
-import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
+import {
+  registerRuntimeUserDataReset,
+  resetRuntimeIdentityData
+} from '@/storage/runtime-user-data-reset';
+import { clearDatabaseOwner, configureDatabaseOwner } from '@/storage/database';
 
 interface AppShellState {
   hydrated: boolean;
@@ -32,7 +40,10 @@ interface AppShellState {
   profilePromptDismissed: boolean;
   pinCredential: string | null;
   hydrate: (now?: number) => Promise<void>;
-  authenticate: (session: AuthenticationSession) => Promise<void>;
+  authenticate: (
+    session: AuthenticationSession,
+    isCurrent?: () => boolean
+  ) => Promise<void>;
   expireSession: () => Promise<void>;
   signOut: () => Promise<void>;
   setOnboarding: (progress: OnboardingProgress) => Promise<void>;
@@ -82,6 +93,12 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
   hydrate: async (now = Date.now()) => {
     try {
       const demoMode = isDemoModeEnabled();
+      if (!demoMode && resolveClientMode() === 'live') {
+        await clearDatabaseOwner();
+        clearAppShellStorageOwner();
+        set({ ...initialState, hydrated: true, session: signedOutSession });
+        return;
+      }
       if (demoMode && !usePreferenceStore.getState().hydrated)
         await usePreferenceStore.getState().hydrate();
       const locale = usePreferenceStore.getState().locale;
@@ -142,9 +159,45 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
     }
   },
 
-  authenticate: async (session) => {
+  authenticate: async (session, isCurrent = () => true) => {
+    if (!isCurrent()) return;
+    const liveMode = resolveClientMode() === 'live';
+    if (
+      liveMode &&
+      session.status === 'authenticated' &&
+      /^(?:mock|demo|fixture|test)(?:[-_]|$)/i.test(session.userId ?? '')
+    )
+      throw new Error('invalid live session');
+    if (session.status === 'authenticated' && liveMode) {
+      set(initialState);
+      await resetRuntimeIdentityData();
+      if (!isCurrent()) return;
+      await configureDatabaseOwner(session.userId!);
+      if (!isCurrent()) return;
+      await configureAppShellStorageOwner(session.userId!);
+      if (!isCurrent()) return;
+      const [onboarding, pendingDestination, privacyLock, pinCredential, profilePromptDismissed] =
+        await Promise.all([
+          storage.loadOnboarding(),
+          storage.loadPendingDestination(),
+          storage.loadPrivacyLock(),
+          storage.loadPinCredential(),
+          storage.loadProfilePromptDismissed()
+        ]);
+      if (!isCurrent()) return;
+      set({
+        hydrated: true,
+        session,
+        onboarding,
+        pendingDestination,
+        privacyLock,
+        pinCredential,
+        profilePromptDismissed
+      });
+      return;
+    }
     await storage.saveSession(session);
-    set({ session });
+    set({ hydrated: true, session });
   },
 
   expireSession: async () => {
@@ -156,23 +209,21 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
   },
 
   signOut: async () => {
-    const userId = get().session?.userId ?? 'anonymous';
-    try {
-      await resetLocalUserData(`sign-out-${userId}-${Date.now()}`);
-    } finally {
-      set({
-        session: signedOutSession,
-        pendingDestination: null,
-        privacyLock: null,
-        pinCredential: null
-      });
-      await Promise.all([
-        storage.clearSession(),
-        storage.clearPrivacyLock(),
-        storage.clearPinCredential(),
-        storage.savePendingDestination(null)
-      ]);
-    }
+    set({
+      hydrated: true,
+      session: signedOutSession,
+      onboarding: null,
+      pendingDestination: null,
+      privacyLock: null,
+      profilePromptDismissed: false,
+      pinCredential: null
+    });
+    await Promise.all([
+      storage.clearSession(),
+      clearDatabaseOwner(),
+      resetRuntimeIdentityData()
+    ]);
+    clearAppShellStorageOwner();
   },
 
   setOnboarding: async (onboarding) => {

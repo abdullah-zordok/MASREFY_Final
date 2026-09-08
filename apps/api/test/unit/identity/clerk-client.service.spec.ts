@@ -7,10 +7,11 @@ import {
 const revokeSession = jest.fn();
 const getUser = jest.fn();
 const getUserList = jest.fn();
+const getSessionList = jest.fn();
 
 jest.mock('@clerk/backend', () => ({
   createClerkClient: () => ({
-    sessions: { revokeSession },
+    sessions: { revokeSession, getSessionList },
     users: { getUser, getUserList },
   }),
 }));
@@ -87,5 +88,15 @@ describe('Clerk Admin client adapter', () => {
       nextOffset: 1,
     });
     expect(getUserList).toHaveBeenCalledWith({ offset: 0, limit: 1, orderBy: '+created_at' });
+  });
+
+  it('uses Clerk active sessions as the authoritative session count', async () => {
+    getSessionList.mockResolvedValue({ data: [{ id: 'session_1' }], totalCount: 2 });
+    await expect(service.countActiveSessions('user_fixture_a')).resolves.toBe(2);
+    expect(getSessionList).toHaveBeenCalledWith({
+      userId: 'user_fixture_a',
+      status: 'active',
+      limit: 1,
+    });
   });
 });

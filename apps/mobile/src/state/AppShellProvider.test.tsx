@@ -7,6 +7,17 @@ import { AppShellProvider } from './AppShellProvider';
 import { useAppShellStore } from './app-shell';
 import { usePreferenceStore } from './preferences';
 
+const mockRestoreAppShellSession = jest.fn(async (..._args: unknown[]) => undefined);
+let mockLiveClerkSessionKey: string | null | undefined;
+
+jest.mock('@/features/auth/session-controller', () => ({
+  restoreAppShellSession: (...args: unknown[]) => mockRestoreAppShellSession(...args)
+}));
+jest.mock('@/features/auth/auth-flow', () => ({ authService: {} }));
+jest.mock('@/services/live/clerk-provider', () => ({
+  useLiveClerkSessionKey: () => mockLiveClerkSessionKey
+}));
+
 jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
   getItemAsync: jest.fn().mockResolvedValue(null),
@@ -19,9 +30,15 @@ jest.mock('expo-router', () => ({
 
 describe('AppShellProvider', () => {
   beforeEach(() => {
+    delete process.env.EXPO_PUBLIC_CLIENT_MODE;
+    mockLiveClerkSessionKey = undefined;
     useAppShellStore.getState().reset();
     usePreferenceStore.setState({ locale: 'en', direction: 'ltr' });
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_CLIENT_MODE;
   });
 
   it('always renders children on first render so the navigator mounts immediately', () => {
@@ -58,6 +75,69 @@ describe('AppShellProvider', () => {
     });
 
     expect(hydrate).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for Clerk and restores the authoritative live session', async () => {
+    process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+    mockLiveClerkSessionKey = 'sess_live_123';
+    const hydrate = jest
+      .spyOn(useAppShellStore.getState(), 'hydrate')
+      .mockResolvedValue(undefined);
+
+    render(
+      <AppShellProvider>
+        <ProtectedContent />
+      </AppShellProvider>
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(1);
+    expect(hydrate).not.toHaveBeenCalled();
+    hydrate.mockRestore();
+  });
+
+  it('serializes live restores and rejects a stale session result', async () => {
+    process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+    let releaseFirst: (() => void) | undefined;
+    mockLiveClerkSessionKey = 'sess_old';
+    mockRestoreAppShellSession
+      .mockImplementationOnce(async (_service, isCurrent) => {
+        await new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+        if ((isCurrent as () => boolean)())
+          useAppShellStore.setState({ pendingDestination: '/stale' });
+      })
+      .mockImplementationOnce(async (_service, isCurrent) => {
+        if ((isCurrent as () => boolean)())
+          useAppShellStore.setState({ pendingDestination: '/current' });
+      });
+
+    const view = render(
+      <AppShellProvider>
+        <ProtectedContent />
+      </AppShellProvider>
+    );
+    await act(async () => Promise.resolve());
+
+    mockLiveClerkSessionKey = 'sess_current';
+    view.rerender(
+      <AppShellProvider>
+        <ProtectedContent />
+      </AppShellProvider>
+    );
+    expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      releaseFirst?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(2);
+    expect(useAppShellStore.getState().pendingDestination).toBe('/current');
   });
 
   it('forwards app state changes and preserves locale preferences', async () => {

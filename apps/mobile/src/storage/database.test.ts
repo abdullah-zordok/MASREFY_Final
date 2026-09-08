@@ -23,6 +23,8 @@ class StatefulSqliteFake {
     this.failDdl = true;
   }
 
+  async closeAsync(): Promise<void> {}
+
   async withExclusiveTransactionAsync(
     operation: (database: this) => Promise<void>
   ): Promise<void> {
@@ -455,11 +457,7 @@ it('serializes exclusive database writes', async () => {
   const firstFinished = new Promise<void>((resolve) => {
     releaseFirst = resolve;
   });
-  const database = {
-    withExclusiveTransactionAsync: jest.fn(async (operation) => {
-      await operation(database);
-    })
-  } as never;
+  const database = await openDatabase();
   const first = runExclusiveDatabaseTransaction(database, async () => {
     order.push('first-start');
     await firstFinished;

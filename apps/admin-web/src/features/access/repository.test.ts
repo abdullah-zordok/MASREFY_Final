@@ -31,7 +31,7 @@ describe("access repository", () => {
     ["rate-limit", "rate_limited", 429],
     ["unavailable", "provider_unavailable", 503],
     ["internal-error", "internal_error", 500],
-    ["unsafe-response", "validation_error", 502],
+    ["unsafe-response", "contract_mismatch", 502],
   ] as const)("maps the %s scenario to a safe error", async (scenario, code, status) => {
     await expect(accessRepository.listRequests({ scenario }, "super-admin"))
       .rejects.toMatchObject({ code, status });

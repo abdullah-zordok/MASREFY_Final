@@ -12,7 +12,7 @@ export const authServiceCapability: CapabilityContractMetadata = {
   capability: 'app-shell.auth',
   majorVersion: 1,
   owner: 'app-shell',
-  providerKinds: ['mock'],
+  providerKinds: ['mock', 'live'],
   unavailableOutcome: 'appShell.auth.unavailable'
 };
 
@@ -20,7 +20,7 @@ export const onboardingServiceCapability: CapabilityContractMetadata = {
   capability: 'app-shell.onboarding',
   majorVersion: 1,
   owner: 'app-shell',
-  providerKinds: ['mock'],
+  providerKinds: ['mock', 'live'],
   unavailableOutcome: 'appShell.onboarding.unavailable'
 };
 
@@ -87,7 +87,11 @@ export interface PhoneVerificationAttempt {
 
 export type AuthResult =
   | { status: 'authenticated'; session: AuthenticationSession }
-  | { status: 'conflict'; conflictId: string; existingMethod: 'phone' | 'google' }
+  | {
+      status: 'conflict';
+      conflictId: string;
+      existingMethod: 'phone' | 'google';
+    }
   | { status: 'cancelled' }
   | { status: 'failed'; errorCode: string };
 
@@ -122,7 +126,8 @@ export interface BiometricAvailability {
 }
 
 export interface BiometricResult {
-  status: 'authenticated' | 'cancelled' | 'failed' | 'locked_out' | 'unavailable';
+  status:
+    'authenticated' | 'cancelled' | 'failed' | 'locked_out' | 'unavailable';
 }
 
 export interface BiometricService {

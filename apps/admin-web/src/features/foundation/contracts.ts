@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  adminSessionSchema,
+  adminSelfContextSchema,
   attentionItemSchema,
   attentionQuerySchema,
   attentionResponseSchema,
@@ -16,7 +16,7 @@ import {
   platformOptionsResponseSchema,
 } from "./schemas";
 
-export type AdminSession = z.infer<typeof adminSessionSchema>;
+export type AdminSession = z.infer<typeof adminSelfContextSchema>;
 export type NavigationItem = z.infer<typeof navigationItemSchema>;
 export type NavigationGroup = z.infer<typeof navigationGroupSchema>;
 export type NavigationResponse = z.infer<typeof navigationResponseSchema>;

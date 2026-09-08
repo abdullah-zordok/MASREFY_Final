@@ -165,7 +165,7 @@ describe("Spec 005 repository boundaries", () => {
         pageSize: 25,
         scenario: "unsafe-response",
       }),
-    ).rejects.toMatchObject({ code: "validation_error" });
+    ).rejects.toMatchObject({ code: "contract_mismatch" });
   });
 
   test("receives structurally reduced records for limited support access", async () => {

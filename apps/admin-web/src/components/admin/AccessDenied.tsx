@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
-import type { PermissionKey } from "@/core/permissions/permissions";
-
-export function AccessDenied({ permission }: { permission: PermissionKey }) {
+export function AccessDenied({ permission }: { permission: string }) {
   return (
     <section className="state-box error" role="alert" aria-labelledby="access-denied-title">
       <ShieldAlert size={30} />

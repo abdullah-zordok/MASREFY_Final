@@ -1,7 +1,5 @@
 import { z } from "zod";
 import {
-  directionSchema,
-  environmentSchema,
   identifierSchema,
   isoDateSchema,
   localeSchema,
@@ -9,31 +7,34 @@ import {
   platformFilterSchema,
   routeSchema,
   searchTextSchema,
-  themeSchema,
 } from "@/core/validation/common";
 import { ADMIN_ROLES, PERMISSION_KEYS } from "@/core/permissions/permissions";
 
 export const adminRoleSchema = z.enum(ADMIN_ROLES);
 export const permissionKeySchema = z.enum(PERMISSION_KEYS);
 
-export const adminSessionSchema = z.object({
-  adminId: identifierSchema,
-  displayName: z.string().trim().min(1).max(100),
-  role: adminRoleSchema,
-  permissions: z.array(permissionKeySchema),
-  environment: environmentSchema,
-  locale: localeSchema,
-  direction: directionSchema,
-  theme: themeSchema,
-  expiresAt: isoDateSchema,
-  developmentOnly: z.literal(true),
-});
+const uniqueStrings = <T extends z.ZodType<string>>(schema: T) =>
+  z.array(schema).refine((items) => new Set(items).size === items.length, {
+    message: "Values must be unique.",
+  });
+
+export const adminSelfContextSchema = z.object({
+  id: z.string().trim().min(1).max(128),
+  displayName: z.string().trim().min(1).max(120),
+  roleKeys: uniqueStrings(z.string().trim().min(1).max(64)).min(1).max(50),
+  effectivePermissionKeys: uniqueStrings(
+    z.string().regex(/^[a-z][a-z0-9._-]{2,99}$/),
+  ).min(1).max(500),
+  mfaStatus: z.enum(["enabled", "missing"]),
+  activeSessionCount: z.number().int().nonnegative(),
+  version: z.number().int().positive(),
+}).strict();
 
 export const platformOptionSchema = z.object({
   value: platformFilterSchema,
   labelKey: z.string().min(1),
   isDefault: z.boolean(),
-});
+}).strict();
 
 export const platformOptionsResponseSchema = z.object({
   options: z.array(platformOptionSchema).length(3).refine(
@@ -41,7 +42,7 @@ export const platformOptionsResponseSchema = z.object({
       && options.find((option) => option.isDefault)?.value === "all",
     "Only the all-platform option may be the default.",
   ),
-});
+}).strict();
 
 export const platformBreakdownSchema = z.object({
   total: z.number().nonnegative(),
@@ -66,17 +67,17 @@ export const navigationItemSchema = z.object({
   permission: permissionKeySchema.nullable().optional(),
   availability: z.enum(["active", "planned", "denied"]),
   attentionCount: z.number().int().nonnegative().optional(),
-});
+}).strict();
 
 export const navigationGroupSchema = z.object({
   id: identifierSchema,
   labelKey: z.string().min(1),
   items: z.array(navigationItemSchema),
-});
+}).strict();
 
 export const navigationResponseSchema = z.object({
   groups: z.array(navigationGroupSchema),
-});
+}).strict();
 
 export const attentionItemSchema = z.object({
   id: identifierSchema,
@@ -106,7 +107,7 @@ export const attentionRegionSchema = z.object({
   message: z.string().min(1).max(240).optional(),
   lastSuccessfulAt: isoDateSchema.optional(),
   retryable: z.boolean(),
-});
+}).strict();
 
 export const attentionQuerySchema = paginationSchema.extend({
   role: adminRoleSchema.optional(),
@@ -123,7 +124,7 @@ export const attentionResponseSchema = z.object({
   totalItems: z.number().int().nonnegative(),
   totalPages: z.number().int().min(0),
   region: attentionRegionSchema,
-});
+}).strict();
 
 export const searchEntitySchema = z.enum([
   "navigation",
@@ -151,7 +152,7 @@ export const globalSearchResultSchema = z.object({
   secondaryLabel: z.string().optional(),
   route: routeSchema,
   permission: permissionKeySchema,
-});
+}).strict();
 
 export const globalSearchResponseSchema = z.object({
   items: z.array(globalSearchResultSchema),
@@ -159,7 +160,7 @@ export const globalSearchResponseSchema = z.object({
   pageSize: z.number().int().positive(),
   totalItems: z.number().int().nonnegative(),
   totalPages: z.number().int().nonnegative(),
-});
+}).strict();
 
 export const dateRangeSchema = z.object({
   start: z.iso.date(),

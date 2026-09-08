@@ -4,14 +4,14 @@ import { mockServer } from "@/mocks/server";
 import { foundationRepository } from "./repository";
 
 describe("foundation repository", () => {
-  test("parses a safe development session contract", async () => {
+  test("parses the authoritative Admin self-context contract", async () => {
     mockServer.use(
-      http.get("/api/v1/admin/session", () =>
+      http.get("/api/v1/admin/access/me", () =>
         HttpResponse.json({
-          adminId: "ADM-DEMO-001",
+          id: "user_admin_001",
           displayName: "Waleed",
-          role: "super-admin",
-          permissions: [
+          roleKeys: ["super-admin"],
+          effectivePermissionKeys: [
             "admin.overview.read",
             "users.read",
             "imports.read",
@@ -19,30 +19,27 @@ describe("foundation repository", () => {
             "global-search.use",
             "attention.read",
           ],
-          environment: "development",
-          locale: "ar",
-          direction: "rtl",
-          theme: "light",
-          expiresAt: "2026-07-27T18:00:00+03:00",
-          developmentOnly: true,
+          mfaStatus: "enabled",
+          activeSessionCount: 2,
+          version: 3,
         }),
       ),
     );
 
     await expect(foundationRepository.getSession()).resolves.toMatchObject({
-      role: "super-admin",
-      direction: "rtl",
-      developmentOnly: true,
+      id: "user_admin_001",
+      roleKeys: ["super-admin"],
+      activeSessionCount: 2,
     });
   });
 
   test("rejects malformed responses with a safe validation error", async () => {
     mockServer.use(
-      http.get("/api/v1/admin/session", () => HttpResponse.json({ displayName: "unsafe incomplete" })),
+      http.get("/api/v1/admin/access/me", () => HttpResponse.json({ displayName: "unsafe incomplete" })),
     );
 
     await expect(foundationRepository.getSession()).rejects.toMatchObject({
-      code: "validation_error",
+      code: "contract_mismatch",
       status: 502,
     });
   });

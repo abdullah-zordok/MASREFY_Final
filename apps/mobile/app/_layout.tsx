@@ -15,6 +15,7 @@ import {
   ProtectedRouteGate
 } from '@/features/shell/ProtectedRouteGate';
 import { useTheme } from '@/state/theme-context';
+import { MobileIdentityProvider } from '@/services/live/clerk-provider';
 
 export default function RootLayout() {
   const pathname = usePathname();
@@ -38,28 +39,30 @@ export default function RootLayout() {
   }, [lockNow]);
 
   return (
-    <FontGate>
-      <FoundationProviders>
-        <AppShellProvider>
-          <AppPrivacyGate
-            immediate={autoLockDuration === 'immediate'}
-            lockAfterMs={lockAfterMs}
-            locked={
-              appLockStatus !== undefined &&
-              appLockStatus !== 'unlocked' &&
-              pathname !== '/security/unlock' &&
-              pathname !== '/security/pin/forgot'
-            }
-            onLock={handleLock}
-          >
-            <NotificationResponseRuntime />
-            <ProtectedRouteGate>
-              <RootStack />
-            </ProtectedRouteGate>
-          </AppPrivacyGate>
-        </AppShellProvider>
-      </FoundationProviders>
-    </FontGate>
+    <MobileIdentityProvider>
+      <FontGate>
+        <FoundationProviders>
+          <AppShellProvider>
+            <AppPrivacyGate
+              immediate={autoLockDuration === 'immediate'}
+              lockAfterMs={lockAfterMs}
+              locked={
+                appLockStatus !== undefined &&
+                appLockStatus !== 'unlocked' &&
+                pathname !== '/security/unlock' &&
+                pathname !== '/security/pin/forgot'
+              }
+              onLock={handleLock}
+            >
+              <NotificationResponseRuntime />
+              <ProtectedRouteGate>
+                <RootStack />
+              </ProtectedRouteGate>
+            </AppPrivacyGate>
+          </AppShellProvider>
+        </FoundationProviders>
+      </FontGate>
+    </MobileIdentityProvider>
   );
 }
 

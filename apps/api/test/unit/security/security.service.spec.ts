@@ -26,7 +26,11 @@ describe('SecurityService boundaries', () => {
             : 300,
     ),
   };
-  const clerk = { getIdentityUser: jest.fn(), deliverAdminInvitation: jest.fn() };
+  const clerk = {
+    getIdentityUser: jest.fn(),
+    deliverAdminInvitation: jest.fn(),
+    countActiveSessions: jest.fn(),
+  };
   const storage = { sign: jest.fn() };
   const service = new SecurityService(
     repository as never,
@@ -248,5 +252,25 @@ describe('SecurityService boundaries', () => {
         },
       ],
     });
+  });
+
+  it('uses Clerk rather than device links for the live self-session count', async () => {
+    repository.execute.mockResolvedValueOnce({
+      id: 'admin-1',
+      activeSessionCount: 99,
+    } as never);
+    clerk.countActiveSessions.mockResolvedValueOnce(2);
+
+    await expect(
+      service.execute({
+        operation: 'getAdminSelf',
+        permission: 'admin.overview.read',
+        principal,
+        body: {},
+        query: {},
+        params: {},
+        requestId: 'request-1',
+      }),
+    ).resolves.toMatchObject({ activeSessionCount: 2 });
   });
 });

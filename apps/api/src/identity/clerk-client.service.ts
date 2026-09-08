@@ -170,6 +170,22 @@ export class ClerkClientService {
     }
   }
 
+  async countActiveSessions(userId: string): Promise<number> {
+    if (userId.trim() !== userId || userId.length < 1 || userId.length > 128)
+      throw new ClerkProviderUnavailableError();
+    try {
+      const page = await this.withTimeout(
+        this.client.sessions.getSessionList({ userId, status: 'active', limit: 1 }),
+      );
+      if (!Number.isSafeInteger(page.totalCount) || page.totalCount < 0)
+        throw new ClerkProviderUnavailableError();
+      return page.totalCount;
+    } catch (error) {
+      if (error instanceof ClerkProviderUnavailableError) throw error;
+      throw new ClerkProviderUnavailableError();
+    }
+  }
+
   async deliverAdminInvitation(email: string, token: string): Promise<void> {
     if (
       !this.adminInvitationRedirectUrl ||

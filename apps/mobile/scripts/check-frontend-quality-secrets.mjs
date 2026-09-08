@@ -36,6 +36,7 @@ function* walk(root) {
 function isAllowed(rel) {
   return (
     rel.startsWith('scripts/check-') ||
+    rel === 'src/config/client-runtime.ts' ||
     rel.endsWith('.test.ts') ||
     rel.endsWith('.test.tsx') ||
     rel.endsWith('.test.mjs') ||

@@ -32,6 +32,7 @@ export interface SecurityRouteDefinition {
 
 export const SECURITY_ROUTES: readonly SecurityRouteDefinition[] = Object.freeze(
   [
+    ['GET', 'api/v1/admin/access/me', 'getAdminSelf', 200, 'admin.overview.read'],
     ['GET', 'api/v1/admin/access/admins', 'listAdmins', 200, 'admin-team.read'],
     ['GET', 'api/v1/admin/access/admins/:userId', 'getAdmin', 200, 'admin-team.read'],
     [

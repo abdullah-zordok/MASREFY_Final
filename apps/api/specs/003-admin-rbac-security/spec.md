@@ -640,6 +640,7 @@ adapters may request 25, 50, or 100. Append-heavy lists use opaque cursors.
 
 | Method | Path | Auth | Request | Success response | Errors |
 |---|---|---|---|---|---|
+| GET | `/api/v1/admin/access/me` | `admin.overview.read` | none | current Admin ID/display name, active role keys, effective permissions, MFA/session status, version | `FORBIDDEN` |
 | GET | `/api/v1/admin/access/admins` | `admin-team.read` | bounded status/search/cursor | masked Admin summaries, active role summaries, MFA/session/risk status, `nextCursor` | `FORBIDDEN`, `INVALID_CURSOR` |
 | GET | `/api/v1/admin/access/admins/:userId` | `admin-team.read` | opaque ID | masked detail, assignments, eligible actions, version | `NOT_FOUND`, `FORBIDDEN` |
 | POST | `/api/v1/admin/access/invitations` | `access.invites.write`, recent MFA | `{email,name?,roleId,department?,expiresInHours,message?}` | masked invitation status/version; never token | `DUPLICATE_ACTIVE_INVITATION`, `MFA_REQUIRED` |
@@ -1001,6 +1002,10 @@ critical security workflow.
 - **FR-008**: Role, permission, assignment, invitation, Admin-disable, and Admin-
   session mutations MUST require exact permission, recent MFA, idempotency,
   reason, and version where applicable.
+- **FR-008a**: Admin self-context MUST require the shared `admin.overview.read`
+  permission and derive the current active profile, enabled active roles, effective
+  permissions, and active provider-session count through a redacted authoritative
+  projection; it MUST NOT require `admin-team.read` or trust client role state.
 - **FR-009**: The backend MUST prevent self-approval of role elevation and support
   access and MUST preserve at least one effective active super administrator.
 - **FR-010**: Invitations MUST store only token hashes, be single-use and bounded,

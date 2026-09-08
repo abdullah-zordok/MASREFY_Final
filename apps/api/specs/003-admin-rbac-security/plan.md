@@ -164,6 +164,13 @@ exist only for distinct trust/runtime concerns (guard, manifest, event schemas,
 privacy registry, ZIP, Storage, worker). No per-table repositories, interfaces with
 one implementation, new entry point, or speculative infrastructure is planned.
 
+**Admin self-context correction**: The canonical self route requires the shared
+`admin.overview.read` permission. A BE003-owned security-definer projection reads
+the current active Admin profile, enabled current assignments, effective
+permissions, and BE002 provider-session state without widening table RLS. A second
+guarded scalar supplies authoritative distinct active-session counts to Admin list
+and detail projections. Neither function accepts client identity or role input.
+
 ## Ownership And Boundaries
 
 **Owned resources**: all 16 tables and four functions in [data-model.md](data-model.md);

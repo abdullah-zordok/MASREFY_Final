@@ -7,9 +7,11 @@ describe('client demo mode', () => {
     expect(isDemoModeEnabled(undefined)).toBe(false);
   });
 
-  it('keeps fixture routes out of production unless demo mode is explicit', () => {
+  it('keeps fixture routes out of production', () => {
     expect(isFixtureModeEnabled('production', false)).toBe(false);
-    expect(isFixtureModeEnabled('production', true)).toBe(true);
+    expect(() => isFixtureModeEnabled('production', true)).toThrow(
+      'production requires live client mode'
+    );
     expect(isFixtureModeEnabled('test', false)).toBe(true);
   });
 });

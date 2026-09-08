@@ -1,10 +1,14 @@
-import React, { useEffect, type ReactNode } from 'react';
+import React, { useEffect, useRef, type ReactNode } from 'react';
 import { router } from 'expo-router';
 import { AppState, Linking, type AppStateStatus } from 'react-native';
 
 import { parseDeepLinkDestination } from '@/features/shell/deep-link-controller';
 import { resolveEntryRoute } from '@/features/shell/resolve-entry-route';
 import { useAppShellStore } from '@/state/app-shell';
+import { resolveClientMode } from '@/config/client-runtime';
+import { authService } from '@/features/auth/auth-flow';
+import { restoreAppShellSession } from '@/features/auth/session-controller';
+import { useLiveClerkSessionKey } from '@/services/live/clerk-provider';
 
 interface AppShellProviderProps {
   children: ReactNode;
@@ -29,12 +33,40 @@ export function AppShellProvider({
   const setPendingDestination = useAppShellStore(
     (state) => state.setPendingDestination
   );
+  const liveClerkSessionKey = useLiveClerkSessionKey();
+  const restoredLiveSession = useRef<string | null | undefined>(undefined);
+  const restoreQueue = useRef(Promise.resolve());
 
   useEffect(() => {
-    if (!hydrated) {
-      void hydrate();
+    let current = true;
+    if (resolveClientMode() !== 'live') {
+      if (!hydrated) void hydrate();
+      return () => {
+        current = false;
+      };
     }
-  }, [hydrate, hydrated]);
+    if (
+      liveClerkSessionKey === undefined ||
+      restoredLiveSession.current === liveClerkSessionKey
+    )
+      return () => {
+        current = false;
+      };
+    restoredLiveSession.current = liveClerkSessionKey;
+    restoreQueue.current = restoreQueue.current
+      .catch(() => undefined)
+      .then(() =>
+        current
+          ? restoreAppShellSession(authService, () => current)
+          : undefined
+      )
+      .catch(() =>
+        current ? useAppShellStore.getState().signOut() : undefined
+      );
+    return () => {
+      current = false;
+    };
+  }, [hydrate, hydrated, liveClerkSessionKey]);
 
   useEffect(() => {
     async function retainSafeDestination(url: string | null, navigate = false) {

@@ -15,21 +15,36 @@ interface CompleteSessionOptions {
   now?: () => number;
 }
 
-export async function restoreAppShellSession(authService: AuthService): Promise<void> {
+export async function restoreAppShellSession(
+  authService: AuthService,
+  isCurrent: () => boolean = () => true
+): Promise<void> {
   const session = await authService.restoreSession();
+  if (!isCurrent()) return;
   if (session.status === 'authenticated') {
-    await useAppShellStore.getState().authenticate(session);
+    await useAppShellStore.getState().authenticate(session, isCurrent);
     return;
   }
-  useAppShellStore.setState({ session });
+  if (isCurrent()) await useAppShellStore.getState().signOut();
 }
 
 export async function signOutAppShellSession(
   authService: AuthService,
   scope: 'local' | 'all'
 ): Promise<void> {
-  await authService.signOut(scope);
-  await useAppShellStore.getState().signOut();
+  let failure: unknown;
+  try {
+    await authService.signOut(scope);
+  } catch (error) {
+    failure = error;
+  } finally {
+    try {
+      await useAppShellStore.getState().signOut();
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+  if (failure !== undefined) throw failure;
 }
 
 export async function completeAuthenticatedSession(
@@ -38,8 +53,9 @@ export async function completeAuthenticatedSession(
 ): Promise<string> {
   const store = useAppShellStore.getState();
   await store.authenticate(session);
-  if (store.onboarding) {
-    return routeForOnboardingProgress(store.onboarding);
+  const onboarding = useAppShellStore.getState().onboarding;
+  if (onboarding) {
+    return routeForOnboardingProgress(onboarding);
   }
   const platformPath = resolvePlatformPath(
     options.platform ?? {
@@ -47,7 +63,7 @@ export async function completeAuthenticatedSession(
       smsAvailable: Platform.OS === 'android'
     }
   );
-  const onboarding = createOnboardingProgress(platformPath, options.now?.() ?? Date.now());
-  await useAppShellStore.getState().setOnboarding(onboarding);
-  return routeForOnboardingProgress(onboarding);
+  const progress = createOnboardingProgress(platformPath, options.now?.() ?? Date.now());
+  await useAppShellStore.getState().setOnboarding(progress);
+  return routeForOnboardingProgress(progress);
 }

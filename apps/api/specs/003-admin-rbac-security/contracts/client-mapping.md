@@ -1,11 +1,17 @@
 # Current Client Mapping: SPEC-BE-003
 
-This is mapping evidence only. Mobile/Admin stay on mocks until SPEC-BE-014.
+This mapping was rechecked by SPEC-BE-014 on 2026-09-08. Production Admin now
+uses `/api/v1/admin/access/me` for self context and
+`/api/v1/admin/security/overview` for the overview. Other current access and
+security client operations remain explicit `provider_unavailable` because their
+paths, pagination, DTOs, or action semantics do not exactly match the canonical
+contracts below. Phase 14 does not add replacement backend resources.
 
 ## Admin Canonicalization
 
 | Current client surface                     | Canonical Phase 03 contract                            |
 | ------------------------------------------ | ------------------------------------------------------ |
+| Admin shell session/self context           | `/api/v1/admin/access/me`                              |
 | `/admin/admin-users`                       | `/api/v1/admin/access/admins`                          |
 | `/admin/admin-invitations`                 | `/api/v1/admin/access/invitations`                     |
 | `/admin/roles`                             | `/api/v1/admin/access/roles`                           |
@@ -20,6 +26,18 @@ incident/export/deletion states are projections of canonical lowercase states, n
 additional server transitions. Current `confirmationToken` values are discarded;
 verified Clerk factor age supplies recent MFA. Display IDs remain presentation
 aliases over opaque API IDs.
+
+The Admin shell self call uses Clerk bearer identity plus the exact shared
+`admin.overview.read` permission. Its role keys, effective permissions, and active
+provider-session count come from the BE003 owner projection; client role query,
+header, storage, and fixture values never participate.
+
+The present Admin `accessRepository` calls `/api/v1/admin/access-requests*`, while
+the canonical owner contract is `/api/v1/admin/support-access/requests*` with
+different cursor and action DTOs. The present security repository also combines
+several presentation schemas that are not field-complete matches for the audit,
+support-access, privacy, deletion, and retention DTOs. Those calls are disabled in
+production until an owning client-contract correction supplies exact adapters.
 
 The Admin `.zip`/`application/zip` export metadata remains compatible. Lists never
 contain a signed URL. Ready-detail mapping may expose a minutes-lived URL only

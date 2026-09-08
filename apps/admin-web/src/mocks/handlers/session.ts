@@ -4,13 +4,11 @@ import { readScenario } from "@/mocks/scenarios/foundation";
 import { scenarioResponse } from "./shared";
 
 export const sessionHandlers = [
-  http.get("/api/v1/admin/session", async ({ request }) => {
+  http.get("/api/v1/admin/access/me", async ({ request }) => {
     const scenario = readScenario(request);
     const response = await scenarioResponse(scenario);
     if (response) return response;
-    if (scenario === "expired") {
-      return HttpResponse.json({ ...adminSessionFixture, expiresAt: "2020-01-01T00:00:00+00:00" });
-    }
+    if (scenario === "expired") return HttpResponse.json({ code: "AUTH_TOKEN_INVALID" }, { status: 401 });
     return HttpResponse.json(adminSessionFixture);
   }),
 ];

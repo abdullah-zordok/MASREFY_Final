@@ -1,5 +1,5 @@
 import type { AdminRole, PermissionKey } from "@/core/permissions/permissions";
-import type { AdminSession, NavigationGroup, NavigationItem } from "@/features/foundation/contracts";
+import type { NavigationGroup, NavigationItem } from "@/features/foundation/contracts";
 import { directionForLocale } from "@/core/localization/direction";
 
 export { directionForLocale };
@@ -14,7 +14,11 @@ const ROLE_LABELS: Record<AdminRole, string> = {
   "security-administrator": "مسؤول الأمان",
 };
 
-const ENVIRONMENT_LABELS: Record<AdminSession["environment"], Record<AdminSession["locale"], string>> = {
+type Environment = "production" | "staging" | "development";
+type ShellLocale = "ar" | "en";
+type Theme = "light" | "dark";
+
+const ENVIRONMENT_LABELS: Record<Environment, Record<ShellLocale, string>> = {
   production: { ar: "الإنتاج", en: "Production" },
   staging: { ar: "الاختبار", en: "Staging" },
   development: { ar: "التطوير", en: "Development" },
@@ -25,8 +29,8 @@ export function roleLabel(role: AdminRole): string {
 }
 
 export function environmentLabel(
-  environment: AdminSession["environment"],
-  locale: AdminSession["locale"],
+  environment: Environment,
+  locale: ShellLocale,
 ): string {
   return ENVIRONMENT_LABELS[environment][locale];
 }
@@ -35,7 +39,7 @@ export function isActiveRoute(pathname: string, route: string): boolean {
   return route === "/admin" ? pathname === route : pathname === route || pathname.startsWith(`${route}/`);
 }
 
-export function nextTheme(theme: AdminSession["theme"]): AdminSession["theme"] {
+export function nextTheme(theme: Theme): Theme {
   return theme === "light" ? "dark" : "light";
 }
 
@@ -274,7 +278,7 @@ const PHASE9_EXACT_ROUTE_PERMISSIONS: Partial<Record<string, PermissionKey>> = {
   "/admin/settings/maintenance": "settings.maintenance.read",
 };
 
-export function resolveRoutePermission(pathname: string): PermissionKey | undefined {
+export function resolveRoutePermission(pathname: string): PermissionKey | "forbidden" | undefined {
   const phase9ExactPermission = PHASE9_EXACT_ROUTE_PERMISSIONS[pathname];
   if (phase9ExactPermission) return phase9ExactPermission;
   if (/^\/admin\/admin-team\/ADM-[A-Z0-9-]{3,64}$/.test(pathname)) {
@@ -291,7 +295,7 @@ export function resolveRoutePermission(pathname: string): PermissionKey | undefi
     || pathname.startsWith("/admin/roles/")
     || pathname.startsWith("/admin/settings/")
   ) {
-    return undefined;
+    return "forbidden";
   }
   if (/^\/admin\/security\/incidents\/INC-[A-Za-z0-9-]+$/.test(pathname)) {
     return "security.incidents.manage";
@@ -309,7 +313,7 @@ export function resolveRoutePermission(pathname: string): PermissionKey | undefi
     return "jobs.runs.read";
   }
   if (pathname === "/admin/jobs" || pathname.startsWith("/admin/jobs/runs/")) {
-    return undefined;
+    return "forbidden";
   }
   if (/^\/admin\/imports\/sessions\/[^/]+$/.test(pathname)) {
     return "imports.detail.read";
@@ -363,9 +367,12 @@ export function resolveRoutePermission(pathname: string): PermissionKey | undefi
     return "notifications.read";
   }
   for (const rule of ROUTE_PERMISSION_RULES) {
-    if (pathname === rule.match || pathname.startsWith(`${rule.match}/`)) {
+    if (
+      pathname === rule.match
+      || (rule.match !== "/admin" && pathname.startsWith(`${rule.match}/`))
+    ) {
       return rule.permission;
     }
   }
-  return undefined;
+  return pathname.startsWith("/admin") ? "forbidden" : undefined;
 }

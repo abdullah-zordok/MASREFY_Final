@@ -7,14 +7,30 @@ import {
   type PhoneVerificationAttempt
 } from '@/services/contracts/app-shell-service';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
+import { registeredLiveAuthService } from '@/services/live/auth-service';
+
+const demoAuthService = createMockAuthService();
 
 export function createAuthService(
   demoMode = isDemoModeEnabled()
 ): CapabilityProviderHandle<AuthService> {
-  return demoMode ? createMockAuthService() : createUnavailableAuthService();
+  return demoMode
+    ? demoAuthService
+    : (registeredLiveAuthService() ?? createUnavailableAuthService());
 }
 
-export const authService = createAuthService();
+export const authService: CapabilityProviderHandle<AuthService> = {
+  get metadata() {
+    return createAuthService().metadata;
+  },
+  startPhone: (input) => createAuthService().startPhone(input),
+  verifyPhone: (input) => createAuthService().verifyPhone(input),
+  resendPhone: (sessionId) => createAuthService().resendPhone(sessionId),
+  signInWithGoogle: () => createAuthService().signInWithGoogle(),
+  reverifyConflict: (input) => createAuthService().reverifyConflict(input),
+  restoreSession: () => createAuthService().restoreSession(),
+  signOut: (scope) => createAuthService().signOut(scope)
+};
 
 let activePhoneAttempt: PhoneVerificationAttempt | null = null;
 

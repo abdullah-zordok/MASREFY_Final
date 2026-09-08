@@ -8,10 +8,10 @@ import type {
 } from "@/features/foundation/contracts";
 
 export const adminSessionFixture: AdminSession = {
-  adminId: "ADM-DEMO-001",
+  id: "user_demo_admin_001",
   displayName: "Waleed",
-  role: "super-admin",
-  permissions: [
+  roleKeys: ["super-admin"],
+  effectivePermissionKeys: [
     "admin.overview.read",
     "users.read",
     "imports.read",
@@ -19,12 +19,9 @@ export const adminSessionFixture: AdminSession = {
     "global-search.use",
     "attention.read",
   ],
-  environment: "development",
-  locale: "ar",
-  direction: "rtl",
-  theme: "light",
-  expiresAt: "2099-07-27T18:00:00+03:00",
-  developmentOnly: true,
+  mfaStatus: "enabled",
+  activeSessionCount: 1,
+  version: 1,
 };
 
 export const navigationFixture: NavigationGroup[] = [

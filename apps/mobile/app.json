@@ -50,7 +50,14 @@
         }
       ],
       "expo-asset",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "tsconfigPaths": true
@@ -61,6 +68,14 @@
       },
       "eas": {
         "projectId": "a6cc51cf-3b15-4a78-8ef1-927fdd265824"
+      },
+      "clientPolicy": {
+        "modes": [
+          "live",
+          "demo",
+          "test"
+        ],
+        "billingAvailable": false
       }
     }
   }

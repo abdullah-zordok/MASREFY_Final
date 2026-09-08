@@ -4,12 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import type { AdminRole } from "@/core/permissions/permissions";
 import type { AttentionQuery, GlobalSearchQuery } from "./contracts";
 import { foundationRepository } from "./repository";
-import { ApiError, safeApiMessage } from "@/core/api/errors";
-import { isSessionExpired } from "@/core/auth/session";
 
 export const foundationQueryKeys = {
   all: ["foundation"] as const,
-  session: () => [...foundationQueryKeys.all, "session"] as const,
+  session: (actorId: string) => [...foundationQueryKeys.all, "session", actorId] as const,
   navigation: (role: AdminRole) => [...foundationQueryKeys.all, "navigation", role] as const,
   attention: (role: AdminRole, input: AttentionQuery) =>
     [...foundationQueryKeys.all, "attention", role, input] as const,
@@ -18,16 +16,11 @@ export const foundationQueryKeys = {
   platformOptions: () => [...foundationQueryKeys.all, "platform-options"] as const,
 };
 
-export function useAdminSession() {
+export function useAdminSession(actorId: string) {
   return useQuery({
-    queryKey: foundationQueryKeys.session(),
+    queryKey: foundationQueryKeys.session(actorId),
     queryFn: () => foundationRepository.getSession(),
-    select: (session) => {
-      if (isSessionExpired(session.expiresAt)) {
-        throw new ApiError("session_expired", safeApiMessage("session_expired"), 401);
-      }
-      return session;
-    },
+    enabled: actorId.length > 0,
   });
 }
 

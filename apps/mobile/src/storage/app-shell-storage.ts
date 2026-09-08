@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { z } from 'zod';
@@ -42,11 +43,25 @@ const sensitiveUserDataKeys = [
   keys.privacyLock,
   keys.pinCredential
 ] as const;
+let activeOwnerHash: string | null = null;
+
+export async function configureAppShellStorageOwner(userId: string): Promise<void> {
+  const ownerHash = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    userId
+  );
+  await migrateLegacyPrivacyLock(ownerHash);
+  activeOwnerHash = ownerHash;
+}
+
+export function clearAppShellStorageOwner(): void {
+  activeOwnerHash = null;
+}
 
 export async function clearAppShellUserData(): Promise<void> {
   await Promise.all([
-    ...asyncUserDataKeys.map((key) => AsyncStorage.removeItem(key)),
-    ...sensitiveUserDataKeys.map((key) => removeSensitive(key))
+    ...asyncUserDataKeys.map((key) => AsyncStorage.removeItem(ownerKey(key))),
+    ...sensitiveUserDataKeys.map((key) => removeSensitive(ownerKey(key)))
   ]);
 }
 
@@ -62,31 +77,31 @@ export function createAppShellStorage(): CapabilityProviderHandle<AppShellStorag
     loadSession: () => readSensitive(keys.session, authSessionSchema),
     saveSession: (session) => writeSensitive(keys.session, session),
     clearSession: () => removeSensitive(keys.session),
-    loadOnboarding: () => readJson(keys.onboarding, onboardingProgressSchema),
-    saveOnboarding: (progress) => writeJson(keys.onboarding, progress),
+    loadOnboarding: () => readJson(ownerKey(keys.onboarding), onboardingProgressSchema),
+    saveOnboarding: (progress) => writeJson(ownerKey(keys.onboarding), progress),
     loadKeywords: async () =>
-      (await readJson(keys.keywords, z.array(keywordRuleSchema))) ?? defaultKeywordRules,
-    saveKeywords: (rules) => writeJson(keys.keywords, rules),
+      (await readJson(ownerKey(keys.keywords), z.array(keywordRuleSchema))) ?? defaultKeywordRules,
+    saveKeywords: (rules) => writeJson(ownerKey(keys.keywords), rules),
     loadTrackingPreference: () =>
-      readJson(keys.trackingPreference, trackingPreferenceSchema),
+      readJson(ownerKey(keys.trackingPreference), trackingPreferenceSchema),
     saveTrackingPreference: (preference) =>
-      writeJson(keys.trackingPreference, preference),
-    loadPendingDestination: () => AsyncStorage.getItem(keys.pendingDestination),
+      writeJson(ownerKey(keys.trackingPreference), preference),
+    loadPendingDestination: () => AsyncStorage.getItem(ownerKey(keys.pendingDestination)),
     savePendingDestination: (destination) =>
       destination
-        ? AsyncStorage.setItem(keys.pendingDestination, destination)
-        : AsyncStorage.removeItem(keys.pendingDestination),
+        ? AsyncStorage.setItem(ownerKey(keys.pendingDestination), destination)
+        : AsyncStorage.removeItem(ownerKey(keys.pendingDestination)),
     loadPrivacyLock: () =>
-      readSensitive(keys.privacyLock, privacyLockPreferenceSchema),
-    savePrivacyLock: (lock) => writeSensitive(keys.privacyLock, lock),
-    clearPrivacyLock: () => removeSensitive(keys.privacyLock),
-    loadPinCredential: () => readSensitive(keys.pinCredential, z.string().min(1)),
-    savePinCredential: (hash) => writeSensitive(keys.pinCredential, hash),
-    clearPinCredential: () => removeSensitive(keys.pinCredential),
+      readSensitive(ownerKey(keys.privacyLock), privacyLockPreferenceSchema),
+    savePrivacyLock: (lock) => writeSensitive(ownerKey(keys.privacyLock), lock),
+    clearPrivacyLock: () => removeSensitive(ownerKey(keys.privacyLock)),
+    loadPinCredential: () => readSensitive(ownerKey(keys.pinCredential), z.string().min(1)),
+    savePinCredential: (hash) => writeSensitive(ownerKey(keys.pinCredential), hash),
+    clearPinCredential: () => removeSensitive(ownerKey(keys.pinCredential)),
     loadProfilePromptDismissed: async () =>
-      (await readJson(keys.profilePromptDismissed, z.boolean())) ?? false,
+      (await readJson(ownerKey(keys.profilePromptDismissed), z.boolean())) ?? false,
     saveProfilePromptDismissed: (dismissed) =>
-      writeJson(keys.profilePromptDismissed, dismissed)
+      writeJson(ownerKey(keys.profilePromptDismissed), dismissed)
   };
 }
 
@@ -139,4 +154,30 @@ function previewKey(nativeKey: string): string {
   if (nativeKey === keys.session) return keys.previewSession;
   if (nativeKey === keys.privacyLock) return keys.previewPrivacyLock;
   return `masarifi.appShell.preview.${nativeKey}`;
+}
+
+function ownerKey(key: string): string {
+  return activeOwnerHash ? `${key}.${activeOwnerHash.slice(0, 24)}` : key;
+}
+
+async function migrateLegacyPrivacyLock(ownerHash: string): Promise<void> {
+  const suffix = ownerHash.slice(0, 24);
+  const ownerPrivacyLockKey = `${keys.privacyLock}.${suffix}`;
+  const ownerPinKey = `${keys.pinCredential}.${suffix}`;
+  const [legacyLock, legacyPin, ownerLock, ownerPin] = await Promise.all([
+    readSensitive(keys.privacyLock, privacyLockPreferenceSchema),
+    readSensitive(keys.pinCredential, z.string().min(1)),
+    readSensitive(ownerPrivacyLockKey, privacyLockPreferenceSchema),
+    readSensitive(ownerPinKey, z.string().min(1))
+  ]);
+  const writes: Promise<void>[] = [];
+  if (legacyLock && !ownerLock)
+    writes.push(writeSensitive(ownerPrivacyLockKey, legacyLock));
+  if (legacyPin && !ownerPin)
+    writes.push(writeSensitive(ownerPinKey, legacyPin));
+  await Promise.all(writes);
+  await Promise.all([
+    legacyLock ? removeSensitive(keys.privacyLock) : Promise.resolve(),
+    legacyPin ? removeSensitive(keys.pinCredential) : Promise.resolve()
+  ]);
 }

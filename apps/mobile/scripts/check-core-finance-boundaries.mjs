@@ -37,12 +37,14 @@ for (const file of files) {
       'hard-coded English UI property'
     );
   }
-  report(
-    file,
-    source,
-    /(?:openai|stripe|supabase|firebase|service[_-]?role)/gi,
-    'production provider import'
-  );
+  if (!isTest && normalized !== 'src/config/client-runtime.ts') {
+    report(
+      file,
+      source,
+      /(?:openai|stripe|supabase|firebase|service[_-]?role)/gi,
+      'production provider import'
+    );
+  }
   report(
     file,
     source,

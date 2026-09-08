@@ -1,25 +1,18 @@
 import { z } from "zod";
 import { ADMIN_ROLES } from "@/core/permissions/permissions";
 
-export const userIdSchema = z
-  .string()
-  .regex(/^USR-[A-Z0-9-]{1,44}$/)
-  .max(48);
+const fixtureId = /^[A-Z][A-Z0-9]*-[A-Z0-9-]+$/;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const opaqueId = (providerPattern: RegExp) =>
+  z.string().min(1).max(128).refine(
+    (value) => providerPattern.test(value) || uuid.test(value) || fixtureId.test(value),
+    "Invalid opaque API identifier",
+  );
 
-export const deviceIdSchema = z
-  .string()
-  .regex(/^DEV-[A-Z0-9-]{1,44}$/)
-  .max(48);
-
-export const sessionIdSchema = z
-  .string()
-  .regex(/^SES-[A-Z0-9-]{1,44}$/)
-  .max(48);
-
-export const auditReferenceSchema = z
-  .string()
-  .regex(/^AUD-[A-Z0-9-]{1,44}$/)
-  .max(48);
+export const userIdSchema = opaqueId(/^user_[A-Za-z0-9_-]+$/);
+export const deviceIdSchema = opaqueId(/^device_[A-Za-z0-9_-]+$/);
+export const sessionIdSchema = opaqueId(/^sess_[A-Za-z0-9_-]+$/);
+export const auditReferenceSchema = opaqueId(/^audit_[A-Za-z0-9_-]+$/);
 
 export const platformSchema = z.enum(["ios", "android"]);
 export type Platform = z.infer<typeof platformSchema>;

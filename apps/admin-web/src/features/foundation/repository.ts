@@ -1,8 +1,8 @@
-import { apiClient } from "@/core/api/client";
+import { apiClient, mocksEnabled, unavailableClientOperation } from "@/core/api/client";
 import type { AdminRole } from "@/core/permissions/permissions";
 import { hasPermission } from "@/core/permissions/role-map";
 import {
-  adminSessionSchema,
+  adminSelfContextSchema,
   attentionQuerySchema,
   attentionResponseSchema,
   globalSearchQuerySchema,
@@ -54,9 +54,12 @@ function sortAttention(items: AttentionResponse["items"]): AttentionResponse["it
 }
 
 export const foundationRepository: FoundationRepository = {
-  getSession: () => apiClient.get("/api/v1/admin/session", adminSessionSchema),
+  getSession: () => apiClient.get("/api/v1/admin/access/me", adminSelfContextSchema),
   async getNavigation(role) {
-    const response = await apiClient.get(`/api/v1/admin/navigation?${queryString({ role })}`, navigationResponseSchema);
+    if (!mocksEnabled()) return unavailableClientOperation();
+    const roleQuery = mocksEnabled() ? queryString({ role }) : "";
+    const response = await apiClient.get(`/api/v1/admin/navigation${roleQuery ? `?${roleQuery}` : ""}`, navigationResponseSchema);
+    if (!mocksEnabled()) return response;
     return {
       groups: response.groups.map((group) => ({
         ...group,
@@ -69,10 +72,11 @@ export const foundationRepository: FoundationRepository = {
     };
   },
   async getAttention(role, input) {
-    const parsed = attentionQuerySchema.parse({ role, ...input });
+    if (!mocksEnabled()) return unavailableClientOperation();
+    const parsed = attentionQuerySchema.parse({ role: mocksEnabled() ? role : undefined, ...input });
     const response = await apiClient.get(
       `/api/v1/admin/attention?${queryString({
-        role: parsed.role,
+        role: mocksEnabled() ? parsed.role : undefined,
         platform: parsed.platform,
         period: parsed.period,
         page: parsed.page,
@@ -80,6 +84,7 @@ export const foundationRepository: FoundationRepository = {
       })}`,
       attentionResponseSchema,
     );
+    if (!mocksEnabled()) return response;
     const filtered = response.items.filter(
       (item) => hasPermission(role, "attention.read") && hasPermission(role, item.permission),
     );
@@ -97,10 +102,11 @@ export const foundationRepository: FoundationRepository = {
     };
   },
   async search(role, input) {
+    if (!mocksEnabled()) return unavailableClientOperation();
     const parsed = globalSearchQuerySchema.parse(input);
     const response = await apiClient.get(
       `/api/v1/admin/search?${queryString({
-        role,
+        role: mocksEnabled() ? role : undefined,
         query: parsed.query,
         platform: parsed.platform,
         page: parsed.page,
@@ -108,9 +114,12 @@ export const foundationRepository: FoundationRepository = {
       })}`,
       globalSearchResponseSchema,
     );
+    if (!mocksEnabled()) return response;
     const items = response.items.filter((item) => hasPermission(role, item.permission));
     return { ...response, items, totalItems: items.length, totalPages: items.length ? 1 : 0 };
   },
   getPlatformOptions: () =>
-    apiClient.get("/api/v1/admin/platform-options", platformOptionsResponseSchema),
+    mocksEnabled()
+      ? apiClient.get("/api/v1/admin/platform-options", platformOptionsResponseSchema)
+      : unavailableClientOperation(),
 };

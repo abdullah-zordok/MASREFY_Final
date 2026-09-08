@@ -15,6 +15,8 @@ import { setSimulatedRole, useSimulatedRole } from "@/core/auth/use-simulated-ro
 import type { AdminRole } from "@/core/permissions/permissions";
 import { hasPermission } from "@/core/permissions/role-map";
 import { ApiError } from "@/core/api/errors";
+import { mocksEnabled } from "@/core/config/runtime";
+import { ADMIN_ROLES } from "@/core/permissions/permissions";
 import { applyDocumentLocale, type Locale } from "@/core/localization/direction";
 import { getNavigationLabel, getRoleLabel } from "@/core/localization/display-labels";
 import { LocaleProvider, useLocale, useT } from "@/core/localization/provider";
@@ -31,6 +33,7 @@ import { SessionExpired } from "./SessionExpired";
 import { SidebarNavigationList } from "./SidebarAccordion";
 import { ToastRegion } from "./ToastRegion";
 import { buildSidebarSections, nextTheme, resolveRoutePermission } from "./shell-state";
+import { useAdminIdentity } from "@/app/providers";
 
 const defaultRange = { start: "2026-06-28", end: "2026-07-27", preset: "30d" as const };
 
@@ -74,15 +77,22 @@ function Sidebar({
 }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
+  const identity = useAdminIdentity();
   const pathname = usePathname();
-  const session = useAdminSession();
+  const demoMode = !identity.enabled || mocksEnabled();
+  const session = useAdminSession(identity.actorId);
   const [compact, setCompact] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [locale, setLocale] = useState<Locale>("ar");
   const [range, setRange] = useState<DateRangeInput>(defaultRange);
   const mobileTrigger = useRef<HTMLButtonElement>(null);
-  const role = useSimulatedRole();
+  const simulatedRole = useSimulatedRole();
+  const serverRole = session.data?.roleKeys.find((key): key is AdminRole =>
+    ADMIN_ROLES.some((role) => role === key),
+  );
+  const role = demoMode ? simulatedRole : (serverRole ?? "support-agent");
+  const effectivePermissions = new Set(session.data?.effectivePermissionKeys ?? []);
   const navigation = useAdminNavigation(role);
   const groups = navigation.data?.groups ?? [];
   // Communications is temporarily hidden from the Admin Dashboard sidebar.
@@ -90,6 +100,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   // Restore it by adding the communications navigation configuration back to this rendered sidebar array.
   const sidebarGroups = groups.filter((group) => group.id !== "communications");
   const routePermission = resolveRoutePermission(pathname);
+  const deniedPermission = routePermission === "forbidden"
+    ? routePermission
+    : routePermission && !(demoMode
+      ? hasPermission(role, routePermission)
+      : identity.loaded && effectivePermissions.has(routePermission))
+      ? routePermission
+      : null;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -149,9 +166,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <DateRangeControl value={range} onChange={setRange} />
           </div>
           <div className="topbar-actions">
-            <EnvironmentIndicator environment={session.data?.environment ?? "development"} locale={locale} />
-            <RoleSwitcher role={role} onChange={changeRole} />
-            <span className="development-disclaimer">{t(locale, "shell.developmentDisclaimer")}</span>
+            <EnvironmentIndicator environment={demoMode ? "development" : "production"} locale={locale} />
+            {demoMode && <RoleSwitcher role={role} onChange={changeRole} />}
+            {demoMode && <span className="development-disclaimer">{t(locale, "shell.developmentDisclaimer")}</span>}
             <button className="icon-button" aria-label={t(locale, "shell.languageToggle")} onClick={() => setLocale((value) => value === "ar" ? "en" : "ar")}><Languages size={19} /></button>
             <button className="icon-button" onClick={() => setTheme(nextTheme)} aria-label={t(locale, "shell.themeToggle")}>
               {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
@@ -163,7 +180,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main>{routePermission && !hasPermission(role, routePermission) ? <AccessDenied permission={routePermission} /> : children}</main>
+        <main>{deniedPermission ? <AccessDenied permission={deniedPermission} /> : children}</main>
       </div>
       <ToastRegion messages={[]} />
     </div>

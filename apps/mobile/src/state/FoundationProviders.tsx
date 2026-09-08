@@ -24,7 +24,10 @@ import { layoutDirectionStyle } from '@/design-system/direction';
 import { initI18n, changeLocale } from '@/localization/i18n';
 import { ThemeContext, type ThemeContextValue } from '@/state/theme-context';
 import { usePreferenceStore } from '@/state/preferences';
-import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
+import {
+  registerRuntimeIdentityReset,
+  registerRuntimeUserDataReset
+} from '@/storage/runtime-user-data-reset';
 import { SensitiveVisibilityProvider } from './SensitiveVisibilityProvider';
 
 initI18n();
@@ -58,10 +61,15 @@ export function FoundationProviders({
     }
   }, [hydrate, hydrated]);
 
-  useEffect(
-    () => registerRuntimeUserDataReset(() => client.clear()),
-    [client]
-  );
+  useEffect(() => {
+    const clear = () => client.clear();
+    const unregisterUserReset = registerRuntimeUserDataReset(clear);
+    const unregisterIdentityReset = registerRuntimeIdentityReset(clear);
+    return () => {
+      unregisterUserReset();
+      unregisterIdentityReset();
+    };
+  }, [client]);
 
   useEffect(() => {
     changeLocale(locale);

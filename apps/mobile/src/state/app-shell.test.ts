@@ -37,7 +37,7 @@ const resetUserData = jest.mocked(resetLocalUserData);
 
 const session: AuthenticationSession = {
   status: 'authenticated',
-  userId: 'mock-user',
+  userId: 'user_live_123456',
   method: 'google',
   issuedAt: 10,
   expiresAt: 20,
@@ -200,9 +200,7 @@ describe('useAppShellStore', () => {
       JSON.stringify(session)
     );
     expect(useAppShellStore.getState().session?.status).toBe('signed_out');
-    expect(resetUserData).toHaveBeenCalledWith(
-      expect.stringMatching(/^sign-out-/)
-    );
+    expect(resetUserData).not.toHaveBeenCalled();
     expect(asyncSet).toHaveBeenCalledWith(
       'masarifi.appShell.onboarding',
       JSON.stringify(onboarding)
@@ -257,13 +255,17 @@ describe('useAppShellStore', () => {
     expect('theme' in state).toBe(false);
   });
 
-  it('clears authentication even when local user-data deletion fails', async () => {
-    useAppShellStore.setState({ session, privacyLock: lock, pinCredential: 'pin:123456' });
+  it('clears authentication without invoking the destructive data-reset seam', async () => {
+    useAppShellStore.setState({
+      session,
+      privacyLock: lock,
+      pinCredential: 'pin:123456'
+    });
     resetUserData.mockRejectedValueOnce(new Error('database unavailable'));
 
-    await expect(useAppShellStore.getState().signOut()).rejects.toThrow(
-      'database unavailable'
-    );
+    await expect(
+      useAppShellStore.getState().signOut()
+    ).resolves.toBeUndefined();
 
     expect(useAppShellStore.getState()).toMatchObject({
       session: { status: 'signed_out' },
@@ -271,8 +273,11 @@ describe('useAppShellStore', () => {
       pinCredential: null
     });
     expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.session');
-    expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.privacyLock');
-    expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.pinCredential');
+    expect(secureDelete).not.toHaveBeenCalledWith(
+      'masarifi.appShell.privacyLock'
+    );
+    expect(secureDelete).not.toHaveBeenCalledWith('masarifi.appShell.pinCredential');
+    expect(resetUserData).not.toHaveBeenCalled();
   });
 
   it('drops in-memory shell user data during a runtime user-data reset', () => {

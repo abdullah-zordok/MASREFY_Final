@@ -1,4 +1,8 @@
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import {
+  configureApiActorProvider,
+  configureApiTokenProvider,
+} from "@/core/api/client";
 import { mockServer } from "@/mocks/server";
 import { resetPhase2MockState } from "@/mocks/phase2-state";
 import { resetPhase5AiState } from "@/mocks/phase5-ai-state";
@@ -9,6 +13,11 @@ import { resetPhase9GovernanceState } from "@/mocks/phase9-governance-state";
 
 beforeAll(() => {
   mockServer.listen({ onUnhandledRequest: "error" });
+});
+
+beforeEach(() => {
+  configureApiTokenProvider(async () => "test-clerk-session");
+  configureApiActorProvider(() => "test-admin-actor");
 });
 
 afterEach(() => {

@@ -1,6 +1,6 @@
 # Client Contract Mapping: SPEC-BE-002
 
-**Reviewed**: 2026-08-28
+**Reviewed**: 2026-09-08
 **Scope**: Mapping only; `apps/mobile` and `apps/admin-web` remain unchanged
 **Cutover owner**: SPEC-BE-014; privileged Admin routes/permissions: SPEC-BE-003
 
@@ -60,6 +60,12 @@ SPEC-BE-003/014 adapter must map them to permission-protected DTOs without chang
 | Session list fields | Clerk remains session source of truth | No Masarifi session table or Admin session route is created here. |
 | `user_devices.clerk_session_id` | Private minimum revoke linkage | Never returned directly to Admin or Mobile. |
 | Revoke device/session, force logout | No Admin route or permission here | SPEC-BE-003 owns authorization/actions; SPEC-BE-014 owns adapter cutover. |
+
+Phase 14 verified that the current Admin `usersRepository` expects
+`/api/v1/admin/users*`, but SPEC-BE-002 deliberately defines no Admin routes.
+Every production Admin user/profile/device/session operation therefore returns
+explicit `provider_unavailable` without sending a request. Adding those endpoints
+requires a separate owning Spec; Phase 14 does not create them.
 
 ## Enforced Boundary
 

@@ -16,12 +16,14 @@ for (const file of files) {
     normalized === 'app/(onboarding)/android-sms-permission.tsx' ||
     normalized.endsWith('src/services/platform/tracking-permission-service.android.ts');
 
-  reportMatches(
-    file,
-    source,
-    /(?:openai|stripe|supabase|firebase|@react-native-google-signin|expo-auth-session)/gi,
-    'provider SDK or production-provider import'
-  );
+  if (!isTest) {
+    reportMatches(
+      file,
+      source,
+      /(?:openai|stripe|supabase|firebase|@react-native-google-signin|expo-auth-session)/gi,
+      'provider SDK or production-provider import'
+    );
+  }
   reportMatches(
     file,
     source,

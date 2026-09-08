@@ -15,6 +15,19 @@ tags:
   - name: Privacy
   - name: Retention
 paths:
+  /api/v1/admin/access/me:
+    get:
+      operationId: getAdminSelf
+      tags: [Admin Access]
+      x-permission: admin.overview.read
+      responses:
+        '200':
+          description: Authoritative redacted context for the current active Admin.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/AdminSelfContext' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/admin/access/admins:
     get:
       operationId: listAdmins
@@ -947,6 +960,35 @@ components:
       additionalProperties: false
       required: [nextCursor]
       properties: { nextCursor: { type: [string, 'null'], maxLength: 512 } }
+    AdminSelfContext:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          displayName,
+          roleKeys,
+          effectivePermissionKeys,
+          mfaStatus,
+          activeSessionCount,
+          version,
+        ]
+      properties:
+        id: { $ref: '#/components/schemas/UserId' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        roleKeys:
+          { type: array, uniqueItems: true, minItems: 1, maxItems: 50, items: { type: string, maxLength: 64 } }
+        effectivePermissionKeys:
+          {
+            type: array,
+            uniqueItems: true,
+            minItems: 1,
+            maxItems: 500,
+            items: { $ref: '#/components/schemas/PermissionKey' },
+          }
+        mfaStatus: { type: string, enum: [enabled, missing] }
+        activeSessionCount: { type: integer, minimum: 0 }
+        version: { $ref: '#/components/schemas/Version' }
     AdminSummary:
       type: object
       additionalProperties: false

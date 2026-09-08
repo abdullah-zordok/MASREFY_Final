@@ -7,7 +7,7 @@ import { SECURITY_ROUTES } from '../../../src/security/security.controller';
 import { PERMISSION_KEYS } from '../../../src/security/permission-manifest';
 
 describe('Phase 03 route authorization contract', () => {
-  it('registers all 45 operations with the exact OpenAPI permission and status', () => {
+  it('registers all 46 operations with the exact OpenAPI permission and status', () => {
     const contract = load(
       readFileSync(
         resolve(__dirname, '../../../specs/003-admin-rbac-security/contracts/openapi.yaml'),
@@ -33,7 +33,7 @@ describe('Phase 03 route authorization contract', () => {
           permission: operation['x-permission'],
         })),
     );
-    expect(SECURITY_ROUTES).toHaveLength(45);
+    expect(SECURITY_ROUTES).toHaveLength(46);
     expect(
       SECURITY_ROUTES.map(({ method, path, operation, status, permission }) => ({
         method,
@@ -43,7 +43,7 @@ describe('Phase 03 route authorization contract', () => {
         permission,
       })),
     ).toEqual(expected);
-    expect(new Set(SECURITY_ROUTES.map(({ operation }) => operation)).size).toBe(45);
+    expect(new Set(SECURITY_ROUTES.map(({ operation }) => operation)).size).toBe(46);
   });
 
   it('never registers wildcard or client-derived permissions', () => {

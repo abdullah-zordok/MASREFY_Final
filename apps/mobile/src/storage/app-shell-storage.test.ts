@@ -2,7 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { clearAppShellUserData, createAppShellStorage } from './app-shell-storage';
+import {
+  clearAppShellStorageOwner,
+  clearAppShellUserData,
+  configureAppShellStorageOwner,
+  createAppShellStorage
+} from './app-shell-storage';
 import type {
   AuthenticationSession,
   KeywordRule,
@@ -16,6 +21,12 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn()
+}));
+jest.mock('expo-crypto', () => ({
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digestStringAsync: jest.fn(async (_algorithm: string, value: string) =>
+    value.includes('owner-b') ? 'b'.repeat(64) : 'a'.repeat(64)
+  )
 }));
 
 const secureGet = jest.mocked(SecureStore.getItemAsync);
@@ -70,6 +81,7 @@ const lock: PrivacyLockPreference = {
 };
 
 beforeEach(() => {
+  clearAppShellStorageOwner();
   jest.clearAllMocks();
 });
 
@@ -184,6 +196,43 @@ describe('createAppShellStorage', () => {
     expect(asyncRemove).toHaveBeenCalledWith(
       'masarifi.appShell.pendingDestination'
     );
+  });
+
+  it('uses distinct owner namespaces for local shell records', async () => {
+    const storage = createAppShellStorage();
+    await configureAppShellStorageOwner('user_owner-a');
+    await storage.savePendingDestination('/reports');
+    const ownerAKey = asyncSet.mock.calls.at(-1)?.[0];
+
+    await configureAppShellStorageOwner('user_owner-b');
+    await storage.savePendingDestination('/tracking');
+    const ownerBKey = asyncSet.mock.calls.at(-1)?.[0];
+
+    expect(ownerAKey).not.toBe(ownerBKey);
+    expect(ownerAKey).toMatch(/^masarifi\.appShell\.pendingDestination\./);
+    expect(ownerBKey).toMatch(/^masarifi\.appShell\.pendingDestination\./);
+  });
+
+  it('moves a legacy PIN and privacy lock into the first verified owner namespace', async () => {
+    secureGet.mockImplementation(async (key) => {
+      if (key === 'masarifi.appShell.privacyLock') return JSON.stringify(lock);
+      if (key === 'masarifi.appShell.pinCredential')
+        return JSON.stringify('pin:123456');
+      return null;
+    });
+
+    await configureAppShellStorageOwner('user_owner-a');
+
+    expect(secureSet).toHaveBeenCalledWith(
+      `masarifi.appShell.privacyLock.${'a'.repeat(24)}`,
+      JSON.stringify(lock)
+    );
+    expect(secureSet).toHaveBeenCalledWith(
+      `masarifi.appShell.pinCredential.${'a'.repeat(24)}`,
+      JSON.stringify('pin:123456')
+    );
+    expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.privacyLock');
+    expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.pinCredential');
   });
 
   it('returns null or empty defaults for missing and corrupt records', async () => {

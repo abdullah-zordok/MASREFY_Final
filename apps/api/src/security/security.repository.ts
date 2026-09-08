@@ -263,6 +263,15 @@ export class SecurityRepository {
       input.operation === 'listMySecurityEvents' || input.operation === 'listAdminSecurityEvents';
     const offset = eventList ? 0 : cursorOffset(input.query.cursor);
     switch (input.operation) {
+      case 'getAdminSelf':
+        return this.one(
+          client,
+          `select id,display_name as "displayName",role_keys as "roleKeys",
+          effective_permission_keys as "effectivePermissionKeys",
+          active_session_count as "activeSessionCount",version
+          from private.get_admin_self_context()`,
+          [],
+        );
       case 'listAdmins':
         return this.list(
           client,
@@ -270,7 +279,7 @@ export class SecurityRepository {
         case when p.primary_email is null then null else left(p.primary_email,2)||'***@'||split_part(p.primary_email,'@',2) end as "emailMasked",
         a.status,a.department,coalesce((select array_agg(distinct r.key order by r.key) from public.admin_role_assignments x join public.roles r on r.id=x.role_id
           where x.user_id=a.user_id and x.revoked_at is null and x.starts_at<=clock_timestamp() and (x.ends_at is null or x.ends_at>clock_timestamp())),'{}') as "roleKeys",
-        'unknown' as "mfaStatus",0 as "activeSessionCount",a.version::int from public.admin_profiles a join public.profiles p on p.id=a.user_id
+        'unknown' as "mfaStatus",private.admin_active_session_count(a.user_id) as "activeSessionCount",a.version::int from public.admin_profiles a join public.profiles p on p.id=a.user_id
         where ($1::text is null or a.status=$1) and ($2::text is null or p.display_name ilike '%'||$2||'%' or p.primary_email ilike '%'||$2||'%')
         order by a.created_at desc,a.user_id`,
           limit,
@@ -287,12 +296,21 @@ export class SecurityRepository {
         case when p.primary_email is null then null else left(p.primary_email,2)||'***@'||split_part(p.primary_email,'@',2) end as "emailMasked",a.status,a.department,
         coalesce((select array_agg(distinct r.key order by r.key) from public.admin_role_assignments x join public.roles r on r.id=x.role_id
           where x.user_id=a.user_id and x.revoked_at is null and x.starts_at<=clock_timestamp() and (x.ends_at is null or x.ends_at>clock_timestamp())),'{}') as "roleKeys",
-        'unknown' as "mfaStatus",0 as "activeSessionCount",
+        'unknown' as "mfaStatus",private.admin_active_session_count(a.user_id) as "activeSessionCount",
         coalesce((select jsonb_agg(jsonb_build_object('id',x.id,'userId',x.user_id,'roleId',x.role_id,'startsAt',x.starts_at,'endsAt',x.ends_at,'revokedAt',x.revoked_at,'version',x.version) order by x.starts_at,x.id)
           from public.admin_role_assignments x where x.user_id=a.user_id),'[]') as assignments,
         coalesce((select array_agg(distinct permission.key order by permission.key) from public.admin_role_assignments x join public.role_permissions rp on rp.role_id=x.role_id
           join public.permissions permission on permission.id=rp.permission_id where x.user_id=a.user_id and x.revoked_at is null and x.starts_at<=clock_timestamp()
-          and (x.ends_at is null or x.ends_at>clock_timestamp())),'{}') as "effectivePermissionKeys",'{}'::text[] as "eligibleActions",a.version::int
+          and (x.ends_at is null or x.ends_at>clock_timestamp())),'{}') as "effectivePermissionKeys",
+        array_remove(array[
+          case when a.user_id<>public.current_clerk_user_id() and a.status='active'
+            and private.admin_has_permission(public.current_clerk_user_id(),'access.assignments.write',clock_timestamp()) then 'assign_roles'::text end,
+          case when a.user_id<>public.current_clerk_user_id() and a.status='active'
+            and private.admin_active_session_count(a.user_id)>0
+            and private.admin_has_permission(public.current_clerk_user_id(),'admin-team.sessions.revoke',clock_timestamp()) then 'revoke_sessions'::text end,
+          case when a.user_id<>public.current_clerk_user_id() and a.status='active'
+            and private.admin_has_permission(public.current_clerk_user_id(),'admin-team.disable',clock_timestamp()) then 'disable'::text end
+        ],null) as "eligibleActions",a.version::int
         from public.admin_profiles a join public.profiles p on p.id=a.user_id where a.user_id=$1`,
           [requiredText(input.params.userId, 128)],
         );

@@ -43,7 +43,7 @@ describe("users repository", () => {
     mockServer.use(http.get("/api/v1/admin/users", () => HttpResponse.json({
       items: [{ id: "USR-1", displayName: "Unsafe", maskedEmail: "unsafe@example.test" }],
     })));
-    await expect(usersRepository.getUsers({})).rejects.toMatchObject({ code: "validation_error" });
+    await expect(usersRepository.getUsers({})).rejects.toMatchObject({ code: "contract_mismatch" });
   });
 
   test.each([
@@ -88,7 +88,7 @@ describe("user detail repository", () => {
     ["sessions", "/api/v1/admin/users/USR-10482/sessions", () => usersRepository.getSessions({ userId: "USR-10482" })],
   ])("rejects an unsafe %s response", async (_region, path, readRegion) => {
     mockServer.use(http.get(path, () => HttpResponse.json({ unexpectedPrivateField: "redacted" })));
-    await expect(readRegion()).rejects.toMatchObject({ code: "validation_error" });
+    await expect(readRegion()).rejects.toMatchObject({ code: "contract_mismatch" });
   });
 
   test("keeps empty and partial region scenarios independent", async () => {
