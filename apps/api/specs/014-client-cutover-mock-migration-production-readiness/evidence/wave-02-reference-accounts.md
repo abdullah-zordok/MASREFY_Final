@@ -1,12 +1,12 @@
 # Wave 2 — Reference Data and Accounts
 
-Status: locally complete for T037–T044; T045 remote delivery remains pending.
+Status: Wave 2 implementation and exact-SHA remote acceptance complete through T045.
 
 - Base SHA: `3c1ed617aadcd55844db0210a199521892cb9cd1` (`main` and `origin/main` at handoff).
-- Implementation SHA: **PENDING — fill after push**.
-- Remote CI workflow run URL/ID: **PENDING — exact implementation SHA required**.
-- Required remote job results: **PENDING**.
-- Evidence SHA and exact-SHA CI: **PENDING — fill after separate evidence push**.
+- Implementation SHA: `4fa062691d9977c5d70062b9ada0a2c45cf4505c`.
+- Remote CI workflow run URL/ID: `https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34266115054` (`34266115054`), exact head SHA matched the implementation SHA.
+- Required remote job results: `admin`, `sentinel-redaction`, `mobile`, `secrets`, `application`, `database`, all five `admin-e2e` viewport jobs, and `image` succeeded. Conditional `signed-release-evidence` was skipped as designed.
+- Evidence delivery: this record is delivered in the separate `docs(cutover): record wave 2 remote acceptance` commit; its exact SHA and CI run are verified after push before T046.
 
 ## Implemented scope and contracts
 
@@ -107,4 +107,4 @@ Final reviewer correction verification: the two new real-SQLite conflict tests f
 
 Hosted Supabase, real owner/non-owner and Clerk identities, physical iOS/Android SQLCipher and UI behavior, signed builds, deployed shadow cohorts/observation/rollback and evidence collection remain open in [external gates](external-gates.md). The handoff's local DB and SQLite proofs do not satisfy them. BE006 runtime synchronization and restart-durable mutation replay remain Wave 3. `listCurrencies` and `listCountries` currently have no non-test screen consumer. BE005 account summary consumes only the strict balance projection; full transaction mapping remains Wave 3. No BE012, billing provider or paid flow was added; `billingAvailable: false` remains required.
 
-Preserved assistant file SHA-256 must remain `02D4E2FD1C74B55603C72D9E70EFF68CE5BDD5EA23C6AF31048EA9D022E9709A`. No preserved path was edited/staged by the finish work. Implementation/evidence commits, push and exact-SHA CI are deliberately pending T045.
+Preserved assistant file SHA-256 remains `02D4E2FD1C74B55603C72D9E70EFF68CE5BDD5EA23C6AF31048EA9D022E9709A`. No preserved path was edited or staged by the finish work. The implementation commit, push, exact-SHA CI and remote evidence record complete T045; the separate evidence commit must also pass exact-SHA CI before T046 begins.

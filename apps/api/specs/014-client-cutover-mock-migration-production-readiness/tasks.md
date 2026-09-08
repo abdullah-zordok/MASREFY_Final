@@ -86,7 +86,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T042 [US2] Prove Wave 2 read shadow, internal/bounded writes, exact account/card/category comparison, SQLite/pending preservation and rollback; record `evidence/wave-02-reference-accounts.md`.
 - [x] T043 [US2] Run BE004 contract/integration/security/performance, Mobile core-finance/typecheck/lint/quality/full Jest, production mock/bundle/secret scans; record commands/results/skips.
 - [x] T044 [US2] Update Wave 2 manifest/mock-removal/checklists, run reviews/security scan, resolve blockers, and rerun affected gates.
-- [ ] T045 [US2] Stage only Wave 2/BE004 paths, verify preserved hashes, commit `feat(cutover): complete reference accounts wave`, push `main`, wait for required CI on the SHA, and record green remote evidence before T046.
+- [x] T045 [US2] Stage only Wave 2/BE004 paths, verify preserved hashes, commit `feat(cutover): complete reference accounts wave`, push `main`, wait for required CI on the SHA, and record green remote evidence before T046.
 
 ---
 
