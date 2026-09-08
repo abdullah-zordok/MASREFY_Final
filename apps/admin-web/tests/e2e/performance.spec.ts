@@ -4,12 +4,11 @@ test("reference shell and local interactions meet Phase 0 responsiveness gates",
   test.skip(testInfo.project.name !== "desktop-1440", "Performance gate uses the documented reference viewport.");
   await page.goto("/admin");
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
-
-  const started = performance.now();
-  await page.reload();
-  await expect(page.locator("[data-admin-shell]")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const shellVisibleMs = performance.now() - started;
+  const shellVisibleMs = await page.evaluate(() => {
+    const [navigation] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+    return performance.now() - navigation.responseEnd;
+  });
 
   const acknowledgementMs = await page
     .locator(".topbar-actions > .icon-button")
