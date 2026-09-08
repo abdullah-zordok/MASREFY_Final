@@ -109,7 +109,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T054 [US3] Execute online/offline/bootstrap/delta/interrupted upload/conflict/tombstone/reconnect and N-1 rollback rehearsals on a copy of seeded local fixtures; prove counts/hashes/ledger reconciliation and record `evidence/wave-03-ledger-sync.md`.
 - [x] T055 [US3] Run BE005/006 unit/contract/integration/E2E/security/concurrency/performance/recovery, Mobile typecheck/lint/quality/full Jest/integration, and production scans; record all results/skips.
 - [x] T056 [US3] Update Wave 3 manifest/mock-removal/checklists, run independent/Clean Code/test/security reviews, fix blockers, rerun affected gates.
-- [ ] T057 [US3] Stage only Wave 3/BE005/BE006 paths, verify preserved hashes, commit `feat(cutover): complete ledger sync wave`, push `main`, wait for required CI, and record the accepted SHA before T058.
+- [x] T057 [US3] Stage only Wave 3/BE005/BE006 paths, verify preserved hashes, commit `feat(cutover): complete ledger sync wave`, push `main`, wait for required CI, and record the accepted SHA before T058.
 
 ---
 

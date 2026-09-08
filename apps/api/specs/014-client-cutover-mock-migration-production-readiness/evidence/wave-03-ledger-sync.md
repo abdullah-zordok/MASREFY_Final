@@ -1,10 +1,13 @@
 # Wave 3 — Lossless Ledger and Offline Sync
 
-Status: local implementation, rehearsal, verification and review complete through T056. T057 exact-message commit, push and exact-SHA remote acceptance remain pending in this tree.
+Status: Wave 3 implementation and exact-SHA remote acceptance complete through T057.
 
 - Base and rollback SHA: `f4c58cf76c1e03fdd1b48b125a65358f291808d2` (accepted Wave 2 evidence SHA).
-- Required implementation commit message: `feat(cutover): complete ledger sync wave`.
-- Implementation SHA and remote workflow run are recorded here in a separate evidence commit only after the implementation SHA is pushed and all required jobs are green.
+- Wave 3 implementation SHA: `f01ac895c9c13f6115735ff121280437a74b9898`, committed with the required message `feat(cutover): complete ledger sync wave`.
+- Initial exact-SHA workflow: Backend Foundation run `34289074774` ([run](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34289074774)). Its `application` job failed at `npm audit --audit-level=high` after the registry began reporting six High `multer@2.2.0` advisories; completed Mobile, Admin, secrets, sentinel-redaction and three viewport jobs were green, while unfinished dependent jobs were cancelled.
+- Forward fix SHA: `4acc53b30f72d15f175016b43762963b4a082d4d`, `fix(security): override vulnerable multer version`. The npm override resolves Nest's transitive dependency to `multer@2.3.0`; clean `npm ci --ignore-scripts`, `npm ls multer`, API unit/contract/OpenAPI/static/build checks and `npm audit --audit-level=high` passed locally. The remaining upstream `qs` advisory is Moderate.
+- Accepted exact-SHA workflow: Backend Foundation run `34290179908` ([run](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34290179908)), head SHA exactly `4acc53b30f72d15f175016b43762963b4a082d4d`.
+- All 12 required jobs passed: `application`, `mobile`, `admin`, `secrets`, `sentinel-redaction`, `database`, all five `admin-e2e` viewport jobs, and `image`. Conditional `signed-release-evidence` was skipped as designed for the `main` push.
 
 ## Implemented scope and contracts
 
@@ -66,11 +69,11 @@ Local database commands used `DATABASE_URL=postgresql://postgres:postgres@127.0.
 
 - Test-first role-mapping correction: the Mobile summary test, BE005 OpenAPI instance test and real PostgreSQL integration test failed before explicit source/destination fields were added, then all passed. This fixes the root contract error instead of relying on UUID sort order.
 - Independent review then found that income uses a destination posting internally while the public summary contract requires its sole account as `sourceAccountId`. The new real-database mutation/list/detail regression failed with `sourceAccountId: undefined` and the account in `destinationAccountId`. One shared transaction-kind projection now maps income to source and keeps destination transfer-only across mutation, list, detail, account-summary and linked-original paths. The focused integration suite passed 5/5 and the OpenAPI instance suite passed 5/5 before the broader post-review gates above.
-- Clean Code Guard and Test Guard found no blocking abstraction, duplication, unsafe boundary, mock-internal assertion or missing real-boundary coverage. The fix reuses existing ledger queries, schemas, repository metadata and sync abstractions; no dependency or speculative helper was added.
+- Clean Code Guard and Test Guard found no blocking abstraction, duplication, unsafe boundary, mock-internal assertion or missing real-boundary coverage. The ledger fix reuses existing queries, schemas, repository metadata and sync abstractions; no speculative helper was added. The later CI forward fix changes only npm resolution metadata for the already-transitive `multer` dependency.
 - First complete Wave 3 scan `6cade571-3aee-47c2-a170-90abd353315e` covered the pre-role-fix snapshot with zero findings.
 - Post-transfer-role scan `b253d151-3690-46a3-9716-23090d68d170` covered digest `codex-security-snapshot/v1:sha256:d61a3bcb6be517809820d00542cf9a21c1859a679b64738ee51c2f3caccdebdf`: 24/24 items, complete coverage, zero findings.
 - Final post-independent-review scan `703278df-6698-4d70-b854-e9ebf804d6a9` covered digest `codex-security-snapshot/v1:sha256:c7c2ce8bb4892ff6e1d4d85d0cb02580779e896d7be5ff4fccb71b326c814adb`: 24/24 review items closed, complete coverage, zero candidates/findings. Report: `C:/Users/DELL/AppData/Local/Temp/codex-security-scans-TaGUje/MASREFY-_Final/f4c58cf76c1e03fdd1b48b125a65358f291808d2_20260908T225832Z_5yhg6udx/report.md`. Usage: 1,855,417 total tokens in one thread.
-- Protected user-owned paths were explicit exclusions. Two independent architecture workers in the first scan returned no usable result before bounded interruption, so the parent completed the source-backed threat model sequentially. The final scan predates only this evidence receipt update; no production or test code changed afterward.
+- Protected user-owned paths were explicit exclusions. Two independent architecture workers in the first scan returned no usable result before bounded interruption, so the parent completed the source-backed threat model sequentially. The final source scan predates the dependency-only `multer@2.3.0` resolution forward fix; the high-severity npm audit gate and every required exact-SHA CI job passed after that fix. No production or test source changed afterward.
 
 ## External limits
 
