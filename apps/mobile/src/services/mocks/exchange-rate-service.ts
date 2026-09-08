@@ -5,7 +5,8 @@ import type {
 import { exchangeRateServiceCapability } from '@/services/contracts/core-finance-service';
 import type { ExchangeRateEstimate } from '@/domain/core-finance';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
-import { isDemoModeEnabled } from '@/config/demo-mode';
+import { isDemoModeEnabled, isFixtureModeEnabled } from '@/config/demo-mode';
+import { createLiveReferenceService } from '@/services/live/reference-service';
 
 export function createMockExchangeRateService(
   rates: readonly ExchangeRateEstimate[] = []
@@ -36,25 +37,32 @@ export function createMockExchangeRateService(
   };
 }
 
-export function createProductionExchangeRateService(): CapabilityProviderHandle<ExchangeRateService> {
+export function createProductionExchangeRateService(
+  options: Parameters<typeof createLiveReferenceService>[0] = {}
+): CapabilityProviderHandle<ExchangeRateService> {
+  const baseUrl = options.baseUrl ?? process.env.EXPO_PUBLIC_API_URL ?? '';
+  const reference = createLiveReferenceService({ ...options, baseUrl });
   return {
     metadata: {
-      id: 'local-exchange-rate',
+      id: baseUrl ? 'phase04-exchange-rate-http' : 'unavailable-exchange-rate',
       capability: exchangeRateServiceCapability.capability,
       majorVersion: exchangeRateServiceCapability.majorVersion,
       kind: 'live',
-      availability: 'available'
+      availability: baseUrl ? 'available' : 'unavailable'
     },
-    async getRate(baseCurrencyCode, quoteCurrencyCode) {
-      return baseCurrencyCode === quoteCurrencyCode
-        ? { rate: 1, asOf: Date.now(), status: 'available' }
-        : { rate: null, asOf: null, status: 'unavailable' };
-    }
+    getRate: (baseCurrencyCode, quoteCurrencyCode) =>
+      !baseUrl && baseCurrencyCode !== quoteCurrencyCode
+        ? Promise.resolve({
+            rate: null,
+            asOf: null,
+            status: 'unavailable' as const
+          })
+        : reference.getRate(baseCurrencyCode, quoteCurrencyCode)
   };
 }
 
 export function createExchangeRateService() {
-  return isDemoModeEnabled()
+  return isFixtureModeEnabled(process.env.NODE_ENV, isDemoModeEnabled())
     ? createMockExchangeRateService()
     : createProductionExchangeRateService();
 }

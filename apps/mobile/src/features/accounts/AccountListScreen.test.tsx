@@ -9,11 +9,20 @@ import { renderWithQueryData } from '@/test-utils/render';
 import { AccountListScreen } from './AccountListScreen';
 
 it('renders active, archived, duplicate, and add-account states', () => {
+  const accounts = [
+    ...fixtureAccounts,
+    {
+      ...fixtureAccounts[0],
+      id: 'closed-account',
+      name: 'Closed account',
+      status: 'closed' as const
+    }
+  ];
   renderWithQueryData(<AccountListScreen />, [
-    [coreFinanceKeys.accounts(true), fixtureAccounts],
+    [coreFinanceKeys.accounts(true), accounts],
     [
       coreFinanceKeys.accountBalances(true),
-      fixtureAccounts.map((account) => ({
+      accounts.map((account) => ({
         accountId: account.id,
         balanceMinor: account.openingBalanceMinor,
         currencyCode: account.currencyCode
@@ -21,6 +30,10 @@ it('renders active, archived, duplicate, and add-account states', () => {
     ]
   ]);
   expect(screen.getByText(fixtureAccounts[0].name)).toBeTruthy();
+  expect(screen.getByText('Closed account')).toBeTruthy();
+  expect(
+    screen.getByText(translate('coreFinance.accounts.closedSection'))
+  ).toBeTruthy();
   expect(screen.getByText(translate('coreFinance.accounts.add'))).toBeTruthy();
   const rows = screen.getAllByTestId('account-row');
   expect(rows[0]).toHaveStyle({ borderTopLeftRadius: radius.lg });

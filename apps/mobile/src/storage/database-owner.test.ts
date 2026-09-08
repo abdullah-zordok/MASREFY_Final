@@ -28,7 +28,8 @@ const mockDatabase: MockDatabase = {
     if (sql.includes('cipher_version')) return { cipher_version: '4.6.1' };
     if (sql.includes('_masarifi_migration_state'))
       return migrationMarker ? { value: migrationMarker } : null;
-    if (mismatchCounts && sql.includes('main."offline_entries"')) return { count: 2 };
+    if (mismatchCounts && sql.includes('main."offline_entries"'))
+      return { count: 2 };
     return { count: 1 };
   }),
   getAllAsync: jest.fn(async (sql: string) =>
@@ -50,7 +51,9 @@ jest.mock('expo-sqlite', () => ({
   })
 }));
 jest.mock('expo-secure-store', () => ({
-  getItemAsync: jest.fn(async (key: string) => mockSecureValues.get(key) ?? null),
+  getItemAsync: jest.fn(
+    async (key: string) => mockSecureValues.get(key) ?? null
+  ),
   setItemAsync: jest.fn(async (key: string, value: string) => {
     mockSecureValues.set(key, value);
   })
@@ -152,7 +155,9 @@ test('keeps the plaintext legacy store when encrypted row counts differ', async 
   mockSecureValues.set('masarifi.database.legacyOwnerHash', 'a'.repeat(64));
   await configureDatabaseOwner('user_owner-a');
 
-  await expect(openDatabase()).rejects.toThrow('legacy database row-count mismatch');
+  await expect(openDatabase()).rejects.toThrow(
+    'legacy database row-count mismatch'
+  );
   expect(mockExistingFiles).toContain('file:///databases/masarifi.db');
   expect(mockDeletedFiles).not.toContain('file:///databases/masarifi.db');
   expect(SecureStore.setItemAsync).not.toHaveBeenCalledWith(
@@ -210,10 +215,21 @@ test('rejects a stale database handle in live mode', async () => {
   }
 });
 
+test('rejects a requested owner that differs from the active database owner', async () => {
+  await configureDatabaseOwner('user_owner-a');
+  const active = await openDatabase();
+  await expect(openDatabase('user_owner-b')).rejects.toThrow(
+    'stale database owner'
+  );
+  await expect(openDatabase('user_owner-a')).resolves.toBe(active);
+});
+
 test('finishes deleting a verified plaintext legacy store after an interrupted cleanup', async () => {
   const ownerHash = 'a'.repeat(64);
   migrationMarker = ownerHash;
-  mockExistingFiles.add(`file:///databases/masarifi-${ownerHash.slice(0, 24)}.db`);
+  mockExistingFiles.add(
+    `file:///databases/masarifi-${ownerHash.slice(0, 24)}.db`
+  );
   mockSecureValues.set('masarifi.database.legacyOwnerHash', ownerHash);
 
   await configureDatabaseOwner('user_owner-a');
@@ -225,11 +241,15 @@ test('finishes deleting a verified plaintext legacy store after an interrupted c
 
 test('preserves plaintext when an existing target has equal counts without an export marker', async () => {
   const ownerHash = 'a'.repeat(64);
-  mockExistingFiles.add(`file:///databases/masarifi-${ownerHash.slice(0, 24)}.db`);
+  mockExistingFiles.add(
+    `file:///databases/masarifi-${ownerHash.slice(0, 24)}.db`
+  );
   mockSecureValues.set('masarifi.database.legacyOwnerHash', ownerHash);
 
   await configureDatabaseOwner('user_owner-a');
-  await expect(openDatabase()).rejects.toThrow('legacy database migration incomplete');
+  await expect(openDatabase()).rejects.toThrow(
+    'legacy database migration incomplete'
+  );
 
   expect(mockDeletedFiles).toEqual([]);
 });

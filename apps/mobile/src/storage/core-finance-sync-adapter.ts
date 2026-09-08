@@ -1,7 +1,34 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { accountTypes, transactionSources } from '../domain/core-finance';
+import { createDefaultCategories } from '../domain/core-finance-seeds';
 import { openDatabase, runExclusiveDatabaseTransaction } from './database';
 import { SyncRepository, type SyncDomain } from './sync-repository';
+
+const accountStatuses = ['active', 'archived', 'closed'] as const;
+const categoryKinds = ['income', 'expense', 'transfer'] as const;
+const transactionKinds = [
+  'income',
+  'expense',
+  'transfer',
+  'opening',
+  'refund',
+  'reversal',
+  'adjustment'
+] as const;
+const transactionStatuses = [
+  'draft',
+  'pending',
+  'confirmed',
+  'reversed',
+  'deleted'
+] as const;
+const defaultFavoriteByCategory = new Map(
+  createDefaultCategories().map((category) => [
+    category.id,
+    category.isFavorite
+  ])
+);
 
 export interface ServerChange {
   resourceId: string;
@@ -44,6 +71,8 @@ export class CoreFinanceSyncAdapter {
   ): Promise<void> {
     const database = await this.db();
     await runExclusiveDatabaseTransaction(database, async (transaction) => {
+      if (domain === 'categories')
+        await this.primeCategoryMappings(transaction, items);
       for (const item of items) {
         const serverId = this.text(item.id);
         const version = this.version(item.version);
@@ -75,7 +104,15 @@ export class CoreFinanceSyncAdapter {
   ): Promise<void> {
     const database = await this.db();
     await runExclusiveDatabaseTransaction(database, async (transaction) => {
+      if (domain === 'categories')
+        await this.primeCategoryMappings(
+          transaction,
+          changes.flatMap((change) =>
+            change.snapshot ? [change.snapshot] : []
+          )
+        );
       for (const change of changes) {
+        this.version(change.version);
         const state = await this.sync.resourceState(
           transaction,
           domain,
@@ -150,8 +187,17 @@ export class CoreFinanceSyncAdapter {
     snapshot: Record<string, unknown>,
     version: number
   ): Promise<boolean> {
-    const localId = await this.localId(transaction, domain, serverId);
-    if (await this.hasPending(transaction, localId)) {
+    const systemKey =
+      domain === 'categories'
+        ? this.nullable(snapshot.system_key ?? snapshot.systemKey)
+        : null;
+    const localId =
+      systemKey ?? (await this.localId(transaction, domain, serverId));
+    if (
+      (await this.hasUnresolvedLocalMutation(transaction, localId)) ||
+      (domain === 'transactions' &&
+        (await this.hasUnresolvedConflict(transaction, localId)))
+    ) {
       if (domain === 'transactions')
         await this.pendingConflict(transaction, localId, serverId, version, {
           kind: 'server_update_vs_local_edit',
@@ -175,7 +221,15 @@ export class CoreFinanceSyncAdapter {
         now
       );
     } else if (domain === 'categories') {
-      const category = this.category(snapshot, localId);
+      const existing = await transaction.getFirstAsync<{ payload: string }>(
+        'SELECT payload FROM finance_categories WHERE id=?',
+        localId
+      );
+      const category = this.category(
+        snapshot,
+        localId,
+        this.localFavorite(existing?.payload, localId)
+      );
       await transaction.runAsync(
         `INSERT INTO finance_categories(id,payload,parent_id,status,merged_into_id,updated_at)
          VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,
@@ -217,15 +271,7 @@ export class CoreFinanceSyncAdapter {
         ledgerEntry.updatedAt
       );
     }
-    await transaction.runAsync(
-      `INSERT INTO sync_id_mappings(domain,local_id,server_id,updated_at) VALUES(?,?,?,?)
-       ON CONFLICT(domain,local_id) DO UPDATE SET server_id=excluded.server_id,
-         updated_at=excluded.updated_at`,
-      domain,
-      localId,
-      serverId,
-      now
-    );
+    await this.saveIdMapping(transaction, domain, localId, serverId, now);
     return true;
   }
 
@@ -235,7 +281,11 @@ export class CoreFinanceSyncAdapter {
     change: ServerChange
   ): Promise<boolean> {
     const localId = await this.localId(transaction, domain, change.resourceId);
-    if (await this.hasPending(transaction, localId)) {
+    if (
+      (await this.hasUnresolvedLocalMutation(transaction, localId)) ||
+      (domain === 'transactions' &&
+        (await this.hasUnresolvedConflict(transaction, localId)))
+    ) {
       if (domain === 'transactions')
         await this.pendingConflict(
           transaction,
@@ -257,10 +307,8 @@ export class CoreFinanceSyncAdapter {
       change.deletedAt ? Date.parse(change.deletedAt) : Date.now(),
       localId
     );
-    await transaction.runAsync(
-      `INSERT INTO sync_id_mappings(domain,local_id,server_id,updated_at) VALUES(?,?,?,?)
-       ON CONFLICT(domain,local_id) DO UPDATE SET server_id=excluded.server_id,
-         updated_at=excluded.updated_at`,
+    await this.saveIdMapping(
+      transaction,
       domain,
       localId,
       change.resourceId,
@@ -366,15 +414,28 @@ export class CoreFinanceSyncAdapter {
     };
   }
 
-  private async hasPending(
+  private async hasUnresolvedLocalMutation(
     transaction: SQLiteDatabase,
     resourceId: string
   ): Promise<boolean> {
     return Boolean(
       await transaction.getFirstAsync(
         `SELECT 1 present FROM sync_mutation_queue
-         WHERE resource_id=? AND status IN ('pending','sending') LIMIT 1`,
+         WHERE resource_id=? AND status IN ('pending','sending','conflict') LIMIT 1`,
         resourceId
+      )
+    );
+  }
+
+  private async hasUnresolvedConflict(
+    transaction: SQLiteDatabase,
+    transactionId: string
+  ): Promise<boolean> {
+    return Boolean(
+      await transaction.getFirstAsync(
+        `SELECT 1 present FROM finance_sync_conflicts
+         WHERE transaction_id=? AND status='pending' LIMIT 1`,
+        transactionId
       )
     );
   }
@@ -401,18 +462,20 @@ export class CoreFinanceSyncAdapter {
   }
 
   private version(value: unknown): number {
-    const version = Number(value);
-    if (!Number.isSafeInteger(version) || version < 0)
-      throw new Error('SYNC_SNAPSHOT_INVALID');
+    const version = this.safeInteger(value);
+    if (version < 1) throw new Error('SYNC_SNAPSHOT_INVALID');
     return version;
   }
 
   private account(value: Record<string, unknown>, id: string) {
+    const currencyCode = this.text(value.currency_code ?? value.currencyCode);
+    if (!/^[A-Z]{3}$/.test(currencyCode))
+      throw new Error('SYNC_SNAPSHOT_INVALID');
     return {
       id,
       name: this.text(value.name),
-      type: this.text(value.type),
-      currencyCode: this.text(value.currency_code ?? value.currencyCode),
+      type: this.member(value.type, accountTypes),
+      currencyCode,
       openingBalanceMinor: 0,
       institution: this.nullable(value.institution_name ?? value.institution),
       lastFour: this.nullable(value.last_four ?? value.lastFour),
@@ -420,35 +483,60 @@ export class CoreFinanceSyncAdapter {
         value.credit_limit_minor ?? value.creditLimitMinor
       ),
       statementDay: this.numberOrNull(
-        value.statement_day ?? value.statementDay
+        value.statement_day ?? value.statementDay,
+        1,
+        28
       ),
       paymentDueDay: this.numberOrNull(
-        value.payment_due_day ?? value.paymentDueDay
+        value.payment_due_day ?? value.paymentDueDay,
+        1,
+        28
       ),
       monthlyInterestRateBasisPoints: this.numberOrNull(
         value.monthly_interest_rate_basis_points ??
-          value.monthlyInterestRateBasisPoints
+          value.monthlyInterestRateBasisPoints,
+        0,
+        10_000
       ),
       minimumPaymentMinor: this.numberOrNull(
-        value.minimum_payment_minor ?? value.minimumPaymentMinor
+        value.minimum_payment_minor ?? value.minimumPaymentMinor,
+        1
       ),
-      automaticTrackingEnabled:
-        (value.automatic_tracking_enabled ?? value.automaticTrackingEnabled) !==
-        false,
-      isDefault: Boolean(value.is_default ?? value.isDefault),
+      automaticTrackingEnabled: this.boolean(
+        value.automatic_tracking_enabled === undefined
+          ? value.automaticTrackingEnabled
+          : value.automatic_tracking_enabled,
+        true
+      ),
+      isDefault: this.boolean(
+        value.is_default === undefined ? value.isDefault : value.is_default,
+        false
+      ),
       iconKey: this.nullable(value.icon_key ?? value.iconKey),
       colorKey: this.nullable(value.color_key ?? value.colorKey),
       notes: this.nullable(value.notes),
-      status:
-        value.status === 'active' ? ('active' as const) : ('archived' as const),
+      status: this.member(value.status, accountStatuses),
+      sortOrder: this.safeInteger(value.sort_order ?? value.sortOrder ?? 0),
+      includeInTotals: this.boolean(
+        value.include_in_totals === undefined
+          ? value.includeInTotals
+          : value.include_in_totals,
+        true
+      ),
+      openedAt: this.dateOrNull(value.opened_at ?? value.openedAt),
+      closedAt: this.dateOrNull(value.closed_at ?? value.closedAt),
       createdAt: this.time(value.created_at ?? value.createdAt),
       updatedAt: this.time(value.updated_at ?? value.updatedAt)
     };
   }
 
-  private category(value: Record<string, unknown>, id: string) {
-    const active = value.active === true;
-    const transfer = value.kind === 'transfer';
+  private category(
+    value: Record<string, unknown>,
+    id: string,
+    isFavorite: boolean
+  ) {
+    const categoryKind = this.member(value.kind, categoryKinds);
+    const active = this.boolean(value.active);
     const merged = value.merged_into_id ?? value.mergedIntoId;
     return {
       id,
@@ -456,55 +544,127 @@ export class CoreFinanceSyncAdapter {
         (value.system_key ?? value.systemKey)
           ? ('system' as const)
           : ('custom' as const),
+      systemKey: this.nullable(value.system_key ?? value.systemKey),
       financialType:
-        value.kind === 'income' ? ('income' as const) : ('expense' as const),
+        categoryKind === 'income'
+          ? ('income' as const)
+          : categoryKind === 'expense'
+            ? ('expense' as const)
+            : null,
       parentId: this.nullable(value.parent_id ?? value.parentId),
       labelAr: this.text(value.label_ar ?? value.labelAr),
       labelEn: this.text(value.label_en ?? value.labelEn),
       iconKey: this.nullable(value.icon ?? value.iconKey),
       colorKey: this.nullable(value.color ?? value.colorKey),
-      isFavorite: false,
-      status: transfer
-        ? ('archived' as const)
-        : merged
-          ? ('merged' as const)
-          : active
-            ? ('active' as const)
-            : ('archived' as const),
+      isFavorite,
+      status: merged
+        ? ('merged' as const)
+        : active
+          ? ('active' as const)
+          : ('archived' as const),
       mergedIntoId: this.nullable(merged),
       createdAt: this.time(value.created_at ?? value.createdAt),
       updatedAt: this.time(value.updated_at ?? value.updatedAt)
     };
   }
 
+  private async primeCategoryMappings(
+    transaction: SQLiteDatabase,
+    snapshots: readonly Record<string, unknown>[]
+  ): Promise<void> {
+    for (const snapshot of snapshots) {
+      const systemKey = this.nullable(
+        snapshot.system_key ?? snapshot.systemKey
+      );
+      if (!systemKey) continue;
+      await this.saveIdMapping(
+        transaction,
+        'categories',
+        systemKey,
+        this.text(snapshot.id),
+        this.time(snapshot.updated_at ?? snapshot.updatedAt)
+      );
+    }
+  }
+
+  private async saveIdMapping(
+    transaction: SQLiteDatabase,
+    domain: SyncDomain,
+    localId: string,
+    serverId: string,
+    now: number
+  ): Promise<void> {
+    await transaction.runAsync(
+      `INSERT INTO sync_id_mappings(domain,local_id,server_id,updated_at) VALUES(?,?,?,?)
+       ON CONFLICT(domain,local_id) DO UPDATE SET server_id=excluded.server_id,
+         updated_at=excluded.updated_at`,
+      domain,
+      localId,
+      serverId,
+      now
+    );
+  }
+
+  private localFavorite(
+    payload: string | undefined,
+    categoryId: string
+  ): boolean {
+    if (payload)
+      try {
+        const value = JSON.parse(payload) as { isFavorite?: unknown };
+        if (typeof value.isFavorite === 'boolean') return value.isFavorite;
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+        // Invalid local payload is replaced by the validated server snapshot.
+      }
+    return defaultFavoriteByCategory.get(categoryId) ?? false;
+  }
+
   private transaction(value: Record<string, unknown>, id: string) {
     const postings = Array.isArray(value.postings)
       ? (value.postings as Record<string, unknown>[])
       : [];
-    const source =
-      postings.find((posting) => posting.posting_role === 'source') ??
-      postings[0];
+    const kind = this.member(value.kind ?? value.type, transactionKinds);
+    const primaryPosting =
+      postings.find((posting) =>
+        kind === 'opening'
+          ? (posting.posting_role ?? posting.postingRole) === 'opening'
+          : (posting.posting_role ?? posting.postingRole) === 'source'
+      ) ?? postings[0];
     const destination = postings.find(
       (posting) => posting.posting_role === 'destination'
     );
-    const kind = this.text(value.kind ?? value.type);
     const type = kind === 'opening' ? ('adjustment' as const) : kind;
     const transferPurpose = value.transfer_purpose ?? value.transferPurpose;
-    const status = this.text(value.status);
+    const status = this.member(value.status, transactionStatuses);
+    const rawSource = this.text(value.source);
+    const transactionSource =
+      kind === 'opening'
+        ? ('adjustment' as const)
+        : this.member(rawSource, transactionSources);
+    const openingPostingAmount =
+      kind === 'opening'
+        ? this.safeInteger(
+            primaryPosting?.amount_minor ?? primaryPosting?.amountMinor
+          )
+        : null;
+    if (openingPostingAmount === 0) throw new Error('SYNC_SNAPSHOT_INVALID');
     return {
       id,
       type,
-      amountMinor: Number(value.amount_minor ?? value.amountMinor),
+      amountMinor: this.safeInteger(value.amount_minor ?? value.amountMinor),
       currencyCode: this.text(value.currency_code ?? value.currencyCode).trim(),
       accountId: this.text(
-        source?.account_id ?? source?.accountId ?? value.accountId
+        primaryPosting?.account_id ??
+          primaryPosting?.accountId ??
+          value.accountId
       ),
       destinationAccountId: this.nullable(
         destination?.account_id ??
           destination?.accountId ??
           value.destinationAccountId
       ),
-      feeMinor: Number(value.fee_minor ?? value.feeMinor ?? 0),
+      feeMinor: this.safeInteger(value.fee_minor ?? value.feeMinor ?? 0),
       transferPurpose:
         type === 'transfer'
           ? transferPurpose === 'card_payoff'
@@ -519,7 +679,7 @@ export class CoreFinanceSyncAdapter {
       merchant: this.nullable(value.merchant),
       paymentMethod: this.nullable(value.payment_method ?? value.paymentMethod),
       occurredAt: this.time(value.occurred_at ?? value.occurredAt),
-      source: this.text(value.source),
+      source: transactionSource,
       status:
         status === 'confirmed'
           ? ('posted' as const)
@@ -533,8 +693,11 @@ export class CoreFinanceSyncAdapter {
       ),
       obligationId: null,
       notes: this.nullable(value.note ?? value.notes),
-      version: Number(value.version),
-      adjustmentSign: 1 as const,
+      version: this.version(value.version),
+      adjustmentSign:
+        openingPostingAmount !== null && openingPostingAmount < 0
+          ? (-1 as const)
+          : (1 as const),
       deletedAt: this.timeOrNull(value.deleted_at ?? value.deletedAt),
       undoExpiresAt: this.timeOrNull(
         value.undo_expires_at ?? value.undoExpiresAt
@@ -554,8 +717,47 @@ export class CoreFinanceSyncAdapter {
     return value === null || value === undefined ? null : this.text(value);
   }
 
-  private numberOrNull(value: unknown): number | null {
-    return value === null || value === undefined ? null : Number(value);
+  private member<const T extends readonly string[]>(
+    value: unknown,
+    allowed: T
+  ): T[number] {
+    const result = this.text(value);
+    if (!allowed.includes(result)) throw new Error('SYNC_SNAPSHOT_INVALID');
+    return result as T[number];
+  }
+
+  private boolean(value: unknown, fallback?: boolean): boolean {
+    if (value === undefined && fallback !== undefined) return fallback;
+    if (typeof value !== 'boolean') throw new Error('SYNC_SNAPSHOT_INVALID');
+    return value;
+  }
+
+  private safeInteger(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value))
+      throw new Error('SYNC_SNAPSHOT_INVALID');
+    return value;
+  }
+
+  private numberOrNull(
+    value: unknown,
+    minimum = 0,
+    maximum = Number.MAX_SAFE_INTEGER
+  ): number | null {
+    if (value === null || value === undefined) return null;
+    const number = this.safeInteger(value);
+    if (number < minimum || number > maximum)
+      throw new Error('SYNC_SNAPSHOT_INVALID');
+    return number;
+  }
+
+  private dateOrNull(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+      throw new Error('SYNC_SNAPSHOT_INVALID');
+    const time = this.time(value);
+    if (new Date(time).toISOString().slice(0, 10) !== value)
+      throw new Error('SYNC_SNAPSHOT_INVALID');
+    return time;
   }
 
   private time(value: unknown): number {

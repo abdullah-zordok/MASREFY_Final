@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 
 import { PoolService } from '../../../src/platform/database/pool.service';
 import { ReferenceRepository } from '../../../src/reference/reference.repository';
@@ -146,6 +147,62 @@ describeLiveDatabase('account lifecycle', () => {
     expect(defaults.rows.map((row) => row.id)).toEqual([second.account.id]);
     expect(first.account.id).not.toBe(second.account.id);
   });
+
+  it.each([{ name: 'Closed edit bypass' }, { isDefault: true }])(
+    'rejects a closed-account PATCH %j before changing either account',
+    async (patch) => {
+      const created = await create();
+      const closed = (await repository.execute({
+        operation: 'closeAccount',
+        principal: owner,
+        requestId,
+        query: {},
+        params: { accountId: created.account.id },
+        body: { expectedVersion: created.account.version, closedAt: '2026-09-08' },
+      })) as { version: number };
+      const active = await create();
+      const snapshot = () =>
+        pool.query(
+          'select id,name,status,is_default,version from public.accounts where id=any($1) order by id',
+          [[created.account.id, active.account.id]],
+        );
+      const before = (await snapshot()).rows;
+      const attemptedUpdates: string[] = [];
+      const observedRepository = new ReferenceRepository({
+        withClient: (action: (client: PoolClient) => Promise<unknown>) =>
+          pool.withClient((client) =>
+            action(
+              new Proxy(client, {
+                get(target, property) {
+                  if (property === 'query')
+                    return (sql: string, values: unknown[]) => {
+                      if (sql.startsWith('update public.accounts')) attemptedUpdates.push(sql);
+                      return target.query(sql, values);
+                    };
+                  return Reflect.get(target, property) as unknown;
+                },
+              }),
+            ),
+          ),
+      } as never);
+      await expect(
+        observedRepository.execute({
+          operation: 'updateAccount',
+          principal: owner,
+          requestId,
+          query: {},
+          params: { accountId: created.account.id },
+          body: { expectedVersion: closed.version, ...patch },
+        }),
+      ).rejects.toThrow('ACCOUNT_CLOSED');
+      expect(attemptedUpdates).toEqual([]);
+      expect((await snapshot()).rows).toEqual(before);
+      expect(before.find((row) => row.id === active.account.id)).toMatchObject({
+        status: 'active',
+        is_default: true,
+      });
+    },
+  );
 
   it('creates enabled by default and persists an audited opt-out update', async () => {
     const created = await create();

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { isDemoModeEnabled } from '@/config/demo-mode';
+import { randomUUID } from 'expo-crypto';
+import { isDemoModeEnabled, isFixtureModeEnabled } from '@/config/demo-mode';
 import {
   accountInputSchema,
   categoryInputSchema,
@@ -28,7 +29,6 @@ import {
   coreFinanceServiceCapability
 } from '@/services/contracts/core-finance-service';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
-import type { CapabilityProviderKind } from '@/services/contracts/capability-contract';
 import {
   createDefaultAccount,
   createDefaultCategories,
@@ -40,11 +40,12 @@ import {
 import type { Locale } from '@/domain/foundation';
 import { CoreFinanceRepository } from '@/storage/core-finance-repository';
 import { registerRuntimeUserDataReset } from '@/storage/runtime-user-data-reset';
-import {
-  createMockExchangeRateService,
-  createProductionExchangeRateService
-} from './exchange-rate-service';
+import { createMockExchangeRateService } from './exchange-rate-service';
 import type { ExchangeRateService } from '@/services/contracts/core-finance-service';
+import { createLiveAccountService } from '@/services/live/account-service';
+import { createLiveCategoryLifecycleService } from '@/services/live/category-lifecycle-service';
+import { HttpError } from '@/services/live/http-client';
+import { calculateCreditCardPayoff } from '@/domain/credit-card-payoff';
 
 const scopes = {
   account: (id: string) => [
@@ -74,13 +75,11 @@ export function createMockCoreFinanceService(
   {
     persistent = false,
     registerForReset = false,
-    rates = createMockExchangeRateService(),
-    providerKind = 'mock'
+    rates = createMockExchangeRateService()
   }: {
     persistent?: boolean;
     registerForReset?: boolean;
     rates?: ExchangeRateService;
-    providerKind?: CapabilityProviderKind;
   } = {}
 ): CapabilityProviderHandle<CoreFinanceService> {
   let hydration: Promise<void> | null = null;
@@ -127,10 +126,10 @@ export function createMockCoreFinanceService(
   };
   return {
     metadata: {
-      id: providerKind === 'live' ? 'local-core-finance' : 'mock-core-finance',
+      id: 'mock-core-finance',
       capability: coreFinanceServiceCapability.capability,
       majorVersion: coreFinanceServiceCapability.majorVersion,
-      kind: providerKind,
+      kind: 'mock',
       availability: 'available'
     },
     async getHomeSummary(
@@ -257,6 +256,11 @@ export function createMockCoreFinanceService(
         () => repository.persistAccounts(),
         () => scopes.account(id)
       );
+    },
+    async calculateCreditCardPayoff(
+      input: Parameters<typeof calculateCreditCardPayoff>[0]
+    ) {
+      return calculateCreditCardPayoff(input);
     },
     async listCategories(includeArchived) {
       return read(() => repository.listCategories(includeArchived));
@@ -428,28 +432,308 @@ export function createSeededCoreFinanceService() {
 
 let demoCoreFinanceRepository: CoreFinanceRepository | null = null;
 
-export function createProductionCoreFinanceService(locale: Locale = 'ar') {
-  if (isDemoModeEnabled()) {
-    const repository = createDemoCoreFinanceRepository(locale);
-    demoCoreFinanceRepository = repository;
-    return createMockCoreFinanceService(repository, {
-      persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
-      registerForReset: true
-    });
-  }
-  return createMockCoreFinanceService(
-    new CoreFinanceRepository({
-      accounts: [createDefaultAccount()],
-      categories: createDefaultCategories(),
-      cleanupLegacyFixtures: true
-    }),
+export function createLiveCoreFinanceService(
+  options: Parameters<typeof createLiveAccountService>[0] = {}
+): CapabilityProviderHandle<CoreFinanceService> {
+  const available = Boolean(options.baseUrl ?? process.env.EXPO_PUBLIC_API_URL);
+  const accounts = createLiveAccountService(options);
+  const categories = createLiveCategoryLifecycleService(options);
+  const pending = new Map<
+    string,
     {
-      persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
-      registerForReset: true,
-      rates: createProductionExchangeRateService(),
-      providerKind: 'live'
+      operationId: string;
+      expectedVersion?: number;
+      linkedTransactionCount?: number;
+    }
+  >();
+  const mutate = async <T>(
+    key: string,
+    prepare: () =>
+      | Promise<{ expectedVersion?: number; linkedTransactionCount?: number }>
+      | { expectedVersion?: number; linkedTransactionCount?: number },
+    command: (state: {
+      operationId: string;
+      expectedVersion?: number;
+      linkedTransactionCount?: number;
+    }) => Promise<T>
+  ): Promise<T> => {
+    let state = pending.get(key);
+    if (!state) {
+      state = { operationId: randomUUID(), ...(await prepare()) };
+      if (pending.size >= 256) pending.delete(pending.keys().next().value!);
+      pending.set(key, state);
+    }
+    try {
+      const value = await command(state);
+      pending.delete(key);
+      return value;
+    } catch (error) {
+      if (
+        !(error instanceof HttpError) ||
+        ![
+          'provider_unavailable',
+          'internal_error',
+          'contract_mismatch'
+        ].includes(error.code)
+      )
+        pending.delete(key);
+      throw error;
+    }
+  };
+  const target = {
+    metadata: {
+      id: available ? 'phase04-core-finance-http' : 'unavailable-core-finance',
+      capability: coreFinanceServiceCapability.capability,
+      majorVersion: coreFinanceServiceCapability.majorVersion,
+      kind: 'live' as const,
+      availability: available
+        ? ('available' as const)
+        : ('unavailable' as const)
+    },
+    async listAccounts(includeArchived?: boolean) {
+      return (await accounts.listAccounts(includeArchived)).map((account) => ({
+        ...account,
+        openingBalanceMinor: 0
+      }));
+    },
+    async listAccountBalances(includeArchived?: boolean) {
+      const values = await accounts.listAccounts(includeArchived);
+      return Promise.all(
+        values.map((account) =>
+          accounts.getAccountBalance(account.id, account.currencyCode)
+        )
+      );
+    },
+    async getAccount(id: string) {
+      return { ...(await accounts.getAccount(id)), openingBalanceMinor: 0 };
+    },
+    async createAccount(input: AccountInput) {
+      const parsed = accountInputSchema.parse(input);
+      const value = await mutate(
+        `account:create:${JSON.stringify(parsed)}`,
+        () => ({}),
+        ({ operationId }) => accounts.createAccount(parsed, operationId)
+      );
+      return result(
+        { ...value, openingBalanceMinor: input.openingBalanceMinor },
+        scopes.account(value.id)
+      );
+    },
+    async updateAccount(id: string, input: AccountInput) {
+      const parsed = accountInputSchema.parse(input);
+      const value = await mutate(
+        `account:update:${id}:${JSON.stringify(parsed)}`,
+        async () => ({
+          expectedVersion: (await accounts.getAccount(id)).version
+        }),
+        ({ operationId, expectedVersion }) =>
+          accounts.updateAccount(id, parsed, expectedVersion!, operationId)
+      );
+      return result({ ...value, openingBalanceMinor: 0 }, scopes.account(id));
+    },
+    async archiveAccount(id: string) {
+      await mutate(
+        `account:archive:${id}`,
+        async () => ({
+          expectedVersion: (await accounts.getAccount(id)).version
+        }),
+        ({ operationId, expectedVersion }) =>
+          accounts.archiveAccount(id, expectedVersion!, operationId)
+      );
+      const value = await accounts.getAccount(id);
+      return result({ ...value, openingBalanceMinor: 0 }, scopes.account(id));
+    },
+    async restoreAccount(id: string) {
+      const value = await mutate(
+        `account:restore:${id}`,
+        async () => ({
+          expectedVersion: (await accounts.getAccount(id)).version
+        }),
+        ({ operationId, expectedVersion }) =>
+          accounts.restoreAccount(id, expectedVersion!, operationId)
+      );
+      return result({ ...value, openingBalanceMinor: 0 }, scopes.account(id));
+    },
+    async calculateCreditCardPayoff(
+      input: Parameters<typeof calculateCreditCardPayoff>[0]
+    ) {
+      const value = await accounts.calculateCreditCardPayoff({
+        balanceMinor: Number(input.balanceMinor),
+        monthlyInterestRateBasisPoints: Number(
+          input.monthlyInterestRateBasisPoints
+        ),
+        paymentMinor: Number(input.paymentMinor)
+      });
+      return value.status === 'payoff'
+        ? {
+            ...value,
+            totalInterestMinor: BigInt(value.totalInterestMinor),
+            totalPaidMinor: BigInt(value.totalPaidMinor),
+            finalPaymentMinor: BigInt(value.finalPaymentMinor)
+          }
+        : {
+            ...value,
+            monthlyInterestMinor: BigInt(value.monthlyInterestMinor)
+          };
+    },
+    listCategories: (includeArchived?: boolean) =>
+      categories.listCategories(includeArchived),
+    async getCategoryUsage(id: string) {
+      return categories.getCategoryUsage(id);
+    },
+    async createCategory(input: CategoryInput) {
+      const parsed = categoryInputSchema.parse(input);
+      const value = await mutate(
+        `category:create:${JSON.stringify(parsed)}`,
+        () => ({}),
+        ({ operationId }) => categories.createCategory(parsed, operationId)
+      );
+      return result(value, scopes.category(value.id));
+    },
+    async updateCategory(id: string, input: CategoryInput) {
+      const parsed = categoryInputSchema.parse(input);
+      const value = await mutate(
+        `category:update:${id}:${JSON.stringify(parsed)}`,
+        async () => {
+          const current = (await categories.listCategories(true)).find(
+            (category) => category.id === id
+          );
+          if (!current) throw new CoreFinanceError('not_found');
+          return { expectedVersion: current.version };
+        },
+        ({ operationId, expectedVersion }) =>
+          categories.updateCategory(id, parsed, expectedVersion!, operationId)
+      );
+      return result(value, scopes.category(id));
+    },
+    async setCategoryStatus(
+      id: string,
+      status: 'active' | 'archived',
+      preview?: CategoryUsagePreview
+    ) {
+      await mutate(
+        `category:status:${id}:${status}`,
+        async () => {
+          const current = preview ?? (await categories.getCategoryUsage(id));
+          return {
+            expectedVersion: current.version,
+            linkedTransactionCount: current.linkedTransactionCount
+          };
+        },
+        ({ operationId, expectedVersion, linkedTransactionCount }) =>
+          categories.setCategoryStatus(
+            id,
+            status,
+            {
+              version: expectedVersion!,
+              linkedTransactionCount: linkedTransactionCount!
+            },
+            operationId
+          )
+      );
+      const value = (await categories.listCategories(true)).find(
+        (category) => category.id === id
+      );
+      if (!value) throw new CoreFinanceError('not_found');
+      return result(value, scopes.category(id));
+    },
+    async mergeCategory(
+      sourceId: string,
+      targetId: string,
+      preview?: CategoryUsagePreview
+    ) {
+      await mutate(
+        `category:merge:${sourceId}:${targetId}`,
+        async () => {
+          const current =
+            preview ?? (await categories.getCategoryUsage(sourceId));
+          return {
+            expectedVersion: current.version,
+            linkedTransactionCount: current.linkedTransactionCount
+          };
+        },
+        ({ operationId, expectedVersion, linkedTransactionCount }) =>
+          categories.mergeCategory(
+            sourceId,
+            targetId,
+            {
+              version: expectedVersion!,
+              linkedTransactionCount: linkedTransactionCount!
+            },
+            operationId
+          )
+      );
+      const value = (await categories.listCategories(true)).find(
+        (category) => category.id === sourceId
+      );
+      if (!value) throw new CoreFinanceError('not_found');
+      return result(value, [
+        ...scopes.category(sourceId),
+        `categories.detail.${targetId}`
+      ]);
+    }
+  };
+  return new Proxy(
+    target as unknown as CapabilityProviderHandle<CoreFinanceService>,
+    {
+      get(provider, property) {
+        if (!available && property !== 'metadata')
+          return async () => {
+            throw new CoreFinanceError('offline');
+          };
+        if (property in provider) {
+          const value = Reflect.get(provider, property);
+          if (typeof value !== 'function') return value;
+          return async (...args: unknown[]) => {
+            try {
+              return await Reflect.apply(value, provider, args);
+            } catch (error) {
+              throw coreFinanceError(error);
+            }
+          };
+        }
+        return async () => {
+          throw new CoreFinanceError('offline');
+        };
+      }
     }
   );
+}
+
+function coreFinanceError(error: unknown): CoreFinanceError {
+  if (error instanceof CoreFinanceError) return error;
+  if (!(error instanceof HttpError)) return new CoreFinanceError('unknown');
+  if (error.code === 'validation_error')
+    return new CoreFinanceError('validation');
+  if (error.code === 'not_found') return new CoreFinanceError('not_found');
+  if (error.code === 'conflict') return new CoreFinanceError('conflict');
+  if (error.code === 'gone') return new CoreFinanceError('expired');
+  if (
+    error.code === 'provider_unavailable' ||
+    error.code === 'session_expired' ||
+    error.code === 'rate_limited'
+  )
+    return new CoreFinanceError('offline');
+  return new CoreFinanceError('unknown');
+}
+
+export function createProductionCoreFinanceService(locale: Locale = 'ar') {
+  const demo = isDemoModeEnabled();
+  if (!isFixtureModeEnabled(process.env.NODE_ENV, demo))
+    return createLiveCoreFinanceService();
+  const repository = demo
+    ? createDemoCoreFinanceRepository(locale)
+    : new CoreFinanceRepository({
+        accounts: [createDefaultAccount()],
+        categories: createDefaultCategories(),
+        cleanupLegacyFixtures: true
+      });
+  if (demo) demoCoreFinanceRepository = repository;
+  const fixture = createMockCoreFinanceService(repository, {
+    persistent: Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
+    registerForReset: true
+  });
+  return fixture;
 }
 
 export function createDemoCoreFinanceService(locale: Locale = 'ar') {

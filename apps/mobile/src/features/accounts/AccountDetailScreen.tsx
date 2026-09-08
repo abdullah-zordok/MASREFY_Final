@@ -141,7 +141,7 @@ export function AccountDetailScreen({ id }: { id: string }) {
       ]
     );
   };
-  const calculatePayoff = () => {
+  const calculatePayoff = async () => {
     const balanceMinor = parseAmountToMinor(payoffBalance, value.currencyCode);
     const paymentMinor = parseAmountToMinor(payoffPayment, value.currencyCode);
     const rate = /^\d+$/.test(payoffRate.trim()) ? Number(payoffRate) : NaN;
@@ -157,22 +157,29 @@ export function AccountDetailScreen({ id }: { id: string }) {
       setPayoffResult(translate('coreFinance.validation.invalid'));
       return;
     }
-    const result = calculateCreditCardPayoff({
+    const input = {
       balanceMinor: BigInt(balanceMinor),
       monthlyInterestRateBasisPoints: BigInt(rate),
       paymentMinor: BigInt(paymentMinor)
-    });
-    setPayoffResult(
-      result.status === 'payoff'
-        ? translateDynamic('coreFinance.accounts.payoff.months', {
-            months: result.months
-          })
-        : translate(
-            result.reason === 'payment_not_above_interest'
-              ? 'coreFinance.accounts.payoff.paymentNotAboveInterest'
-              : 'coreFinance.accounts.payoff.monthLimitExceeded'
-          )
-    );
+    };
+    try {
+      const result = coreFinanceService.calculateCreditCardPayoff
+        ? await coreFinanceService.calculateCreditCardPayoff(input)
+        : calculateCreditCardPayoff(input);
+      setPayoffResult(
+        result.status === 'payoff'
+          ? translateDynamic('coreFinance.accounts.payoff.months', {
+              months: result.months
+            })
+          : translate(
+              result.reason === 'payment_not_above_interest'
+                ? 'coreFinance.accounts.payoff.paymentNotAboveInterest'
+                : 'coreFinance.accounts.payoff.monthLimitExceeded'
+            )
+      );
+    } catch {
+      setPayoffResult(translate('coreFinance.state.error'));
+    }
   };
   return (
     <ScrollView contentContainerStyle={styles.stack}>
@@ -219,13 +226,15 @@ export function AccountDetailScreen({ id }: { id: string }) {
           {value.minimumPaymentMinor !== null ? (
             <TermRow
               label={translate('coreFinance.accounts.setup.minimumPayment')}
-              value={formatFinancialDisplayValue({
-                minorUnits: value.minimumPaymentMinor,
-                currencyCode: value.currencyCode,
-                locale,
-                sign: 'none',
-                state: hidden ? 'hidden' : 'confirmed'
-              }).text}
+              value={
+                formatFinancialDisplayValue({
+                  minorUnits: value.minimumPaymentMinor,
+                  currencyCode: value.currencyCode,
+                  locale,
+                  sign: 'none',
+                  state: hidden ? 'hidden' : 'confirmed'
+                }).text
+              }
             />
           ) : null}
           <StyledText variant="subtitle">
@@ -252,7 +261,7 @@ export function AccountDetailScreen({ id }: { id: string }) {
           <ActionButton
             label={translate('coreFinance.accounts.payoff.calculate')}
             variant="secondary"
-            onPress={calculatePayoff}
+            onPress={() => void calculatePayoff()}
           />
           {payoffResult ? <StyledText>{payoffResult}</StyledText> : null}
         </View>
@@ -321,22 +330,28 @@ export function AccountDetailScreen({ id }: { id: string }) {
       {actionError ? (
         <StyledText variant="caption">{actionError}</StyledText>
       ) : null}
-      <ActionButton
-        label={translate('coreFinance.accounts.edit')}
-        variant="secondary"
-        onPress={() => router.push(`/accounts/${id}/edit`)}
-      />
-      <ActionButton
-        label={archiveLabel}
-        loading={working}
-        variant={value.status === 'archived' ? 'secondary' : 'destructive'}
-        onPress={runArchiveAction}
-      />
-      <ActionButton
-        label={translate('coreFinance.action.transfer')}
-        variant="secondary"
-        onPress={() => router.push(`/(tabs)/add?type=transfer&accountId=${id}`)}
-      />
+      {value.status !== 'closed' ? (
+        <>
+          <ActionButton
+            label={translate('coreFinance.accounts.edit')}
+            variant="secondary"
+            onPress={() => router.push(`/accounts/${id}/edit`)}
+          />
+          <ActionButton
+            label={archiveLabel}
+            loading={working}
+            variant={value.status === 'archived' ? 'secondary' : 'destructive'}
+            onPress={runArchiveAction}
+          />
+          <ActionButton
+            label={translate('coreFinance.action.transfer')}
+            variant="secondary"
+            onPress={() =>
+              router.push(`/(tabs)/add?type=transfer&accountId=${id}`)
+            }
+          />
+        </>
+      ) : null}
     </ScrollView>
   );
 }

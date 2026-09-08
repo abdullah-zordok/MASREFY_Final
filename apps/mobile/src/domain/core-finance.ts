@@ -73,7 +73,7 @@ export interface Account {
   iconKey: string | null;
   colorKey: string | null;
   notes: string | null;
-  status: 'active' | 'archived';
+  status: 'active' | 'archived' | 'closed';
   createdAt: number;
   updatedAt: number;
 }
@@ -264,6 +264,11 @@ export const accountInputSchema = z
     minimumPaymentMinor: safeMinorSchema.positive().nullable().default(null),
     automaticTrackingEnabled: z.boolean().default(true),
     isDefault: z.boolean().default(false),
+    iconKey: z.string().nullable().optional(),
+    colorKey: z.string().nullable().optional(),
+    sortOrder: z.number().int().safe().optional(),
+    includeInTotals: z.boolean().optional(),
+    openedAt: z.number().int().nonnegative().nullable().optional(),
     notes: z.string().trim().max(500).nullable().default(null)
   })
   .superRefine((value, context) => {
@@ -292,7 +297,8 @@ export const categoryInputSchema = z
     parentId: z.string().nullable().default(null),
     iconKey: z.string().nullable().default(null),
     colorKey: z.string().nullable().default(null),
-    isFavorite: z.boolean().default(false)
+    isFavorite: z.boolean().default(false),
+    sortOrder: z.number().int().safe().optional()
   })
   .superRefine((value, context) => {
     if (value.id && value.parentId === value.id) {

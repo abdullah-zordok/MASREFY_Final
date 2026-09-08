@@ -21,6 +21,7 @@ describeLiveDatabase('category lifecycle', () => {
     query: {},
     params,
     requestId: `category-${runId}`,
+    idempotencyKey: randomUUID(),
   });
 
   beforeAll(async () => {

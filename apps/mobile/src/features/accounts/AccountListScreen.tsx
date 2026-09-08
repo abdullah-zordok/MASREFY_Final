@@ -63,6 +63,10 @@ export function AccountListScreen() {
       {
         title: translate('coreFinance.accounts.archivedSection'),
         data: projected.filter((item) => item.account.status === 'archived')
+      },
+      {
+        title: translate('coreFinance.accounts.closedSection'),
+        data: projected.filter((item) => item.account.status === 'closed')
       }
     ].filter((section) => section.data.length);
   }, [balanceByAccount, filtered, hidden]);

@@ -32,6 +32,7 @@ describeLiveDatabase('reference repository transactions', () => {
     query,
     params,
     requestId: `ref-${operation}-${runId}`,
+    idempotencyKey: randomUUID(),
   });
 
   beforeAll(async () => {

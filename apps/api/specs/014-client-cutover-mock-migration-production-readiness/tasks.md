@@ -78,14 +78,14 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 
 ### Tests and implementation
 
-- [ ] T037 [US2] Add failing strict account/reference parity tests to `apps/mobile/src/services/live/account-service.test.ts`, `category-lifecycle-service.test.ts`, and a new selector test; cover all seven account types, closed status, tracking toggle, opening/closing timestamps, totals inclusion, card terms, usage recount, version conflicts, and unknown values.
-- [ ] T038 [US2] Add failing API/OpenAPI instance tests under `apps/api/test/contract/reference/` for actual reference/account/category/card/usage responses and errors; correct only proven BE004 contract/source drift in existing BE004 files.
-- [ ] T039 [US2] Extend the live account/reference/category adapter in `apps/mobile/src/services/live/account-service.ts` and `category-lifecycle-service.ts` to field-complete strict mapping through the shared client; keep category counts server-authoritative and rerun T037.
-- [ ] T040 [US2] Replace the production core-finance selector in `apps/mobile/src/services/mocks/core-finance-service.ts` with an explicit live composition while retaining the mock export only for demo/test; do not label SQLite computation `live`; run provider compatibility and core-finance boundary tests.
-- [ ] T041 [US2] Correct `apps/mobile/src/storage/core-finance-sync-adapter.ts` mapping so unknown types/statuses fail, closed remains closed, all card fields survive, opening sign comes from postings/role rather than a positive default, and unresolved conflicts cannot be overwritten; run focused sync/storage tests.
-- [ ] T042 [US2] Prove Wave 2 read shadow, internal/bounded writes, exact account/card/category comparison, SQLite/pending preservation and rollback; record `evidence/wave-02-reference-accounts.md`.
-- [ ] T043 [US2] Run BE004 contract/integration/security/performance, Mobile core-finance/typecheck/lint/quality/full Jest, production mock/bundle/secret scans; record commands/results/skips.
-- [ ] T044 [US2] Update Wave 2 manifest/mock-removal/checklists, run reviews/security scan, resolve blockers, and rerun affected gates.
+- [x] T037 [US2] Add failing strict account/reference parity tests to `apps/mobile/src/services/live/account-service.test.ts`, `category-lifecycle-service.test.ts`, and a new selector test; cover all seven account types, closed status, tracking toggle, opening/closing timestamps, totals inclusion, card terms, usage recount, version conflicts, and unknown values.
+- [x] T038 [US2] Add failing API/OpenAPI instance tests under `apps/api/test/contract/reference/` for actual reference/account/category/card/usage responses and errors; correct only proven BE004 contract/source drift in existing BE004 files.
+- [x] T039 [US2] Extend the live account/reference/category adapter in `apps/mobile/src/services/live/account-service.ts` and `category-lifecycle-service.ts` to field-complete strict mapping through the shared client; keep category counts server-authoritative and rerun T037.
+- [x] T040 [US2] Replace the production core-finance selector in `apps/mobile/src/services/mocks/core-finance-service.ts` with an explicit live composition while retaining the mock export only for demo/test; do not label SQLite computation `live`; run provider compatibility and core-finance boundary tests.
+- [x] T041 [US2] Correct `apps/mobile/src/storage/core-finance-sync-adapter.ts` mapping so unknown types/statuses fail, closed remains closed, all card fields survive, opening sign comes from postings/role rather than a positive default, and unresolved conflicts cannot be overwritten; run focused sync/storage tests.
+- [x] T042 [US2] Prove Wave 2 read shadow, internal/bounded writes, exact account/card/category comparison, SQLite/pending preservation and rollback; record `evidence/wave-02-reference-accounts.md`.
+- [x] T043 [US2] Run BE004 contract/integration/security/performance, Mobile core-finance/typecheck/lint/quality/full Jest, production mock/bundle/secret scans; record commands/results/skips.
+- [x] T044 [US2] Update Wave 2 manifest/mock-removal/checklists, run reviews/security scan, resolve blockers, and rerun affected gates.
 - [ ] T045 [US2] Stage only Wave 2/BE004 paths, verify preserved hashes, commit `feat(cutover): complete reference accounts wave`, push `main`, wait for required CI on the SHA, and record green remote evidence before T046.
 
 ---

@@ -154,7 +154,9 @@ export class CoreFinanceRepository {
       await this.persistAll();
       return;
     }
-    this.accounts = parseRows<Account>(accounts).map(accountWithTrackingDefault);
+    this.accounts = parseRows<Account>(accounts).map(
+      accountWithTrackingDefault
+    );
     this.categories = parseRows<Category>(categories);
     this.transactions = parseRows<Transaction>(transactions);
     this.drafts = new Map(
@@ -248,8 +250,53 @@ export class CoreFinanceRepository {
     });
   }
 
-  async persistCategory(category: Category): Promise<void> {
-    await persistCategory(await openDatabase(), category);
+  async persistCategory(
+    category: Category,
+    database?: SQLiteDatabase
+  ): Promise<void> {
+    await runExclusiveDatabaseTransaction(
+      database ?? (await openDatabase()),
+      async (transaction) => persistCategory(transaction, category)
+    );
+  }
+
+  async readPersistedCategories(
+    database?: SQLiteDatabase
+  ): Promise<Category[]> {
+    let categories: Category[] = [];
+    await runExclusiveDatabaseTransaction(
+      database ?? (await openDatabase()),
+      async (transaction) => {
+        categories = parseRows<Category>(
+          await transaction.getAllAsync<{ payload: string }>(
+            'SELECT payload FROM finance_categories'
+          )
+        );
+      }
+    );
+    return categories;
+  }
+
+  async persistCategories(
+    categories: readonly Category[],
+    database?: SQLiteDatabase
+  ): Promise<void> {
+    await runExclusiveDatabaseTransaction(
+      database ?? (await openDatabase()),
+      async (transaction) => {
+        await transaction.execAsync('PRAGMA defer_foreign_keys = ON;');
+        const pending = new Set(
+          (
+            await transaction.getAllAsync<{ resource_id: string }>(
+              "SELECT resource_id FROM sync_mutation_queue WHERE domain='categories' AND status IN ('pending','sending','conflict')"
+            )
+          ).map((row) => row.resource_id)
+        );
+        for (const category of categories)
+          if (!pending.has(category.id))
+            await persistCategory(transaction, category);
+      }
+    );
   }
 
   async persistTransaction(
@@ -388,8 +435,8 @@ export class CoreFinanceRepository {
           value.type !== 'credit_card'
             ? null
             : input.creditLimitMinor !== undefined
-            ? value.creditLimitMinor
-            : current.creditLimitMinor,
+              ? value.creditLimitMinor
+              : current.creditLimitMinor,
         statementDay:
           value.type !== 'credit_card'
             ? null

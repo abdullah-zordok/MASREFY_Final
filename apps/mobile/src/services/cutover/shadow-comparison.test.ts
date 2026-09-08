@@ -1,6 +1,21 @@
 import { createHash } from 'node:crypto';
 import * as Crypto from 'expo-crypto';
 import { compareShadow } from './shadow-comparison';
+import { createLiveAccountService } from '@/services/live/account-service';
+import { createLiveCategoryLifecycleService } from '@/services/live/category-lifecycle-service';
+import { registerLiveClerkBridge } from '@/services/live/auth-service';
+
+jest.mock('@/storage/database', () => ({
+  runExclusiveDatabaseTransaction: async (
+    database: unknown,
+    action: (database: unknown) => Promise<void>
+  ) => action(database),
+  openDatabase: async () => ({
+    getAllAsync: async () => [],
+    execAsync: async () => undefined,
+    runAsync: async () => undefined
+  })
+}));
 
 jest
   .spyOn(Crypto, 'digestStringAsync')
@@ -91,6 +106,165 @@ describe('Mobile redacted shadow comparison', () => {
     ).resolves.toMatchObject({
       outcome: 'not-comparable',
       differenceCodes: ['NOT_COMPARABLE']
+    });
+  });
+
+  it('compares every Wave 2 account, card, and category field exactly', async () => {
+    const apiAccount = {
+      id: '20000000-0000-4000-8000-000000000001',
+      name: 'Redacted account',
+      type: 'credit_card',
+      currency: 'SAR',
+      institutionName: 'Redacted institution',
+      lastFour: '4242',
+      status: 'closed',
+      creditLimitMinor: 100_000,
+      isDefault: false,
+      iconKey: 'card',
+      colorKey: 'blue',
+      notes: null,
+      sortOrder: 4,
+      statementDay: 7,
+      paymentDueDay: 21,
+      monthlyInterestRateBasisPoints: 125,
+      minimumPaymentMinor: 5_000,
+      automaticTrackingEnabled: false,
+      includeInTotals: false,
+      openedAt: '2026-09-01',
+      closedAt: '2026-09-08',
+      version: 3,
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-08T00:00:00.000Z'
+    };
+    const apiCategory = {
+      id: '10000000-0000-4000-8000-000000000001',
+      scope: 'custom',
+      kind: 'expense',
+      labelAr: 'مصروف',
+      labelEn: 'Expense',
+      icon: null,
+      color: null,
+      systemKey: null,
+      parentId: null,
+      mergedIntoId: null,
+      sortOrder: 2,
+      active: true,
+      status: 'active',
+      version: 8,
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-08T00:00:00.000Z'
+    };
+    const response = (value: unknown) =>
+      new Response(JSON.stringify(value), { status: 200 });
+    const accountService = createLiveAccountService({
+      baseUrl: 'https://api.test',
+      token: async () => 'owner-token',
+      request: jest
+        .fn()
+        .mockResolvedValue(response({ items: [apiAccount], nextCursor: null }))
+    });
+    registerLiveClerkBridge({
+      getSession: async () => ({
+        id: 'session-owner',
+        userId: 'user_owner',
+        method: 'google',
+        issuedAt: 1,
+        expiresAt: 9999999999999
+      }),
+      getToken: async () => 'owner-token',
+      startPhone: jest.fn(),
+      verifyPhone: jest.fn(),
+      resendPhone: jest.fn(),
+      signInWithGoogle: jest.fn(),
+      reverifyConflict: jest.fn(),
+      signOut: jest.fn()
+    });
+    const categoryService = createLiveCategoryLifecycleService({
+      baseUrl: 'https://api.test',
+      token: async () => 'owner-token',
+      request: jest
+        .fn()
+        .mockResolvedValueOnce(
+          response({ items: [apiCategory], nextCursor: null })
+        )
+        .mockResolvedValueOnce(
+          response({ linkedTransactionCount: 4, version: 8 })
+        )
+    });
+    const [accounts, categories] = await Promise.all([
+      accountService.listAccounts(true),
+      categoryService.listCategories(true)
+    ]);
+    const usage = await categoryService.getCategoryUsage(apiCategory.id);
+    const live = [...accounts, { ...categories[0], ...usage }];
+    const baseline = [
+      {
+        id: apiAccount.id,
+        name: apiAccount.name,
+        type: apiAccount.type,
+        currencyCode: apiAccount.currency,
+        institution: apiAccount.institutionName,
+        lastFour: apiAccount.lastFour,
+        creditLimitMinor: apiAccount.creditLimitMinor,
+        statementDay: apiAccount.statementDay,
+        paymentDueDay: apiAccount.paymentDueDay,
+        monthlyInterestRateBasisPoints:
+          apiAccount.monthlyInterestRateBasisPoints,
+        minimumPaymentMinor: apiAccount.minimumPaymentMinor,
+        automaticTrackingEnabled: apiAccount.automaticTrackingEnabled,
+        isDefault: apiAccount.isDefault,
+        iconKey: apiAccount.iconKey,
+        colorKey: apiAccount.colorKey,
+        notes: apiAccount.notes,
+        status: apiAccount.status,
+        sortOrder: apiAccount.sortOrder,
+        includeInTotals: apiAccount.includeInTotals,
+        openedAt: Date.parse(apiAccount.openedAt),
+        closedAt: Date.parse(apiAccount.closedAt),
+        version: apiAccount.version,
+        createdAt: Date.parse(apiAccount.createdAt),
+        updatedAt: Date.parse(apiAccount.updatedAt)
+      },
+      {
+        id: apiCategory.id,
+        kind: 'custom',
+        systemKey: null,
+        financialType: 'expense',
+        parentId: null,
+        labelAr: apiCategory.labelAr,
+        labelEn: apiCategory.labelEn,
+        iconKey: null,
+        colorKey: null,
+        isFavorite: false,
+        status: 'active',
+        mergedIntoId: null,
+        sortOrder: 2,
+        version: 8,
+        createdAt: Date.parse(apiCategory.createdAt),
+        updatedAt: Date.parse(apiCategory.updatedAt),
+        linkedTransactionCount: 4
+      }
+    ];
+    await expect(
+      compareShadow({
+        ...metadata,
+        operationId: 'mobile.reference.wave-2',
+        contractVersion: 'be004-wave-2-v1',
+        baseline,
+        live
+      })
+    ).resolves.toMatchObject({ outcome: 'match', differenceCodes: [] });
+    await expect(
+      compareShadow({
+        ...metadata,
+        operationId: 'mobile.reference.wave-2',
+        contractVersion: 'be004-wave-2-v1',
+        baseline,
+        live: [{ ...live[0], automaticTrackingEnabled: true }, live[1]]
+      })
+    ).resolves.toMatchObject({
+      outcome: 'blocked',
+      differenceCodes: ['HASH_MISMATCH']
     });
   });
 });

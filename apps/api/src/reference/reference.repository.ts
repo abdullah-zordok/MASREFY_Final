@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import type { PoolClient, QueryResultRow } from 'pg';
 
 import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
+import { hashIdempotencyKey, hashNormalizedCommand } from '../ledger/idempotency';
 import { PoolService } from '../platform/database/pool.service';
 import { buildReferenceEvent } from './reference.events';
 
@@ -142,8 +143,52 @@ export class ReferenceRepository {
       if (input.permission)
         await client.query('select private.assert_admin_permission($1)', [input.permission]);
       else await client.query('select private.assert_active_profile($1)', [input.principal.userId]);
+      if (input.operation === 'createCategory')
+        return this.createCategoryIdempotently(client, input);
       return this.executeInTransaction(client, input);
     });
+  }
+
+  private async createCategoryIdempotently(
+    client: PoolClient,
+    input: ReferenceOperation,
+  ): Promise<unknown> {
+    const scope = 'reference.create-category';
+    const keyHash = hashIdempotencyKey(input.idempotencyKey ?? '');
+    const requestHash = hashNormalizedCommand({
+      operation: input.operation,
+      body: input.body,
+      params: input.params,
+    });
+    const claim = (
+      await client.query<{
+        outcome: 'new' | 'replay' | 'hash_mismatch' | 'in_progress';
+        response_body: unknown;
+      }>('select * from private.claim_idempotency_key($1,$2,$3,$4,$5::interval)', [
+        input.principal.userId,
+        scope,
+        keyHash,
+        requestHash,
+        '2 minutes',
+      ])
+    ).rows[0];
+    if (!claim) throw new Error('REFERENCE_UNAVAILABLE');
+    if (claim.outcome === 'hash_mismatch')
+      throw new HttpException({ code: 'IDEMPOTENCY_KEY_REUSED' }, 409);
+    if (claim.outcome === 'in_progress')
+      throw new HttpException({ code: 'IDEMPOTENCY_IN_PROGRESS' }, 409);
+    if (claim.outcome === 'replay') return claim.response_body;
+    const category = (await this.executeInTransaction(client, input)) as Record<string, unknown>;
+    await client.query('select private.complete_idempotency_key($1,$2,$3,$4,$5,$6::jsonb,$7)', [
+      input.principal.userId,
+      scope,
+      keyHash,
+      requestHash,
+      201,
+      JSON.stringify(category),
+      category.id,
+    ]);
+    return category;
   }
 
   private async audit(
@@ -687,6 +732,7 @@ export class ReferenceRepository {
       input.principal.userId,
     );
     if (!before) throw new Error('NOT_FOUND');
+    if (before.status === 'closed') throw new Error('ACCOUNT_CLOSED');
     if (input.body.isDefault) await this.clearDefault(client, input.principal.userId, before.id);
     const map: Record<string, string> = {
       name: 'name',

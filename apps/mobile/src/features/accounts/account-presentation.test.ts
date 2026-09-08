@@ -19,3 +19,10 @@ it('keeps account identity separate from supplied balance state', () => {
   expect(projectAccount(account).balanceState).toBe('unknown');
   expect(projectAccount(account, undefined, true).balanceState).toBe('hidden');
 });
+
+it('labels closed accounts independently of default state', () => {
+  expect(
+    projectAccount({ ...fixtureAccounts[0], status: 'closed', isDefault: true })
+      .statusLabelKey
+  ).toBe('coreFinance.accounts.closed');
+});

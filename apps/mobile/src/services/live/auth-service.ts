@@ -116,6 +116,26 @@ export function registerLiveClerkBridge(bridge: LiveClerkBridge): void {
   configureMobileApiTokenProvider(() => bridge.getToken({ skipCache: true }));
 }
 
+export async function captureLiveClerkIdentity() {
+  const bridge = registeredBridge;
+  const session = await bridge?.getSession();
+  if (!bridge || !session) throw new HttpError('session_expired', 401);
+  const assertCurrent = async () => {
+    const currentBridge = registeredBridge;
+    const current = await currentBridge?.getSession();
+    if (
+      registeredBridge !== currentBridge ||
+      current?.id !== session.id ||
+      current.userId !== session.userId
+    )
+      throw new HttpError('session_expired', 401);
+  };
+  const token = await bridge.getToken({ skipCache: true });
+  if (!token) throw new HttpError('session_expired', 401);
+  await assertCurrent();
+  return { userId: session.userId, token, assertCurrent };
+}
+
 export function registeredLiveAuthService(): CapabilityProviderHandle<AuthService> | null {
   return registeredBridge ? createLiveAuthService(registeredBridge) : null;
 }

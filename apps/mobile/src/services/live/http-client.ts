@@ -30,6 +30,7 @@ type RequestOptions<T> = Omit<RequestInit, 'body'> & {
   notModifiedValue?: T;
   request?: typeof fetch;
   timeoutMs?: number;
+  token?: string;
 };
 
 const SAFE_MESSAGES: Record<HttpErrorCode, string> = {
@@ -46,13 +47,27 @@ const SAFE_MESSAGES: Record<HttpErrorCode, string> = {
 };
 const SERVER_CODES: Readonly<Record<string, HttpErrorCode>> = {
   VALIDATION_FAILED: 'validation_error',
+  IDEMPOTENCY_KEY_REQUIRED: 'validation_error',
+  IDEMPOTENCY_KEY_REUSED: 'conflict',
+  IDEMPOTENCY_IN_PROGRESS: 'conflict',
+  INVALID_CURRENCY: 'validation_error',
   FORBIDDEN: 'forbidden',
+  PROFILE_INACTIVE: 'forbidden',
   NOT_FOUND: 'not_found',
+  FX_UNAVAILABLE: 'not_found',
   VERSION_CONFLICT: 'conflict',
+  CATEGORY_USAGE_CHANGED: 'conflict',
+  CATEGORY_INVALID: 'conflict',
+  CATEGORY_CYCLE: 'conflict',
+  ACCOUNT_CURRENCY_LOCKED: 'conflict',
+  ACCOUNT_CLOSED: 'conflict',
+  DUPLICATE_RESOURCE: 'conflict',
+  LEDGER_NOT_AVAILABLE: 'conflict',
   AUTH_TOKEN_INVALID: 'session_expired',
   GONE: 'gone',
   RATE_LIMITED: 'rate_limited',
-  SERVICE_UNAVAILABLE: 'provider_unavailable'
+  SERVICE_UNAVAILABLE: 'provider_unavailable',
+  REFERENCE_UNAVAILABLE: 'provider_unavailable'
 };
 const PRIVATE_KEYS =
   /token|secret|password|authorization|cookie|path|payload|error/i;
@@ -86,7 +101,7 @@ export async function requestJson<T>(
   const timer = setTimeout(abort, options.timeoutMs ?? 15_000);
 
   try {
-    const token = await tokenProvider?.();
+    const token = options.token ?? (await tokenProvider?.());
     if (!token) throw new HttpError('session_expired', 401);
     const headers = headerRecord(options.headers);
     setHeader(headers, 'accept', 'application/json');

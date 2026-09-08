@@ -11,6 +11,10 @@ import type {
   TransactionInput
 } from '@/domain/core-finance';
 import type { CapabilityContractMetadata } from './capability-contract';
+import type {
+  CreditCardPayoffInput,
+  CreditCardPayoffResult
+} from '@/domain/credit-card-payoff';
 
 export const coreFinanceServiceCapability: CapabilityContractMetadata = {
   capability: 'core-finance.records',
@@ -100,6 +104,9 @@ export interface CoreFinanceService {
   ): Promise<MutationResult<Account>>;
   archiveAccount(id: string): Promise<MutationResult<Account>>;
   restoreAccount(id: string): Promise<MutationResult<Account>>;
+  calculateCreditCardPayoff?(
+    input: CreditCardPayoffInput
+  ): Promise<CreditCardPayoffResult>;
   listCategories(includeArchived?: boolean): Promise<Category[]>;
   getCategoryUsage(id: string): Promise<CategoryUsagePreview>;
   createCategory(input: CategoryInput): Promise<MutationResult<Category>>;

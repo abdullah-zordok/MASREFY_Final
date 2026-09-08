@@ -76,8 +76,16 @@ describe('Mobile cutover policy', () => {
   it('retains and reselects the accepted rollback version after full cutover', () => {
     const wave0 = createInitialCutoverPolicy('mobile', '24d3cac');
     const shadow = advanceCutover(wave0, next);
-    const internal = advanceCutover(shadow, { ...next, configVersion: 'mobile-wave-1-internal-v1', stage: 'internal' });
-    const bounded = advanceCutover(internal, { ...next, configVersion: 'mobile-wave-1-bounded-v1', stage: 'bounded-write' });
+    const internal = advanceCutover(shadow, {
+      ...next,
+      configVersion: 'mobile-wave-1-internal-v1',
+      stage: 'internal'
+    });
+    const bounded = advanceCutover(internal, {
+      ...next,
+      configVersion: 'mobile-wave-1-bounded-v1',
+      stage: 'bounded-write'
+    });
     const full = advanceCutover(bounded, {
       ...next,
       configVersion: 'mobile-wave-1-full-v1',
@@ -86,6 +94,49 @@ describe('Mobile cutover policy', () => {
     });
 
     expect(full.rollbackVersion).toBe('24d3cac');
-    expect(createInitialCutoverPolicy('mobile', full.rollbackVersion).acceptedVersion).toBe('24d3cac');
+    expect(
+      createInitialCutoverPolicy('mobile', full.rollbackVersion).acceptedVersion
+    ).toBe('24d3cac');
+  });
+
+  it('keeps Wave 1 as the rollback target through Wave 2 staged writes', () => {
+    const acceptedWave1 = {
+      ...createInitialCutoverPolicy('mobile', '4f1ba15'),
+      configVersion: 'mobile-wave-1-full-v1',
+      wave: 1,
+      acceptedVersion: '4f1ba15',
+      rollbackVersion: '4f1ba15'
+    };
+    const wave2 = {
+      ...next,
+      wave: 2,
+      acceptedVersion: '4f1ba15',
+      rollbackVersion: '4f1ba15'
+    };
+    const shadow = advanceCutover(acceptedWave1, {
+      ...wave2,
+      configVersion: 'mobile-wave-2-shadow-v1'
+    });
+    const internal = advanceCutover(shadow, {
+      ...wave2,
+      configVersion: 'mobile-wave-2-internal-v1',
+      stage: 'internal'
+    });
+    const bounded = advanceCutover(internal, {
+      ...wave2,
+      configVersion: 'mobile-wave-2-bounded-v1',
+      stage: 'bounded-write'
+    });
+
+    expect(bounded).toMatchObject({
+      wave: 2,
+      stage: 'bounded-write',
+      rollbackVersion: '4f1ba15',
+      billingAvailable: false
+    });
+    expect(
+      createInitialCutoverPolicy('mobile', bounded.rollbackVersion)
+        .acceptedVersion
+    ).toBe('4f1ba15');
   });
 });

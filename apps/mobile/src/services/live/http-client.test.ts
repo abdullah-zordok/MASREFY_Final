@@ -78,6 +78,32 @@ describe('Mobile strict HTTP client', () => {
     expect((failure as Error).message).not.toContain('secret');
   });
 
+  it.each([
+    ['CATEGORY_INVALID', 'conflict'],
+    ['CATEGORY_CYCLE', 'conflict'],
+    ['ACCOUNT_CURRENCY_LOCKED', 'conflict'],
+    ['ACCOUNT_CLOSED', 'conflict'],
+    ['DUPLICATE_RESOURCE', 'conflict'],
+    ['LEDGER_NOT_AVAILABLE', 'conflict'],
+    ['IDEMPOTENCY_KEY_REQUIRED', 'validation_error'],
+    ['IDEMPOTENCY_KEY_REUSED', 'conflict'],
+    ['IDEMPOTENCY_IN_PROGRESS', 'conflict'],
+    ['INVALID_CURRENCY', 'validation_error'],
+    ['PROFILE_INACTIVE', 'forbidden'],
+    ['REFERENCE_UNAVAILABLE', 'provider_unavailable']
+  ] as const)('maps the BE004 %s error', async (serverCode, clientCode) => {
+    await expect(
+      requestJson('/reference', schema, {
+        baseUrl: 'https://api.example',
+        request: jest
+          .fn()
+          .mockResolvedValue(
+            response(409, { code: serverCode, message: 'safe' })
+          )
+      })
+    ).rejects.toMatchObject({ code: clientCode });
+  });
+
   it('requires explicit values for 204 and 304 responses', async () => {
     await expect(
       requestJson('/empty', z.null(), {

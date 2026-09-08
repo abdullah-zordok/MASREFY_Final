@@ -24,10 +24,12 @@ export function projectAccount(
       ? `${account.currencyCode} ${account.lastFour}`
       : account.currencyCode,
     statusLabelKey:
-      account.status === 'archived'
-        ? 'coreFinance.accounts.archived'
-        : account.isDefault
-          ? 'coreFinance.accounts.default'
-          : null
+      account.status === 'closed'
+        ? 'coreFinance.accounts.closed'
+        : account.status === 'archived'
+          ? 'coreFinance.accounts.archived'
+          : account.isDefault
+            ? 'coreFinance.accounts.default'
+            : null
   };
 }

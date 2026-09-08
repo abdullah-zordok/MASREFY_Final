@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { layoutDirectionStyle } from '@/design-system/direction';
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
+import { StateView } from '@/design-system/components/feedback/StateView';
 import { FormField } from '@/design-system/components/forms/FormField';
 import { DesignIcon } from '@/design-system/icons';
 import { spacing } from '@/design-system/tokens';
@@ -51,7 +52,9 @@ export function AccountForm({
   const theme = useTheme();
   const direction = usePreferenceStore((state) => state.direction);
   const locale = usePreferenceStore((state) => state.locale);
-  const baseCurrencyCode = usePreferenceStore((state) => state.baseCurrencyCode);
+  const baseCurrencyCode = usePreferenceStore(
+    (state) => state.baseCurrencyCode
+  );
   const isRtl = direction === 'rtl';
 
   const t = (key: string) => translateDynamic(key, {}, locale);
@@ -65,7 +68,10 @@ export function AccountForm({
   );
   const [balance, setBalance] = useState(
     account
-      ? minorToMajorAmountText(account.openingBalanceMinor, account.currencyCode)
+      ? minorToMajorAmountText(
+          account.openingBalanceMinor,
+          account.currencyCode
+        )
       : '0'
   );
   const [creditLimit, setCreditLimit] = useState(
@@ -123,7 +129,10 @@ export function AccountForm({
     currency !== (account?.currencyCode ?? baseCurrencyCode) ||
     balance !==
       (account
-        ? minorToMajorAmountText(account.openingBalanceMinor, account.currencyCode)
+        ? minorToMajorAmountText(
+            account.openingBalanceMinor,
+            account.currencyCode
+          )
         : '0') ||
     creditLimit !==
       (account?.creditLimitMinor
@@ -145,8 +154,7 @@ export function AccountForm({
             account.currencyCode
           )) ||
     isDefault !== (account?.isDefault ?? false) ||
-    automaticTrackingEnabled !==
-      (account?.automaticTrackingEnabled ?? true) ||
+    automaticTrackingEnabled !== (account?.automaticTrackingEnabled ?? true) ||
     lastFour !== (account?.lastFour ?? '');
 
   useEffect(() => {
@@ -154,7 +162,9 @@ export function AccountForm({
     setName(account.name);
     setType(account.type);
     setCurrency(account.currencyCode);
-    setBalance(minorToMajorAmountText(account.openingBalanceMinor, account.currencyCode));
+    setBalance(
+      minorToMajorAmountText(account.openingBalanceMinor, account.currencyCode)
+    );
     setCreditLimit(
       account.creditLimitMinor
         ? minorToMajorAmountText(account.creditLimitMinor, account.currencyCode)
@@ -192,7 +202,7 @@ export function AccountForm({
   };
   const { requestClose: handleCancel, leaveAfterSave } =
     useDraftNavigationGuard({
-      dirty,
+      dirty: account?.status !== 'closed' && dirty,
       discard: () => undefined,
       close,
       copy: {
@@ -204,7 +214,7 @@ export function AccountForm({
     });
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || account?.status === 'closed') return;
     const openingBalanceMinor = parseAmountToMinor(balance, currency);
     if (!name.trim()) {
       setError(translate('coreFinance.validation.required'));
@@ -244,10 +254,7 @@ export function AccountForm({
       0,
       10_000
     );
-    if (
-      isCreditCard &&
-      parsedMonthlyInterestRateBasisPoints === undefined
-    ) {
+    if (isCreditCard && parsedMonthlyInterestRateBasisPoints === undefined) {
       setError(translate('coreFinance.validation.invalid'));
       setErrorField('monthlyInterestRateBasisPoints');
       return;
@@ -303,13 +310,20 @@ export function AccountForm({
     }
   };
 
+  if (account?.status === 'closed')
+    return (
+      <StateView
+        state="read-only"
+        title={translate('coreFinance.accounts.closed')}
+        actionLabel={translate('appShell.navigation.back')}
+        onAction={close}
+      />
+    );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[
-        styles.screen,
-        { backgroundColor: theme.colors.surfaces.page }
-      ]}
+      style={[styles.screen, { backgroundColor: theme.colors.surfaces.page }]}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -355,7 +369,9 @@ export function AccountForm({
               />
             </Pressable>
 
-            <Text style={[styles.stepLabel, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.stepLabel, { color: theme.colors.textSecondary }]}
+            >
               {isEditing
                 ? t('coreFinance.accounts.edit')
                 : t('coreFinance.accounts.step2Of2')}
@@ -432,18 +448,20 @@ export function AccountForm({
             onPress={() => setCurrencySheetVisible(true)}
           />
 
-          {/* Opening Balance / Available Balance */}
-          <FormField
-            label={
-              isCreditCard
-                ? t('coreFinance.accounts.setup.availableBalance')
-                : t('coreFinance.accounts.openingBalance')
-            }
-            value={balance}
-            onChangeText={setBalance}
-            variant="amount"
-            errorText={errorField === 'balance' ? error : undefined}
-          />
+          {/* BE004 does not return historical opening balances. */}
+          {!isEditing ? (
+            <FormField
+              label={
+                isCreditCard
+                  ? t('coreFinance.accounts.setup.availableBalance')
+                  : t('coreFinance.accounts.openingBalance')
+              }
+              value={balance}
+              onChangeText={setBalance}
+              variant="amount"
+              errorText={errorField === 'balance' ? error : undefined}
+            />
+          ) : null}
 
           {/* Credit Card Specific Fields */}
           {isCreditCard ? (
@@ -489,9 +507,7 @@ export function AccountForm({
                 value={minimumPayment}
                 onChangeText={setMinimumPayment}
                 variant="amount"
-                errorText={
-                  errorField === 'minimumPayment' ? error : undefined
-                }
+                errorText={errorField === 'minimumPayment' ? error : undefined}
               />
             </>
           ) : null}
@@ -513,8 +529,8 @@ export function AccountForm({
           {/* Settings: Make Default Account */}
           <AccountSettingCard
             icon="check"
-            iconBg={colorTokens.raw["EBF5EC"]}
-            iconFg={colorTokens.raw["1F7A5A"]}
+            iconBg={colorTokens.raw['EBF5EC']}
+            iconFg={colorTokens.raw['1F7A5A']}
             title={t('coreFinance.accounts.makeDefault')}
             description={t('coreFinance.accounts.setup.makeDefaultDesc')}
             value={isDefault}
@@ -545,7 +561,8 @@ export function AccountForm({
           styles.bottomBar,
           {
             backgroundColor: theme.colors.surface,
-            borderTopColor: theme.colors.borders?.subtle ?? colorTokens.raw["E8EFEC"]
+            borderTopColor:
+              theme.colors.borders?.subtle ?? colorTokens.raw['E8EFEC']
           }
         ]}
       >
@@ -591,7 +608,7 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 3,
-    backgroundColor: colorTokens.raw["E2EAE6"],
+    backgroundColor: colorTokens.raw['E2EAE6'],
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: spacing.xs
@@ -599,7 +616,7 @@ const styles = StyleSheet.create({
   progressBarActive: {
     height: '100%',
     width: '100%',
-    backgroundColor: colorTokens.raw["103F37"],
+    backgroundColor: colorTokens.raw['103F37'],
     borderRadius: 2
   },
   navRow: {
@@ -625,11 +642,11 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: colorTokens.raw["10231F"]
+    color: colorTokens.raw['10231F']
   },
   subTitle: {
     fontSize: 14,
-    color: colorTokens.raw["707870"],
+    color: colorTokens.raw['707870'],
     lineHeight: 20
   },
   formContainer: {
@@ -639,7 +656,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   formErrorText: {
-    color: colorTokens.raw["C04B45"],
+    color: colorTokens.raw['C04B45'],
     fontSize: 13,
     textAlign: 'center'
   },
@@ -648,7 +665,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-    shadowColor: colorTokens.raw["000"],
+    shadowColor: colorTokens.raw['000'],
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,

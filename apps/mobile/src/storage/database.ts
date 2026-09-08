@@ -47,8 +47,18 @@ export async function clearDatabaseOwner(): Promise<void> {
   });
 }
 
-export async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
+export async function openDatabase(
+  expectedUserId?: string
+): Promise<SQLite.SQLiteDatabase> {
   return enqueueDatabaseLifecycle(async () => {
+    if (
+      expectedUserId !== undefined &&
+      (await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        expectedUserId
+      )) !== databaseOwnerHash
+    )
+      throw new Error('stale database owner');
     if (resolveClientMode() === 'live' && !databaseOwnerHash)
       throw new Error('database owner required');
     if (!databasePromise) {

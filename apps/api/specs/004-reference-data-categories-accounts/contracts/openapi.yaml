@@ -163,7 +163,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/MergeCategoryRequest' }
       responses:
-        '200': { description: Merged, content: { application/json: { schema: { $ref: '#/components/schemas/CategoryResponse' } } } }
+        '200': { description: Merged, content: { application/json: { schema: { $ref: '#/components/schemas/MergeCategoryResponse' } } } }
         default: { $ref: '#/components/responses/Error' }
   /api/v1/accounts:
     get:
@@ -639,6 +639,13 @@ components:
       properties:
         linkedTransactionCount: { type: integer, minimum: 0 }
         version: { type: integer, minimum: 1 }
+    MergeCategoryResponse:
+      type: object
+      additionalProperties: false
+      required: [source, targetId]
+      properties:
+        source: { $ref: '#/components/schemas/Category' }
+        targetId: { type: string, format: uuid }
     AccountResponse:
       $ref: '#/components/schemas/Account'
     CreateAccountResponse:

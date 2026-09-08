@@ -2,6 +2,17 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Wave 2 local acceptance is recorded in [reference/accounts evidence](wave-02-reference-accounts.md). It does not establish a hosted rollout, real Clerk identity test, physical-device pass, or hosted shadow evidence sink.
+
+| Wave 2 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Hosted Supabase and real owner/non-owner access | open | BE004 local Supabase/Postgres integration: 7 suites/19 tests; E2E: 5 suites/9 tests; security/contract checks | On designated hosted staging, use two real Clerk identities to create/list/update/archive/restore accounts and categories, prove cross-owner denial, reconcile BE005 account-summary integer balances and BE004 category usage/version checks; retain redacted identities, timestamps and job URLs | Platform and identity owners |
+| Real Clerk token lifecycle | open | Shared authenticated Mobile client and local owner-token contract tests | Exercise expiry/refresh/revocation against the actual protected Clerk/API environment while running Wave 2 account/category journeys; verify no stale-owner data or authenticated fallback | Identity environment owner |
+| Physical iOS/Android preservation | open | Real `node:sqlite` migrations 1..11 preserve account/card/category IDs/favorites and pending/conflict records; UI regression hides historical opening balance | Install accepted signed SHA on supported iOS/Android devices; verify SQLCipher ownership, closed-account UI, offline failure/reconnect and non-zero historical account edits. Restart-durable queued replay is separately gated in Wave 3 | Mobile QA/release owner |
+| Deployed shadow, cohort and observation | open | Actual live mapper shadow equality, mismatch blocking and source-level rollback tests | Supply deployed orchestration and approved evidence collection, run read shadow then internal/bounded writes and agreed cohorts/observation interval; require zero financial differences, exercise rollback and preserve pending work. Record cohort membership policy, timestamps, outcomes and rollback receipts | Release/operations owner |
+
+The Wave 2 harness has no production caller or hosted evidence sink. The table above is follow-up work, not a claim that rollout, observation, or external acceptance occurred.
+
 | Gate | Status | Missing access/action and why external | Local evidence required first | Exact follow-up after access | Owner |
 |---|---|---|---|---|---|
 | Clerk test identities and OTP | open | Two real Phone identities/OTP and protected Clerk environment access cannot be created or disclosed by repository code | `evidence/wave-01-identity.md`: Clerk SDK/config, fail-closed auth/error/revocation, server-permission and 29-case browser proofs | Run documented Phone/Google sign-in, OTP retry, revocation, recent-auth and owner-isolation matrix against the protected test instance; record redacted identity IDs and timestamps | Identity environment owner |
