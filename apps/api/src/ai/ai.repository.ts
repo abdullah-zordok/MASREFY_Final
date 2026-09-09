@@ -55,22 +55,35 @@ function publicValue(value: unknown): unknown {
 }
 
 function mapped(error: unknown): Error {
+  if (error instanceof HttpException) return error;
   const message =
     error && typeof error === 'object' && 'message' in error
       ? String(Reflect.get(error, 'message'))
       : '';
   if (/NOT_FOUND/.test(message)) return new HttpException({ code: message }, 404);
   if (/EXPIRED/.test(message)) return new HttpException({ code: message }, 410);
+  if (/CONFLICT|FENCE|IN_PROGRESS|REUSED/.test(message))
+    return new HttpException({ code: message }, 409);
   if (/CONSENT|OWNER|PERMISSION|DENIED/.test(message))
     return new HttpException({ code: message }, 403);
   if (/QUOTA|BUDGET/.test(message)) return new HttpException({ code: message }, 429);
-  if (/CONFLICT|FENCE|IN_PROGRESS|REUSED/.test(message))
-    return new HttpException({ code: message }, 409);
   if (/ROUTE_UNAVAILABLE|PROMPT_UNAVAILABLE/.test(message))
     return new HttpException({ code: 'AI_UNAVAILABLE' }, 503);
   if (/INVALID|LIMIT|REQUIRED|SCHEMA/.test(message))
     return new HttpException({ code: message }, 422);
   return error instanceof Error ? error : new Error('AI_DATABASE_UNAVAILABLE');
+}
+
+function quotaError(quota: Record<string, unknown>): never {
+  throw new HttpException(
+    {
+      code: quota.reason === 'AI_BUDGET_EXHAUSTED' ? quota.reason : 'AI_QUOTA_EXCEEDED',
+      limit: quota.limit,
+      used: quota.used,
+      resetsAt: quota.resetsAt,
+    },
+    429,
+  );
 }
 
 @Injectable()
@@ -131,8 +144,7 @@ export class AiRepository {
           'select private.reserve_ai_quota($1,$2::uuid,$3) result',
           [principal.userId, operationId, 'voice_transcription'],
         );
-        if (!quota.allowed)
-          throw new Error(typeof quota.reason === 'string' ? quota.reason : 'AI_QUOTA_EXHAUSTED');
+        if (!quota.allowed) quotaError(quota);
         return this.json(
           client,
           'select private.finalize_voice_session($1,$2::uuid,$3,$4) result',
@@ -225,18 +237,32 @@ export class AiRepository {
     ]);
   }
 
-  setConsent(principal: ClerkPrincipal, policyVersion: string, enabled: boolean, key: string) {
+  getAssistantAvailability(principal: ClerkPrincipal, policyVersion = 'assistant-privacy-v1') {
+    return this.ownerJson(principal, 'select private.get_assistant_availability($1,$2) result', [
+      principal.userId,
+      policyVersion,
+    ]);
+  }
+
+  setConsent(
+    principal: ClerkPrincipal,
+    policyVersion: string,
+    enabled: boolean,
+    expectedVersion: number,
+    key: string,
+  ) {
     return this.idempotent(
       principal,
       `ai.assistant-consent.${enabled ? 'grant' : 'revoke'}`,
       key,
-      { policyVersion, enabled },
+      { policyVersion, enabled, expectedVersion },
       200,
       (client) =>
-        this.json(client, 'select private.set_assistant_consent($1,$2,$3) result', [
+        this.json(client, 'select private.set_assistant_consent($1,$2,$3,$4) result', [
           principal.userId,
           policyVersion,
           enabled,
+          expectedVersion,
         ]),
     );
   }
@@ -320,8 +346,7 @@ export class AiRepository {
           'select private.reserve_ai_quota($1,$2::uuid,$3) result',
           [principal.userId, operationId, 'financial_assistant'],
         );
-        if (!quota.allowed)
-          throw new Error(typeof quota.reason === 'string' ? quota.reason : 'AI_QUOTA_EXHAUSTED');
+        if (!quota.allowed) quotaError(quota);
         return this.json(
           client,
           'select private.enqueue_assistant_message($1,$2::uuid,$3,$4::text[],$5,$6::uuid) result',

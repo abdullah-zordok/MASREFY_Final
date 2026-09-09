@@ -142,14 +142,17 @@ export function actionDecision(input: unknown, editable: boolean) {
 
 export function consent(input: unknown) {
   const value = record(input);
-  exact(value, ['policyVersion', 'accepted']);
+  exact(value, ['policyVersion', 'accepted', 'expectedVersion']);
   if (
     value.accepted !== true ||
     typeof value.policyVersion !== 'string' ||
     !/^[A-Za-z0-9._-]{1,64}$/.test(value.policyVersion)
   )
     bad();
-  return { policyVersion: value.policyVersion };
+  return {
+    policyVersion: value.policyVersion,
+    expectedVersion: positiveVersion(value.expectedVersion),
+  };
 }
 
 export function conversationCreate(input: unknown) {

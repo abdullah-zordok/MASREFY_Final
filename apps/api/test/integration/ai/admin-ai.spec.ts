@@ -159,5 +159,8 @@ describeLiveDatabase('governed Admin AI operations', () => {
     await pool.query(
       "update private.ai_feature_routes set enabled=false where workload='voice_transcription'",
     );
+    await pool.query(
+      "update private.ai_prompt_versions set status='draft',evaluation_passed=false,approved_by=null,published_at=null where id='99030000-0000-4000-8000-000000000001'",
+    );
   });
 });

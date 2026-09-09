@@ -23,18 +23,25 @@ import { useVoiceCaptureStore } from '@/state/voice-capture';
 
 function safeError(error: unknown): VoiceErrorCode {
   if (error instanceof VoiceCaptureError) return error.code as VoiceErrorCode;
-  if (error instanceof Error && error.message === 'invalid_proposal') return 'invalid_proposal';
+  if (error instanceof Error && error.message === 'invalid_proposal')
+    return 'invalid_proposal';
   return 'unknown';
 }
 
-function canRefreshPermissionState(state: VoiceSessionState, errorCode: VoiceErrorCode | null) {
+function canRefreshPermissionState(
+  state: VoiceSessionState,
+  errorCode: VoiceErrorCode | null
+) {
   return (
     ['idle', 'permission_required', 'ready'].includes(state) ||
-    (state === 'failed' && ['permission_denied', 'permission_permanent'].includes(errorCode ?? ''))
+    (state === 'failed' &&
+      ['permission_denied', 'permission_permanent'].includes(errorCode ?? ''))
   );
 }
 
-export function useVoiceCapture({ permissionSync = 'on-mount' }: {
+export function useVoiceCapture({
+  permissionSync = 'on-mount'
+}: {
   permissionSync?: 'on-mount' | 'on-demand';
 } = {}) {
   const session = useVoiceCaptureStore();
@@ -72,7 +79,8 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
       } else current.patch({ permission });
     } catch (error) {
       const current = useVoiceCaptureStore.getState();
-      if (canRefreshPermissionState(current.state, current.errorCode)) fail(error);
+      if (canRefreshPermissionState(current.state, current.errorCode))
+        fail(error);
     }
   }, [fail]);
 
@@ -98,7 +106,11 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
   };
 
   const start = async () => {
-    if (startInFlight.current || useVoiceCaptureStore.getState().state !== 'ready') return;
+    if (
+      startInFlight.current ||
+      useVoiceCaptureStore.getState().state !== 'ready'
+    )
+      return;
     startInFlight.current = true;
     try {
       const recording = await voiceRecorderService.start();
@@ -106,7 +118,9 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
         await voiceRecorderService.cancel(recording.id);
         return;
       }
-      const timezoneOffsetMinutes = new Date(recording.startedAt).getTimezoneOffset();
+      const timezoneOffsetMinutes = new Date(
+        recording.startedAt
+      ).getTimezoneOffset();
       session.patch({
         recordingId: recording.id,
         startedAt: recording.startedAt,
@@ -117,7 +131,10 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
       });
       const startedAt = recording.startedAt;
       timer.current = setInterval(() => {
-        const durationMs = Math.min(Date.now() - startedAt, VOICE_MAX_DURATION_MS);
+        const durationMs = Math.min(
+          Date.now() - startedAt,
+          VOICE_MAX_DURATION_MS
+        );
         session.patch({ durationMs });
         if (durationMs >= VOICE_MAX_DURATION_MS) void stop(recording.id);
       }, 250);
@@ -136,7 +153,10 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
             proposal.categoryId
         )
         .map((proposal) =>
-          voiceCategoryService.savePreference(proposal.merchant!, proposal.categoryId!)
+          voiceCategoryService.savePreference(
+            proposal.merchant!,
+            proposal.categoryId!
+          )
         )
     );
 
@@ -145,7 +165,11 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
     proposals: VoiceTransactionProposal[],
     operationId: string
   ) => {
-    const mutation = await voiceAnalyzerService.confirm({ group, proposals, operationId });
+    const mutation = await voiceAnalyzerService.confirm({
+      group,
+      proposals,
+      operationId
+    });
     await saveCategoryPreferences(proposals);
     await emitVoiceNotification(
       { ...group, proposals },
@@ -222,8 +246,16 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
     let audioReference: string | null = null;
     try {
       audioReference = await voiceRecorderService.stop(recordingId);
-      session.patch({ audioReference, recordingId: null, state: 'transcribing' });
-      const transcript = await voiceAnalyzerService.transcribe(audioReference, session.scenario);
+      session.patch({
+        audioReference,
+        recordingId: null,
+        state: 'transcribing'
+      });
+      const transcript = await voiceAnalyzerService.transcribe(
+        audioReference,
+        session.scenario,
+        useVoiceCaptureStore.getState().durationMs
+      );
       session.setTranscript(transcript);
       await analyzeTranscript(transcript);
     } catch (error) {
@@ -245,15 +277,20 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
     }
   };
 
-  const cancelRecording = useCallback(async (errorCode?: VoiceErrorCode) => {
-    clearTimer();
-    const current = useVoiceCaptureStore.getState();
-    if (current.recordingId) await voiceRecorderService.cancel(current.recordingId);
-    if (current.audioReference) await voiceRecorderService.remove(current.audioReference);
-    current.patch({ recordingId: null, audioReference: null, durationMs: 0 });
-    if (errorCode) current.transition('failed', errorCode);
-    else current.transition('ready');
-  }, [clearTimer]);
+  const cancelRecording = useCallback(
+    async (errorCode?: VoiceErrorCode) => {
+      clearTimer();
+      const current = useVoiceCaptureStore.getState();
+      if (current.recordingId)
+        await voiceRecorderService.cancel(current.recordingId);
+      if (current.audioReference)
+        await voiceRecorderService.remove(current.audioReference);
+      current.patch({ recordingId: null, audioReference: null, durationMs: 0 });
+      if (errorCode) current.transition('failed', errorCode);
+      else current.transition('ready');
+    },
+    [clearTimer]
+  );
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -282,7 +319,8 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
         current.patch({ recordingId: null, durationMs: 0 });
         current.transition('ready');
       }
-      if (current.audioReference) void voiceRecorderService.remove(current.audioReference);
+      if (current.audioReference)
+        void voiceRecorderService.remove(current.audioReference);
     };
   }, [clearTimer]);
 
@@ -296,11 +334,15 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
     await analyzeTranscript(session.transcript);
   };
 
-  const updateProposal = (id: string, value: Partial<VoiceTransactionProposal>) =>
-    session.updateProposal(id, value);
+  const updateProposal = (
+    id: string,
+    value: Partial<VoiceTransactionProposal>
+  ) => session.updateProposal(id, value);
 
   const confirmField = (proposalId: string, field: string) => {
-    const proposal = session.group?.proposals.find((item) => item.id === proposalId);
+    const proposal = session.group?.proposals.find(
+      (item) => item.id === proposalId
+    );
     if (!proposal) return;
     updateProposal(proposalId, {
       assessments: proposal.assessments.map((item) =>
@@ -327,7 +369,11 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
         emittedNotifications.current,
         pendingNotifications.current
       );
-      session.patch({ group, state: 'proposal_review', errorCode: 'invalid_proposal' });
+      session.patch({
+        group,
+        state: 'proposal_review',
+        errorCode: 'invalid_proposal'
+      });
       return;
     }
     if (selected.some(hasDuplicateSignal)) {
@@ -347,7 +393,11 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
         emittedNotifications.current,
         pendingNotifications.current
       );
-      session.patch({ group, state: 'proposal_review', errorCode: 'invalid_proposal' });
+      session.patch({
+        group,
+        state: 'proposal_review',
+        errorCode: 'invalid_proposal'
+      });
       return;
     }
     if (saveInFlight.current) return;
@@ -358,7 +408,12 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
     });
     try {
       await persistProposals(group, selected, group.id);
-      session.patch({ transcript: null, group: null, state: 'saved', errorCode: null });
+      session.patch({
+        transcript: null,
+        group: null,
+        state: 'saved',
+        errorCode: null
+      });
     } catch {
       await emitVoiceNotification(
         group,
@@ -378,14 +433,21 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
 
   const reRecord = async () => {
     await cancelRecording();
-    session.patch({ transcript: null, group: null, state: 'ready', errorCode: null });
+    session.patch({
+      transcript: null,
+      group: null,
+      state: 'ready',
+      errorCode: null
+    });
   };
 
   const cancel = async () => {
     clearTimer();
     const current = useVoiceCaptureStore.getState();
-    if (current.recordingId) await voiceRecorderService.cancel(current.recordingId);
-    if (current.audioReference) await voiceRecorderService.remove(current.audioReference);
+    if (current.recordingId)
+      await voiceRecorderService.cancel(current.recordingId);
+    if (current.audioReference)
+      await voiceRecorderService.remove(current.audioReference);
     current.reset();
   };
 
@@ -410,11 +472,7 @@ export function useVoiceCapture({ permissionSync = 'on-mount' }: {
 }
 
 type VoiceNotificationOutcome =
-  | 'saved'
-  | 'review-required'
-  | 'duplicate'
-  | 'obligation-link'
-  | 'failed';
+  'saved' | 'review-required' | 'duplicate' | 'obligation-link' | 'failed';
 
 async function emitVoiceNotification(
   group: VoiceProposalGroup,
@@ -470,7 +528,9 @@ function voiceNotification(
     messageValues: { outcome, count: group.proposals.length },
     sensitivity: 'protected',
     target,
-    availableActions: target ? [{ kind: 'view', expiresAt: null, sourceVersion: 1 }] : [],
+    availableActions: target
+      ? [{ kind: 'view', expiresAt: null, sourceVersion: 1 }]
+      : [],
     occurredAt: Date.now()
   };
 }
@@ -485,7 +545,7 @@ function hasConfirmedObligationLink(proposal: VoiceTransactionProposal) {
     proposal.recurringSuggestion.confirmed &&
     Boolean(
       proposal.obligationId ??
-        proposal.recurringSuggestion.candidateObligationIds[0]
+      proposal.recurringSuggestion.candidateObligationIds[0]
     )
   );
 }

@@ -40,7 +40,11 @@ export function configureApiActorProvider(provider: ActorProvider): void {
 function actorScopedCursorKey(scope: string): string {
   const actor = actorProvider?.();
   if (!actor && !mocksEnabled())
-    throw new ApiError("session_expired", safeApiMessage("session_expired"), 401);
+    throw new ApiError(
+      "session_expired",
+      safeApiMessage("session_expired"),
+      401,
+    );
   return `${actor ?? "mock"}:${scope}`;
 }
 
@@ -102,6 +106,12 @@ const SERVER_ERROR_CODES: Readonly<Record<string, ApiErrorCode>> = {
   SERVICE_UNAVAILABLE: "provider_unavailable",
   PROVIDER_UNAVAILABLE: "provider_unavailable",
   INVALID_CURSOR: "validation_error",
+  ADMIN_PERMISSION_DENIED: "forbidden",
+  AI_ADMIN_CONFLICT: "conflict",
+  AI_PROMPT_TEST_CONFLICT: "conflict",
+  AI_PROMPT_PUBLISH_CONFLICT: "conflict",
+  AI_MUTATION_INVALID: "validation_error",
+  AI_ROUTE_POLICY_INVALID: "validation_error",
 };
 
 export function unavailableClientOperation(): Promise<never> {
@@ -205,12 +215,14 @@ export async function requestJson<T>(
     });
     if (response.status === 204) {
       const value = parseKnownValue(schema, options, "emptyValue");
-      if (automaticOperationKey) automaticOperationIds.delete(automaticOperationKey);
+      if (automaticOperationKey)
+        automaticOperationIds.delete(automaticOperationKey);
       return value;
     }
     if (response.status === 304) {
       const value = parseKnownValue(schema, options, "notModifiedValue");
-      if (automaticOperationKey) automaticOperationIds.delete(automaticOperationKey);
+      if (automaticOperationKey)
+        automaticOperationIds.delete(automaticOperationKey);
       return value;
     }
     if (!response.ok) throw await parseError(response);
@@ -232,7 +244,8 @@ export async function requestJson<T>(
         502,
       );
     }
-    if (automaticOperationKey) automaticOperationIds.delete(automaticOperationKey);
+    if (automaticOperationKey)
+      automaticOperationIds.delete(automaticOperationKey);
     return parsed.data;
   } catch (error) {
     const failure =

@@ -10,6 +10,9 @@ describe('AiService financial action bridge', () => {
     operationId: jest.fn(() => '99000000-0000-4000-8000-000000000014'),
     claimAction: jest.fn(),
     completeAction: jest.fn(() => Promise.resolve({})),
+    setConsent: jest.fn(() =>
+      Promise.resolve({ resource: { policyVersion: 'assistant-privacy-v1', version: 4 } }),
+    ),
   };
   const ledger = {
     createTransaction: jest.fn<
@@ -123,6 +126,22 @@ describe('AiService financial action bridge', () => {
     expect(ledger.createTransaction.mock.calls.map(([input]) => input.idempotencyKey)).toEqual([
       `ai-action:${proposalId}:v1`,
       `ai-action:${proposalId}:v1`,
+    ]);
+  });
+
+  it('passes the consent version through grant and revoke commands', async () => {
+    await expect(
+      service.grantConsent(
+        owner,
+        { policyVersion: 'assistant-privacy-v1', accepted: true, expectedVersion: 3 },
+        'grant-consent-key',
+      ),
+    ).resolves.toMatchObject({ version: 4 });
+    await service.revokeConsent(owner, 4, 'revoke-consent-key');
+
+    expect(repository.setConsent.mock.calls).toEqual([
+      [owner, 'assistant-privacy-v1', true, 3, 'grant-consent-key'],
+      [owner, 'assistant-privacy-v1', false, 4, 'revoke-consent-key'],
     ]);
   });
 });

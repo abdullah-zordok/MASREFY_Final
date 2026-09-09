@@ -33,6 +33,8 @@ import {
   requestJson
 } from './http-client';
 import { configureAutomaticTrackingTokenProvider } from './automatic-tracking-service';
+import { configureAssistantApiTokenProvider } from './assistant-api-service';
+import { configureVoiceApiTokenProvider } from './voice-api-service';
 
 type ClerkSession = {
   id: string;
@@ -115,12 +117,20 @@ let registeredBridge: LiveClerkBridge | null = null;
 
 export function registerLiveClerkBridge(bridge: LiveClerkBridge): void {
   registeredBridge = bridge;
-  configureMobileApiTokenProvider(() => bridge.getToken({ skipCache: true }));
+  configureMobileApiTokenProvider(getLiveClerkToken);
+  configureAssistantApiTokenProvider(getLiveClerkToken);
+  configureVoiceApiTokenProvider(getLiveClerkToken);
   configureAutomaticTrackingTokenProvider(async () => {
     const token = await bridge.getToken({ skipCache: true });
     if (!token) throw new TrackingError('permission_required');
     return token;
   });
+}
+
+export async function getLiveClerkToken(): Promise<string> {
+  const token = await registeredBridge?.getToken({ skipCache: true });
+  if (!token) throw new HttpError('session_expired', 401);
+  return token;
 }
 
 export async function captureLiveClerkIdentity() {

@@ -102,4 +102,43 @@ describe('safeError', () => {
       currentVersion: 7,
     });
   });
+
+  it.each([
+    ['AI_CONSENT_REQUIRED', 403, 'Assistant consent is required'],
+    ['AI_CONSENT_POLICY_STALE', 409, 'Assistant consent policy changed'],
+    ['AI_ACTION_CONFLICT', 409, 'AI action changed'],
+    ['AI_UNAVAILABLE', 503, 'AI is unavailable'],
+    ['AI_TEMPORARILY_UNAVAILABLE', 503, 'AI is temporarily unavailable'],
+  ])('maps the approved AI error %s', (code, status, message) => {
+    expect(safeError(status, 'ai-request', [], code)).toEqual({
+      code,
+      message,
+      requestId: 'ai-request',
+    });
+  });
+
+  it('preserves only bounded quota metadata for an exhausted AI quota', () => {
+    expect(
+      safeError(429, 'ai-request', [], 'AI_QUOTA_EXCEEDED', {
+        limit: 5,
+        used: 5,
+        resetsAt: '2026-09-10T08:00:00.000Z',
+        provider: 'must-not-leak',
+      }),
+    ).toEqual({
+      code: 'AI_QUOTA_EXCEEDED',
+      message: 'AI request quota is exhausted',
+      requestId: 'ai-request',
+      limit: 5,
+      used: 5,
+      resetsAt: '2026-09-10T08:00:00.000Z',
+    });
+    expect(
+      safeError(429, 'ai-request', [], 'AI_QUOTA_EXCEEDED', {
+        limit: 6,
+        used: -1,
+        resetsAt: 'not-a-time',
+      }),
+    ).not.toHaveProperty('limit');
+  });
 });

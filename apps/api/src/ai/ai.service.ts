@@ -239,11 +239,25 @@ export class AiService {
     if (input.policyVersion !== CONSENT_POLICY)
       throw new HttpException({ code: 'AI_CONSENT_POLICY_STALE' }, 409);
     return resultResource(
-      await this.repository.setConsent(principal, input.policyVersion, true, idempotencyKey(key)),
+      await this.repository.setConsent(
+        principal,
+        input.policyVersion,
+        true,
+        input.expectedVersion,
+        idempotencyKey(key),
+      ),
     );
   }
-  revokeConsent(principal: ClerkPrincipal, key: unknown) {
-    return this.repository.setConsent(principal, CONSENT_POLICY, false, idempotencyKey(key));
+  async revokeConsent(principal: ClerkPrincipal, version: unknown, key: unknown) {
+    return resultResource(
+      await this.repository.setConsent(
+        principal,
+        CONSENT_POLICY,
+        false,
+        positiveVersion(Number(version)),
+        idempotencyKey(key),
+      ),
+    );
   }
 
   async createConversation(principal: ClerkPrincipal, body: unknown, key: unknown) {
@@ -255,6 +269,10 @@ export class AiService {
         idempotencyKey(key),
       ),
     );
+  }
+
+  getAssistantAvailability(principal: ClerkPrincipal) {
+    return this.repository.getAssistantAvailability(principal, CONSENT_POLICY);
   }
   getConversation(principal: ClerkPrincipal, id: string) {
     return this.repository.getConversation(principal, uuid(id));
@@ -305,7 +323,11 @@ export class AiService {
       ),
     );
     const message = resource(result.resource);
-    return { id: message.id, status: message.workStatus ?? 'queued' };
+    return {
+      id: message.id,
+      status: message.workStatus ?? 'queued',
+      replayed: result.replayed === true,
+    };
   }
 
   async listMessages(principal: ClerkPrincipal, conversationId: string, query: unknown) {

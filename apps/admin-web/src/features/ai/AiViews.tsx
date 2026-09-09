@@ -14,7 +14,14 @@ import type {
   AiProviderSummary,
 } from "./contracts";
 import { safeAiIdSchema } from "./contracts";
-import { useAiLockedAction, useAiModels, useAiOperational, useAiPrompt, useAiProvider, useAiProviders } from "./hooks";
+import {
+  useAiLockedAction,
+  useAiModels,
+  useAiOperational,
+  useAiPrompt,
+  useAiProvider,
+  useAiProviders,
+} from "./hooks";
 import { aiRepository } from "./repository";
 
 const operationalHeadings: Record<AiOperationalResource, string> = {
@@ -26,33 +33,82 @@ const operationalHeadings: Record<AiOperationalResource, string> = {
 };
 
 const aiFeatures: NonNullable<AiListQuery["feature"]>[] = [
-  "receipt_analysis", "screenshot_analysis", "voice_parsing", "categorization",
-  "financial_assistant", "spending_insights", "budget_suggestions",
-  "behavior_analysis", "report_explanation",
+  "receipt_analysis",
+  "screenshot_analysis",
+  "voice_parsing",
+  "categorization",
+  "financial_assistant",
+  "spending_insights",
+  "budget_suggestions",
+  "behavior_analysis",
+  "report_explanation",
 ];
 
-export function AiProviderListView({ providers, filters, pagination }: { providers: AiProviderSummary[]; filters?: ReactNode; pagination?: ReactNode }) {
+export function AiProviderListView({
+  providers,
+  filters,
+  pagination,
+}: {
+  providers: AiProviderSummary[];
+  filters?: ReactNode;
+  pagination?: ReactNode;
+}) {
   return (
     <div className="page">
-      <div className="page-header-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
-        <PageHeader title="مزودو الذكاء الاصطناعي" description="إدارة وتتبع مزودي خدمات الذكاء الاصطناعي وتحليل أداء وصحة الخدمات." />
+      <div
+        className="page-header-wrapper"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          marginBottom: "16px",
+        }}
+      >
+        <PageHeader
+          title="مزودو الذكاء الاصطناعي"
+          description="إدارة وتتبع مزودي خدمات الذكاء الاصطناعي وتحليل أداء وصحة الخدمات."
+        />
         {filters && <div className="toolbar-filters">{filters}</div>}
       </div>
-      {providers.length === 0 && <div className="state-box" role="status">لا يوجد مزودون مطابقون.</div>}
+      {providers.length === 0 && (
+        <div className="state-box" role="status">
+          لا يوجد مزودون مطابقون.
+        </div>
+      )}
       <div className="table-card">
         <div className="desktop-table">
           <table className="data-table">
             <thead>
-              <tr><th>المعرف</th><th>المزود</th><th>الصحة</th><th>زمن الاستجابة</th><th>التكلفة التقديرية</th></tr>
+              <tr>
+                <th>المعرف</th>
+                <th>المزود</th>
+                <th>الصحة</th>
+                <th>زمن الاستجابة</th>
+                <th>التكلفة التقديرية</th>
+              </tr>
             </thead>
             <tbody>
               {providers.map((provider) => (
                 <tr key={provider.id}>
-                  <td><bdi className="ltr">{provider.id}</bdi></td>
-                  <td><Link href={`/admin/ai/providers/${provider.id}`}>{provider.name}</Link></td>
-                  <td>{"health" in provider ? provider.health : "cost-only"}</td>
-                  <td>{"latencyMs" in provider ? `${provider.latencyMs} ms` : "—"}</td>
-                  <td>{"estimatedCost" in provider ? `${provider.estimatedCost.amount} ${provider.estimatedCost.currency}` : "—"}</td>
+                  <td>
+                    <bdi className="ltr">{provider.id}</bdi>
+                  </td>
+                  <td>
+                    <Link href={`/admin/ai/providers/${provider.id}`}>
+                      {provider.name}
+                    </Link>
+                  </td>
+                  <td>
+                    {"health" in provider ? provider.health : "cost-only"}
+                  </td>
+                  <td>
+                    {"latencyMs" in provider ? `${provider.latencyMs} ms` : "—"}
+                  </td>
+                  <td>
+                    {"estimatedCost" in provider && provider.estimatedCost
+                      ? `${provider.estimatedCost.amount} ${provider.estimatedCost.currency}`
+                      : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -63,12 +119,22 @@ export function AiProviderListView({ providers, filters, pagination }: { provide
             <article className="mobile-data-card" key={provider.id}>
               <div className="mobile-data-head">
                 <bdi className="ltr">{provider.id}</bdi>
-                <span className="badge severity-info">{"health" in provider ? provider.health : "cost-only"}</span>
+                <span className="badge severity-info">
+                  {"health" in provider ? provider.health : "cost-only"}
+                </span>
               </div>
               <strong>{provider.name}</strong>
               <div className="mobile-data-meta">
-                <span><small>زمن الاستجابة</small>{"latencyMs" in provider ? `${provider.latencyMs} ms` : "—"}</span>
-                <span><small>التكلفة التقديرية</small>{"estimatedCost" in provider ? `${provider.estimatedCost.amount} ${provider.estimatedCost.currency}` : "—"}</span>
+                <span>
+                  <small>زمن الاستجابة</small>
+                  {"latencyMs" in provider ? `${provider.latencyMs} ms` : "—"}
+                </span>
+                <span>
+                  <small>التكلفة التقديرية</small>
+                  {"estimatedCost" in provider && provider.estimatedCost
+                    ? `${provider.estimatedCost.amount} ${provider.estimatedCost.currency}`
+                    : "—"}
+                </span>
               </div>
             </article>
           ))}
@@ -79,35 +145,83 @@ export function AiProviderListView({ providers, filters, pagination }: { provide
   );
 }
 
-export function AiProviderDetailView({ provider, actions }: { provider: AiProviderDetail; actions?: ReactNode }) {
+export function AiProviderDetailView({
+  provider,
+  actions,
+}: {
+  provider: AiProviderDetail;
+  actions?: ReactNode;
+}) {
   return (
     <div className="page">
       <h1 tabIndex={-1}>{provider.name}</h1>
-      {provider.accessLevel === "full" ? <><p>feature/locale fallback</p>
-      <ul>
-        {provider.fallbackRoutes.map((route) => (
-          <li key={`${route.feature}:${route.locale}:${route.priority}`}>
-            {route.feature} {route.locale} {route.providerId} {route.modelId}
-          </li>
-        ))}
-      </ul></> : <p>{provider.accessLevel === "context" ? "عرض حالة المزود فقط." : "عرض التكلفة الإجمالية فقط."}</p>}
+      {provider.accessLevel === "full" ? (
+        <>
+          <p>feature/locale fallback</p>
+          <ul>
+            {provider.fallbackRoutes?.map((route) => (
+              <li key={`${route.feature}:${route.locale}:${route.priority}`}>
+                {route.feature} {route.locale} {route.providerId}{" "}
+                {route.modelId}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p>
+          {provider.accessLevel === "context"
+            ? "عرض حالة المزود فقط."
+            : "عرض التكلفة الإجمالية فقط."}
+        </p>
+      )}
       {actions}
     </div>
   );
 }
 
-export function AiModelListView({ models, actions, filters, pagination }: { models: AiModelSummary[]; actions?: ReactNode; filters?: ReactNode; pagination?: ReactNode }) {
+export function AiModelListView({
+  models,
+  actions,
+  filters,
+  pagination,
+}: {
+  models: AiModelSummary[];
+  actions?: ReactNode;
+  filters?: ReactNode;
+  pagination?: ReactNode;
+}) {
   return (
     <div className="page">
-      <div className="page-header-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
-        <PageHeader title="AI Models" description="Manage AI models and configure their feature assignments." />
+      <div
+        className="page-header-wrapper"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          marginBottom: "16px",
+        }}
+      >
+        <PageHeader
+          title="AI Models"
+          description="Manage AI models and configure their feature assignments."
+        />
         {filters && <div className="toolbar-filters">{filters}</div>}
       </div>
-      {models.length === 0 && <div className="state-box" role="status">لا توجد نماذج مطابقة.</div>}
+      {models.length === 0 && (
+        <div className="state-box" role="status">
+          لا توجد نماذج مطابقة.
+        </div>
+      )}
       <ul>
         {models.map((model) => (
           <li key={model.id}>
-            {model.id} {model.name} {model.accessLevel === "full" ? model.assignments.map((assignment) => assignment.feature).join(", ") : "cost-only"} {model.inputCost.currency}
+            {model.id} {model.name}{" "}
+            {model.accessLevel === "full"
+              ? (model.assignments ?? [])
+                  .map((assignment) => assignment.feature)
+                  .join(", ")
+              : "cost-only"}{" "}
+            {model.inputCost.currency}
           </li>
         ))}
       </ul>
@@ -121,19 +235,109 @@ export function AiProviderListRoute() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
-  const providers = useAiProviders({ search: search || undefined, status: status || undefined, page, pageSize: 25 });
-  if (providers.isPending) return <div className="page"><div className="state-box">Loading AI providers...</div></div>;
-  if (providers.isError) return <div className="page"><div className="state-box error" role="alert">تعذر تحميل المزودين.<button className="button" onClick={() => providers.refetch()}>إعادة المحاولة</button></div></div>;
-  return <AiProviderListView providers={providers.data.items} filters={<><label>بحث المزودين<input className="input" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} maxLength={120} /></label><label>حالة المزود<input className="input" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} maxLength={40} /></label></>} pagination={<ListPagination page={page} totalPages={providers.data.pagination.totalPages} onPage={setPage} />} />;
+  const providers = useAiProviders({
+    search: search || undefined,
+    status: status || undefined,
+    page,
+    pageSize: 25,
+  });
+  if (providers.isPending)
+    return (
+      <div className="page">
+        <div className="state-box">Loading AI providers...</div>
+      </div>
+    );
+  if (providers.isError)
+    return (
+      <div className="page">
+        <div className="state-box error" role="alert">
+          تعذر تحميل المزودين.
+          <button className="button" onClick={() => providers.refetch()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  return (
+    <AiProviderListView
+      providers={providers.data.items}
+      filters={
+        <>
+          <label>
+            بحث المزودين
+            <input
+              className="input"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              maxLength={120}
+            />
+          </label>
+          <label>
+            حالة المزود
+            <input
+              className="input"
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+              maxLength={40}
+            />
+          </label>
+        </>
+      }
+      pagination={
+        <ListPagination
+          page={page}
+          totalPages={providers.data.pagination.totalPages}
+          onPage={setPage}
+        />
+      }
+    />
+  );
 }
 
 export function AiProviderDetailRoute({ providerId }: { providerId: string }) {
   const provider = useAiProvider(providerId);
-  if (provider.isPending) return <div className="page"><div className="state-box">Loading AI provider...</div></div>;
-  if (provider.isError) return <div className="page"><div className="state-box error" role="alert">تعذر تحميل المزود.<button className="button" onClick={() => provider.refetch()}>إعادة المحاولة</button></div></div>;
+  if (provider.isPending)
+    return (
+      <div className="page">
+        <div className="state-box">Loading AI provider...</div>
+      </div>
+    );
+  if (provider.isError)
+    return (
+      <div className="page">
+        <div className="state-box error" role="alert">
+          تعذر تحميل المزود.
+          <button className="button" onClick={() => provider.refetch()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
   const data = provider.data;
-  if (data.accessLevel !== "full") return <AiProviderDetailView provider={data} />;
-  return <AiProviderDetailView provider={data} actions={<ConfigurationActions>{data.actions.map((action) => <ProviderActionButton key={action} provider={data} action={action} />)}</ConfigurationActions>} />;
+  if (data.accessLevel !== "full")
+    return <AiProviderDetailView provider={data} />;
+  return (
+    <AiProviderDetailView
+      provider={data}
+      actions={
+        <ConfigurationActions>
+          {data.actions.map((action) => (
+            <ProviderActionButton
+              key={action}
+              provider={data}
+              action={action}
+            />
+          ))}
+        </ConfigurationActions>
+      }
+    />
+  );
 }
 
 export function AiModelListRoute() {
@@ -143,22 +347,128 @@ export function AiModelListRoute() {
   const [page, setPage] = useState(1);
   const models = useAiModels({
     search: search || undefined,
-    providerId: safeAiIdSchema.safeParse(providerId).success ? providerId : undefined,
+    providerId: safeAiIdSchema.safeParse(providerId).success
+      ? providerId
+      : undefined,
     status: status || undefined,
     page,
     pageSize: 25,
   });
-  if (models.isPending) return <div className="page"><div className="state-box">Loading AI models...</div></div>;
-  if (models.isError) return <div className="page"><div className="state-box error" role="alert">تعذر تحميل النماذج.<button className="button" onClick={() => models.refetch()}>إعادة المحاولة</button></div></div>;
-  return <AiModelListView models={models.data.items} filters={<><label>بحث النماذج<input className="input" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} maxLength={120} /></label><label>معرف المزود<input className="input ltr" value={providerId} onChange={(event) => { setProviderId(event.target.value); setPage(1); }} maxLength={48} /></label><label>حالة النموذج<input className="input" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} maxLength={40} /></label></>} pagination={<ListPagination page={page} totalPages={models.data.pagination.totalPages} onPage={setPage} />} actions={<ConfigurationActions>{models.data.items.filter((model) => model.accessLevel === "full").map((model) => model.actions.map((action) => <AiActionButton key={`${model.id}:${action}`} resource="models" record={model} action={action} />))}</ConfigurationActions>} />;
+  if (models.isPending)
+    return (
+      <div className="page">
+        <div className="state-box">Loading AI models...</div>
+      </div>
+    );
+  if (models.isError)
+    return (
+      <div className="page">
+        <div className="state-box error" role="alert">
+          تعذر تحميل النماذج.
+          <button className="button" onClick={() => models.refetch()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  return (
+    <AiModelListView
+      models={models.data.items}
+      filters={
+        <>
+          <label>
+            بحث النماذج
+            <input
+              className="input"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              maxLength={120}
+            />
+          </label>
+          <label>
+            معرف المزود
+            <input
+              className="input ltr"
+              value={providerId}
+              onChange={(event) => {
+                setProviderId(event.target.value);
+                setPage(1);
+              }}
+              maxLength={48}
+            />
+          </label>
+          <label>
+            حالة النموذج
+            <input
+              className="input"
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+              maxLength={40}
+            />
+          </label>
+        </>
+      }
+      pagination={
+        <ListPagination
+          page={page}
+          totalPages={models.data.pagination.totalPages}
+          onPage={setPage}
+        />
+      }
+      actions={
+        <ConfigurationActions>
+          {models.data.items
+            .filter((model) => model.accessLevel === "full")
+            .map((model) =>
+              model.actions.map((action) => (
+                <AiActionButton
+                  key={`${model.id}:${action}`}
+                  resource="models"
+                  record={model}
+                  action={action}
+                />
+              )),
+            )}
+        </ConfigurationActions>
+      }
+    />
+  );
 }
 
-function ListPagination({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
+function ListPagination({
+  page,
+  totalPages,
+  onPage,
+}: {
+  page: number;
+  totalPages: number;
+  onPage: (page: number) => void;
+}) {
   return (
     <nav className="pagination" aria-label="ترقيم الصفحات">
-      <button className="button" disabled={page <= 1} onClick={() => onPage(Math.max(1, page - 1))}>السابق</button>
-      <span>الصفحة {page} من {Math.max(1, totalPages)}</span>
-      <button className="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>التالي</button>
+      <button
+        className="button"
+        disabled={page <= 1}
+        onClick={() => onPage(Math.max(1, page - 1))}
+      >
+        السابق
+      </button>
+      <span>
+        الصفحة {page} من {Math.max(1, totalPages)}
+      </span>
+      <button
+        className="button"
+        disabled={page >= totalPages}
+        onClick={() => onPage(page + 1)}
+      >
+        التالي
+      </button>
     </nav>
   );
 }
@@ -175,33 +485,71 @@ export function AiOperationalListView({
   return (
     <div className="page">
       <h1 tabIndex={-1}>{operationalHeadings[resource]}</h1>
-      <p className="privacy-note">بيانات وصفية آمنة فقط — لا تُعرض مطالبات أو استجابات خام.</p>
+      <p className="privacy-note">
+        بيانات وصفية آمنة فقط — لا تُعرض مطالبات أو استجابات خام.
+      </p>
       {filters}
       {records.length === 0 ? (
-        <div className="state-box" role="status">لا توجد سجلات مطابقة.</div>
+        <div className="state-box" role="status">
+          لا توجد سجلات مطابقة.
+        </div>
       ) : (
         <div className="table-card">
           <div className="desktop-table">
             <table className="data-table">
-              <thead><tr><th>المعرّف</th><th>العنوان</th><th>الميزة</th><th>الحالة</th><th>التفاصيل الآمنة</th><th>آخر تحديث</th></tr></thead>
-              <tbody>{records.map((record) => (
-                <tr key={record.id}>
-                  <td><bdi className="ltr">{record.id}</bdi></td>
-                  <td>{resource === "prompts" ? <Link href={`/admin/ai/prompts/${record.id}`}>{record.title}</Link> : record.title}</td>
-                  <td>{record.feature}</td>
-                  <td>{record.status}{record.severity ? ` — ${record.severity}` : ""}</td>
-                  <td><OperationalDetails record={record} /></td>
-                  <td><bdi className="ltr">{record.updatedAt}</bdi></td>
+              <thead>
+                <tr>
+                  <th>المعرّف</th>
+                  <th>العنوان</th>
+                  <th>الميزة</th>
+                  <th>الحالة</th>
+                  <th>التفاصيل الآمنة</th>
+                  <th>آخر تحديث</th>
                 </tr>
-              ))}</tbody>
+              </thead>
+              <tbody>
+                {records.map((record) => (
+                  <tr key={record.id}>
+                    <td>
+                      <bdi className="ltr">{record.id}</bdi>
+                    </td>
+                    <td>
+                      {resource === "prompts" ? (
+                        <Link href={`/admin/ai/prompts/${record.id}`}>
+                          {record.title}
+                        </Link>
+                      ) : (
+                        record.title
+                      )}
+                    </td>
+                    <td>{record.feature}</td>
+                    <td>
+                      {record.status}
+                      {record.severity ? ` — ${record.severity}` : ""}
+                    </td>
+                    <td>
+                      <OperationalDetails record={record} />
+                    </td>
+                    <td>
+                      <bdi className="ltr">{record.updatedAt}</bdi>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
           <div className="mobile-cards">
             {records.map((record) => (
               <article className="mobile-data-card" key={record.id}>
-                <div className="mobile-data-head"><bdi className="ltr">{record.id}</bdi><span>{record.status}</span></div>
+                <div className="mobile-data-head">
+                  <bdi className="ltr">{record.id}</bdi>
+                  <span>{record.status}</span>
+                </div>
                 <strong>{record.title}</strong>
-                <p>{record.feature}{record.severity ? ` — ${record.severity}` : ""}</p>
+                <p>
+                  {record.feature}
+                  {record.severity ? ` — ${record.severity}` : ""}
+                </p>
                 <OperationalDetails record={record} />
               </article>
             ))}
@@ -215,16 +563,62 @@ export function AiOperationalListView({
 function OperationalDetails({ record }: { record: AiOperationalRecord }) {
   return (
     <span>
-      {record.maskedUser && <>المستخدم <bdi>{record.maskedUser}</bdi> · </>}
-      {record.providerId && <>المزود <bdi>{record.providerId}</bdi> · </>}
-      {record.modelId && <>النموذج <bdi>{record.modelId}</bdi> · </>}
-      {record.attemptCount !== undefined && <>المحاولات {record.attemptCount} · البدائل {record.fallbackCount ?? 0} · </>}
-      {record.inputUnits !== undefined && <>الوحدات {record.inputUnits}/{record.outputUnits ?? 0} · </>}
-      {record.estimatedCost && <>{record.estimatedCost.amount} <bdi>{record.estimatedCost.currency}</bdi> · </>}
-      {record.safeErrorClass && <>{record.safeErrorClass} · <bdi>{record.correlationReference}</bdi></>}
-      {record.sanitizedExcerpt && <><q>{record.sanitizedExcerpt}</q> — {record.omissionLabel}</>}
-      {record.triggerCount !== undefined && <>مرات التشغيل {record.triggerCount} · الإصدار <bdi>{record.version}</bdi></>}
-      {record.safetyDefinition && <> · {record.safetyDefinition.conditions[0]?.field} {record.safetyDefinition.conditions[0]?.operator} · {record.safetyDefinition.outcome}</>}
+      {record.maskedUser && (
+        <>
+          المستخدم <bdi>{record.maskedUser}</bdi> ·{" "}
+        </>
+      )}
+      {record.providerId && (
+        <>
+          المزود <bdi>{record.providerId}</bdi> ·{" "}
+        </>
+      )}
+      {record.modelId && (
+        <>
+          النموذج <bdi>{record.modelId}</bdi> ·{" "}
+        </>
+      )}
+      {record.attemptCount !== undefined && (
+        <>
+          المحاولات {record.attemptCount} · البدائل {record.fallbackCount ?? 0}{" "}
+          ·{" "}
+        </>
+      )}
+      {record.inputUnits !== undefined && (
+        <>
+          الوحدات {record.inputUnits}/{record.outputUnits ?? 0} ·{" "}
+        </>
+      )}
+      {record.estimatedCost && (
+        <>
+          {record.estimatedCost.amount}{" "}
+          <bdi>{record.estimatedCost.currency}</bdi> ·{" "}
+        </>
+      )}
+      {record.safeErrorClass && (
+        <>
+          {record.safeErrorClass} · <bdi>{record.correlationReference}</bdi>
+        </>
+      )}
+      {record.sanitizedExcerpt && (
+        <>
+          <q>{record.sanitizedExcerpt}</q> — {record.omissionLabel}
+        </>
+      )}
+      {record.triggerCount !== undefined && (
+        <>
+          مرات التشغيل {record.triggerCount} · الإصدار{" "}
+          <bdi>{record.version}</bdi>
+        </>
+      )}
+      {record.safetyDefinition && (
+        <>
+          {" "}
+          · {record.safetyDefinition.conditions[0]?.field}{" "}
+          {record.safetyDefinition.conditions[0]?.operator} ·{" "}
+          {record.safetyDefinition.outcome}
+        </>
+      )}
     </span>
   );
 }
@@ -241,28 +635,43 @@ function ProviderActionButton({
   const [reason, setReason] = useState("");
   return (
     <>
-      <button className="button" type="button" onClick={() => setOpen(true)}>{action}</button>
+      <button className="button" type="button" onClick={() => setOpen(true)}>
+        {action}
+      </button>
       <ConfirmDialog
         open={open}
         onClose={() => setOpen(false)}
-        onConfirm={() => mutation.mutate({
-          resource: "providers",
-          id: provider.id,
-          action,
-          run: () => aiRepository.actOnProvider(provider.id, {
-            action,
-            fallbackRoutes: action === "update_fallback"
-              ? provider.fallbackRoutes
-                  .map((route) => ({ ...route, priority: provider.fallbackRoutes.length + 1 - route.priority }))
-                  .sort((left, right) => left.priority - right.priority)
-              : undefined,
-            context: {
-              reason,
-              expectedState: provider.health,
-              expectedRevision: provider.revision,
+        onConfirm={() =>
+          mutation.mutate(
+            {
+              resource: "providers",
+              id: provider.id,
+              action,
+              run: () =>
+                aiRepository.actOnProvider(provider.id, {
+                  action,
+                  fallbackRoutes:
+                    action === "update_fallback"
+                      ? (provider.fallbackRoutes ?? [])
+                          .map((route) => ({
+                            ...route,
+                            priority:
+                              (provider.fallbackRoutes?.length ?? 0) +
+                              1 -
+                              route.priority,
+                          }))
+                          .sort((left, right) => left.priority - right.priority)
+                      : undefined,
+                  context: {
+                    reason,
+                    expectedState: provider.health,
+                    expectedRevision: provider.revision,
+                  },
+                }),
             },
-          }),
-        }, { onSuccess: () => setOpen(false) })}
+            { onSuccess: () => setOpen(false) },
+          )
+        }
         title={`تأكيد ${action}`}
         scope={provider.id}
         consequence="يطبّق التغيير على إعدادات المزود ويرفضه الخادم إذا أضعف مسارًا نشطًا."
@@ -270,11 +679,27 @@ function ProviderActionButton({
         auditEvent="admin.ai.provider.action"
         pending={mutation.isPending}
         confirmDisabled={reason.trim().length < 3}
-        outcomes={{ success: "تم التسجيل", failure: "تعذر التسجيل", conflict: "تغيرت الحالة" }}
+        outcomes={{
+          success: "تم التسجيل",
+          failure: "تعذر التسجيل",
+          conflict: "تغيرت الحالة",
+        }}
       >
-        <label>سبب القرار<input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required /></label>
+        <label>
+          سبب القرار
+          <input
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            maxLength={500}
+            required
+          />
+        </label>
       </ConfirmDialog>
-      {mutation.isError && <p role="alert">تعذر تسجيل القرار. حدّث البيانات وتحقق من الأهلية ثم أعد المحاولة.</p>}
+      {mutation.isError && (
+        <p role="alert">
+          تعذر تسجيل القرار. حدّث البيانات وتحقق من الأهلية ثم أعد المحاولة.
+        </p>
+      )}
     </>
   );
 }
@@ -296,13 +721,18 @@ function AiActionButton({
   action,
 }: {
   resource: Exclude<AiOperationalResource, "usage"> | "models";
-  record: Pick<AiOperationalRecord, "id" | "status" | "revision"> | Extract<AiModelSummary, { accessLevel: "full" }>;
+  record:
+    | Pick<AiOperationalRecord, "id" | "status" | "revision">
+    | Extract<AiModelSummary, { accessLevel: "full" }>;
   action: AiOperationalActionRequest["action"];
 }) {
   const mutation = useAiLockedAction();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const permission = resource === "models" ? "ai.models.manage" : `ai.${resource === "safety-rules" ? "safety" : resource}.manage`;
+  const permission =
+    resource === "models"
+      ? "ai.models.manage"
+      : `ai.${resource === "safety-rules" ? "safety" : resource}.manage`;
   const request: AiOperationalActionRequest = {
     action,
     context: {
@@ -313,21 +743,35 @@ function AiActionButton({
   };
   return (
     <>
-      <button className="button" type="button" onClick={() => setOpen(true)}>{action}</button>
+      <button className="button" type="button" onClick={() => setOpen(true)}>
+        {action}
+      </button>
       <ConfirmDialog
         open={open}
         onClose={() => setOpen(false)}
-        onConfirm={() => mutation.mutate({
-          resource,
-          id: record.id,
-          action,
-          run: () => resource === "models"
-            ? aiRepository.actOnModel(record.id, request)
-            : aiRepository.actOnOperational(resource, record.id, request),
-        }, { onSuccess: () => {
-          setOpen(false);
-          requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector<HTMLElement>("main h1")?.focus()));
-        } })}
+        onConfirm={() =>
+          mutation.mutate(
+            {
+              resource,
+              id: record.id,
+              action,
+              run: () =>
+                resource === "models"
+                  ? aiRepository.actOnModel(record.id, request)
+                  : aiRepository.actOnOperational(resource, record.id, request),
+            },
+            {
+              onSuccess: () => {
+                setOpen(false);
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() =>
+                    document.querySelector<HTMLElement>("main h1")?.focus(),
+                  ),
+                );
+              },
+            },
+          )
+        }
         title={`تأكيد ${action}`}
         scope={record.id}
         consequence="يطبّق التغيير على إعدادات الذكاء الاصطناعي ويسجله في سجل التدقيق."
@@ -335,11 +779,27 @@ function AiActionButton({
         auditEvent={`admin.ai.${resource}.action`}
         pending={mutation.isPending}
         confirmDisabled={reason.trim().length < 3}
-        outcomes={{ success: "تم التسجيل", failure: "تعذر التسجيل", conflict: "تغيرت الحالة" }}
+        outcomes={{
+          success: "تم التسجيل",
+          failure: "تعذر التسجيل",
+          conflict: "تغيرت الحالة",
+        }}
       >
-        <label>سبب القرار<input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required /></label>
+        <label>
+          سبب القرار
+          <input
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            maxLength={500}
+            required
+          />
+        </label>
       </ConfirmDialog>
-      {mutation.isError && <p role="alert">تعذر تسجيل القرار. حدّث البيانات وتحقق من الأهلية ثم أعد المحاولة.</p>}
+      {mutation.isError && (
+        <p role="alert">
+          تعذر تسجيل القرار. حدّث البيانات وتحقق من الأهلية ثم أعد المحاولة.
+        </p>
+      )}
     </>
   );
 }
@@ -355,21 +815,49 @@ export function AiPromptDetailView({ prompt }: { prompt: AiPromptDetail }) {
       </section>
       <section className="table-card">
         <h2>المتغيرات وقواعد التحقق</h2>
-        <ul>{prompt.variables.map((variable) => <li key={variable}><bdi className="ltr">{variable}</bdi></li>)}</ul>
-        <ul>{prompt.validationRules.map((rule) => <li key={rule}>{rule}</li>)}</ul>
+        <ul>
+          {prompt.variables.map((variable) => (
+            <li key={variable}>
+              <bdi className="ltr">{variable}</bdi>
+            </li>
+          ))}
+        </ul>
+        <ul>
+          {prompt.validationRules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
       </section>
       <section className="table-card">
         <h2>الاختبارات الخيالية والسجل الثابت</h2>
-        <ul>{prompt.fictionalTests.map((item) => <li key={item.name}>{item.name}: {item.passed ? "ناجح" : "فاشل"}</li>)}</ul>
-        <ol>{prompt.history.map((item) => <li key={item.version}>الإصدار <bdi>{item.version}</bdi> — {item.status} — ثابت</li>)}</ol>
+        <ul>
+          {prompt.fictionalTests.map((item) => (
+            <li key={item.name}>
+              {item.name}: {item.passed ? "ناجح" : "فاشل"}
+            </li>
+          ))}
+        </ul>
+        <ol>
+          {prompt.history.map((item) => (
+            <li key={item.version}>
+              الإصدار <bdi>{item.version}</bdi> — {item.status} — ثابت
+            </li>
+          ))}
+        </ol>
       </section>
     </div>
   );
 }
 
-export function AiOperationalListRoute({ resource }: { resource: AiOperationalResource }) {
+export function AiOperationalListRoute({
+  resource,
+}: {
+  resource: AiOperationalResource;
+}) {
   const [search, setSearch] = useState("");
-  const [platform, setPlatform] = useState<"all" | "ios" | "android" | "unknown">("all");
+  const [platform, setPlatform] = useState<
+    "all" | "ios" | "android" | "unknown"
+  >("all");
   const [status, setStatus] = useState("");
   const [feature, setFeature] = useState<AiListQuery["feature"]>();
   const [providerId, setProviderId] = useState("");
@@ -389,7 +877,9 @@ export function AiOperationalListRoute({ resource }: { resource: AiOperationalRe
       }
       setStatus(params.get("status") ?? "");
       const savedFeature = params.get("feature");
-      if (aiFeatures.includes(savedFeature as NonNullable<AiListQuery["feature"]>)) {
+      if (
+        aiFeatures.includes(savedFeature as NonNullable<AiListQuery["feature"]>)
+      ) {
         setFeature(savedFeature as NonNullable<AiListQuery["feature"]>);
       }
       setProviderId(params.get("providerId") ?? "");
@@ -418,8 +908,24 @@ export function AiOperationalListRoute({ resource }: { resource: AiOperationalRe
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (page > 1) params.set("page", String(page));
-    window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
-  }, [dateFrom, dateTo, feature, modelId, page, plan, platform, providerId, search, status, urlReady]);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${params.size ? `?${params}` : ""}`,
+    );
+  }, [
+    dateFrom,
+    dateTo,
+    feature,
+    modelId,
+    page,
+    plan,
+    platform,
+    providerId,
+    search,
+    status,
+    urlReady,
+  ]);
   const records = useAiOperational(resource, {
     page,
     pageSize: 25,
@@ -427,7 +933,9 @@ export function AiOperationalListRoute({ resource }: { resource: AiOperationalRe
     platform,
     status: status || undefined,
     feature,
-    providerId: safeAiIdSchema.safeParse(providerId).success ? providerId : undefined,
+    providerId: safeAiIdSchema.safeParse(providerId).success
+      ? providerId
+      : undefined,
     modelId: safeAiIdSchema.safeParse(modelId).success ? modelId : undefined,
     plan,
     dateFrom: dateFrom || undefined,
@@ -435,45 +943,178 @@ export function AiOperationalListRoute({ resource }: { resource: AiOperationalRe
     sort: "updatedAt",
     order: "desc",
   });
-  if (records.isPending) return <div className="page"><div className="state-box" role="status">جارٍ التحميل...</div></div>;
-  if (records.isError) return <div className="page"><div className="state-box error" role="alert">تعذر تحميل البيانات.<button className="button" onClick={() => records.refetch()}>إعادة المحاولة</button></div></div>;
+  if (records.isPending)
+    return (
+      <div className="page">
+        <div className="state-box" role="status">
+          جارٍ التحميل...
+        </div>
+      </div>
+    );
+  if (records.isError)
+    return (
+      <div className="page">
+        <div className="state-box error" role="alert">
+          تعذر تحميل البيانات.
+          <button className="button" onClick={() => records.refetch()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
   return (
     <>
       <AiOperationalListView
         resource={resource}
         records={records.data.items}
-        filters={(
+        filters={
           <div className="filter-bar" aria-label="عوامل تصفية الذكاء الاصطناعي">
-            <label>بحث<input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} maxLength={120} /></label>
-            <label>المنصة<select value={platform} onChange={(event) => { setPlatform(event.target.value as typeof platform); setPage(1); }}>
-              <option value="all">كل المنصات</option><option value="ios">iOS</option><option value="android">Android</option><option value="unknown">غير منسوب</option>
-            </select></label>
-            <label>الحالة<input value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} maxLength={40} /></label>
-            <label>الميزة<select value={feature ?? ""} onChange={(event) => { setFeature((event.target.value || undefined) as AiListQuery["feature"]); setPage(1); }}>
-              <option value="">كل الميزات</option>{aiFeatures.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select></label>
-            <label>المزود<input className="ltr" value={providerId} onChange={(event) => { setProviderId(event.target.value); setPage(1); }} maxLength={48} /></label>
-            <label>النموذج<input className="ltr" value={modelId} onChange={(event) => { setModelId(event.target.value); setPage(1); }} maxLength={48} /></label>
-            {resource === "usage" && <label>الخطة<select value={plan ?? ""} onChange={(event) => { setPlan((event.target.value || undefined) as AiListQuery["plan"]); setPage(1); }}>
-              <option value="">كل الخطط</option><option value="free">free</option><option value="basic">basic</option><option value="premium">premium</option>
-            </select></label>}
-            <label>من تاريخ<input type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} /></label>
-            <label>إلى تاريخ<input type="date" value={dateTo} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} /></label>
+            <label>
+              بحث
+              <input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                maxLength={120}
+              />
+            </label>
+            <label>
+              المنصة
+              <select
+                value={platform}
+                onChange={(event) => {
+                  setPlatform(event.target.value as typeof platform);
+                  setPage(1);
+                }}
+              >
+                <option value="all">كل المنصات</option>
+                <option value="ios">iOS</option>
+                <option value="android">Android</option>
+                <option value="unknown">غير منسوب</option>
+              </select>
+            </label>
+            <label>
+              الحالة
+              <input
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setPage(1);
+                }}
+                maxLength={40}
+              />
+            </label>
+            <label>
+              الميزة
+              <select
+                value={feature ?? ""}
+                onChange={(event) => {
+                  setFeature(
+                    (event.target.value || undefined) as AiListQuery["feature"],
+                  );
+                  setPage(1);
+                }}
+              >
+                <option value="">كل الميزات</option>
+                {aiFeatures.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              المزود
+              <input
+                className="ltr"
+                value={providerId}
+                onChange={(event) => {
+                  setProviderId(event.target.value);
+                  setPage(1);
+                }}
+                maxLength={48}
+              />
+            </label>
+            <label>
+              النموذج
+              <input
+                className="ltr"
+                value={modelId}
+                onChange={(event) => {
+                  setModelId(event.target.value);
+                  setPage(1);
+                }}
+                maxLength={48}
+              />
+            </label>
+            {resource === "usage" && (
+              <label>
+                الخطة
+                <select
+                  value={plan ?? ""}
+                  onChange={(event) => {
+                    setPlan(
+                      (event.target.value || undefined) as AiListQuery["plan"],
+                    );
+                    setPage(1);
+                  }}
+                >
+                  <option value="">كل الخطط</option>
+                  <option value="free">free</option>
+                  <option value="basic">basic</option>
+                  <option value="premium">premium</option>
+                </select>
+              </label>
+            )}
+            <label>
+              من تاريخ
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(event) => {
+                  setDateFrom(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label>
+              إلى تاريخ
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(event) => {
+                  setDateTo(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
           </div>
-        )}
+        }
       />
-      {records.data.region.availability === "partial" && <p className="state-box state-warning" role="status">{records.data.region.message}</p>}
-      <ListPagination page={records.data.pagination.page} totalPages={records.data.pagination.totalPages} onPage={setPage} />
+      {records.data.region.availability === "partial" && (
+        <p className="state-box state-warning" role="status">
+          {records.data.region.message}
+        </p>
+      )}
+      <ListPagination
+        page={records.data.pagination.page}
+        totalPages={records.data.pagination.totalPages}
+        onPage={setPage}
+      />
       {resource !== "usage" && (
         <ConfigurationActions>
-          {records.data.items.map((record) => record.actions.map((action) => (
-            <AiActionButton
-              key={`${record.id}:${action}`}
-              resource={resource}
-              record={record}
-              action={action as AiOperationalActionRequest["action"]}
-            />
-          )))}
+          {records.data.items.map((record) =>
+            record.actions.map((action) => (
+              <AiActionButton
+                key={`${record.id}:${action}`}
+                resource={resource}
+                record={record}
+                action={action as AiOperationalActionRequest["action"]}
+              />
+            )),
+          )}
         </ConfigurationActions>
       )}
     </>
@@ -482,7 +1123,24 @@ export function AiOperationalListRoute({ resource }: { resource: AiOperationalRe
 
 export function AiPromptDetailRoute({ promptId }: { promptId: string }) {
   const prompt = useAiPrompt(promptId);
-  if (prompt.isPending) return <div className="page"><div className="state-box" role="status">جارٍ التحميل...</div></div>;
-  if (prompt.isError) return <div className="page"><div className="state-box error" role="alert">تعذر تحميل إصدار المطالبة.<button className="button" onClick={() => prompt.refetch()}>إعادة المحاولة</button></div></div>;
+  if (prompt.isPending)
+    return (
+      <div className="page">
+        <div className="state-box" role="status">
+          جارٍ التحميل...
+        </div>
+      </div>
+    );
+  if (prompt.isError)
+    return (
+      <div className="page">
+        <div className="state-box error" role="alert">
+          تعذر تحميل إصدار المطالبة.
+          <button className="button" onClick={() => prompt.refetch()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
   return <AiPromptDetailView prompt={prompt.data} />;
 }

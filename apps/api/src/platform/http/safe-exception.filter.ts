@@ -137,6 +137,13 @@ const domainErrors: Record<string, { status: number; message: string }> = {
   UNSAFE_IMPORT: { status: 400, message: 'Import content is unsafe' },
   IMPORT_LIMIT_EXCEEDED: { status: 413, message: 'Import payload exceeds its limit' },
   TRACKING_STORAGE_UNAVAILABLE: { status: 503, message: 'Import storage is unavailable' },
+  AI_CONSENT_REQUIRED: { status: 403, message: 'Assistant consent is required' },
+  AI_CONSENT_POLICY_STALE: { status: 409, message: 'Assistant consent policy changed' },
+  AI_ACTION_CONFLICT: { status: 409, message: 'AI action changed' },
+  AI_UNAVAILABLE: { status: 503, message: 'AI is unavailable' },
+  AI_TEMPORARILY_UNAVAILABLE: { status: 503, message: 'AI is temporarily unavailable' },
+  AI_QUOTA_EXCEEDED: { status: 429, message: 'AI request quota is exhausted' },
+  AI_BUDGET_EXHAUSTED: { status: 429, message: 'AI budget is exhausted' },
 };
 
 type FieldError = { field: string; code: string; message: string };
@@ -146,6 +153,9 @@ type SafeError = {
   requestId: string;
   fieldErrors?: FieldError[];
   currentVersion?: number;
+  limit?: number;
+  used?: number;
+  resetsAt?: string;
 };
 
 const safeField = /^[A-Za-z0-9_.-]{1,128}$/;
@@ -181,7 +191,7 @@ export function safeError(
   requestId?: string,
   fieldErrors: FieldError[] = [],
   domainCode?: string,
-  currentVersion?: unknown,
+  metadata?: unknown,
 ): SafeError {
   const domain = domainCode === undefined ? undefined : domainErrors[domainCode];
   const mapped =
@@ -192,16 +202,34 @@ export function safeError(
           message: 'Internal server error',
         });
   const bounded = fieldErrors.slice(0, 50).map(sanitizeFieldError);
+  const details =
+    metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+  const currentVersion = typeof metadata === 'number' ? metadata : details.currentVersion;
+  const quotaMetadata =
+    (domainCode === 'AI_QUOTA_EXCEEDED' || domainCode === 'AI_BUDGET_EXHAUSTED') &&
+    details.limit === 5 &&
+    typeof details.used === 'number' &&
+    Number.isSafeInteger(details.used) &&
+    details.used >= 5 &&
+    typeof details.resetsAt === 'string' &&
+    Number.isFinite(Date.parse(details.resetsAt))
+      ? { limit: 5, used: details.used, resetsAt: details.resetsAt }
+      : {};
   return {
     ...mapped,
     requestId: normalizeRequestId(requestId),
     ...(bounded.length > 0 ? { fieldErrors: bounded } : {}),
-    ...((domainCode === 'VERSION_CONFLICT' || domainCode === 'PLANNING_VERSION_CONFLICT') &&
+    ...((domainCode === 'VERSION_CONFLICT' ||
+      domainCode === 'PLANNING_VERSION_CONFLICT' ||
+      domainCode === 'AI_ACTION_CONFLICT' ||
+      domainCode === 'AI_ADMIN_CONFLICT' ||
+      domainCode === 'AI_CONVERSATION_CONFLICT') &&
     typeof currentVersion === 'number' &&
     Number.isSafeInteger(currentVersion) &&
     currentVersion >= 1
       ? { currentVersion }
       : {}),
+    ...quotaMetadata,
   };
 }
 
@@ -226,6 +254,6 @@ export class SafeExceptionFilter implements ExceptionFilter {
       recordPlatformMetric(LEDGER_METRICS.error, 1, { reason: domainCode });
     response
       .status(status)
-      .json(safeError(status, request.requestId, [], domainCode, domainResponse?.currentVersion));
+      .json(safeError(status, request.requestId, [], domainCode, domainResponse));
   }
 }

@@ -116,6 +116,12 @@ The policy is behind one server-owned function/service decision and reports
 `limit`, `used`, and `resetsAt`; SPEC-BE-012 can replace its lookup without client
 contract changes.
 
+**Phase 14 owner correction (2026-09-09):** The original contract did not expose
+that existing decision without reserving a request. BE009 therefore owns
+`GET /api/v1/assistant/availability`, backed by an owner-checked read function.
+It reports current consent/route availability and the shared rolling-quota
+snapshot without consuming quota or exposing private usage rows.
+
 ## Decision 8 — Budget uses committed provider cost accounting
 
 Route limits bound input/output tokens and per-token price before each call. The

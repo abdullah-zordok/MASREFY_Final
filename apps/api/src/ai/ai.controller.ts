@@ -146,10 +146,20 @@ export class AiController {
   }
 
   @Delete('assistant/consent')
-  @HttpCode(204)
+  @HttpCode(200)
   @ApiOperation({ operationId: 'revokeAssistantConsent' })
-  async revokeConsent(@Req() request: AiRequest, @Headers('idempotency-key') key?: string) {
-    await this.ai.revokeConsent(principal(request), key);
+  revokeConsent(
+    @Req() request: AiRequest,
+    @Query('expectedVersion') version: string,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.ai.revokeConsent(principal(request), version, key);
+  }
+
+  @Get('assistant/availability')
+  @ApiOperation({ operationId: 'getAssistantAvailability' })
+  getAssistantAvailability(@Req() request: AiRequest) {
+    return this.ai.getAssistantAvailability(principal(request));
   }
 
   @Get('assistant/conversations')
@@ -219,8 +229,14 @@ export class AiController {
     @Headers('idempotency-key') key?: string,
   ) {
     const accepted = await this.ai.createMessage(principal(request), id, body, key);
-    if (!body || typeof body !== 'object' || Reflect.get(body, 'responseMode') !== 'stream')
-      return accepted;
+    const { replayed, ...publicAccepted } = accepted;
+    if (
+      replayed ||
+      !body ||
+      typeof body !== 'object' ||
+      Reflect.get(body, 'responseMode') !== 'stream'
+    )
+      return publicAccepted;
     response.set({
       'content-type': 'text/event-stream',
       'cache-control': 'no-store',
@@ -234,7 +250,7 @@ export class AiController {
     });
     for await (const item of this.ai.streamMessage(
       principal(request),
-      String(accepted.id),
+      String(publicAccepted.id),
       controller.signal,
     ))
       response.write(`event: ${item.event}\ndata: ${JSON.stringify(item.data)}\n\n`);

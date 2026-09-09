@@ -7,6 +7,8 @@ import type { UserProfile } from '@/domain/settings';
 import { createAuthService } from '@/features/auth/auth-flow';
 import { requestJson } from './http-client';
 import { createLiveAutomaticTrackingService } from './automatic-tracking-service';
+import { createLiveAssistantApiService } from './assistant-api-service';
+import { createLiveVoiceApiService } from './voice-api-service';
 import {
   createLiveAuthService,
   createLiveIdentityService,
@@ -125,6 +127,54 @@ describe('live Clerk authentication', () => {
           Authorization: 'Bearer clerk-token'
         })
       })
+    );
+
+    const assistantRequest = jest.fn<
+      ReturnType<typeof fetch>,
+      Parameters<typeof fetch>
+    >(
+      async () =>
+        new Response(
+          JSON.stringify({
+            status: 'available',
+            limit: 5,
+            used: 0,
+            remaining: 5,
+            resetsAt: '2026-09-03T08:00:00.000Z'
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    await createLiveAssistantApiService({
+      baseUrl: 'https://api.example.test',
+      request: assistantRequest
+    }).getAvailability();
+    expect(assistantRequest.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({ Authorization: 'Bearer clerk-token' })
+    );
+
+    const voiceRequest = jest.fn<
+      ReturnType<typeof fetch>,
+      Parameters<typeof fetch>
+    >(async (input) =>
+      String(input) === 'private://audio'
+        ? new Response(new Uint8Array([1]), {
+            status: 200,
+            headers: { 'content-type': 'audio/wav' }
+          })
+        : new Response(JSON.stringify({ code: 'AI_UNAVAILABLE' }), {
+            status: 503,
+            headers: { 'content-type': 'application/json' }
+          })
+    );
+    await expect(
+      createLiveVoiceApiService({
+        baseUrl: 'https://api.example.test',
+        request: voiceRequest
+      }).transcribe('private://audio', 'clear_en', 1000)
+    ).rejects.toMatchObject({ code: 'analysis_unavailable' });
+    expect(voiceRequest.mock.calls[1]?.[1]?.headers).toEqual(
+      expect.objectContaining({ Authorization: 'Bearer clerk-token' })
     );
   });
 

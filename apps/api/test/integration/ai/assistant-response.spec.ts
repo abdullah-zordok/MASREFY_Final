@@ -28,16 +28,34 @@ describeLiveDatabase('assistant consent and response lifecycle', () => {
     );
   });
   afterAll(async () => {
+    await pool.query(
+      "update private.ai_feature_routes set enabled=false where workload='financial_assistant'",
+    );
+    await pool.query(
+      "update private.ai_prompt_versions set status='draft',evaluation_passed=false,approved_by=null,published_at=null where id='99030000-0000-4000-8000-000000000003'",
+    );
     await pool.onModuleDestroy();
   });
 
   it('enforces consent, persists minimized evidence, and cancels queued work on revocation', async () => {
-    await repository.setConsent(
+    await expect(repository.getConsent(principal, 'assistant-privacy-v1')).resolves.toMatchObject({
+      granted: false,
+      version: 1,
+    });
+    await expect(
+      pool.query(
+        "insert into public.assistant_consents(user_id,policy_version) values($1,'assistant-privacy-v0')",
+        [userId],
+      ),
+    ).rejects.toThrow();
+    const consent = await repository.setConsent(
       principal,
       'assistant-privacy-v1',
       true,
+      1,
       'assistant-consent-key-0001',
     );
+    expect(Reflect.get(consent, 'resource')).toMatchObject({ granted: true, version: 2 });
     const created = await repository.createConversation(
       principal,
       'Budget help',
@@ -81,12 +99,23 @@ describeLiveDatabase('assistant consent and response lifecycle', () => {
       { content: 'Try again', contextScope: ['budgets'], responseMode: 'stream' },
       'assistant-message-key-0002',
     );
-    await repository.setConsent(
+    const revoked = await repository.setConsent(
       principal,
       'assistant-privacy-v1',
       false,
+      2,
       'assistant-consent-key-0002',
     );
+    expect(Reflect.get(revoked, 'resource')).toMatchObject({ granted: false, version: 3 });
+    await expect(
+      repository.setConsent(
+        principal,
+        'assistant-privacy-v1',
+        true,
+        2,
+        'assistant-consent-key-stale',
+      ),
+    ).rejects.toMatchObject({ status: 409 });
     expect(
       (
         await repository.listMessages(

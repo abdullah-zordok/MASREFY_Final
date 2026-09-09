@@ -2,6 +2,15 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Wave 6 local verification is recorded in [voice/AI evidence](wave-06-voice-ai.md). It does not establish approved OpenRouter production behavior, hosted Clerk/Supabase owner isolation, physical-device microphone behavior, or deployed cohort/rollback observation.
+
+| Wave 6 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Approved OpenRouter and privacy/ZDR behavior | open | Deterministic gateway allowlist, schema, quota, privacy, circuit/outage, performance, stress and recovery tests | Run the approved redacted evaluation corpus through the designated provider account; attach privacy/ZDR approval, model/route identity and redacted request IDs without retaining financial prompts | AI/privacy owner |
+| Hosted Clerk/Supabase voice and assistant ownership | open | Clerk-token selection, local owner-scoped BE009 integration/security, authoritative availability and cold-retrieval tests | On designated staging, use two real Clerk owners to exercise consent, quota, conversation, voice proposal and confirmation flows; prove cross-owner denial and retain redacted request IDs | Platform and identity owners |
+| Physical Android/iOS voice behavior | open | Native recorder contract plus strict duration/session/proposal mapping and explicit unsupported-state coverage | Install the accepted signed build on supported devices; exercise permission denial/recovery, capture/cancel/restart/background behavior, edited transcript and safe confirmation with no unconfirmed mutation | Mobile QA/release owner |
+| Deployed Wave 6 shadow, cohort and rollback | open | Deterministic provider stubs, shared rolling-24-hour quota, outage isolation, structural/financial shadow and accepted rollback tests | Run shadow/internal/bounded cohorts against staging, observe the approved interval, exercise rollback to the accepted Wave 5 version, and reconcile conversations, quota, proposals and confirmed financial effects | Release/operations owner |
+
 Wave 5 local verification is recorded in [tracking/imports evidence](wave-05-tracking-imports.md). It does not establish hosted owner isolation, physical-device capture/background behavior, a deployed sanitized parser corpus, or deployed cohort/rollback observation.
 
 | Wave 5 follow-up | Status | Local supporting proof | Required external action | Owner |

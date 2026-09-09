@@ -23,11 +23,13 @@ mock or fabricates a proposal.
 
 | Existing client operation               | Phase 09 mapping                                                              |
 | --------------------------------------- | ----------------------------------------------------------------------------- |
-| get/grant/revoke consent                | consent routes and current policy version                                     |
+| get/grant/revoke consent                | current policy plus required expected version; stale/retired policy writes fail |
+| get availability                        | owner-checked availability route; shared quota snapshot is read without reservation |
 | list/create/archive/delete conversation | conversation CRUD/list routes                                                 |
 | list/send messages                      | message list and keyed message endpoint; SSE where selected                   |
 | show evidence                           | response snapshot aliases only; protected app views refetch owned domain data |
 | confirm/reject preview                  | keyed preview decision routes with expected version                           |
+| read/edit preview                       | read from the owning assistant message; editing is unavailable because BE009 exposes no mutable preview contract |
 | rate response                           | feedback route                                                                |
 | report response                         | report route                                                                  |
 

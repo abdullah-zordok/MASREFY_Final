@@ -183,10 +183,11 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [policyVersion, accepted]
+              required: [policyVersion, accepted, expectedVersion]
               properties:
                 policyVersion: { type: string, minLength: 1, maxLength: 64 }
                 accepted: { const: true }
+                expectedVersion: { type: integer, minimum: 1 }
       responses:
         '200':
           description: Consent granted
@@ -198,9 +199,25 @@ paths:
       tags: [Assistant]
       operationId: revokeAssistantConsent
       parameters:
+        - $ref: '#/components/parameters/ExpectedVersion'
         - $ref: '#/components/parameters/AiIdempotencyKey'
       responses:
-        '204': { description: Consent revoked }
+        '200':
+          description: Consent revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantConsent' }
+        '409': { $ref: '#/components/responses/AiConflict' }
+  /api/v1/assistant/availability:
+    get:
+      tags: [Assistant]
+      operationId: getAssistantAvailability
+      responses:
+        '200':
+          description: Authoritative consent, route, and shared rolling-quota availability
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantAvailability' }
   /api/v1/assistant/conversations:
     get:
       tags: [Assistant]
@@ -794,21 +811,22 @@ components:
     Error:
       type: object
       additionalProperties: false
-      required: [statusCode, code, message, requestId]
+      required: [code, message, requestId]
       properties:
-        statusCode: { type: integer }
         code: { type: string, maxLength: 64 }
         message: { type: string, maxLength: 256 }
         requestId: { type: string, maxLength: 128 }
     QuotaError:
-      allOf:
-        - $ref: '#/components/schemas/Error'
-        - type: object
-          required: [limit, used, resetsAt]
-          properties:
-            limit: { const: 5 }
-            used: { type: integer, minimum: 5 }
-            resetsAt: { type: string, format: date-time }
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId, limit, used, resetsAt]
+      properties:
+        code: { enum: [AI_QUOTA_EXCEEDED, AI_BUDGET_EXHAUSTED] }
+        message: { type: string, maxLength: 256 }
+        requestId: { type: string, maxLength: 128 }
+        limit: { const: 5 }
+        used: { type: integer, minimum: 5 }
+        resetsAt: { type: string, format: date-time }
     CreateVoiceSessionRequest:
       type: object
       additionalProperties: false
@@ -971,22 +989,36 @@ components:
         categoryId: { type: string, format: uuid }
         confidence: { type: number, minimum: 0, maximum: 1 }
     VoiceCategoryPreference:
-      allOf:
-        - $ref: '#/components/schemas/VoiceCategoryPreferenceInput'
-        - type: object
-          required: [id, version]
-          properties:
-            id: { type: string, format: uuid }
-            version: { type: integer, minimum: 1 }
+      type: object
+      additionalProperties: false
+      required: [id, merchantPattern, categoryId, confidence, version]
+      properties:
+        id: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        merchantPattern: { type: string, minLength: 1, maxLength: 160 }
+        categoryId: { type: string, format: uuid }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        version: { type: integer, minimum: 1 }
     AssistantConsent:
       type: object
       additionalProperties: false
-      required: [policyVersion, granted, grantedAt, revokedAt]
+      required: [policyVersion, granted, grantedAt, revokedAt, version]
       properties:
         policyVersion: { type: string, maxLength: 64 }
         granted: { type: boolean }
         grantedAt: { type: [string, 'null'], format: date-time }
         revokedAt: { type: [string, 'null'], format: date-time }
+        version: { type: integer, minimum: 1 }
+    AssistantAvailability:
+      type: object
+      additionalProperties: false
+      required: [status, limit, used, remaining, resetsAt]
+      properties:
+        status: { enum: [available, disabled, limit_reached] }
+        limit: { type: integer, minimum: 0 }
+        used: { type: integer, minimum: 0 }
+        remaining: { type: integer, minimum: 0 }
+        resetsAt: { type: string, format: date-time }
     AssistantConversation:
       type: object
       additionalProperties: false
@@ -1013,12 +1045,15 @@ components:
     AssistantMessage:
       type: object
       additionalProperties: false
-      required: [id, conversationId, role, content, snapshot, preview, createdAt]
+      required: [id, conversationId, replyToMessageId, role, content, status, failureCode, snapshot, preview, createdAt]
       properties:
         id: { type: string, format: uuid }
         conversationId: { type: string, format: uuid }
+        replyToMessageId: { type: [string, 'null'], format: uuid }
         role: { enum: [user, assistant] }
         content: { type: string, maxLength: 16384 }
+        status: { type: [string, 'null'], maxLength: 32 }
+        failureCode: { type: [string, 'null'], maxLength: 64 }
         snapshot: { anyOf: [{ $ref: '#/components/schemas/ResponseSnapshot' }, { type: 'null' }] }
         preview: { anyOf: [{ $ref: '#/components/schemas/ActionPreview' }, { type: 'null' }] }
         createdAt: { type: string, format: date-time }
@@ -1033,8 +1068,9 @@ components:
     ResponseSnapshot:
       type: object
       additionalProperties: false
-      required: [schemaVersion, evidenceRefs, model, provider]
+      required: [id, schemaVersion, evidenceRefs, model, provider, createdAt]
       properties:
+        id: { type: string, format: uuid }
         schemaVersion: { const: 1 }
         evidenceRefs:
           type: array
@@ -1049,12 +1085,14 @@ components:
               version: { type: integer, minimum: 0 }
         model: { type: string, maxLength: 160 }
         provider: { type: string, maxLength: 64 }
+        createdAt: { type: string, format: date-time }
     ActionPreview:
       type: object
       additionalProperties: false
-      required: [id, schemaVersion, actionType, payload, evidenceIds, status, expiresAt, version]
+      required: [id, messageId, schemaVersion, actionType, payload, status, expiresAt, confirmedAt, executedResourceId, confirmationOperationId, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
         schemaVersion: { const: 1 }
         actionType:
           {
@@ -1069,10 +1107,13 @@ components:
               ],
           }
         payload: { type: object, maxProperties: 16 }
-        evidenceIds:
-          { type: array, maxItems: 32, uniqueItems: true, items: { type: string, maxLength: 64 } }
         status: { enum: [draft, validated, confirmed, executed, rejected, expired] }
-        expiresAt: { type: string, format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        confirmedAt: { type: [string, 'null'], format: date-time }
+        executedResourceId: { type: [string, 'null'], format: uuid }
+        confirmationOperationId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 1 }
     CreateAssistantMessageRequest:
       type: object
@@ -1132,34 +1173,38 @@ components:
         expectedVersion: { type: integer, minimum: 1 }
         reason: { type: string, minLength: 10, maxLength: 500 }
     AdminVersionedMutation:
-      allOf:
-        - $ref: '#/components/schemas/AdminVersionedReason'
-        - type: object
-          properties:
-            approved: { type: boolean }
-            enabled: { type: boolean }
-            trainingPolicy: { enum: [unknown, no_training, may_train] }
-            zdrCapable: { type: boolean }
-            costPolicy: { type: object, maxProperties: 8 }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+        approved: { type: boolean }
+        enabled: { type: boolean }
+        trainingPolicy: { enum: [unknown, no_training, may_train] }
+        zdrCapable: { type: boolean }
+        costPolicy: { type: object, maxProperties: 8 }
     AdminRouteMutation:
-      allOf:
-        - $ref: '#/components/schemas/AdminVersionedReason'
-        - type: object
-          properties:
-            primaryModelId: { type: string, format: uuid }
-            fallbackModelIds:
-              { type: array, maxItems: 4, uniqueItems: true, items: { type: string, format: uuid } }
-            providerAllowlist:
-              {
-                type: array,
-                minItems: 1,
-                maxItems: 8,
-                uniqueItems: true,
-                items: { type: string, maxLength: 64 },
-              }
-            enabled: { type: boolean }
-            maxPrice: { type: object, maxProperties: 4 }
-            limits: { type: object, maxProperties: 8 }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+        primaryModelId: { type: string, format: uuid }
+        fallbackModelIds:
+          { type: array, maxItems: 4, uniqueItems: true, items: { type: string, format: uuid } }
+        providerAllowlist:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 8,
+            uniqueItems: true,
+            items: { type: string, maxLength: 64 },
+          }
+        enabled: { type: boolean }
+        maxPrice: { type: object, maxProperties: 4 }
+        limits: { type: object, maxProperties: 8 }
     AdminPromptCreate:
       type: object
       additionalProperties: false
@@ -1170,23 +1215,26 @@ components:
         schemaVersion: { type: integer, minimum: 1 }
         reason: { type: string, minLength: 10, maxLength: 500 }
     AdminReportMutation:
-      allOf:
-        - $ref: '#/components/schemas/AdminVersionedReason'
-        - type: object
-          required: [status]
-          properties: { status: { enum: [reviewed, actioned, dismissed] } }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason, status]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+        status: { enum: [reviewed, actioned, dismissed] }
     AdminSafetyRuleMutation:
-      allOf:
-        - $ref: '#/components/schemas/AdminVersionedReason'
-        - type: object
-          required: [key, workload, ruleType, configuration, enabled]
-          properties:
-            key: { type: string, pattern: '^[a-z0-9_.-]{1,64}$' }
-            workload: { type: string, maxLength: 64 }
-            ruleType:
-              { enum: [input_block, output_block, field_limit, action_allowlist, evidence_limit] }
-            configuration: { type: object, maxProperties: 16 }
-            enabled: { type: boolean }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason, key, workload, ruleType, configuration, enabled]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+        key: { type: string, pattern: '^[a-z0-9_.-]{1,64}$' }
+        workload: { type: string, maxLength: 64 }
+        ruleType:
+          { enum: [input_block, output_block, field_limit, action_allowlist, evidence_limit] }
+        configuration: { type: object, maxProperties: 16 }
+        enabled: { type: boolean }
     AdminResource:
       type: object
       additionalProperties: false

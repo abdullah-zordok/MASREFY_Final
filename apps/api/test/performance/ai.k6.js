@@ -128,7 +128,8 @@ export function cancel() {
   const rows = measured(cancelDuration, () =>
     db.query(
       `with context as materialized (select set_config('request.jwt.claims',$1,true)),
-    consent as materialized (select private.set_assistant_consent($2,'assistant-privacy-v1',true) from context),
+    consent_state as materialized (select private.get_assistant_consent($2,'assistant-privacy-v1') result from context),
+    consent as materialized (select private.set_assistant_consent($2,'assistant-privacy-v1',true,(result->>'version')::bigint) from consent_state),
     conversation as materialized (select private.create_assistant_conversation($2,'Performance') result from consent),
     message as materialized (select private.enqueue_assistant_message($2,(result->>'id')::uuid,'cancel fixture',array['budgets'],'async',md5($3||':operation')::uuid) result from conversation)
     select private.cancel_assistant_message($2,(result->>'id')::uuid) result from message`,

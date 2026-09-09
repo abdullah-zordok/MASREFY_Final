@@ -38,7 +38,11 @@ export interface VoiceRecorderService {
 }
 
 export interface VoiceAnalyzerService {
-  transcribe(audioReference: string, scenario: VoiceScenario): Promise<VoiceTranscript>;
+  transcribe(
+    audioReference: string,
+    scenario: VoiceScenario,
+    durationMs?: number
+  ): Promise<VoiceTranscript>;
   analyze(input: {
     transcript: VoiceTranscript;
     scenario: VoiceScenario;

@@ -17,17 +17,20 @@ describe('Phase 09 assistant contract', () => {
   });
   afterAll(() => app.close());
 
-  it('keeps 47 unique documented operations and registers consent, message, and preview routes', () => {
+  it('keeps 48 unique documented operations and registers availability, message, and preview routes', () => {
     const operations = Object.values(contract.paths).flatMap((path) =>
       Object.entries(path)
         .filter(([method]) => ['get', 'post', 'put', 'patch', 'delete'].includes(method))
         .map(([, value]) => value.operationId),
     );
-    expect(operations).toHaveLength(47);
-    expect(new Set(operations).size).toBe(47);
+    expect(operations).toHaveLength(48);
+    expect(new Set(operations).size).toBe(48);
     const runtime = generateOpenApi(app);
     expect(runtime.paths['/api/v1/assistant/consent']?.put?.operationId).toBe(
       'grantAssistantConsent',
+    );
+    expect(runtime.paths['/api/v1/assistant/availability']?.get?.operationId).toBe(
+      'getAssistantAvailability',
     );
     expect(
       runtime.paths['/api/v1/assistant/conversations/{conversationId}/messages']?.post?.operationId,

@@ -191,6 +191,7 @@ describeLiveDatabase('migration application', () => {
       'generate_salary_receipts',
       'get_admin_self_context',
       'get_ai_work_input',
+      'get_assistant_availability',
       'get_assistant_consent',
       'get_assistant_message_result',
       'get_category_usage',
