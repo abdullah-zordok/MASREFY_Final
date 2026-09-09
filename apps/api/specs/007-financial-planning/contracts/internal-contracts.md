@@ -172,6 +172,18 @@ Lists use opaque signed/validated keyset cursors over `(sort_time,id)`, default
 another owner. Period is `YYYY-MM` for aggregate or explicit validated dates for
 bounded endpoints. No arbitrary SQL sort/filter field is accepted.
 
+The planning summary includes only active obligations. Salary reserves include
+only unpaid `due`, `partial`, or `overdue` schedule amounts from active payable
+obligations in the requested period; receivables and terminal roots never reduce
+available salary. `nextExpectedAt` selects an `expected` receipt, never a linked
+received/corrected history row. Each summary child query probes one row beyond
+the 100-item response bound; if any child collection is truncated, the response
+is explicitly `dataState=partial` rather than overstating completeness.
+Budget summary rows include their active category allocations, bounded to 100
+per budget; an over-bound category set also makes the summary partial. This lets
+clients render budget lists with a fixed request count instead of per-budget
+detail fan-out.
+
 Responses include `version`, `createdAt`, `updatedAt`, and relevant
 `ledgerVersion`. Derived unavailable values use:
 

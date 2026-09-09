@@ -13,7 +13,7 @@ import { File } from 'expo-file-system';
 import { resolveClientMode } from '@/config/client-runtime';
 
 const DATABASE_NAME = 'masarifi.db';
-const CURRENT_SCHEMA_VERSION = 11;
+const CURRENT_SCHEMA_VERSION = 12;
 const LEGACY_OWNER_KEY = 'masarifi.database.legacyOwnerHash';
 const DATABASE_KEY_PREFIX = 'masarifi.database.key.';
 const LEGACY_MIGRATION_TABLE = '_masarifi_migration_state';
@@ -884,6 +884,20 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
         abs(amount) > 9007199254740991
         OR abs(amount - round(amount)) >= 0.000001
       );
+
+    -- migration:12
+    CREATE TABLE IF NOT EXISTS planning_payment_matches (
+      id TEXT PRIMARY KEY,
+      payload TEXT NOT NULL,
+      transaction_id TEXT,
+      status TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(transaction_id) REFERENCES finance_transactions(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_planning_payment_matches_status
+      ON planning_payment_matches(status, updated_at DESC, id DESC);
+
   `);
 
     const applied = await transaction.getAllAsync<{ version: number }>(

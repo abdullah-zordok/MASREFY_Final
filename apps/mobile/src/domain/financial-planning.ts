@@ -26,7 +26,8 @@ export type Calculation<T> =
   | { status: 'available'; value: T; estimated: boolean; asOf: number | null }
   | { status: 'unavailable'; reason: CalculationReason };
 export type PlanningLifecycle = 'active' | 'paused' | 'archived';
-export type BudgetLifecycle = 'draft' | 'active' | 'paused' | 'closed' | 'deleted';
+export type BudgetLifecycle =
+  'draft' | 'active' | 'paused' | 'closed' | 'deleted';
 export type ObligationLifecycle =
   'active' | 'paused' | 'completed' | 'closed' | 'archived';
 export type SavingsLifecycle = 'active' | 'paused' | 'completed' | 'archived';
@@ -222,7 +223,12 @@ export interface SavingsGoal extends RecordMetadata {
   status: SavingsLifecycle;
 }
 
-export interface GoalMovement extends RecordMetadata {
+export interface GoalMovement extends Omit<
+  RecordMetadata,
+  'version' | 'updatedAt'
+> {
+  version: number | null;
+  updatedAt: number | null;
   goalId: string;
   kind: 'contribution' | 'withdrawal' | 'reversal' | 'correction';
   amountMinor: number;

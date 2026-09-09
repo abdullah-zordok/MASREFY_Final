@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-query';
 
 import type { LocalDate, SavingsLifecycle } from '@/domain/financial-planning';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 
 export const financialPlanningKeys = {
   overview: (currencyCode: string, today: LocalDate, timeZone: string) =>

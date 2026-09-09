@@ -78,6 +78,7 @@ interface BudgetRow extends QueryResultRow {
 }
 interface BudgetCategoryRow extends QueryResultRow {
   id: string;
+  budget_id: string;
   category_id: string;
   limit_minor: string;
   rollover_minor: string;
@@ -213,6 +214,9 @@ interface PlanningBudgetSummaryRow extends QueryResultRow {
   remaining_minor: string;
   ledger_version: string;
   data_state: string;
+}
+interface PlanningBudgetCategorySummaryRow extends BudgetCategoryRow {
+  row_number: string;
 }
 interface PlanningObligationSummaryRow extends ObligationStatusRow {
   id: string;
@@ -852,9 +856,11 @@ export class PlanningRepository {
           coalesce(sum(case when t.kind='expense' then t.amount_minor when t.kind='refund' then -t.amount_minor else 0 end),0)::bigint actual_expense_minor,
           coalesce((select sum(greatest(i.amount_minor-i.paid_minor,0)) from public.obligation_schedule_items i
             join public.obligations o on o.id=i.obligation_id where i.user_id=p.user_id
-            and o.currency_code=p.currency_code and i.due_at>=$2::date and i.due_at<($3::date+1)),0)::bigint reserved_obligation_minor,
+            and o.currency_code=p.currency_code and o.direction='payable' and o.status='active'
+            and i.status in ('due','partial','overdue')
+            and i.due_at>=$2::date and i.due_at<($3::date+1)),0)::bigint reserved_obligation_minor,
           (select min(r.expected_at) from public.salary_receipts r where r.salary_profile_id=p.id
-            and r.status in ('expected','received','corrected') and r.expected_at>=$2::date) next_expected_at
+            and r.status='expected' and r.expected_at>=$2::date) next_expected_at
          from public.salary_profiles p left join public.transactions t on t.user_id=p.user_id
           and t.currency_code=p.currency_code and t.status='confirmed'
           and t.kind in ('income','expense','refund') and t.occurred_at>=$2::date and t.occurred_at<($3::date+1)
@@ -870,16 +876,29 @@ export class PlanningRepository {
           case when bool_or(u.data_state='partial') then 'partial' else 'complete' end data_state
          from public.budgets b left join public.v_budget_utilization u on u.budget_id=b.id
          where b.user_id=$1 and b.status<>'deleted' and b.period_end>=$2::date and b.period_start<=$3::date
-         group by b.id order by b.period_start desc,b.id limit 100`,
+         group by b.id order by b.period_start desc,b.id limit 101`,
           [principal.userId, period.start, period.end],
         )
       ).rows;
+      const budgetCategories = budgets.length
+        ? (
+            await client.query<PlanningBudgetCategorySummaryRow>(
+              `select * from (
+               select c.*,row_number() over(partition by c.budget_id order by c.category_id,c.id) row_number
+               from public.budget_categories c
+               where c.user_id=$1 and c.status<>'deleted' and c.budget_id=any($2::uuid[])
+             ) ranked where row_number<=101 order by budget_id,category_id,id`,
+              [principal.userId, budgets.slice(0, 100).map(({ id }) => id)],
+            )
+          ).rows
+        : [];
       const obligations = (
         await client.query<PlanningObligationSummaryRow>(
           `select o.id,o.name,s.direction,s.currency_code,s.scheduled_minor,s.allocated_minor,s.paid_minor,
           s.remaining_minor,s.overdue_minor,s.next_due_at,s.completed_installment_count,s.status,s.ledger_version
          from public.obligations o join public.v_obligation_status s on s.obligation_id=o.id
-         where o.user_id=$1 order by s.next_due_at nulls last,o.id limit 100`,
+         where o.user_id=$1 and o.status='active'
+         order by s.next_due_at nulls last,o.id limit 101`,
           [principal.userId],
         )
       ).rows;
@@ -887,7 +906,7 @@ export class PlanningRepository {
         await client.query<SavingsGoalRow>(
           `select g.*,(g.opening_tracked_minor+coalesce(sum(m.amount_minor),0))::bigint progress_minor
          from public.savings_goals g left join public.savings_goal_movements m on m.goal_id=g.id
-         where g.user_id=$1 and g.status<>'deleted' group by g.id order by g.target_date nulls last,g.id limit 100`,
+         where g.user_id=$1 and g.status<>'deleted' group by g.id order by g.target_date nulls last,g.id limit 101`,
           [principal.userId],
         )
       ).rows;
@@ -900,7 +919,12 @@ export class PlanningRepository {
           )
         ).rows[0]?.version ?? 0,
       );
-      const partial = budgets.some((budget) => budget.data_state === 'partial');
+      const partial =
+        budgets.some((budget) => budget.data_state === 'partial') ||
+        budgets.length > 100 ||
+        budgetCategories.some(({ row_number: rowNumber }) => Number(rowNumber) > 100) ||
+        obligations.length > 100 ||
+        savings.length > 100;
       const empty =
         !salary && budgets.length === 0 && obligations.length === 0 && savings.length === 0;
       const obligation = (row: PlanningObligationSummaryRow) => ({
@@ -924,7 +948,7 @@ export class PlanningRepository {
               nextExpectedAt: salary.next_expected_at?.toISOString() ?? null,
             }
           : null,
-        budgets: budgets.map((budget) => ({
+        budgets: budgets.slice(0, 100).map((budget) => ({
           id: budget.id,
           name: budget.name,
           currencyCode: budget.currency_code.trim(),
@@ -933,12 +957,26 @@ export class PlanningRepository {
           remainingMinor: budget.remaining_minor,
           ledgerVersion: Number(budget.ledger_version),
           dataState: budget.data_state,
+          categories: budgetCategories
+            .filter(
+              (category) => category.budget_id === budget.id && Number(category.row_number) <= 100,
+            )
+            .map((category) => ({
+              budgetId: budget.id,
+              ...this.budgetCategory(category),
+            })),
         })),
         obligations: {
-          payables: obligations.filter((row) => row.direction === 'payable').map(obligation),
-          receivables: obligations.filter((row) => row.direction === 'receivable').map(obligation),
+          payables: obligations
+            .slice(0, 100)
+            .filter((row) => row.direction === 'payable')
+            .map(obligation),
+          receivables: obligations
+            .slice(0, 100)
+            .filter((row) => row.direction === 'receivable')
+            .map(obligation),
         },
-        savings: savings.map((goal) => this.savingsGoal(goal)),
+        savings: savings.slice(0, 100).map((goal) => this.savingsGoal(goal)),
         requestId,
       };
     });

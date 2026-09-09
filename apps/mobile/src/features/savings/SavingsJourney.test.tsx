@@ -26,20 +26,49 @@ it('creates, pauses, and records progress for savings goals', async () => {
   expect(await overview.findByLabelText(/Active goals/)).toBeTruthy();
   overview.unmount();
 
-  const detail = renderWithProviders(<SavingsGoalDetailScreen goalId="goal-emergency" />);
+  const detail = renderWithProviders(
+    <SavingsGoalDetailScreen goalId="goal-emergency" />
+  );
   expect(await detail.findByText('Emergency fund')).toBeTruthy();
   expect(await detail.findByLabelText(/Emergency fund/)).toBeTruthy();
   fireEvent.press(detail.getByText('Pause goal'));
   expect(await detail.findByText('Paused')).toBeTruthy();
   detail.unmount();
 
-  const movement = renderWithProviders(<SavingsMovementForm goalId="goal-emergency" />);
-  fireEvent.changeText(await movement.findByLabelText('Movement amount'), '100');
+  const movement = renderWithProviders(
+    <SavingsMovementForm goalId="goal-emergency" />
+  );
+  fireEvent.changeText(
+    await movement.findByLabelText('Movement amount'),
+    '100'
+  );
   fireEvent.press(movement.getByText('Review movement'));
   expect(await movement.findByText('100.00 SAR')).toBeTruthy();
   fireEvent.press(movement.getByText('Confirm movement'));
   expect(await movement.findByText('Saved')).toBeTruthy();
   movement.unmount();
+});
+
+it('does not offer unsupported live savings movements', async () => {
+  changeLocale('en');
+  Object.assign(financialPlanningService.metadata, { kind: 'live' });
+  try {
+    const detail = renderWithProviders(
+      <SavingsGoalDetailScreen goalId="goal-emergency" />
+    );
+    expect(await detail.findByText('Unavailable')).toBeTruthy();
+    expect(detail.queryByText('Add movement')).toBeNull();
+    detail.unmount();
+
+    const movement = renderWithProviders(
+      <SavingsMovementForm goalId="goal-emergency" />
+    );
+    expect(await movement.findByRole('alert')).toHaveTextContent('Unavailable');
+    expect(movement.queryByText('Review movement')).toBeNull();
+    movement.unmount();
+  } finally {
+    Object.assign(financialPlanningService.metadata, { kind: 'mock' });
+  }
 });
 
 it.each([
@@ -55,8 +84,14 @@ it.each([
     const createForm = renderWithProviders(<SavingsGoalForm />);
 
     fireEvent.changeText(await createForm.findByLabelText('Goal name'), title);
-    fireEvent.changeText(createForm.getByLabelText('Target amount'), majorAmount);
-    fireEvent.changeText(createForm.getByLabelText('Already saved'), majorAmount);
+    fireEvent.changeText(
+      createForm.getByLabelText('Target amount'),
+      majorAmount
+    );
+    fireEvent.changeText(
+      createForm.getByLabelText('Already saved'),
+      majorAmount
+    );
     fireEvent.press(createForm.getByText('Save'));
     expect(await createForm.findByText('Saved')).toBeTruthy();
     createForm.unmount();
@@ -70,7 +105,9 @@ it.each([
       openingTrackedMinor: 12_345
     });
 
-    const editForm = renderWithProviders(<SavingsGoalForm goalId={created?.id} />);
+    const editForm = renderWithProviders(
+      <SavingsGoalForm goalId={created?.id} />
+    );
     await waitFor(() =>
       expect(editForm.getAllByDisplayValue(majorAmount)).toHaveLength(2)
     );

@@ -34,7 +34,7 @@ import {
   translate,
   translateDynamic
 } from '@/localization/i18n';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { usePreferenceStore } from '@/state/preferences';
 import {
   useBudgetById,

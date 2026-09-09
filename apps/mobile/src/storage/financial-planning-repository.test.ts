@@ -5,10 +5,13 @@ import {
   fixtureBudget,
   fixtureGoal,
   fixtureMovement,
+  fixturePayment,
+  fixturePaymentMatch,
   fixturePlanningConflict,
   fixtureSalaryProfile,
   fixtureSalaryReceipt
 } from '@/test-utils/financial-planning-fixtures';
+import * as databaseModule from './database';
 
 it('stores salary, budget, obligation, payment, goal, draft, and conflict records', () => {
   const repository = new FinancialPlanningRepository(financialPlanningSeed);
@@ -42,7 +45,11 @@ it('rejects stale budget edits and treats an empty period as scoped', () => {
 
   expect(() =>
     repository.saveBudget(
-      { ...budgetInput('Changed'), id: saved.id, expectedVersion: saved.version - 1 },
+      {
+        ...budgetInput('Changed'),
+        id: saved.id,
+        expectedVersion: saved.version - 1
+      },
       'stale-budget-edit'
     )
   ).toThrow(FinancialPlanningError);
@@ -167,9 +174,9 @@ it('preserves planning conflict candidates and rejects unsupported keep_both', (
     resolution: null
   });
 
-  expect(repository.resolveConflict(fixturePlanningConflict.id, 'keep_later')).toEqual(
-    fixturePlanningConflict.laterSnapshot
-  );
+  expect(
+    repository.resolveConflict(fixturePlanningConflict.id, 'keep_later')
+  ).toEqual(fixturePlanningConflict.laterSnapshot);
   expect(repository.requireConflict(fixturePlanningConflict.id)).toMatchObject({
     localSnapshot: fixturePlanningConflict.localSnapshot,
     laterSnapshot: fixturePlanningConflict.laterSnapshot,
@@ -177,6 +184,114 @@ it('preserves planning conflict candidates and rejects unsupported keep_both', (
     resolution: 'keep_later'
   });
 });
+
+it('hydrates a draft-only planning store without deleting it', async () => {
+  const draft = {
+    id: 'draft-only-planning',
+    kind: 'budget' as const,
+    entityId: null,
+    payload: { periodKey: '2026-09' },
+    status: 'editing' as const,
+    updatedAt: 1
+  };
+  const database = planningDatabase((sql) =>
+    sql.includes('planning_drafts') ? [{ payload: JSON.stringify(draft) }] : []
+  );
+  const open = jest
+    .spyOn(databaseModule, 'openDatabase')
+    .mockResolvedValue(database as never);
+  try {
+    const repository = new FinancialPlanningRepository();
+    await repository.hydrate();
+    expect(repository.loadDraft(draft.id)).toEqual(draft);
+    expect(database.execAsync).not.toHaveBeenCalled();
+  } finally {
+    open.mockRestore();
+  }
+});
+
+it('hydrates persisted payment matches and conflicts without a root record', async () => {
+  const database = planningDatabase((sql) => {
+    if (sql.includes('planning_payment_matches'))
+      return [{ payload: JSON.stringify(fixturePaymentMatch) }];
+    if (sql.includes('planning_sync_conflicts'))
+      return [{ payload: JSON.stringify(fixturePlanningConflict) }];
+    if (sql.includes('finance_transactions'))
+      return [{ id: fixturePaymentMatch.transactionId }];
+    return [];
+  });
+  const open = jest
+    .spyOn(databaseModule, 'openDatabase')
+    .mockResolvedValue(database as never);
+  try {
+    const repository = new FinancialPlanningRepository();
+    await repository.hydrate();
+    expect(repository.listPaymentMatches()).toEqual([fixturePaymentMatch]);
+    expect(repository.requireConflict(fixturePlanningConflict.id)).toEqual(
+      fixturePlanningConflict
+    );
+    expect(database.execAsync).not.toHaveBeenCalled();
+  } finally {
+    open.mockRestore();
+  }
+});
+
+it('moves ledger-orphan payments to durable conflicts without replacing transaction ids', async () => {
+  const settlement = {
+    ...fixturePayment,
+    id: 'payment-fabricated-settlement',
+    transactionId: 'settlement-fabricated-operation',
+    case: 'settlement' as const,
+    operationId: 'settlement-operation'
+  };
+  const database = planningDatabase((sql) => {
+    if (sql.includes('planning_obligation_payments'))
+      return [fixturePayment, settlement].map((item) => ({
+        payload: JSON.stringify(item)
+      }));
+    if (sql.includes('finance_transactions'))
+      return [{ id: fixturePayment.transactionId }];
+    return [];
+  });
+  const open = jest
+    .spyOn(databaseModule, 'openDatabase')
+    .mockResolvedValue(database as never);
+  try {
+    const repository = new FinancialPlanningRepository();
+    await repository.hydrate();
+    expect(repository.listPayments()).toEqual([fixturePayment]);
+    expect(repository.listQuarantinedLedgerEffects()).toEqual([
+      {
+        kind: 'obligation-payment',
+        id: settlement.id,
+        transactionId: settlement.transactionId
+      }
+    ]);
+    expect(
+      repository.requireConflict(`orphan-obligation-payment:${settlement.id}`)
+    ).toMatchObject({
+      entityKind: 'orphan-obligation-payment',
+      entityId: settlement.id,
+      localSnapshot: settlement,
+      status: 'pending'
+    });
+  } finally {
+    open.mockRestore();
+  }
+});
+
+function planningDatabase(rows: (sql: string) => unknown[]) {
+  const database = {
+    getAllAsync: jest.fn(async (sql: string) => rows(sql)),
+    runAsync: jest.fn(async () => undefined),
+    execAsync: jest.fn(async () => undefined),
+    withExclusiveTransactionAsync: jest.fn()
+  };
+  database.withExclusiveTransactionAsync.mockImplementation(
+    async (action: (value: unknown) => Promise<void>) => action(database)
+  );
+  return database;
+}
 
 function budgetInput(name: string) {
   return {

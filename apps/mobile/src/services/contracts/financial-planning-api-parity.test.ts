@@ -51,15 +51,27 @@ describe('financial planning API parity', () => {
     expect(parsePlanningMinor('-1')).toBe(-1);
   });
 
-  it('keeps provider selection unchanged and does not silently enable a network provider', () => {
-    const source = require('node:fs').readFileSync(
-      require('node:path').resolve(
-        __dirname,
-        '../mocks/financial-planning-service.ts'
-      ),
-      'utf8'
-    );
-    expect(source).toContain("process.env.NODE_ENV === 'test'");
-    expect(source).not.toContain('financial-planning-api-mapping');
-  });
+  test.each([
+    [true, 'mock'],
+    [false, 'live']
+  ])(
+    'selects the observable %s fixture-mode provider',
+    (fixtureMode, expectedKind) => {
+      jest.isolateModules(() => {
+        jest.doMock('@/config/demo-mode', () => ({
+          ...jest.requireActual('@/config/demo-mode'),
+          isFixtureModeEnabled: () => fixtureMode
+        }));
+        /* eslint-disable @typescript-eslint/no-require-imports */
+        const { financialPlanningService } =
+          require('../financial-planning-service') as typeof import('../financial-planning-service');
+        /* eslint-enable @typescript-eslint/no-require-imports */
+        expect(financialPlanningService.metadata).toMatchObject({
+          kind: expectedKind,
+          availability: 'available'
+        });
+      });
+      jest.dontMock('@/config/demo-mode');
+    }
+  );
 });

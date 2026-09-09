@@ -118,6 +118,7 @@ export interface ObligationDetail {
   obligation: Obligation;
   schedule: ObligationScheduleItem[];
   payments: ObligationPayment[];
+  paymentHistoryState: 'available' | 'unavailable';
   status: ObligationStatus;
 }
 

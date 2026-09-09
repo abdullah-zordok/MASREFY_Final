@@ -973,6 +973,7 @@ function obligationDetail(
     obligation,
     schedule,
     payments,
+    paymentHistoryState: 'available',
     status: deriveObligationStatus({ obligation, schedule, payments, today })
   };
 }

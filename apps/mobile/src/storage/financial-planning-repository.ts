@@ -34,6 +34,12 @@ export interface FinancialPlanningSeed {
   conflicts?: PlanningConflict[];
 }
 
+export interface QuarantinedPlanningLedgerEffect {
+  kind: 'obligation-payment' | 'goal-movement';
+  id: string;
+  transactionId: string;
+}
+
 export class FinancialPlanningRepository {
   private readonly seed: FinancialPlanningSeed;
   private salaryProfiles: SalaryProfile[];
@@ -48,6 +54,7 @@ export class FinancialPlanningRepository {
   private goalMovements: GoalMovement[];
   private drafts: PlanningDraft[];
   private conflicts: PlanningConflict[];
+  private quarantinedLedgerEffects: QuarantinedPlanningLedgerEffect[] = [];
   private operationResults = new Map<string, unknown>();
   private sequence = 0;
 
@@ -65,6 +72,7 @@ export class FinancialPlanningRepository {
     this.goalMovements = seed.goalMovements?.map(copy) ?? [];
     this.drafts = seed.drafts?.map(copy) ?? [];
     this.conflicts = seed.conflicts?.map(copy) ?? [];
+    this.quarantinedLedgerEffects = [];
   }
 
   reset(): void {
@@ -81,6 +89,7 @@ export class FinancialPlanningRepository {
     this.goalMovements = seed.goalMovements?.map(copy) ?? [];
     this.drafts = seed.drafts?.map(copy) ?? [];
     this.conflicts = seed.conflicts?.map(copy) ?? [];
+    this.quarantinedLedgerEffects = [];
     this.operationResults.clear();
     this.sequence = 0;
   }
@@ -98,7 +107,9 @@ export class FinancialPlanningRepository {
     );
     this.salaryProfiles = this.salaryProfiles.map((profile) => {
       const localized = salaryProfiles.get(profile.id);
-      return localized ? { ...profile, sourceName: localized.sourceName } : profile;
+      return localized
+        ? { ...profile, sourceName: localized.sourceName }
+        : profile;
     });
     this.budgets = this.budgets.map((budget) => {
       const localized = budgets.get(budget.id);
@@ -131,11 +142,13 @@ export class FinancialPlanningRepository {
       obligations,
       scheduleItems,
       payments,
+      paymentMatches,
       savingsGoals,
       goalMovements,
       drafts,
       conflicts,
-      operations
+      operations,
+      ledgerTransactions
     ] = await Promise.all([
       readPayloads<SalaryProfile>(database, 'planning_salary_profiles'),
       readPayloads<SalaryReceiptLink>(database, 'planning_salary_receipts'),
@@ -146,35 +159,184 @@ export class FinancialPlanningRepository {
         database,
         'planning_obligation_schedule_items'
       ),
-      readPayloads<ObligationPayment>(
-        database,
-        'planning_obligation_payments'
-      ),
+      readPayloads<ObligationPayment>(database, 'planning_obligation_payments'),
+      readPayloads<PaymentMatch>(database, 'planning_payment_matches'),
       readPayloads<SavingsGoal>(database, 'planning_savings_goals'),
       readPayloads<GoalMovement>(database, 'planning_goal_movements'),
       readPlanningDrafts(database),
       readPayloads<PlanningConflict>(database, 'planning_sync_conflicts'),
-      readOperationPayloads(database)
+      readOperationPayloads(database),
+      database.getAllAsync<{ id: string }>(
+        'SELECT id FROM finance_transactions'
+      )
     ]);
     if (
       salaryProfiles.length ||
       salaryReceipts.length ||
       budgets.length ||
+      categoryBudgets.length ||
       obligations.length ||
-      savingsGoals.length
+      scheduleItems.length ||
+      payments.length ||
+      paymentMatches.length ||
+      savingsGoals.length ||
+      goalMovements.length ||
+      drafts.length ||
+      conflicts.length
     ) {
+      const ledgerIds = new Set(ledgerTransactions.map(({ id }) => id));
+      this.quarantinedLedgerEffects = [];
+      for (const conflict of conflicts.filter(
+        ({ status }) => status === 'pending'
+      )) {
+        const snapshot = conflict.localSnapshot as {
+          id?: unknown;
+          transactionId?: unknown;
+          linkedTransactionId?: unknown;
+        };
+        const kind =
+          conflict.entityKind === 'orphan-obligation-payment'
+            ? 'obligation-payment'
+            : conflict.entityKind === 'orphan-goal-movement'
+              ? 'goal-movement'
+              : null;
+        const transactionId =
+          kind === 'obligation-payment'
+            ? snapshot.transactionId
+            : kind === 'goal-movement'
+              ? snapshot.linkedTransactionId
+              : null;
+        if (
+          kind !== null &&
+          typeof snapshot.id === 'string' &&
+          typeof transactionId === 'string'
+        )
+          this.quarantinedLedgerEffects.push({
+            kind,
+            id: snapshot.id,
+            transactionId
+          });
+      }
       this.salaryProfiles = salaryProfiles;
       this.salaryReceipts = salaryReceipts;
       this.budgets = budgets.map(normalizeBudget);
       this.categoryBudgets = categoryBudgets;
       this.obligations = obligations;
       this.scheduleItems = scheduleItems;
-      this.payments = payments;
+      const orphanPayments = payments.filter(
+        (payment) => !ledgerIds.has(payment.transactionId)
+      );
+      this.payments = payments.filter((payment) => {
+        if (ledgerIds.has(payment.transactionId)) return true;
+        this.quarantinedLedgerEffects.push({
+          kind: 'obligation-payment',
+          id: payment.id,
+          transactionId: payment.transactionId
+        });
+        return false;
+      });
+      const orphanPaymentMatches = paymentMatches.filter(
+        (match) =>
+          match.transactionId !== null && !ledgerIds.has(match.transactionId)
+      );
+      this.paymentMatches = paymentMatches.filter(
+        (match) =>
+          match.transactionId === null || ledgerIds.has(match.transactionId)
+      );
       this.savingsGoals = savingsGoals;
-      this.goalMovements = goalMovements;
+      const orphanMovements = goalMovements.filter(
+        (movement) =>
+          movement.linkedTransactionId !== null &&
+          !ledgerIds.has(movement.linkedTransactionId)
+      );
+      this.goalMovements = goalMovements.filter((movement) => {
+        if (
+          movement.linkedTransactionId === null ||
+          ledgerIds.has(movement.linkedTransactionId)
+        )
+          return true;
+        this.quarantinedLedgerEffects.push({
+          kind: 'goal-movement',
+          id: movement.id,
+          transactionId: movement.linkedTransactionId
+        });
+        return false;
+      });
       this.drafts = drafts;
-      this.conflicts = conflicts;
+      const orphanConflicts: PlanningConflict[] = [
+        ...orphanPayments.map((payment) => ({
+          id: `orphan-obligation-payment:${payment.id}`,
+          entityKind: 'orphan-obligation-payment',
+          entityId: payment.id,
+          localSnapshot: payment,
+          laterSnapshot: null,
+          resolution: null,
+          status: 'pending' as const,
+          createdAt: payment.updatedAt,
+          resolvedAt: null
+        })),
+        ...orphanMovements.map((movement) => ({
+          id: `orphan-goal-movement:${movement.id}`,
+          entityKind: 'orphan-goal-movement',
+          entityId: movement.id,
+          localSnapshot: movement,
+          laterSnapshot: null,
+          resolution: null,
+          status: 'pending' as const,
+          createdAt: movement.updatedAt ?? movement.createdAt,
+          resolvedAt: null
+        })),
+        ...orphanPaymentMatches.map((match) => ({
+          id: `orphan-payment-match:${match.id}`,
+          entityKind: 'orphan-payment-match',
+          entityId: match.id,
+          localSnapshot: match,
+          laterSnapshot: null,
+          resolution: null,
+          status: 'pending' as const,
+          createdAt: Date.now(),
+          resolvedAt: null
+        }))
+      ];
+      this.conflicts = [
+        ...conflicts,
+        ...orphanConflicts.filter(
+          (candidate) => !conflicts.some(({ id }) => id === candidate.id)
+        )
+      ];
       this.operationResults = operations;
+      if (orphanConflicts.length) {
+        await runExclusiveDatabaseTransaction(database, async (transaction) => {
+          await Promise.all([
+            ...orphanPayments.map(({ id }) =>
+              transaction.runAsync(
+                'DELETE FROM planning_obligation_payments WHERE id = ?',
+                id
+              )
+            ),
+            ...orphanMovements.map(({ id }) =>
+              transaction.runAsync(
+                'DELETE FROM planning_goal_movements WHERE id = ?',
+                id
+              )
+            ),
+            ...orphanPaymentMatches.map(({ id }) =>
+              transaction.runAsync(
+                'DELETE FROM planning_payment_matches WHERE id = ?',
+                id
+              )
+            ),
+            ...orphanConflicts.map((conflict) =>
+              persistPayload(
+                transaction,
+                'planning_sync_conflicts',
+                conflict.id,
+                conflict
+              )
+            )
+          ]);
+        });
+      }
     } else {
       await this.persistAll();
     }
@@ -184,7 +346,7 @@ export class FinancialPlanningRepository {
     const database = await openDatabase();
     await runExclusiveDatabaseTransaction(database, async (transaction) => {
       await transaction.execAsync(
-        "DELETE FROM planning_sync_conflicts; DELETE FROM planning_goal_movements; DELETE FROM planning_savings_goals; DELETE FROM planning_obligation_payments; DELETE FROM planning_obligation_schedule_items; DELETE FROM planning_obligations; DELETE FROM planning_category_budgets; DELETE FROM planning_budgets; DELETE FROM planning_salary_receipts; DELETE FROM planning_salary_profiles; DELETE FROM planning_drafts WHERE kind != 'report_schedule';"
+        "DELETE FROM planning_sync_conflicts; DELETE FROM planning_payment_matches; DELETE FROM planning_goal_movements; DELETE FROM planning_savings_goals; DELETE FROM planning_obligation_payments; DELETE FROM planning_obligation_schedule_items; DELETE FROM planning_obligations; DELETE FROM planning_category_budgets; DELETE FROM planning_budgets; DELETE FROM planning_salary_receipts; DELETE FROM planning_salary_profiles; DELETE FROM planning_drafts WHERE kind != 'report_schedule';"
       );
       await Promise.all([
         ...this.salaryProfiles.map((item) =>
@@ -197,7 +359,12 @@ export class FinancialPlanningRepository {
           persistPayload(transaction, 'planning_budgets', item.id, item)
         ),
         ...this.categoryBudgets.map((item) =>
-          persistPayload(transaction, 'planning_category_budgets', item.id, item)
+          persistPayload(
+            transaction,
+            'planning_category_budgets',
+            item.id,
+            item
+          )
         ),
         ...this.obligations.map((item) =>
           persistPayload(transaction, 'planning_obligations', item.id, item)
@@ -211,7 +378,15 @@ export class FinancialPlanningRepository {
           )
         ),
         ...this.payments.map((item) =>
-          persistPayload(transaction, 'planning_obligation_payments', item.id, item)
+          persistPayload(
+            transaction,
+            'planning_obligation_payments',
+            item.id,
+            item
+          )
+        ),
+        ...this.paymentMatches.map((item) =>
+          persistPayload(transaction, 'planning_payment_matches', item.id, item)
         ),
         ...this.savingsGoals.map((item) =>
           persistPayload(transaction, 'planning_savings_goals', item.id, item)
@@ -238,6 +413,10 @@ export class FinancialPlanningRepository {
 
   listSalaryReceipts(): SalaryReceiptLink[] {
     return this.salaryReceipts.map(copy);
+  }
+
+  listQuarantinedLedgerEffects(): QuarantinedPlanningLedgerEffect[] {
+    return this.quarantinedLedgerEffects.map(copy);
   }
 
   saveSalaryProfile(
@@ -272,14 +451,19 @@ export class FinancialPlanningRepository {
   }
 
   confirmSalaryReceipt(
-    receipt: Omit<SalaryReceiptLink, keyof ReturnType<typeof metadata> | 'status'>,
+    receipt: Omit<
+      SalaryReceiptLink,
+      keyof ReturnType<typeof metadata> | 'status'
+    >,
     operationId: string
   ): SalaryReceiptLink {
     const existing = this.getOperation<SalaryReceiptLink>(operationId);
     if (existing) return existing;
     if (
       this.salaryReceipts.some(
-        (item) => item.transactionId === receipt.transactionId && item.status === 'linked'
+        (item) =>
+          item.transactionId === receipt.transactionId &&
+          item.status === 'linked'
       )
     ) {
       throw new FinancialPlanningError('duplicate');
@@ -403,9 +587,9 @@ export class FinancialPlanningRepository {
       const budget = this.budgets.find((item) => item.id === category.budgetId);
       return Boolean(
         budget &&
-          budget.id !== excludingBudgetId &&
-          budget.periodKey === periodKey &&
-          budget.status !== 'deleted'
+        budget.id !== excludingBudgetId &&
+        budget.periodKey === periodKey &&
+        budget.status !== 'deleted'
       );
     });
     if (conflict) {
@@ -671,6 +855,8 @@ export class FinancialPlanningRepository {
     if (existing) return existing;
     const index = this.goalMovements.findIndex((item) => item.id === id);
     if (index < 0) throw new FinancialPlanningError('not_found');
+    if (this.goalMovements[index].version === null)
+      throw new FinancialPlanningError('offline_unavailable');
     const next = {
       ...this.goalMovements[index],
       status: 'reversed' as const,
@@ -716,12 +902,19 @@ export class FinancialPlanningRepository {
       resolution === 'keep_local'
         ? this.conflicts[index].localSnapshot
         : this.conflicts[index].laterSnapshot;
+    const orphan = this.conflicts[index].entityKind.startsWith('orphan-');
+    if (orphan && resolution === 'keep_local')
+      throw new FinancialPlanningError('offline_unavailable');
     this.conflicts[index] = {
       ...this.conflicts[index],
       resolution,
       status: 'resolved',
       resolvedAt: Date.now()
     };
+    if (orphan)
+      this.quarantinedLedgerEffects = this.quarantinedLedgerEffects.filter(
+        ({ id: effectId }) => effectId !== this.conflicts[index].entityId
+      );
     return copy(selected);
   }
 
@@ -779,7 +972,9 @@ async function readOperationPayloads(
       )
     )
   ).flat();
-  return new Map(rows.map((row) => [row.operation_id, JSON.parse(row.payload)]));
+  return new Map(
+    rows.map((row) => [row.operation_id, JSON.parse(row.payload)])
+  );
 }
 
 async function persistPayload(
@@ -833,7 +1028,11 @@ function indexedColumns(
   const base = [value.id, JSON.stringify(payload)];
   const updatedAt = value.updatedAt ?? Date.now();
   if (table === 'planning_salary_profiles') {
-    return upsert(table, ['status', 'updated_at'], [...base, value.status, updatedAt]);
+    return upsert(
+      table,
+      ['status', 'updated_at'],
+      [...base, value.status, updatedAt]
+    );
   }
   if (table === 'planning_salary_receipts') {
     return upsert(
@@ -873,7 +1072,13 @@ function indexedColumns(
     return upsert(
       table,
       ['direction', 'status', 'next_due_date', 'updated_at'],
-      [...base, value.direction, value.status, value.nextDueDate ?? null, updatedAt]
+      [
+        ...base,
+        value.direction,
+        value.status,
+        value.nextDueDate ?? null,
+        updatedAt
+      ]
     );
   }
   if (table === 'planning_obligation_schedule_items') {
@@ -886,7 +1091,13 @@ function indexedColumns(
   if (table === 'planning_obligation_payments') {
     return upsert(
       table,
-      ['obligation_id', 'transaction_id', 'operation_id', 'status', 'updated_at'],
+      [
+        'obligation_id',
+        'transaction_id',
+        'operation_id',
+        'status',
+        'updated_at'
+      ],
       [
         ...base,
         value.obligationId,
@@ -895,6 +1106,13 @@ function indexedColumns(
         value.status,
         updatedAt
       ]
+    );
+  }
+  if (table === 'planning_payment_matches') {
+    return upsert(
+      table,
+      ['transaction_id', 'status', 'updated_at'],
+      [...base, value.transactionId, value.status, updatedAt]
     );
   }
   if (table === 'planning_savings_goals') {

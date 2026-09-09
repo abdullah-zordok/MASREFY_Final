@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { translate, type MessageKey } from '@/localization/i18n';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { usePlanningConflict, usePlanningMutation } from './financial-planning-queries';
 import { PlanningMetric, PlanningScreen, PlanningState } from './PlanningScaffold';
 

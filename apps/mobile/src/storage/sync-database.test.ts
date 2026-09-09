@@ -43,10 +43,10 @@ const { openDatabase, resetDatabaseForTests } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
   require('./database') as typeof import('./database');
 
-describe('sync schema through v11', () => {
+describe('sync schema through v12', () => {
   beforeEach(() => resetDatabaseForTests());
 
-  it('adds sync metadata and the v11 repair while preserving populated v9 finance data', async () => {
+  it('adds sync metadata and later repairs while preserving populated v9 finance data', async () => {
     const migrated = await openDatabase();
     expect(
       await migrated.getAllAsync('SELECT * FROM finance_accounts')
@@ -57,7 +57,7 @@ describe('sync schema through v11', () => {
           'SELECT version FROM schema_migrations'
         )
       ).at(-1)
-    ).toEqual({ version: 11 });
+    ).toEqual({ version: 12 });
     for (const table of [
       'sync_state',
       'sync_mutation_queue',

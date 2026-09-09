@@ -5,6 +5,8 @@ import { createLiveAccountService } from '@/services/live/account-service';
 import { createLiveCategoryLifecycleService } from '@/services/live/category-lifecycle-service';
 import { registerLiveClerkBridge } from '@/services/live/auth-service';
 import { createLiveLedgerService } from '@/services/live/core-finance-service';
+import { createLiveFinancialPlanningService } from '@/services/live/financial-planning-service';
+import { savingsGoalWireFixture } from '@/test-utils/financial-planning-api-fixtures';
 
 jest.mock('@/storage/database', () => ({
   runExclusiveDatabaseTransaction: async (
@@ -386,6 +388,64 @@ describe('Mobile redacted shadow comparison', () => {
         contractVersion: 'be005-be006-wave-3-v1',
         baseline,
         live: [{ ...live[0]!, amountMinor: 12_346 }],
+        financialDifferenceMinor: 1
+      })
+    ).resolves.toMatchObject({
+      outcome: 'blocked',
+      differenceCodes: ['HASH_MISMATCH', 'FINANCIAL_MISMATCH']
+    });
+  });
+
+  it('reconciles the Wave 4 planning mapper with zero financial tolerance', async () => {
+    const service = createLiveFinancialPlanningService({
+      baseUrl: 'https://api.test',
+      request: jest.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            items: [savingsGoalWireFixture],
+            nextCursor: null,
+            requestId: 'wave-4-shadow'
+          }),
+          { status: 200 }
+        )
+      )
+    });
+    const live = await service.listGoals({ status: 'active' });
+    const baseline = [
+      {
+        id: savingsGoalWireFixture.id,
+        title: savingsGoalWireFixture.name,
+        targetMinor: 2_000_000,
+        openingTrackedMinor: 500_000,
+        currencyCode: 'SAR',
+        targetDate: '2026-12-31',
+        linkedAccountId: savingsGoalWireFixture.linkedAccountId,
+        iconKey: null,
+        emergencyFund: true,
+        status: 'active',
+        version: 1,
+        syncStatus: 'synced',
+        createdAt: Date.parse(savingsGoalWireFixture.createdAt),
+        updatedAt: Date.parse(savingsGoalWireFixture.updatedAt)
+      }
+    ];
+    await expect(
+      compareShadow({
+        ...metadata,
+        operationId: 'mobile.planning.wave-4',
+        contractVersion: 'be007-wave-4-v1',
+        baseline,
+        live,
+        financialDifferenceMinor: 0
+      })
+    ).resolves.toMatchObject({ outcome: 'match', differenceCodes: [] });
+    await expect(
+      compareShadow({
+        ...metadata,
+        operationId: 'mobile.planning.wave-4',
+        contractVersion: 'be007-wave-4-v1',
+        baseline,
+        live: [{ ...live[0]!, targetMinor: 2_000_001 }],
         financialDifferenceMinor: 1
       })
     ).resolves.toMatchObject({

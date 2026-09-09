@@ -11,7 +11,7 @@ import { PlanningMetric, PlanningScreen, PlanningState } from '@/features/financ
 import { usePlanningFormDraft } from '@/features/financial-planning/usePlanningDraft';
 import { currentLocale, translate } from '@/localization/i18n';
 import type { BudgetMovePreview } from '@/services/contracts/financial-planning-service';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
 import { formatMinorAmount } from '@/utils/format-financial-value';

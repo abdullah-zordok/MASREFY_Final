@@ -13,6 +13,7 @@ import {
   radius,
   spacing
 } from '@/design-system/tokens';
+import { safeMinorSum } from '@/domain/core-finance';
 import type { BudgetDetail } from '@/services/contracts/financial-planning-service';
 import {
   PlanningScreen,
@@ -25,7 +26,7 @@ import {
   translateDynamic,
   type MessageKey
 } from '@/localization/i18n';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
 import { formatMinorAmount } from '@/utils/format-financial-value';
@@ -99,15 +100,16 @@ function BudgetCard({ detail }: { detail: BudgetDetail }) {
     hideBalances && !revealed
       ? translate('planning.state.hidden')
       : formatMinorAmount(minor, item.currencyCode, currentLocale());
-  const spend = calculationAmount(
-    detail.progress.eligibleSpendMinor,
-    amount
-  );
+  const spend = calculationAmount(detail.progress.eligibleSpendMinor, amount);
   const remaining = calculationAmount(detail.progress.remainingMinor, amount);
   const percentage =
     detail.progress.percentage.status === 'available'
       ? detail.progress.percentage.value
       : 0;
+  const total = safeMinorSum(
+    item.configuredExpenseLimitMinor,
+    item.rolloverCreditMinor
+  );
   const status = translate(
     `planning.budget.status.${item.status}` as MessageKey
   );
@@ -126,9 +128,9 @@ function BudgetCard({ detail }: { detail: BudgetDetail }) {
         )}
       </View>
       <StyledText variant="title">
-        {amount(
-          item.configuredExpenseLimitMinor + item.rolloverCreditMinor
-        )}
+        {total === null
+          ? translate('reports.state.unavailable')
+          : amount(total)}
       </StyledText>
       <View style={styles.progressTrack}>
         <View

@@ -55,6 +55,24 @@ describe('planning summary service', () => {
             },
           ],
         };
+      if (sql.includes('from public.budget_categories c'))
+        return {
+          rows: [
+            {
+              id: 'budget-category-a',
+              budget_id: 'budget-a',
+              category_id: 'category-a',
+              limit_minor: '500',
+              rollover_minor: '0',
+              alert_thresholds: [80, 100],
+              status: 'active',
+              created_at: new Date('2026-02-01T00:00:00.000Z'),
+              updated_at: new Date('2026-02-01T00:00:00.000Z'),
+              version: '1',
+              row_number: '1',
+            },
+          ],
+        };
       if (sql.includes('from public.obligations o')) return { rows: [] };
       if (sql.includes('from public.savings_goals g')) return { rows: [] };
       if (sql.includes('max(ab.ledger_version)')) return { rows: [{ version: '7' }] };
@@ -74,8 +92,12 @@ describe('planning summary service', () => {
       ledgerVersion: 7,
       salary: { expectedMinor: '1000' },
       budgets: [
-        { id: 'budget-a', spentMinor: '200' },
-        { id: 'budget-b', spentMinor: '0' },
+        {
+          id: 'budget-a',
+          spentMinor: '200',
+          categories: [{ id: 'budget-category-a', categoryId: 'category-a' }],
+        },
+        { id: 'budget-b', spentMinor: '0', categories: [] },
       ],
     });
   });

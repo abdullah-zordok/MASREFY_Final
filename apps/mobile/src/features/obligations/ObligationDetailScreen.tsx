@@ -18,7 +18,7 @@ import {
   PlanningState
 } from '@/features/financial-planning/PlanningScaffold';
 import { currentLocale, translate, type MessageKey } from '@/localization/i18n';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
 import { formatMinorAmount } from '@/utils/format-financial-value';
@@ -90,10 +90,16 @@ export function ObligationDetailScreen({
               value={String(query.data?.schedule.length ?? 0)}
             />
           </GroupedList>
-          <ActionButton
-            label={translate('planning.obligation.recordPayment')}
-            onPress={() => router.push(`/obligations/${obligationId}/payment`)}
-          />
+          {financialPlanningService.metadata.kind === 'live' ? (
+            <StyledText>{translate('reports.state.unavailable')}</StyledText>
+          ) : (
+            <ActionButton
+              label={translate('planning.obligation.recordPayment')}
+              onPress={() =>
+                router.push(`/obligations/${obligationId}/payment`)
+              }
+            />
+          )}
           <ActionButton
             label={translate('planning.action.edit')}
             onPress={() => router.push(`/obligations/${obligationId}/edit`)}
@@ -126,7 +132,9 @@ export function ObligationDetailScreen({
           <StyledText variant="subtitle">
             {translate('planning.obligation.paymentHistory')}
           </StyledText>
-          {!query.data?.payments.length ? (
+          {query.data?.paymentHistoryState === 'unavailable' ? (
+            <StyledText>{translate('reports.state.unavailable')}</StyledText>
+          ) : !query.data?.payments.length ? (
             <StyledText>
               {translate('planning.obligation.noPayments')}
             </StyledText>

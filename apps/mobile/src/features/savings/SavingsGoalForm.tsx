@@ -14,7 +14,7 @@ import { PlanningScreen, PlanningState } from '@/features/financial-planning/Pla
 import { usePlanningFormDraft } from '@/features/financial-planning/usePlanningDraft';
 import { AccountPicker } from '@/features/transactions/AccountPicker';
 import { translate } from '@/localization/i18n';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { usePreferenceStore } from '@/state/preferences';
 import { usePlanningMutation, useSavingsGoal } from './savings-queries';
 

@@ -400,7 +400,7 @@ paths:
           schema: { $ref: '#/components/schemas/Period' }
       responses:
         '200':
-          description: Bounded salary, budgets, obligations, savings, and ledger version aggregate.
+          description: Bounded salary, budgets, active obligations, savings, and ledger version aggregate; dataState is partial when a child collection is truncated.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PlanningSummary' }

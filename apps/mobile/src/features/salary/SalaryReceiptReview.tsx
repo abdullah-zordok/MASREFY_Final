@@ -15,7 +15,7 @@ import {
   PlanningState
 } from '@/features/financial-planning/PlanningScaffold';
 import { currentLocale, translate, type MessageKey } from '@/localization/i18n';
-import { financialPlanningService } from '@/services/mocks/financial-planning-service';
+import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
 import { formatMinorAmount } from '@/utils/format-financial-value';
