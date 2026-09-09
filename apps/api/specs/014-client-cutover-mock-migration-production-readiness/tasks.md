@@ -130,7 +130,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T064 [US4] Replace production imports of the persistent planning mock with explicit live selection while retaining local preview/draft helpers; run planning provider/boundary/query tests.
 - [x] T065 [US4] Execute Wave 4 exact shadow, internal/bounded writes, offline/restart/retry and rollback rehearsals; record `evidence/wave-04-planning.md`.
 - [x] T066 [US4] Run BE007 and Mobile planning full/focused/security/performance gates plus production mock/secret/bundle scans; update manifest/reports/checklists with exact results.
-- [ ] T067 [US4] Run independent/Clean Code/test/security reviews, fix blockers, stage only Wave 4/BE007 paths, commit `feat(cutover): complete planning wave`, push `main`, and wait for green required CI before T068.
+- [x] T067 [US4] Run independent/Clean Code/test/security reviews, fix blockers, stage only Wave 4/BE007 paths, commit `feat(cutover): complete planning wave`, push `main`, and wait for green required CI before T068.
 
 ---
 

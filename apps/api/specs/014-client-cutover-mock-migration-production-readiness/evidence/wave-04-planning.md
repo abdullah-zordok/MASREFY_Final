@@ -1,8 +1,11 @@
 # Wave 4 — Reconciled Financial Planning
 
-Status: local Wave 4 implementation, rehearsal, review, and production export are complete through T066. T067 commit, push, and exact-SHA CI acceptance remain pending.
+Status: Wave 4 implementation and exact-SHA remote acceptance are complete through T067.
 
 - Base and rollback SHA: `f86a61fc8d85f23e389111464723a46dae13155e` (accepted Wave 3 evidence SHA).
+- Wave 4 implementation SHA: `09dd0f0968226c37b849dc35955f40a9cc54d86d`, committed with the required message `feat(cutover): complete planning wave`.
+- Accepted exact-SHA workflow: Backend Foundation run `34310124533` ([run](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34310124533)), head SHA exactly `09dd0f0968226c37b849dc35955f40a9cc54d86d`.
+- All 12 required jobs passed: `application`, `mobile`, `admin`, `secrets`, `sentinel-redaction`, `database`, all five `admin-e2e` viewport jobs, and `image`. Conditional `signed-release-evidence` was skipped as designed for the `main` push.
 - No BE007 backend database object or migration was added. Mobile SQLite schema 12 adds only the missing local `planning_payment_matches` cache table.
 - Protected user-owned paths remain excluded from Wave 4 edits and staging.
 
