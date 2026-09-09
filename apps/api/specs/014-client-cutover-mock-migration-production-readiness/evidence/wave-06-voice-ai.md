@@ -1,9 +1,9 @@
 # Wave 6 — Voice and AI
 
-Status: local Wave 6 implementation and verification are complete through T088. T089 remains open until the implementation commit is pushed and required GitHub Actions pass for its exact SHA.
+Status: Wave 6 is complete through T089. The implementation commit was pushed and its required GitHub Actions passed for the exact SHA.
 
 - Base and rollback SHA: `72b2d2839bb7bbb84340b1f8d911eb35cc89cc3c` (accepted Wave 5 evidence SHA).
-- Required implementation commit: `feat(cutover): complete voice ai wave`.
+- Implementation commit: `0b000d1dcc82de4a3f9a8e86c7f5c0eab6982ceb` (`feat(cutover): complete voice ai wave`).
 - No Phase 14-owned generic cutover resource was added. The owner correction adds the BE009 assistant-availability projection to the existing Phase 9 schema.
 - Protected user-owned paths remain excluded from edits and staging. The assistant contract file remains byte-for-byte preserved.
 
@@ -55,7 +55,7 @@ All results below are local and use no hosted production identity, provider key,
 | Admin AI Playwright matrix | 25 tests passed across five viewports |
 | Admin performance Playwright | 1 test passed |
 | Mobile production export and credential scan | 125 routes exported to `C:\Users\DELL\AppData\Local\Temp\masarifi-phase14-wave6-final-export`; no embedded server credential or provider endpoint found |
-| Exact-SHA remote acceptance | Pending T089 push and required workflow completion |
+| Exact-SHA remote acceptance | [GitHub Actions run 34347313370](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34347313370) passed for `0b000d1dcc82de4a3f9a8e86c7f5c0eab6982ceb`: 12 jobs succeeded; signed-release evidence was skipped because no external signed-build inputs were supplied |
 
 ## Reviews
 

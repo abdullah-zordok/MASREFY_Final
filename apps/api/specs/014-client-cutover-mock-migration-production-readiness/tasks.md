@@ -174,7 +174,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T086 [US6] Correct `apps/admin-web/src/features/ai/repository.ts` to use exact BE009 responses without fabricated severity/content/safety defaults; rerun T085.
 - [x] T087 [US6] Execute Wave 6 shadow/cohorts/rollback using deterministic provider stubs, confirm shared five-request rolling-24-hour quota across workloads and outage isolation, and record `evidence/wave-06-voice-ai.md` plus genuine OpenRouter/device external gates.
 - [x] T088 [US6] Run full BE009/Mobile voice-assistant/Admin AI/security/performance/stress/recovery/production scans; update manifest/mock report/checklists and exact evidence.
-- [ ] T089 [US6] Run all reviews/scans, fix blockers, hunk/path-stage only Wave 6/BE009 files, verify the subscription hunk remains user-owned, commit `feat(cutover): complete voice ai wave`, push `main`, and wait for green required CI before T090.
+- [x] T089 [US6] Run all reviews/scans, fix blockers, hunk/path-stage only Wave 6/BE009 files, verify the subscription hunk remains user-owned, commit `feat(cutover): complete voice ai wave`, push `main`, and wait for green required CI before T090.
 
 ---
 
