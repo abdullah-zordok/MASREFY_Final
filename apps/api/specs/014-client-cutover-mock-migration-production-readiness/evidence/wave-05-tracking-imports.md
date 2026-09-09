@@ -1,6 +1,6 @@
 # Wave 5 — Tracking and Imports
 
-Status: local Wave 5 implementation and verification are complete through T076. Exact-SHA remote acceptance remains pending T077.
+Status: Wave 5 is accepted through T077. Implementation commit `943ba40734a1a142c30d68a3c34d189ac4349b96` is pushed to `main`, and all 12 required jobs passed in Backend Foundation run `34323754467` for that exact SHA; the conditional signed-release-evidence job skipped as expected.
 
 - Base and rollback SHA: `c4c5dcb6ef68984f69898ecc40d7af68cbf85695` (accepted Wave 4 evidence SHA).
 - Required implementation commit: `feat(cutover): complete tracking imports wave`.
@@ -55,6 +55,7 @@ All results below are local and use no hosted production identity, native captur
 | Admin performance Playwright | 1 passed |
 | Production source scan | 0 direct feature mock imports and 0 database/provider secret or client-authority matches in Wave 5 production paths |
 | Production bundle scan | 0 secret/client-authority matches; the pre-existing guarded Admin demo/test MSW chunk remains packaged but production configuration rejects activation |
+| Exact-SHA remote acceptance | Backend Foundation run `34323754467` completed successfully for `943ba40734a1a142c30d68a3c34d189ac4349b96`; all 12 required jobs passed and conditional `signed-release-evidence` skipped |
 
 ## Reviews
 

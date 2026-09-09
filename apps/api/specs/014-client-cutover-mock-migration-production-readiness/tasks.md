@@ -151,7 +151,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T074 [US5] Correct `apps/admin-web/src/features/imports/repository.ts` to use the shared authenticated client and exact BE008 shapes; remove client role/scenario authority in live mode; rerun T073.
 - [x] T075 [US5] Execute Wave 5 shadow/cohorts/rollback with corpus-safe fixtures, consent/account opt-out, retention, duplicate, offline/retry and no-direct-ledger assertions; record `evidence/wave-05-tracking-imports.md` and external native/corpus gates.
 - [x] T076 [US5] Run BE008 unit/contract/integration/E2E/security/performance/stress/recovery, Mobile tracking and Admin import full gates, and production scans; update manifest/mock report/checklists.
-- [ ] T077 [US5] Run all reviews/scans, fix blockers, stage only Wave 5/BE008 paths, commit `feat(cutover): complete tracking imports wave`, push `main`, and wait for green required CI before T078.
+- [x] T077 [US5] Run all reviews/scans, fix blockers, stage only Wave 5/BE008 paths, commit `feat(cutover): complete tracking imports wave`, push `main`, and wait for green required CI before T078.
 
 ---
 
