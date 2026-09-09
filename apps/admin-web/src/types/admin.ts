@@ -49,18 +49,25 @@ export interface UserRecord {
 
 export interface ImportRecord {
   id: string;
-  user: string;
+  user?: string;
   source: string;
-  bank: string;
-  platform: "iOS" | "Android";
+  bank?: string;
+  platform?: "iOS" | "Android";
   failureType: string;
-  parserVersion: string;
+  parserVersion?: string;
   attempts: number;
   revision: number;
   severity: Severity;
   time: string;
-  status: "failed" | "review" | "unsupported";
-  appVersion: string;
+  status:
+    | "received"
+    | "processing"
+    | "review"
+    | "complete"
+    | "failed"
+    | "cancelled"
+    | "unsupported";
+  appVersion?: string;
   sanitizedResult: string;
 }
 

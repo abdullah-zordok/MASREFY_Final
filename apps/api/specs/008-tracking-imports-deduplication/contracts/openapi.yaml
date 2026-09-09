@@ -1054,12 +1054,13 @@ components:
     TrackingMutationEnvelope:
       type: object
       additionalProperties: false
-      required: [operationId, replayed, resource, requestId]
+      required: [operationId, replayed, resource, requestId, occurredAt]
       properties:
         operationId: { $ref: '#/components/schemas/TrackingUuid' }
         replayed: { type: boolean }
         resource: { $ref: '#/components/schemas/TrackingPhase08Resource' }
         requestId: { type: string, minLength: 1, maxLength: 200 }
+        occurredAt: { type: string, format: date-time }
     TrackingPageEnvelope:
       type: object
       additionalProperties: false
@@ -1085,7 +1086,172 @@ components:
             code: { type: string }
             message: { type: string }
             requestId: { type: string }
+    TrackingPreferenceResource:
+      type: object
+      additionalProperties: false
+      required: [id, enabled, reviewRequired, duplicateWindowSeconds, sourceRetentionDays, historyRetentionDays, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        enabled: { type: boolean }
+        reviewRequired: { type: boolean }
+        duplicateWindowSeconds: { type: integer, minimum: 60, maximum: 2592000 }
+        sourceRetentionDays: { type: integer, minimum: 1, maximum: 365 }
+        historyRetentionDays: { type: integer, minimum: 30, maximum: 730 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingStatusResource:
+      type: object
+      additionalProperties: false
+      required: [available, mode, lastDetectedAt, lastSuccessfulTransactionId, detectedThisMonth, reviewCount, activeKeywordCount, activeSenderCount, lastUpdatedAt]
+      properties:
+        available: { type: boolean }
+        mode: { type: string, enum: [automatic_clear, review_all, paused] }
+        lastDetectedAt: { type: [string, 'null'], format: date-time }
+        lastSuccessfulTransactionId: { type: [string, 'null'], format: uuid }
+        detectedThisMonth: { type: integer, minimum: 0 }
+        reviewCount: { type: integer, minimum: 0 }
+        activeKeywordCount: { type: integer, minimum: 0 }
+        activeSenderCount: { type: integer, minimum: 0 }
+        lastUpdatedAt: { type: string, format: date-time }
+    TrackingKeywordRuleResource:
+      type: object
+      additionalProperties: false
+      required: [id, keyword, groupKey, languageCode, origin, matchType, categoryId, priority, enabled, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        keyword: { type: string, minLength: 1, maxLength: 120 }
+        groupKey: { type: string, enum: [expense, income, transfer, withdrawal, deposit, refund, subscription, installment, fee, failed_transaction, reversal] }
+        languageCode: { type: string, enum: [ar, en] }
+        origin: { type: string, enum: [default, custom] }
+        matchType: { type: string, enum: [exact, contains, safe_pattern] }
+        categoryId: { type: [string, 'null'], format: uuid }
+        priority: { type: integer, minimum: 0, maximum: 10000 }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingSenderRuleResource:
+      type: object
+      additionalProperties: false
+      required: [id, senderPattern, displayLabel, institutionId, trusted, enabled, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        senderPattern: { type: string, minLength: 1, maxLength: 256 }
+        displayLabel: { type: string, minLength: 1, maxLength: 120 }
+        institutionId: { type: [string, 'null'], format: uuid }
+        trusted: { type: boolean }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingReviewResource:
+      type: object
+      additionalProperties: false
+      required: [id, importItemId, reason, proposedValues, originalValues, acceptedValues, status, decisionAction, reviewedAt, reviewedBy, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        importItemId: { $ref: '#/components/schemas/TrackingUuid' }
+        reason: { type: string, pattern: '^[a-z][a-z0-9_]{1,79}$' }
+        proposedValues: { type: object, maxProperties: 20 }
+        originalValues: { type: object, maxProperties: 20 }
+        acceptedValues: { type: [object, 'null'], maxProperties: 20 }
+        status: { type: string, enum: [pending, accepted, rejected, edited] }
+        decisionAction: { type: [string, 'null'], enum: [accept, reject, edit_accept, null] }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [string, 'null'], maxLength: 128 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingImportSessionResource:
+      type: object
+      additionalProperties: false
+      required: [id, sourceType, sourceName, schemaVersion, status, itemCount, acceptedCount, rejectedCount, attemptCount, nextAttemptAt, startedAt, completedAt, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        sourceType: { type: string, enum: [sms, file, manual, provider] }
+        sourceName: { type: [string, 'null'], maxLength: 120 }
+        schemaVersion: { const: 1 }
+        status: { type: string, enum: [received, processing, review, complete, failed, cancelled] }
+        itemCount: { type: integer, minimum: 0, maximum: 10000 }
+        acceptedCount: { type: integer, minimum: 0 }
+        rejectedCount: { type: integer, minimum: 0 }
+        attemptCount: { type: integer, minimum: 0, maximum: 20 }
+        nextAttemptAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingAdminImportOverviewResource:
+      type: object
+      additionalProperties: false
+      required: [totalSessions, uniqueCustomers, totalItems, failedSessions, reviewSessions, highestFailureSource]
+      properties:
+        totalSessions: { type: integer, minimum: 0 }
+        uniqueCustomers: { type: integer, minimum: 0 }
+        totalItems: { type: integer, minimum: 0 }
+        failedSessions: { type: integer, minimum: 0 }
+        reviewSessions: { type: integer, minimum: 0 }
+        highestFailureSource: { type: string, enum: [sms, file, manual, provider] }
+    TrackingParserInstitutionResource:
+      type: object
+      additionalProperties: false
+      required: [id, countryCode, name, code, active, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        countryCode: { type: string, pattern: '^[A-Z]{2}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        code: { type: string, pattern: '^[a-z][a-z0-9-]{1,39}$' }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingParserRuleResource:
+      type: object
+      additionalProperties: false
+      required: [id, institutionId, name, sourceType, activeVersionId, status, createdAt, updatedAt, version]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        institutionId: { type: [string, 'null'], format: uuid }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        sourceType: { type: string, enum: [sms, file, manual, provider] }
+        activeVersionId: { type: [string, 'null'], format: uuid }
+        status: { type: string, enum: [draft, active, disabled] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    TrackingParserVersionResource:
+      type: object
+      additionalProperties: false
+      required: [id, parserRuleId, versionNo, definitionHash, createdBy, publishedAt, corpusStatus, corpusRequestedAt, corpusAttemptCount, corpusNextAttemptAt, corpusLastErrorCode, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/TrackingUuid' }
+        parserRuleId: { $ref: '#/components/schemas/TrackingUuid' }
+        versionNo: { type: integer, minimum: 1 }
+        definitionHash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        createdBy: { type: string, minLength: 1, maxLength: 128 }
+        publishedAt: { type: [string, 'null'], format: date-time }
+        corpusStatus: { type: string, enum: [not_run, queued, running, passed, failed] }
+        corpusRequestedAt: { type: [string, 'null'], format: date-time }
+        corpusAttemptCount: { type: integer, minimum: 0, maximum: 5 }
+        corpusNextAttemptAt: { type: string, format: date-time }
+        corpusLastErrorCode: { type: [string, 'null'], pattern: '^[A-Z][A-Z0-9_]{1,79}$' }
+        createdAt: { type: string, format: date-time }
     TrackingPhase08Resource:
+      anyOf:
+        - { $ref: '#/components/schemas/TrackingPreferenceResource' }
+        - { $ref: '#/components/schemas/TrackingStatusResource' }
+        - { $ref: '#/components/schemas/TrackingKeywordRuleResource' }
+        - { $ref: '#/components/schemas/TrackingSenderRuleResource' }
+        - { $ref: '#/components/schemas/TrackingReviewResource' }
+        - { $ref: '#/components/schemas/TrackingImportSessionResource' }
+        - { $ref: '#/components/schemas/TrackingAdminImportOverviewResource' }
+        - { $ref: '#/components/schemas/TrackingParserInstitutionResource' }
+        - { $ref: '#/components/schemas/TrackingParserRuleResource' }
+        - { $ref: '#/components/schemas/TrackingParserVersionResource' }
+        - { $ref: '#/components/schemas/TrackingGenericResource' }
+    TrackingGenericResource:
       type: object
       additionalProperties: false
       minProperties: 1

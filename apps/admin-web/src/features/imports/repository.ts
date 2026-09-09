@@ -1,4 +1,9 @@
-import { apiClient, mocksAllowed, requestJson } from "@/core/api/client";
+import {
+  apiClient,
+  mocksAllowed,
+  requestJson,
+  unavailableClientOperation,
+} from "@/core/api/client";
 import { z } from "zod";
 import {
   buildListQuery,
@@ -54,27 +59,130 @@ const resourcePaths: Record<Phase4Resource, string> = {
   "category-rules": "/api/v1/admin/parsers/category-rules",
 };
 
-const unknownSchema = z.unknown();
+const nullableDateTime = z.iso.datetime({ offset: true }).nullable();
+const liveRecordSchema = z
+  .object({
+    id: z.string().min(1),
+    sourceType: z.enum(["sms", "file", "manual", "provider"]).optional(),
+    sourceName: z.string().max(120).nullable().optional(),
+    schemaVersion: z.literal(1).optional(),
+    status: z.string().min(1).max(40).optional(),
+    itemCount: z.number().int().nonnegative().optional(),
+    acceptedCount: z.number().int().nonnegative().optional(),
+    rejectedCount: z.number().int().nonnegative().optional(),
+    attemptCount: z.number().int().nonnegative().optional(),
+    nextAttemptAt: z.iso.datetime({ offset: true }).optional(),
+    startedAt: z.iso.datetime({ offset: true }).optional(),
+    completedAt: nullableDateTime.optional(),
+    sessionId: z.string().optional(),
+    importItemId: z.string().optional(),
+    kind: z.string().max(40).optional(),
+    leftItemId: z.string().optional(),
+    rightTransactionId: z.string().optional(),
+    reason: z.string().max(160).optional(),
+    confidenceBasisPoints: z.number().int().min(0).max(10_000).optional(),
+    scoreBasisPoints: z.number().int().min(0).max(10_000).optional(),
+    resolution: z.string().nullable().optional(),
+    decidedAt: nullableDateTime.optional(),
+    reviewedAt: nullableDateTime.optional(),
+    reviewedBy: z.string().max(128).nullable().optional(),
+    operatorAction: z.string().max(40).optional(),
+    countryCode: z
+      .string()
+      .regex(/^[A-Z]{2}$/)
+      .optional(),
+    name: z.string().max(120).optional(),
+    code: z.string().max(40).optional(),
+    active: z.boolean().optional(),
+    institutionId: z.string().nullable().optional(),
+    displayLabel: z.string().max(120).optional(),
+    priority: z.number().int().min(0).max(10_000).optional(),
+    activeVersionId: z.string().nullable().optional(),
+    parserRuleId: z.string().optional(),
+    ruleId: z.string().optional(),
+    versionId: z.string().optional(),
+    parserVersionId: z.string().nullable().optional(),
+    versionNo: z.number().int().positive().optional(),
+    versionNumber: z.number().int().positive().optional(),
+    definitionHash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+    createdBy: z.string().max(128).optional(),
+    publishedAt: nullableDateTime.optional(),
+    corpusStatus: z
+      .enum(["not_run", "queued", "running", "passed", "failed"])
+      .optional(),
+    corpusRequestedAt: nullableDateTime.optional(),
+    corpusAttemptCount: z.number().int().min(0).max(5).optional(),
+    corpusNextAttemptAt: z.iso.datetime({ offset: true }).optional(),
+    corpusLastErrorCode: z.string().nullable().optional(),
+    enabled: z.boolean().optional(),
+    lastResult: z.string().nullable().optional(),
+    lastRunAt: nullableDateTime.optional(),
+    normalizedMerchant: z.string().max(160).optional(),
+    categoryId: z.string().optional(),
+    createdAt: z.iso.datetime({ offset: true }),
+    updatedAt: z.iso.datetime({ offset: true }).optional(),
+    version: z.number().int().positive().optional(),
+  })
+  .strict();
+const liveSessionSchema = liveRecordSchema.extend({
+  sourceType: z.enum(["sms", "file", "manual", "provider"]),
+  sourceName: z.string().max(120).nullable(),
+  schemaVersion: z.literal(1),
+  status: z.string().min(1).max(40),
+  itemCount: z.number().int().nonnegative(),
+  acceptedCount: z.number().int().nonnegative(),
+  rejectedCount: z.number().int().nonnegative(),
+  attemptCount: z.number().int().nonnegative(),
+  nextAttemptAt: z.iso.datetime({ offset: true }),
+  startedAt: z.iso.datetime({ offset: true }),
+  completedAt: nullableDateTime,
+  updatedAt: z.iso.datetime({ offset: true }),
+  version: z.number().int().positive(),
+});
+const liveOverviewSchema = z
+  .object({
+    totalSessions: z.number().int().nonnegative(),
+    uniqueCustomers: z.number().int().nonnegative(),
+    totalItems: z.number().int().nonnegative(),
+    failedSessions: z.number().int().nonnegative(),
+    reviewSessions: z.number().int().nonnegative(),
+    highestFailureSource: z.enum(["sms", "file", "manual", "provider"]),
+  })
+  .strict();
+const liveMutationResourceSchema = liveRecordSchema
+  .partial()
+  .superRefine((value, context) => {
+    if (!value.id && !value.versionId)
+      context.addIssue({ code: "custom", message: "missing affected id" });
+    if (!value.status)
+      context.addIssue({ code: "custom", message: "missing current state" });
+  });
+const liveMutationEnvelopeSchema = z
+  .object({
+    operationId: z.string().min(1).max(128),
+    replayed: z.boolean(),
+    resource: liveMutationResourceSchema,
+    requestId: z.string().min(1).max(128),
+    occurredAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
+const liveSessionMutationEnvelopeSchema = liveMutationEnvelopeSchema.extend({
+  resource: liveSessionSchema,
+});
+const livePageSchema = z
+  .object({
+    items: z.array(liveRecordSchema).max(100),
+    nextCursor: z.string().max(512).nullable(),
+  })
+  .strict();
 const mocksEnabled = () =>
   mocksAllowed() && process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
 
-function object(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function rows(value: unknown): Record<string, unknown>[] {
-  if (Array.isArray(value)) return value.map(object);
-  const payload = object(value);
-  const list = payload.data ?? payload.items;
-  return Array.isArray(list) ? list.map(object) : [];
-}
-
-function source(value: unknown): "android_sms" | "csv" | "manual" {
-  if (value === "sms") return "android_sms";
-  if (value === "file") return "csv";
-  return "manual";
+function source(value: unknown): "sms" | "file" | "manual" | "provider" {
+  return z.enum(["sms", "file", "manual", "provider"]).parse(value);
 }
 
 function sourceType(value: ListQuery["source"]): string | undefined {
@@ -86,7 +194,7 @@ function sourceType(value: ListQuery["source"]): string | undefined {
 }
 
 function liveListParams(input: ListQuery, cursor?: string): URLSearchParams {
-  const params = new URLSearchParams({ limit: String(input.pageSize) });
+  const params = new URLSearchParams({ limit: "100" });
   const filters = {
     cursor,
     search: input.search,
@@ -104,29 +212,50 @@ function liveListParams(input: ListQuery, cursor?: string): URLSearchParams {
 
 function recordFor(
   resource: Phase4Resource,
-  value: Record<string, unknown>,
+  input: Record<string, unknown>,
 ): OperationalRecord {
-  const timestamp = String(
-    value.updatedAt ?? value.createdAt ?? new Date(0).toISOString(),
-  );
+  const value = liveRecordSchema.parse(input);
+  const timestamp =
+    value.updatedAt ??
+    value.corpusRequestedAt ??
+    value.publishedAt ??
+    value.createdAt;
+  const revision = value.version ?? value.versionNo;
+  if (!revision) throw new Error("live record version is missing");
+  const status =
+    value.status ??
+    value.corpusStatus ??
+    ((value.active ?? value.enabled) === undefined
+      ? undefined
+      : (value.active ?? value.enabled)
+        ? "active"
+        : "inactive");
+  if (!status) throw new Error("live record status is missing");
   return operationalRecordSchema.parse({
-    id: String(value.id),
+    id: value.id,
     kind: resource,
-    title: String(value.name ?? value.displayLabel ?? value.code ?? value.id),
-    secondary: String(
-      value.sourceType ?? value.countryCode ?? value.status ?? resource,
-    ),
-    status: String(
-      value.status ?? (value.active === false ? "inactive" : "active"),
-    ),
+    title:
+      value.name ??
+      value.displayLabel ??
+      value.code ??
+      value.sourceName ??
+      value.normalizedMerchant ??
+      value.id,
+    secondary: value.sourceType ?? value.countryCode ?? status,
+    status,
     ...(value.sourceType ? { source: source(value.sourceType) } : {}),
+    ...(value.sourceName ? { bank: value.sourceName } : {}),
+    ...(value.sourceType === "sms" ? { platform: "android" as const } : {}),
+    ...(value.attemptCount === undefined
+      ? {}
+      : { attempts: value.attemptCount }),
     ...(typeof value.confidenceBasisPoints === "number"
       ? { confidence: value.confidenceBasisPoints / 10_000 }
       : {}),
     ...(typeof value.priority === "number" ? { priority: value.priority } : {}),
     updatedAt: timestamp,
-    accessLevel: "full",
-    revision: Number(value.version ?? 1),
+    accessLevel: "limited",
+    revision,
     actions: [],
   });
 }
@@ -203,23 +332,18 @@ export const importsRepository: ImportsRepository = {
         ],
         items: sessions.items.map((item) => ({
           id: item.id,
-          user: "USR-00***",
-          source: item.source ?? "manual",
-          bank: item.bank ?? "Unknown",
-          platform: item.platform === "ios" ? "iOS" : "Android",
+          source: item.source,
+          ...(item.bank ? { bank: item.bank } : {}),
+          ...(item.platform
+            ? { platform: item.platform === "ios" ? "iOS" : "Android" }
+            : {}),
           failureType: item.status,
-          parserVersion: item.version ?? "unassigned",
-          attempts: 0,
+          ...(item.version ? { parserVersion: item.version } : {}),
+          attempts: item.attempts,
           revision: item.revision,
           severity: item.status === "failed" ? "high" : "info",
           time: item.updatedAt,
-          status:
-            item.status === "review"
-              ? "review"
-              : item.status === "failed"
-                ? "failed"
-                : "unsupported",
-          appVersion: "server",
+          status: item.status,
           sanitizedResult: "Raw payload and customer identifiers are withheld.",
         })),
         failureTrend: [],
@@ -256,9 +380,9 @@ export const importsRepository: ImportsRepository = {
     const path = `/api/v1/admin/imports/${encodedId}/retry${params}`;
     if (mocksEnabled())
       return apiClient.post(path, request, retryImportResponseSchema);
-    await requestJson(
+    const result = await requestJson(
       `/api/v1/admin/imports/sessions/${encodedId}/retry-handoff`,
-      unknownSchema,
+      liveSessionMutationEnvelopeSchema,
       {
         method: "POST",
         body: actionPayload(request),
@@ -268,7 +392,7 @@ export const importsRepository: ImportsRepository = {
       },
     );
     return {
-      id,
+      id: result.resource.id,
       status: "scheduled" as const,
       auditEvent: "admin.import.retry.requested" as const,
     };
@@ -283,17 +407,17 @@ export const phase4Repository = {
         `/api/v1/admin/imports/overview?platform=${encodeURIComponent(parsedPlatform)}`,
         importOverviewSchema,
       );
+    if (parsedPlatform !== "all") return unavailableClientOperation();
     return apiClient
-      .get("/api/v1/admin/imports/overview", unknownSchema)
-      .then((payload) => {
-        const value = object(payload);
+      .get("/api/v1/admin/imports/overview", liveOverviewSchema)
+      .then((value) => {
         return importOverviewSchema.parse({
           platform: parsedPlatform,
-          uniqueCustomers: Number(value.uniqueCustomers ?? 0),
+          uniqueCustomers: value.uniqueCustomers,
           uniqueCustomerSemantics: "authoritative",
-          totalSessions: Number(value.totalSessions ?? value.sessions ?? 0),
-          totalItems: Number(value.totalItems ?? 0),
-          failedSessions: Number(value.failedSessions ?? value.failed ?? 0),
+          totalSessions: value.totalSessions,
+          totalItems: value.totalItems,
+          failedSessions: value.failedSessions,
           highestFailureSource: source(value.highestFailureSource),
           eventDeduplication: "non_duplicated_events",
           region: { availability: "available" },
@@ -311,33 +435,32 @@ export const phase4Repository = {
         `${resourcePaths[resource]}?${params}`,
         operationalListSchema,
       );
+    if (resource === "failures") return unavailableClientOperation();
     let cursor: string | undefined;
-    let payload: unknown = {};
-    for (let page = 1; page <= input.page; page += 1) {
-      payload = await apiClient.get(
+    const cursors = new Set<string>();
+    const records: z.infer<typeof liveRecordSchema>[] = [];
+    do {
+      const payload = await apiClient.get(
         `${resourcePaths[resource]}?${liveListParams(input, cursor)}`,
-        unknownSchema,
+        livePageSchema,
       );
-      const next = object(payload).nextCursor;
-      if (page < input.page && typeof next !== "string")
-        return operationalListSchema.parse({
-          items: [],
-          page: input.page,
-          pageSize: input.pageSize,
-          totalItems: 0,
-          totalPages: page,
-          region: { availability: "empty" },
-        });
-      cursor = typeof next === "string" ? next : undefined;
-    }
-    const items = rows(payload).map((entry) => recordFor(resource, entry));
+      records.push(...payload.items);
+      cursor = payload.nextCursor ?? undefined;
+      if (cursor && cursors.has(cursor)) throw new Error("CURSOR_REPEATED");
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    const start = (input.page - 1) * input.pageSize;
+    const items = records
+      .slice(start, start + input.pageSize)
+      .map((entry) => recordFor(resource, entry));
     return operationalListSchema.parse({
       items,
       page: input.page,
       pageSize: input.pageSize,
-      totalItems:
-        (input.page - 1) * input.pageSize + items.length + (cursor ? 1 : 0),
-      totalPages: input.page + (cursor ? 1 : 0),
+      totalItems: records.length,
+      totalPages: records.length
+        ? Math.ceil(records.length / input.pageSize)
+        : 0,
       region: { availability: items.length ? "available" : "empty" },
     });
   },
@@ -353,8 +476,10 @@ export const phase4Repository = {
         : operationalRecordSchema;
     if (mocksEnabled())
       return apiClient.get(`${resourcePaths[resource]}/${encodedId}`, schema);
+    const liveSchema =
+      resource === "sessions" ? liveSessionSchema : liveRecordSchema;
     return apiClient
-      .get(`${resourcePaths[resource]}/${encodedId}`, unknownSchema, {
+      .get(`${resourcePaths[resource]}/${encodedId}`, liveSchema, {
         headers:
           resource === "sessions"
             ? {
@@ -363,17 +488,35 @@ export const phase4Repository = {
               }
             : {},
       })
-      .then((payload) => {
-        const value =
-          rows(payload)[0] ?? object(object(payload).data ?? payload);
+      .then((value) => {
         const item = recordFor(resource, value);
         if (resource !== "sessions") return operationalRecordSchema.parse(item);
+        const session = liveSessionSchema.parse(value);
+        const timeline = [
+          {
+            label: "started",
+            timestamp: session.startedAt,
+            status: "completed" as const,
+          },
+          ...(session.completedAt
+            ? [
+                {
+                  label: "completed",
+                  timestamp: session.completedAt,
+                  status:
+                    session.status === "failed"
+                      ? ("failed" as const)
+                      : ("completed" as const),
+                },
+              ]
+            : []),
+        ];
         return importSessionDetailSchema.parse({
           ...item,
-          timeline: [],
-          totalItems: Number(value.itemCount ?? 0),
-          successfulItems: Number(value.acceptedCount ?? 0),
-          failedItems: Number(value.rejectedCount ?? 0),
+          timeline,
+          totalItems: session.itemCount,
+          successfulItems: session.acceptedCount,
+          failedItems: session.rejectedCount,
           expectedCurrentState: item.status,
           auditReferences: [],
         });
@@ -391,29 +534,30 @@ export const phase4Repository = {
       target.method === "PATCH" ? apiClient.patch : apiClient.post;
     if (mocksEnabled())
       return execute(target.path, request, phase4ActionResultSchema);
+    if (resource === "parser-rules" && request.action === "test")
+      return unavailableClientOperation();
     const body =
       resource === "parser-rules" && request.action === "test"
         ? { sample: request.proposal?.title ?? "test" }
         : actionPayload(request);
-    return requestJson(target.path, unknownSchema, {
+    return requestJson(target.path, liveMutationEnvelopeSchema, {
       method: target.method,
       body,
       headers: {
         "Idempotency-Key": `tracking-admin:${resource}:${id}:${request.action}:${request.expectedRevision}`,
       },
-    }).then((payload) => {
-      const envelope = object(payload);
-      const value = object(envelope.resource ?? envelope.data ?? payload);
+    }).then((envelope) => {
+      const value = envelope.resource;
       return phase4ActionResultSchema.parse({
-        affectedId: String(value.id ?? id),
+        affectedId: value.id ?? value.versionId,
         previousState: request.expectedState,
-        currentState: String(value.status ?? request.expectedState),
+        currentState: value.status,
         outcome: "success",
         message: "Operation completed.",
         auditReference: {
-          eventId: String(envelope.operationId ?? crypto.randomUUID()),
+          eventId: envelope.operationId,
           eventName: `tracking.admin.${request.action}`,
-          timestamp: new Date().toISOString(),
+          timestamp: envelope.occurredAt,
         },
       });
     });

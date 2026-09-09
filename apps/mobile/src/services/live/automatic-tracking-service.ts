@@ -1,20 +1,13 @@
 import { Platform } from 'react-native';
-import {
-  CryptoDigestAlgorithm,
-  digestStringAsync,
-  randomUUID
-} from 'expo-crypto';
+import { randomUUID } from 'expo-crypto';
 
 import type {
   AutomaticFeedback,
-  DetectedFinancialEvent,
   DuplicateCandidate,
   KeywordRuleSummary,
-  MockFinancialEventInput,
   ReviewItem,
   SenderRule,
   TrackingHistoryEntry,
-  TrackingMode,
   TrackingReasonCode,
   TrackingStatusSnapshot
 } from '@/domain/automatic-tracking';
@@ -50,14 +43,64 @@ function record(value: unknown): Json {
   return value as Json;
 }
 
-function text(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
+function text(value: unknown): string {
+  if (typeof value !== 'string' || !value) throw new TrackingError('unknown');
+  return value;
+}
+
+function integer(value: unknown): number {
+  if (!Number.isSafeInteger(value) || Number(value) < 0)
+    throw new TrackingError('unknown');
+  return Number(value);
+}
+
+function boolean(value: unknown): boolean {
+  if (typeof value !== 'boolean') throw new TrackingError('unknown');
+  return value;
+}
+
+function nullableText(value: unknown): string | null {
+  return value === null ? null : text(value);
+}
+
+function probabilityBasisPoints(value: unknown): number {
+  const parsed =
+    typeof value === 'number' ||
+    (typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value))
+      ? Number(value)
+      : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1)
+    throw new TrackingError('unknown');
+  return Math.round(parsed * 10_000);
+}
+
+function strings(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0)
+    throw new TrackingError('unknown');
+  return value.map(text);
+}
+
+function member<T extends string>(value: unknown, values: readonly T[]): T {
+  if (typeof value !== 'string' || !values.includes(value as T))
+    throw new TrackingError('unknown');
+  return value as T;
 }
 
 function epoch(value: unknown): number | null {
   if (typeof value !== 'string') return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function requiredEpoch(value: unknown): number {
+  const parsed = epoch(value);
+  if (parsed === null) throw new TrackingError('unknown');
+  return parsed;
+}
+
+function nullableEpoch(value: unknown): number | null {
+  if (value === null) return null;
+  return requiredEpoch(value);
 }
 
 function reasons(value: unknown): TrackingReasonCode[] {
@@ -78,13 +121,21 @@ function reasons(value: unknown): TrackingReasonCode[] {
     'invalid_input',
     'source_expired'
   ]);
+  const aliases: Record<string, TrackingReasonCode> = {
+    duplicate_candidate: 'duplicate',
+    review_required: 'review_all'
+  };
   const mapped = Array.isArray(value)
-    ? value.filter(
-        (item): item is TrackingReasonCode =>
-          typeof item === 'string' && allowed.has(item as TrackingReasonCode)
-      )
+    ? value.map((item) => {
+        const mapped = typeof item === 'string' ? (aliases[item] ?? item) : '';
+        if (!allowed.has(mapped as TrackingReasonCode))
+          throw new TrackingError('unknown');
+        return mapped as TrackingReasonCode;
+      })
     : [];
-  return mapped.length ? mapped : ['invalid_input'];
+  if (!Array.isArray(value) || mapped.length !== value.length)
+    throw new TrackingError('unknown');
+  return mapped;
 }
 
 function trackingPage(value: unknown): {
@@ -92,16 +143,18 @@ function trackingPage(value: unknown): {
   nextCursor: string | null;
 } {
   const response = record(value);
-  const items = response.items ?? response.data;
+  if (
+    Object.keys(response).some(
+      (key) => !['items', 'nextCursor'].includes(key)
+    ) ||
+    !Array.isArray(response.items) ||
+    (response.nextCursor !== null && typeof response.nextCursor !== 'string')
+  )
+    throw new TrackingError('unknown');
   return {
-    items: Array.isArray(items) ? items.map(record) : [],
-    nextCursor:
-      typeof response.nextCursor === 'string' ? response.nextCursor : null
+    items: response.items.map(record),
+    nextCursor: response.nextCursor
   };
-}
-
-function page(value: unknown): Json[] {
-  return trackingPage(value).items;
 }
 
 function listPath(
@@ -123,7 +176,7 @@ function listPath(
 
 function resource(value: unknown): Json {
   const response = record(value);
-  return record(response.resource ?? response.data ?? response);
+  return 'resource' in response ? record(response.resource) : response;
 }
 
 export function createLiveAutomaticTrackingService({
@@ -174,42 +227,69 @@ export function createLiveAutomaticTrackingService({
     return value;
   };
   const get = (path: string) => send('GET', path);
+  const allPages = async (path: string): Promise<Json[]> => {
+    const items: Json[] = [];
+    const cursors = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const response = trackingPage(
+        await get(listPath(path, { limit: 100, cursor }))
+      );
+      items.push(...response.items);
+      cursor = response.nextCursor;
+      if (cursor && cursors.has(cursor)) throw new TrackingError('unknown');
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    return items;
+  };
   const review = (value: Json): ReviewItem => ({
     id: text(value.id),
     detectedEventId: text(value.importItemId ?? value.itemId),
-    status:
-      value.status === 'pending'
-        ? 'pending'
-        : value.status === 'rejected'
-          ? 'ignored'
-          : 'resolved',
+    status: {
+      pending: 'pending',
+      rejected: 'ignored',
+      accepted: 'resolved',
+      edited: 'resolved'
+    }[
+      member(value.status, ['pending', 'rejected', 'accepted', 'edited'])
+    ] as ReviewItem['status'],
     reasonCodes: reasons([value.reason]),
     missingFields: [],
-    proposedValues: record(value.proposedValues ?? {}),
+    proposedValues: record(value.proposedValues),
     selectedDuplicateResolution: null,
     selectedObligationId: null,
     resolutionErrorCode: null,
-    createdAt: epoch(value.createdAt) ?? Date.now(),
-    resolvedAt: epoch(value.reviewedAt),
-    updatedAt: epoch(value.updatedAt) ?? Date.now()
+    createdAt: requiredEpoch(value.createdAt),
+    resolvedAt: nullableEpoch(value.reviewedAt),
+    updatedAt: requiredEpoch(value.updatedAt)
   });
   const duplicate = (value: Json): DuplicateCandidate => ({
     id: text(value.id),
     detectedEventId: text(value.leftItemId),
     existingTransactionId: text(value.rightTransactionId),
-    probabilityBasisPoints: Math.round(Number(value.score ?? 0) * 10_000),
-    reasonCodes: Array.isArray(value.reasons)
-      ? value.reasons.map(String)
-      : ['amount_currency'],
+    probabilityBasisPoints: probabilityBasisPoints(value.score),
+    reasonCodes: strings(value.reasons),
     resolution:
-      typeof value.resolution === 'string'
-        ? (value.resolution as DuplicateResolution)
-        : null,
-    status: value.status === 'proposed' ? 'pending' : 'resolved',
-    resolvedAt: epoch(value.decidedAt)
+      value.resolution === null
+        ? null
+        : member<DuplicateResolution>(value.resolution, [
+            'keep_existing',
+            'keep_new',
+            'keep_both',
+            'merge_details'
+          ]),
+    status: {
+      proposed: 'pending',
+      duplicate: 'resolved',
+      not_duplicate: 'resolved'
+    }[
+      member(value.status, ['proposed', 'duplicate', 'not_duplicate'])
+    ] as DuplicateCandidate['status'],
+    resolvedAt: nullableEpoch(value.decidedAt)
   });
   const status = async (): Promise<TrackingStatusSnapshot> => {
     const value = record(await get('/api/v1/tracking/status'));
+    const available = boolean(value.available);
     return {
       platform:
         Platform.OS === 'android'
@@ -217,19 +297,18 @@ export function createLiveAutomaticTrackingService({
           : Platform.OS === 'ios'
             ? 'ios'
             : 'conservative',
-      mode: text(value.mode, 'paused') as TrackingMode,
-      permissionStatus: Platform.OS === 'android' ? 'granted' : null,
-      serviceState: value.available === true ? 'healthy' : 'unavailable',
-      lastDetectedAt: epoch(value.lastDetectedAt),
-      lastSuccessfulTransactionId:
-        typeof value.lastSuccessfulTransactionId === 'string'
-          ? value.lastSuccessfulTransactionId
-          : null,
-      detectedThisMonth: Number(value.detectedThisMonth ?? 0),
-      reviewCount: Number(value.reviewCount ?? 0),
-      activeKeywordCount: Number(value.activeKeywordCount ?? 0),
-      activeSenderCount: Number(value.activeSenderCount ?? 0),
-      lastUpdatedAt: Date.now()
+      mode: member(value.mode, ['automatic_clear', 'review_all', 'paused']),
+      permissionStatus: null,
+      serviceState: available ? 'healthy' : 'unavailable',
+      lastDetectedAt: nullableEpoch(value.lastDetectedAt),
+      lastSuccessfulTransactionId: nullableText(
+        value.lastSuccessfulTransactionId
+      ),
+      detectedThisMonth: integer(value.detectedThisMonth),
+      reviewCount: integer(value.reviewCount),
+      activeKeywordCount: integer(value.activeKeywordCount),
+      activeSenderCount: integer(value.activeSenderCount),
+      lastUpdatedAt: requiredEpoch(value.lastUpdatedAt)
     };
   };
   return {
@@ -245,87 +324,27 @@ export function createLiveAutomaticTrackingService({
     async setMode(mode) {
       const current = resource(await get('/api/v1/tracking/preferences'));
       await send('PUT', '/api/v1/tracking/preferences', {
-        mode,
-        sourceRetentionDays: current.sourceRetentionDays ?? 30,
-        historyRetentionDays: current.historyRetentionDays ?? 365,
-        expectedVersion: current.version
+        enabled: mode !== 'paused',
+        reviewRequired: mode !== 'automatic_clear',
+        sourceRetentionDays: integer(current.sourceRetentionDays),
+        historyRetentionDays: integer(current.historyRetentionDays),
+        expectedVersion: integer(current.version)
       });
       return status();
     },
-    clearHistory: async () => ({
-      value: Number((await send('DELETE', '/api/v1/tracking/history')) ?? 0),
-      affectedScopes: ['tracking.history']
-    }),
+    clearHistory: async () => {
+      const entries = await allPages('/api/v1/tracking/history');
+      const cleared = entries.filter(
+        (entry) =>
+          entry.transactionId === null &&
+          !['accepted', 'duplicate'].includes(text(entry.outcome))
+      ).length;
+      await send('DELETE', '/api/v1/tracking/history');
+      return { value: cleared, affectedScopes: ['tracking.history'] };
+    },
     purgeExpiredSourceText: () => Promise.resolve(0),
-    async processMockEvent(input) {
-      const event = input as MockFinancialEventInput;
-      const receivedAt = new Date(event.occurredAt ?? Date.now()).toISOString();
-      const eventTime = event.occurredAt ?? Date.parse(receivedAt);
-      const idempotencyKey = await digestStringAsync(
-        CryptoDigestAlgorithm.SHA256,
-        `tracking-import:${event.sourceFingerprint}`
-      );
-      const created = record(
-        await send(
-          'POST',
-          '/api/v1/imports',
-          {
-            schemaVersion: 1,
-            sourceType: 'manual',
-            sourceChannel: 'manual',
-            events: [
-              {
-                sourceItemKey: event.sourceFingerprint,
-                body: event.sourceText ?? event.eventType,
-                receivedAt,
-                amountMinor: event.amountMinor,
-                currency: event.currencyCode,
-                merchant: event.merchant,
-                ...(event.occurredAt == null
-                  ? {}
-                  : { occurredAt: new Date(eventTime).toISOString() }),
-                kind:
-                  event.eventType === 'salary' || event.eventType === 'deposit'
-                    ? 'income'
-                    : 'expense',
-                accountId: event.accountId,
-                categoryId: event.categoryId
-              }
-            ]
-          },
-          idempotencyKey
-        )
-      );
-      const resource = record(created.resource ?? created);
-      const detected: DetectedFinancialEvent = {
-        id: text(resource.id),
-        sourceFingerprint: event.sourceFingerprint,
-        sourceKind: 'manual',
-        eventType: event.eventType,
-        decisionStatus: 'received',
-        confidenceBasisPoints: event.confidenceBasisPoints,
-        amountMinor: event.amountMinor ?? null,
-        currencyCode: event.currencyCode ?? null,
-        merchant: event.merchant ?? null,
-        categoryId: event.categoryId ?? null,
-        accountHint: null,
-        accountId: event.accountId ?? null,
-        paymentMethod: null,
-        occurredAt: eventTime,
-        sourceText: null,
-        sourceTextExpiresAt: null,
-        reasonCodes: ['clear_success'],
-        priorEventId: event.priorEventId ?? null,
-        transactionId: null,
-        obligationMatchId: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      return {
-        event: detected,
-        feedback: null,
-        affectedScopes: ['tracking.imports']
-      };
+    async processMockEvent() {
+      throw new TrackingError('permission_required');
     },
     async listHistory(query?: TrackingHistoryQuery) {
       const response = trackingPage(
@@ -339,48 +358,99 @@ export function createLiveAutomaticTrackingService({
       const items = response.items.map((value): TrackingHistoryEntry => ({
         id: text(value.id),
         detectedEventId: text(value.sourceRef),
-        action:
-          value.outcome === 'accepted'
-            ? 'auto_added'
-            : value.outcome === 'reviewed'
-              ? 'sent_to_review'
-              : value.outcome === 'purged'
-                ? 'source_purged'
-                : value.outcome === 'rejected'
-                  ? 'rejected'
-                  : value.outcome === 'duplicate'
-                    ? 'linked'
-                    : 'detected',
+        action: {
+          received: 'detected',
+          parsed: 'detected',
+          reviewed: 'sent_to_review',
+          accepted: 'auto_added',
+          rejected: 'rejected',
+          duplicate: 'linked',
+          failed: 'rejected',
+          purged: 'source_purged',
+          feedback: 'reported_wrong'
+        }[
+          member(value.outcome, [
+            'received',
+            'parsed',
+            'reviewed',
+            'accepted',
+            'rejected',
+            'duplicate',
+            'failed',
+            'purged',
+            'feedback'
+          ])
+        ] as TrackingHistoryEntry['action'],
         reasonCodes: reasons(value.reasonCodes),
-        occurredAt: epoch(value.occurredAt) ?? Date.now()
+        occurredAt: requiredEpoch(value.occurredAt)
       }));
       return { items, nextCursor: response.nextCursor, total: items.length };
     },
     async getDetectedEvent(id) {
-      const item = page(await get('/api/v1/tracking/history?limit=100')).find(
+      const item = (await allPages('/api/v1/tracking/history')).find(
         (value) => value.sourceRef === id || value.id === id
       );
       if (!item) throw new TrackingError('not_found');
+      const outcome = member(item.outcome, [
+        'received',
+        'parsed',
+        'reviewed',
+        'accepted',
+        'rejected',
+        'duplicate',
+        'failed',
+        'purged',
+        'feedback'
+      ]);
       return {
         id,
-        sourceFingerprint: id,
-        sourceKind: 'manual',
-        eventType: 'purchase',
-        decisionStatus:
-          item.outcome === 'rejected'
-            ? 'rejected'
-            : item.outcome === 'accepted'
-              ? 'auto_added'
-              : 'received',
-        confidenceBasisPoints: 0,
-        amountMinor: null,
-        currencyCode: null,
-        merchant: null,
-        categoryId: null,
+        sourceFingerprint: text(item.sourceRef),
+        sourceKind: member(item.sourceType, [
+          'android_sms',
+          'android_notification',
+          'ios_shortcut',
+          'ios_app_intent',
+          'ios_share_extension',
+          'manual'
+        ]),
+        eventType: member(item.eventType, [
+          'purchase',
+          'withdrawal',
+          'deposit',
+          'salary',
+          'incoming_transfer',
+          'outgoing_transfer',
+          'refund',
+          'reversal',
+          'fee',
+          'subscription',
+          'installment',
+          'failed',
+          'pending'
+        ]),
+        decisionStatus: (
+          {
+            received: 'received',
+            parsed: 'analyzing',
+            reviewed: 'review_required',
+            accepted: 'auto_added',
+            rejected: 'rejected',
+            duplicate: 'resolved',
+            failed: 'failed',
+            purged: 'ignored',
+            feedback: 'rejected'
+          } as const
+        )[outcome],
+        confidenceBasisPoints: integer(item.confidenceBasisPoints),
+        amountMinor:
+          item.amountMinor === null ? null : integer(item.amountMinor),
+        currencyCode: nullableText(item.currencyCode),
+        merchant: nullableText(item.merchant),
+        categoryId: nullableText(item.categoryId),
         accountHint: null,
-        accountId: null,
-        paymentMethod: null,
-        occurredAt: epoch(item.occurredAt),
+        accountId: nullableText(item.accountId),
+        paymentMethod: nullableText(item.paymentMethod),
+        occurredAt: nullableEpoch(item.occurredAt),
         sourceText: null,
         sourceTextExpiresAt: null,
         reasonCodes: reasons(item.reasonCodes),
@@ -388,8 +458,8 @@ export function createLiveAutomaticTrackingService({
         transactionId:
           typeof item.transactionId === 'string' ? item.transactionId : null,
         obligationMatchId: null,
-        createdAt: epoch(item.createdAt) ?? Date.now(),
-        updatedAt: Date.now()
+        createdAt: requiredEpoch(item.createdAt),
+        updatedAt: requiredEpoch(item.updatedAt)
       };
     },
     async listReviewItems(query?: ReviewQuery) {
@@ -416,31 +486,30 @@ export function createLiveAutomaticTrackingService({
     getReviewItem: async (id) =>
       review(record(await get(`/api/v1/reviews/${encodeURIComponent(id)}`))),
     async resolveReview(id, input) {
-      const current = review(
-        record(await get(`/api/v1/reviews/${encodeURIComponent(id)}`))
+      const currentValue = record(
+        await get(`/api/v1/reviews/${encodeURIComponent(id)}`)
       );
+      const accepts = input.action === 'confirm';
       const value = record(
         await send(
           'POST',
           `/api/v1/reviews/${encodeURIComponent(id)}/decision`,
           {
-            decision:
-              input.action === 'ignore'
-                ? 'reject'
-                : input.values
-                  ? 'edit_accept'
-                  : 'accept',
-            expectedVersion: Number(
-              record(await get(`/api/v1/reviews/${encodeURIComponent(id)}`))
-                .version
-            ),
-            edit: input.values
+            decision: !accepts
+              ? 'reject'
+              : input.values
+                ? 'edit_accept'
+                : 'accept',
+            expectedVersion: integer(currentValue.version),
+            ...(accepts && input.values ? { edit: input.values } : {})
           }
         )
       );
       return {
-        value: review(record(value.resource ?? value)) ?? current,
-        affectedScopes: ['tracking.reviews', 'transactions']
+        value: review(resource(value)),
+        affectedScopes: accepts
+          ? ['tracking.reviews', 'transactions']
+          : ['tracking.reviews', 'tracking.history']
       };
     },
     getDuplicate: async (id) =>
@@ -455,31 +524,43 @@ export function createLiveAutomaticTrackingService({
         await send(
           'POST',
           `/api/v1/duplicates/${encodeURIComponent(id)}/decision`,
-          { resolution, expectedVersion: current.version }
+          { resolution, expectedVersion: integer(current.version) }
         )
       );
       return {
-        value: duplicate(record(value.resource ?? value)),
+        value: duplicate(resource(value)),
         affectedScopes: ['tracking.duplicates', 'transactions']
       };
     },
     async listKeywordRules(_query?: RuleQuery) {
-      return page(await get('/api/v1/tracking/keyword-rules?limit=100')).map(
+      return (await allPages('/api/v1/tracking/keyword-rules')).map(
         (value): KeywordRuleSummary => {
           const id = text(value.id);
-          keywordVersions.set(id, Number(value.version ?? 1));
+          keywordVersions.set(id, integer(value.version));
           return {
             id,
-            group: text(value.groupKey) as KeywordRuleSummary['group'],
-            language: text(value.languageCode, 'en') as 'ar' | 'en',
+            group: member(value.groupKey, [
+              'expense',
+              'income',
+              'transfer',
+              'withdrawal',
+              'deposit',
+              'refund',
+              'subscription',
+              'installment',
+              'fee',
+              'failed_transaction',
+              'reversal'
+            ]),
+            language: member(value.languageCode, ['ar', 'en']),
             value: text(value.keyword),
             normalizedValue: text(value.keyword)
               .normalize('NFKC')
               .toLocaleLowerCase('en'),
-            origin: text(value.origin, 'custom') as 'default' | 'custom',
+            origin: member(value.origin, ['default', 'custom']),
             enabled: value.enabled === true,
-            recentUseCount: Number(value.recentUseCount ?? 0),
-            lastUsedAt: epoch(value.lastUsedAt)
+            recentUseCount: integer(value.recentUseCount),
+            lastUsedAt: nullableEpoch(value.lastUsedAt)
           };
         }
       );
@@ -518,10 +599,10 @@ export function createLiveAutomaticTrackingService({
       };
     },
     async listSenderRules(_query?: SenderQuery) {
-      return page(await get('/api/v1/tracking/sender-rules?limit=100')).map(
+      return (await allPages('/api/v1/tracking/sender-rules')).map(
         (value): SenderRule => {
           const id = text(value.id);
-          senderVersions.set(id, Number(value.version ?? 1));
+          senderVersions.set(id, integer(value.version));
           return {
             id,
             normalizedSender: text(value.senderPattern),
@@ -533,10 +614,10 @@ export function createLiveAutomaticTrackingService({
             origin: 'custom',
             enabled: value.enabled === true,
             trusted: value.trusted === true,
-            recentUseCount: 0,
-            lastUsedAt: null,
-            createdAt: epoch(value.createdAt) ?? Date.now(),
-            updatedAt: epoch(value.updatedAt) ?? Date.now()
+            recentUseCount: integer(value.recentUseCount),
+            lastUsedAt: nullableEpoch(value.lastUsedAt),
+            createdAt: requiredEpoch(value.createdAt),
+            updatedAt: requiredEpoch(value.updatedAt)
           };
         }
       );
@@ -561,29 +642,34 @@ export function createLiveAutomaticTrackingService({
           }
         )
       );
+      const saved = (await this.listSenderRules()).find(
+        (item) => item.id === text(value.id)
+      );
+      if (!saved) throw new TrackingError('unknown');
       return {
-        value: (await this.listSenderRules()).find(
-          (item) => item.id === text(value.id)
-        ) as SenderRule,
+        value: saved,
         affectedScopes: ['tracking.senders']
       };
     },
     async removeCustomSender(id) {
       await this.listSenderRules();
+      const version = senderVersions.get(id);
+      if (version === undefined) throw new TrackingError('not_found');
       await send(
         'DELETE',
-        `/api/v1/tracking/sender-rules/${encodeURIComponent(id)}?expectedVersion=${String(senderVersions.get(id) ?? 1)}`
+        `/api/v1/tracking/sender-rules/${encodeURIComponent(id)}?expectedVersion=${String(version)}`
       );
       return { value: id, affectedScopes: ['tracking.senders'] };
     },
     async undoAutomaticAddition(
       feedbackId
     ): Promise<TrackingMutationResult<AutomaticFeedback>> {
-      const history = page(
-        await get('/api/v1/tracking/history?limit=100')
-      ).find((item) => item.id === feedbackId);
-      const transactionId = text(history?.transactionId);
-      if (!history || !transactionId) throw new TrackingError('not_found');
+      const history = (await allPages('/api/v1/tracking/history')).find(
+        (item) => item.id === feedbackId
+      );
+      if (!history || typeof history.transactionId !== 'string')
+        throw new TrackingError('not_found');
+      const transactionId = text(history.transactionId);
       const current = record(
         record(
           await get(`/api/v1/transactions/${encodeURIComponent(transactionId)}`)
@@ -604,18 +690,18 @@ export function createLiveAutomaticTrackingService({
           comment: 'automatic_action_undone'
         })
       );
-      const now = Date.now();
+      const occurredAt = requiredEpoch(feedback.createdAt);
       return {
         value: {
-          id: text(feedback.id, feedbackId),
-          detectedEventId: text(history.sourceRef, feedbackId),
+          id: text(feedback.id),
+          detectedEventId: text(history.sourceRef),
           transactionId,
           kind: 'automatic_action_undone',
-          undoExpiresAt: now,
+          undoExpiresAt: occurredAt,
           notificationOutcome: 'disabled',
           status: 'undone',
-          createdAt: now,
-          updatedAt: now
+          createdAt: occurredAt,
+          updatedAt: occurredAt
         },
         affectedScopes: [
           'tracking.feedback',
@@ -625,18 +711,24 @@ export function createLiveAutomaticTrackingService({
       };
     },
     async reportWrongDetection(eventId) {
-      const entries = page(await get('/api/v1/tracking/history?limit=100'));
+      const entries = await allPages('/api/v1/tracking/history');
       const history = entries.find(
         (item) => item.sourceRef === eventId || item.id === eventId
       );
       if (!history) throw new TrackingError('not_found');
-      await send('POST', '/api/v1/tracking/feedback', {
-        historyId: history.id,
-        kind: 'wrong_detection'
-      });
+      const feedback = resource(
+        await send('POST', '/api/v1/tracking/feedback', {
+          historyId: history.id,
+          kind: 'wrong_detection'
+        })
+      );
       const event = await this.getDetectedEvent(eventId);
       return {
-        value: { ...event, decisionStatus: 'rejected', updatedAt: Date.now() },
+        value: {
+          ...event,
+          decisionStatus: 'rejected',
+          updatedAt: requiredEpoch(feedback.createdAt)
+        },
         affectedScopes: ['tracking.history', 'tracking.status']
       };
     }

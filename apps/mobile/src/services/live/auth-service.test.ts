@@ -6,6 +6,7 @@ import type { OnboardingProgress } from '@/domain/app-shell';
 import type { UserProfile } from '@/domain/settings';
 import { createAuthService } from '@/features/auth/auth-flow';
 import { requestJson } from './http-client';
+import { createLiveAutomaticTrackingService } from './automatic-tracking-service';
 import {
   createLiveAuthService,
   createLiveIdentityService,
@@ -61,7 +62,10 @@ describe('live Clerk authentication', () => {
     registerLiveClerkBridge(bridge);
 
     const selected = createAuthService(false);
-    expect(selected.metadata).toMatchObject({ kind: 'live', availability: 'available' });
+    expect(selected.metadata).toMatchObject({
+      kind: 'live',
+      availability: 'available'
+    });
     await expect(selected.restoreSession()).resolves.toMatchObject({
       status: 'authenticated',
       userId: liveSession.userId,
@@ -69,30 +73,72 @@ describe('live Clerk authentication', () => {
       restoration: 'restored'
     });
 
-    const request = jest.fn(async () =>
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' }
-      })
+    const request = jest.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
     );
-    await requestJson('/api/v1/me', z.object({ ok: z.literal(true) }).strict(), {
-      baseUrl: 'https://api.example.test',
-      request
-    });
+    await requestJson(
+      '/api/v1/me',
+      z.object({ ok: z.literal(true) }).strict(),
+      {
+        baseUrl: 'https://api.example.test',
+        request
+      }
+    );
     expect(bridge.getToken).toHaveBeenCalledWith({ skipCache: true });
     expect(request).toHaveBeenCalledWith(
       'https://api.example.test/api/v1/me',
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer clerk-token' })
+        headers: expect.objectContaining({
+          Authorization: 'Bearer clerk-token'
+        })
+      })
+    );
+
+    const trackingRequest = jest.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            available: true,
+            mode: 'paused',
+            lastDetectedAt: null,
+            lastSuccessfulTransactionId: null,
+            detectedThisMonth: 0,
+            reviewCount: 0,
+            activeKeywordCount: 0,
+            activeSenderCount: 0,
+            lastUpdatedAt: '2026-09-02T08:00:00.000Z'
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    await createLiveAutomaticTrackingService({
+      request: trackingRequest
+    }).getStatus();
+    expect(trackingRequest).toHaveBeenCalledWith(
+      '/api/v1/tracking/status',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer clerk-token'
+        })
       })
     );
   });
 
   test('rejects synthetic sessions and maps local versus all-session sign-out', async () => {
     const synthetic = clerkBridge({
-      getSession: jest.fn(async () => ({ ...liveSession, id: 'mock-session', userId: 'mock-user' }))
+      getSession: jest.fn(async () => ({
+        ...liveSession,
+        id: 'mock-session',
+        userId: 'mock-user'
+      }))
     });
-    await expect(createLiveAuthService(synthetic).restoreSession()).rejects.toMatchObject({
+    await expect(
+      createLiveAuthService(synthetic).restoreSession()
+    ).rejects.toMatchObject({
       code: 'contract_mismatch'
     });
 
@@ -254,7 +300,9 @@ describe('live owner identity mappings', () => {
         nextCursor: null
       });
 
-    await expect(createLiveIdentityService({ request }).listSessions()).resolves.toHaveLength(2);
+    await expect(
+      createLiveIdentityService({ request }).listSessions()
+    ).resolves.toHaveLength(2);
     expect(request).toHaveBeenNthCalledWith(
       2,
       '/api/v1/me/devices?limit=100&cursor=page-2',

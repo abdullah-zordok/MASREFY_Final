@@ -25,12 +25,14 @@ import {
   type SettingsService
 } from '@/services/contracts/assistant-notifications-service';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
+import { TrackingError } from '@/services/contracts/automatic-tracking-service';
 import { resetLocalUserData } from '@/storage/local-data-reset';
 import {
   configureMobileApiTokenProvider,
   HttpError,
   requestJson
 } from './http-client';
+import { configureAutomaticTrackingTokenProvider } from './automatic-tracking-service';
 
 type ClerkSession = {
   id: string;
@@ -114,6 +116,11 @@ let registeredBridge: LiveClerkBridge | null = null;
 export function registerLiveClerkBridge(bridge: LiveClerkBridge): void {
   registeredBridge = bridge;
   configureMobileApiTokenProvider(() => bridge.getToken({ skipCache: true }));
+  configureAutomaticTrackingTokenProvider(async () => {
+    const token = await bridge.getToken({ skipCache: true });
+    if (!token) throw new TrackingError('permission_required');
+    return token;
+  });
 }
 
 export async function captureLiveClerkIdentity() {

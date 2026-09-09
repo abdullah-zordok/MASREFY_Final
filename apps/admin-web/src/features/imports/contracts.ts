@@ -77,6 +77,9 @@ export const safeIdSchema = z
 export const accessLevelSchema = z.enum(["full", "limited", "context"]);
 export const platformScopeSchema = z.enum(["all", "android", "ios", "unknown"]);
 export const importSourceSchema = z.enum([
+  "sms",
+  "file",
+  "provider",
   "android_sms",
   "android_notification",
   "ios_shortcut",
@@ -339,6 +342,7 @@ export const operationalRecordSchema = z
     platform: platformScopeSchema.optional(),
     source: importSourceSchema.optional(),
     bank: z.string().max(120).optional(),
+    attempts: z.number().int().nonnegative().optional(),
     language: z.enum(["ar", "en"]).optional(),
     version: z.string().max(40).optional(),
     confidence: z.number().min(0).max(1).optional(),

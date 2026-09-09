@@ -111,7 +111,10 @@ export class TrackingService {
   }
 
   async status(principal: ClerkPrincipal): Promise<Record<string, unknown>> {
-    const preferences = await this.repository.getPreferences(principal);
+    const [preferences, status] = await Promise.all([
+      this.repository.getPreferences(principal),
+      this.repository.trackingStatus(principal),
+    ]);
     return {
       available: true,
       mode: preferences.enabled
@@ -119,7 +122,7 @@ export class TrackingService {
           ? 'review_all'
           : 'automatic_clear'
         : 'paused',
-      preferences,
+      ...status,
     };
   }
 

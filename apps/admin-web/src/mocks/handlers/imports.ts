@@ -462,7 +462,7 @@ export const importsHandlers = [
                   .toLocaleLowerCase("ar")
                   .includes(query)) &&
               (!source || record.source === source) &&
-              (!platform || record.platform.toLowerCase() === platform) &&
+              (!platform || record.platform?.toLowerCase() === platform) &&
               (!severity || record.severity === severity),
           );
     const start = (page - 1) * pageSize;

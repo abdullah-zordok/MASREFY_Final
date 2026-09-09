@@ -142,15 +142,15 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 
 ### Tests and implementation
 
-- [ ] T068 [US5] Add a failing regression in `apps/mobile/src/services/live/automatic-tracking-service.test.ts` proving `report_wrong` maps to rejection/feedback and performs no ledger creation; add exhaustive compile/runtime coverage for every review action.
-- [ ] T069 [US5] Add failing strict/full-pagination tests in the same file for history/detail/undo/report, keyword/sender rules, preferences/retention fields, unknown states, test-only `processMockEvent`, and configured Clerk token availability.
-- [ ] T070 [US5] Add failing BE008 response-instance tests under `apps/api/test/contract/tracking/` for full preference/rule/review/import/parser resources; repair only proven BE008 schema/runtime drift and rerun `test:openapi`/tracking contract suites.
-- [ ] T071 [US5] Fix the root action mapping and full-cursor lookups in `apps/mobile/src/services/live/automatic-tracking-service.ts`; remove fabricated/default status/event/permission fields and make `processMockEvent` unavailable outside explicit demo/test; rerun T068-T069.
-- [ ] T072 [US5] Wire the tracking token provider before selector construction and enforce global plus BE004 per-account gates through existing contracts; run selector/status/privacy tests.
-- [ ] T073 [US5] Add failing Admin import/parser strict-mapping tests in `apps/admin-web/src/features/imports/repository.test.ts` for cursor traversal, exact totals/completeness, filters, reason/version/idempotency, sanitized previews, and no synthetic defaults.
-- [ ] T074 [US5] Correct `apps/admin-web/src/features/imports/repository.ts` to use the shared authenticated client and exact BE008 shapes; remove client role/scenario authority in live mode; rerun T073.
-- [ ] T075 [US5] Execute Wave 5 shadow/cohorts/rollback with corpus-safe fixtures, consent/account opt-out, retention, duplicate, offline/retry and no-direct-ledger assertions; record `evidence/wave-05-tracking-imports.md` and external native/corpus gates.
-- [ ] T076 [US5] Run BE008 unit/contract/integration/E2E/security/performance/stress/recovery, Mobile tracking and Admin import full gates, and production scans; update manifest/mock report/checklists.
+- [x] T068 [US5] Add a failing regression in `apps/mobile/src/services/live/automatic-tracking-service.test.ts` proving `report_wrong` maps to rejection/feedback and performs no ledger creation; add exhaustive compile/runtime coverage for every review action.
+- [x] T069 [US5] Add failing strict/full-pagination tests in the same file for history/detail/undo/report, keyword/sender rules, preferences/retention fields, unknown states, test-only `processMockEvent`, and configured Clerk token availability.
+- [x] T070 [US5] Add failing BE008 response-instance tests under `apps/api/test/contract/tracking/` for full preference/rule/review/import/parser resources; repair only proven BE008 schema/runtime drift and rerun `test:openapi`/tracking contract suites.
+- [x] T071 [US5] Fix the root action mapping and full-cursor lookups in `apps/mobile/src/services/live/automatic-tracking-service.ts`; remove fabricated/default status/event/permission fields and make `processMockEvent` unavailable outside explicit demo/test; rerun T068-T069.
+- [x] T072 [US5] Wire the tracking token provider before selector construction and enforce global plus BE004 per-account gates through existing contracts; run selector/status/privacy tests.
+- [x] T073 [US5] Add failing Admin import/parser strict-mapping tests in `apps/admin-web/src/features/imports/repository.test.ts` for cursor traversal, exact totals/completeness, filters, reason/version/idempotency, sanitized previews, and no synthetic defaults.
+- [x] T074 [US5] Correct `apps/admin-web/src/features/imports/repository.ts` to use the shared authenticated client and exact BE008 shapes; remove client role/scenario authority in live mode; rerun T073.
+- [x] T075 [US5] Execute Wave 5 shadow/cohorts/rollback with corpus-safe fixtures, consent/account opt-out, retention, duplicate, offline/retry and no-direct-ledger assertions; record `evidence/wave-05-tracking-imports.md` and external native/corpus gates.
+- [x] T076 [US5] Run BE008 unit/contract/integration/E2E/security/performance/stress/recovery, Mobile tracking and Admin import full gates, and production scans; update manifest/mock report/checklists.
 - [ ] T077 [US5] Run all reviews/scans, fix blockers, stage only Wave 5/BE008 paths, commit `feat(cutover): complete tracking imports wave`, push `main`, and wait for green required CI before T078.
 
 ---

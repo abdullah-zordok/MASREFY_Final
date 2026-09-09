@@ -41,7 +41,7 @@ describe('tracking import repository replay', () => {
     } as never);
     const request = { sourceName: null, key: 'stable-import-key', requestId: 'request-1' };
 
-    await repository.createImport(principal, base, request);
+    const first = await repository.createImport(principal, base, request);
     const replay = await repository.createImport(
       principal,
       {
@@ -58,6 +58,7 @@ describe('tracking import repository replay', () => {
     );
 
     expect(requestHashes[1]).toBe(requestHashes[0]);
+    expect(first.occurredAt).toEqual(expect.any(String));
     expect(replay).toEqual({ ...stored, replayed: true });
   });
 });

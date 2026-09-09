@@ -55,18 +55,29 @@ export const userRecordSchema = z.object({
 
 export const importRecordSchema = z.object({
   id: z.string().min(1),
-  user: z.string().regex(/^USR-\d{2}\*{3}$/),
+  user: z
+    .string()
+    .regex(/^USR-\d{2}\*{3}$/)
+    .optional(),
   source: z.string().min(1),
-  bank: z.string().min(1),
-  platform: z.enum(["iOS", "Android"]),
+  bank: z.string().min(1).optional(),
+  platform: z.enum(["iOS", "Android"]).optional(),
   failureType: z.string().min(1),
-  parserVersion: z.string().min(1),
+  parserVersion: z.string().min(1).optional(),
   attempts: z.number().int().nonnegative(),
   revision: z.number().int().positive(),
   severity: severitySchema,
   time: z.iso.datetime({ offset: true }),
-  status: z.enum(["failed", "review", "unsupported"]),
-  appVersion: z.string().min(1),
+  status: z.enum([
+    "received",
+    "processing",
+    "review",
+    "complete",
+    "failed",
+    "cancelled",
+    "unsupported",
+  ]),
+  appVersion: z.string().min(1).optional(),
   sanitizedResult: z
     .string()
     .min(1)

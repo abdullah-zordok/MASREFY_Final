@@ -270,11 +270,11 @@ export default function ImportsPage() {
                         {item.id}
                       </button>
                     </td>
-                    <td className="ltr">{item.user}</td>
+                    <td className="ltr">{item.user ?? "—"}</td>
                     <td>{item.source}</td>
-                    <td>{item.bank}</td>
+                    <td>{item.bank ?? "—"}</td>
                     <td>{item.failureType}</td>
-                    <td className="ltr">{item.parserVersion}</td>
+                    <td className="ltr">{item.parserVersion ?? "—"}</td>
                     <td>{item.attempts}</td>
                     <td>
                       <SeverityBadge severity={item.severity} />
@@ -311,7 +311,7 @@ export default function ImportsPage() {
                   </div>
                   <div>
                     <small>{copy.failedImports.parserLabel}</small>
-                    <strong className="ltr">{item.parserVersion}</strong>
+                    <strong className="ltr">{item.parserVersion ?? "—"}</strong>
                   </div>
                 </div>
                 <div className="mobile-data-actions">
@@ -346,9 +346,9 @@ export default function ImportsPage() {
               {[
                 ["المصدر", active.source],
                 ["المنصة", active.platform],
-                ["البنك", active.bank],
-                ["إصدار التطبيق", active.appVersion],
-                ["المحلل", active.parserVersion],
+                ["البنك", active.bank ?? "—"],
+                ["إصدار التطبيق", active.appVersion ?? "—"],
+                ["المحلل", active.parserVersion ?? "—"],
                 ["سبب الفشل", active.failureType],
                 ["المحاولات", String(active.attempts)],
                 ["الحالة", active.status],

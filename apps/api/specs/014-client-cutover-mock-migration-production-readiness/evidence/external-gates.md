@@ -2,6 +2,15 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Wave 5 local verification is recorded in [tracking/imports evidence](wave-05-tracking-imports.md). It does not establish hosted owner isolation, physical-device capture/background behavior, a deployed sanitized parser corpus, or deployed cohort/rollback observation.
+
+| Wave 5 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Hosted Clerk/Supabase tracking ownership | open | Strict Clerk token wiring, local owner/account gates, BE008 integration/security and clean pgTAP | On designated staging, use two real Clerk owners and enabled/disabled accounts to exercise status, reviews, duplicates, history and rules; prove cross-owner and opt-out denial and retain redacted request IDs | Platform and identity owners |
+| Physical Android/iOS tracking capture | open | Live adapter, retention/privacy, permission and conservative-platform automated coverage | Install the accepted signed build, exercise permission denial/recovery, Android SMS/notification and approved iOS assisted capture, offline/restart, account opt-out and source-text expiry without exposing source content | Mobile QA/release owner |
+| Deployed parser corpus | open | Sanitized deterministic corpus copy/hash, parser unit/contract/recovery and Admin mock-mode browser coverage | Run the approved sanitized corpus against the staging parser worker, retain corpus version/hash and bounded aggregate results, and prove raw messages/customer identifiers are absent from logs and Admin responses | Parser/data owner |
+| Deployed Wave 5 shadow, cohort and rollback | open | Local structural/financial shadow, server-derived cohort, retry and accepted N-1 rollback tests | Run shadow/internal/bounded cohorts against staging, observe the approved interval, exercise rollback to the accepted Wave 4 version and forward resync, and reconcile history/review/ledger counts without duplicate financial effects | Release/operations owner |
+
 Wave 2 local acceptance is recorded in [reference/accounts evidence](wave-02-reference-accounts.md). It does not establish a hosted rollout, real Clerk identity test, physical-device pass, or hosted shadow evidence sink.
 
 Wave 3 local acceptance is recorded in [ledger/sync evidence](wave-03-ledger-sync.md). It does not establish hosted identity/database behavior, physical-device background/restart behavior, or deployed cohort/rollback evidence.

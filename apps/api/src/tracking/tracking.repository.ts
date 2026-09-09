@@ -78,6 +78,22 @@ export class TrackingRepository {
     ]);
   }
 
+  trackingStatus(principal: ClerkPrincipal): Promise<Record<string, unknown>> {
+    return this.ownerJson(
+      principal,
+      `select jsonb_build_object(
+        'lastDetectedAt',(select max(h.occurred_at) from public.tracking_history h where h.user_id=$1),
+        'lastSuccessfulTransactionId',(select h.transaction_id from public.tracking_history h where h.user_id=$1 and h.outcome='accepted' and h.transaction_id is not null order by h.occurred_at desc,h.id desc limit 1),
+        'detectedThisMonth',(select count(*) from public.tracking_history h where h.user_id=$1 and h.occurred_at>=date_trunc('month',clock_timestamp())),
+        'reviewCount',(select count(*) from public.review_items r where r.user_id=$1 and r.status='pending'),
+        'activeKeywordCount',(select count(*) from public.user_keyword_rules k where k.user_id=$1 and k.enabled),
+        'activeSenderCount',(select count(*) from public.user_sender_rules s where s.user_id=$1 and s.enabled),
+        'lastUpdatedAt',greatest(p.updated_at,coalesce((select max(h.occurred_at) from public.tracking_history h where h.user_id=$1),p.updated_at))
+      ) result from public.tracking_preferences p where p.user_id=$1`,
+      [principal.userId],
+    );
+  }
+
   updatePreferences(
     principal: ClerkPrincipal,
     command: Record<string, unknown>,
@@ -137,13 +153,17 @@ export class TrackingRepository {
     const sensitive =
       name === 'import_sessions'
         ? "-'request_hash'-'claim_token'-'claimed_by'-'lease_until'-'last_error_code'"
-        : name === 'import_items'
-          ? "-'source_hash'-'normalized_hash'||jsonb_build_object('normalized_payload',x.normalized_payload-'body'-'sender'-'metadata'-'sourceText')"
-          : name === 'review_items'
-            ? "-'decision_token'-'decision_lease_until'"
-            : name === 'duplicate_candidates'
-              ? "-'decision_token'-'decision_lease_until'"
-              : '';
+        : name === 'user_keyword_rules'
+          ? "||jsonb_build_object('recent_use_count',(select count(*) from public.import_items i where i.user_id=x.user_id and x.id=any(i.applied_rule_ids)),'last_used_at',(select max(i.occurred_at) from public.import_items i where i.user_id=x.user_id and x.id=any(i.applied_rule_ids)))"
+          : name === 'user_sender_rules'
+            ? "||jsonb_build_object('recent_use_count',(select count(*) from public.import_items i where i.user_id=x.user_id and lower(i.normalized_payload->>'sender')=lower(x.sender_pattern)),'last_used_at',(select max(i.occurred_at) from public.import_items i where i.user_id=x.user_id and lower(i.normalized_payload->>'sender')=lower(x.sender_pattern)))"
+            : name === 'import_items'
+              ? "-'source_hash'-'normalized_hash'||jsonb_build_object('normalized_payload',x.normalized_payload-'body'-'sender'-'metadata'-'sourceText')"
+              : name === 'review_items'
+                ? "-'decision_token'-'decision_lease_until'"
+                : name === 'duplicate_candidates'
+                  ? "-'decision_token'-'decision_lease_until'"
+                  : '';
     const predicates: Record<string, string> = {
       sessions: 'and ($6::text is null or status=$6) and ($7::text is null or source_type=$7)',
       reviews: 'and ($6::text is null or status=$6)',
@@ -896,6 +916,7 @@ export class TrackingRepository {
           replayed: false,
           resource: publicValue(resource) as Record<string, unknown>,
           requestId,
+          occurredAt: new Date().toISOString(),
         };
         await client.query(
           admin
