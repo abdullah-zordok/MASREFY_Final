@@ -219,7 +219,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T109 [US8] Harden MSW engagement handlers in `apps/admin-web/src/mocks/handlers/communications.ts` to validate/persist supported test mutations and reject unknown actions/unhandled requests; keep this test/development-only and run handler/route tests.
 - [x] T110 [US8] Execute Wave 8 shadow/cohorts/rollback with quiet-hours/dedupe/redaction/owner/internal-note/quarantine/published-only/provider-outage checks; record `evidence/wave-08-engagement.md` plus push/SMTP/Storage/scanner/device gates.
 - [x] T111 [US8] Run full BE011/Mobile engagement/Admin communications/security/performance/stress/recovery/Playwright/production scans; update manifest/mock report/checklists.
-- [ ] T112 [US8] Run all reviews/scans, fix blockers, stage only Wave 8/BE011 paths, commit `feat(cutover): complete engagement wave`, push `main`, and wait for green required CI before T113.
+- [x] T112 [US8] Run all reviews/scans, fix blockers, stage only Wave 8/BE011 paths, commit `feat(cutover): complete engagement wave`, push `main`, and wait for green required CI before T113.
 
 ---
 

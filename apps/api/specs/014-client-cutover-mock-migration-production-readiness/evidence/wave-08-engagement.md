@@ -1,6 +1,6 @@
 # Wave 8 — Engagement
 
-Status: T101–T111 are locally complete. T112 remains open until the reviewed Wave 8 commit is pushed and every required workflow is green for that exact SHA.
+Status: T101–T112 complete. Wave 8 implementation commit `cefcd2a7a4bda17a303a5200b0212cf8a136ff7e` was pushed to `main`, and required workflow run `34472991580` completed successfully for that exact SHA.
 
 - Base and rollback SHA: `4f360a2e588798278962807de894897ccb891e28` (accepted Wave 7 evidence SHA).
 - No Phase 14-owned endpoint, DTO resource, database object, migration, worker, event or generic cutover store was added. Corrections stay within BE011's existing routes, repository/service boundary and accepted OpenAPI.
@@ -61,4 +61,4 @@ Pre-commit preservation receipt: `apps/mobile/src/services/contracts/assistant-n
 
 ## Remote acceptance
 
-Pending T112 exact-SHA push and required CI. No force push or history rewrite will be used.
+T112 accepted: `feat(cutover): complete engagement wave` at `cefcd2a7a4bda17a303a5200b0212cf8a136ff7e` is on `origin/main`, and [Backend Foundation run 34472991580](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34472991580) completed with `success` for that exact SHA. No force push or history rewrite was used.
