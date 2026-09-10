@@ -78,6 +78,31 @@ describe('ReportsService generation', () => {
       new Date('2026-09-04T00:00:00Z'),
     )) as Record<string, unknown>;
     expect(result.downloadUrl).toBe('https://storage.test/private');
+    expect(result.downloadUrlExpiresAt).toBe('2026-09-04T00:05:00.000Z');
     expect(result.storageRef).toBeUndefined();
+    expect(storage.sign).toHaveBeenCalledWith('private-key', 300);
+  });
+
+  it('never signs output beyond the report retention boundary', async () => {
+    const repository = {
+      getAttempt: jest.fn().mockResolvedValue({
+        id: 'id',
+        status: 'ready',
+        storageRef: 'private-key',
+        expiresAt: '2026-09-04T00:02:00.000Z',
+      }),
+    };
+    const storage = { sign: jest.fn().mockResolvedValue('https://storage.test/private') };
+    const service = new ReportsService(repository as never, storage as never);
+
+    const result = (await service.getReportAttempt(
+      principal,
+      '99000000-0000-4000-8000-000000000001',
+      'r',
+      new Date('2026-09-04T00:00:00Z'),
+    )) as Record<string, unknown>;
+
+    expect(storage.sign).toHaveBeenCalledWith('private-key', 120);
+    expect(result.downloadUrlExpiresAt).toBe('2026-09-04T00:02:00.000Z');
   });
 });

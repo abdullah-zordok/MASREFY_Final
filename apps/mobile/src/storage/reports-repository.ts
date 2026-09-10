@@ -13,6 +13,7 @@ export class ReportsRepository {
   private attempts = new Map<string, ReportOutputAttempt>();
   private operationIndex = new Map<string, string>();
   private hydration: Promise<void> | null = null;
+  private hydratedDatabase: SQLiteDatabase | null = null;
 
   constructor(private readonly persistent = false) {}
 
@@ -22,6 +23,7 @@ export class ReportsRepository {
     this.attempts.clear();
     this.operationIndex.clear();
     this.hydration = null;
+    this.hydratedDatabase = null;
   }
 
   async getSchedule(): Promise<ReportSchedule | null> {
@@ -156,12 +158,19 @@ export class ReportsRepository {
 
   private async ensureHydrated(): Promise<void> {
     if (!this.persistent) return;
-    this.hydration ??= this.hydrate();
+    const database = await openDatabase();
+    if (this.hydratedDatabase !== database) {
+      this.schedule = null;
+      this.draft = null;
+      this.attempts.clear();
+      this.operationIndex.clear();
+      this.hydratedDatabase = database;
+      this.hydration = this.hydrate(database);
+    }
     await this.hydration;
   }
 
-  private async hydrate(): Promise<void> {
-    const database = await openDatabase();
+  private async hydrate(database: SQLiteDatabase): Promise<void> {
     const [scheduleRows, draftRows, attemptRows] = await Promise.all([
       readPayloads<ReportSchedule>(database, 'report_schedules'),
       database.getAllAsync<{ payload: string }>(

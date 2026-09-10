@@ -26,8 +26,7 @@ function readPeriod(request: Request): ReportingPeriod {
 function readRawScenario(request: Request): string | null {
   const url = new URL(request.url);
   return (
-    request.headers.get("x-mock-scenario") ??
-    url.searchParams.get("__scenario")
+    request.headers.get("x-mock-scenario") ?? url.searchParams.get("__scenario")
   );
 }
 
@@ -48,15 +47,33 @@ function availableRegion(region: "activity" | "customers" | "metrics") {
 }
 
 export const overviewHandlers = [
-  http.post("/api/v1/admin/exports", () => HttpResponse.json({
-    attemptId: reportAttemptId, status: "queued", ledgerVersion: 0, schemaVersion: 1,
-    generatedAt: "2026-09-04T00:00:00.000Z",
-  }, { status: 202 })),
-  http.get(`/api/v1/admin/exports/${reportAttemptId}`, () => HttpResponse.json({
-    id: reportAttemptId, reportType: "account_activity", format: "csv", delivery: "download", status: "ready", metadata: {},
-    requestedAt: "2026-09-04T00:00:00.000Z", expiresAt: "2026-09-05T00:00:00.000Z",
-    downloadUrl: "https://project.supabase.co/storage/v1/object/sign/report-exports/admin.csv?token=opaque",
-  })),
+  http.post("/api/v1/admin/exports", () =>
+    HttpResponse.json(
+      {
+        attemptId: reportAttemptId,
+        status: "queued",
+        ledgerVersion: 0,
+        schemaVersion: 1,
+        generatedAt: "2026-09-04T00:00:00.000Z",
+      },
+      { status: 202 },
+    ),
+  ),
+  http.get(`/api/v1/admin/exports/${reportAttemptId}`, () =>
+    HttpResponse.json({
+      id: reportAttemptId,
+      reportType: "account_activity",
+      format: "csv",
+      delivery: "download",
+      status: "ready",
+      metadata: {},
+      requestedAt: "2026-09-04T00:00:00.000Z",
+      expiresAt: "2026-09-05T00:00:00.000Z",
+      downloadUrl:
+        "https://project.supabase.co/storage/v1/object/sign/report-exports/admin.csv?token=opaque",
+      downloadUrlExpiresAt: "2026-09-04T00:05:00.000Z",
+    }),
+  ),
   http.get("/api/v1/admin/overview", async ({ request }) => {
     const scenario = readScenario(request);
     const errorResponse = await scenarioResponse(scenario);
@@ -82,7 +99,12 @@ export const overviewHandlers = [
         ...summary,
         regions: [
           ...summary.regions,
-          { region: "revenue" as const, availability: "partial" as const, retryable: true, message: "بعض بيانات الإيراد غير متاحة مؤقتاً." },
+          {
+            region: "revenue" as const,
+            availability: "partial" as const,
+            retryable: true,
+            message: "بعض بيانات الإيراد غير متاحة مؤقتاً.",
+          },
         ],
       });
     }
@@ -90,7 +112,14 @@ export const overviewHandlers = [
       return HttpResponse.json({
         ...summary,
         metrics: [],
-        regions: [{ region: "metrics" as const, availability: "empty" as const, retryable: true, message: "لا توجد بيانات للمنصة والفترة المحددة." }],
+        regions: [
+          {
+            region: "metrics" as const,
+            availability: "empty" as const,
+            retryable: true,
+            message: "لا توجد بيانات للمنصة والفترة المحددة.",
+          },
+        ],
       });
     }
     return HttpResponse.json(summary);
@@ -139,8 +168,29 @@ export const overviewHandlers = [
     if (scenario === "empty") {
       return HttpResponse.json({
         ...analytics,
-        customers: { ...analytics.customers, uniqueCustomersTotal: 0, iosCustomers: 0, androidCustomers: 0, iosOnlyCustomers: 0, androidOnlyCustomers: 0, multiPlatformCustomers: 0, activeCustomersTotal: 0, activeIosCustomers: 0, activeAndroidCustomers: 0, newCustomersTotal: 0, newIosCustomers: 0, newAndroidCustomers: 0 },
-        regions: [{ region: "customers" as const, availability: "empty" as const, retryable: true, message: "لا توجد بيانات عملاء للمنصة والفترة المحددة." }],
+        customers: {
+          ...analytics.customers,
+          uniqueCustomersTotal: 0,
+          iosCustomers: 0,
+          androidCustomers: 0,
+          iosOnlyCustomers: 0,
+          androidOnlyCustomers: 0,
+          multiPlatformCustomers: 0,
+          activeCustomersTotal: 0,
+          activeIosCustomers: 0,
+          activeAndroidCustomers: 0,
+          newCustomersTotal: 0,
+          newIosCustomers: 0,
+          newAndroidCustomers: 0,
+        },
+        regions: [
+          {
+            region: "customers" as const,
+            availability: "empty" as const,
+            retryable: true,
+            message: "لا توجد بيانات عملاء للمنصة والفترة المحددة.",
+          },
+        ],
       });
     }
     return HttpResponse.json(analytics);
@@ -154,17 +204,28 @@ export const overviewHandlers = [
     const period = readPeriod(request);
     const url = new URL(request.url);
     const page = Number(url.searchParams.get("page") ?? "1") || 1;
-    const pageSize = Math.min(25, Number(url.searchParams.get("pageSize") ?? "10") || 10);
+    const pageSize = Math.min(
+      25,
+      Number(url.searchParams.get("pageSize") ?? "10") || 10,
+    );
     const filtered = overviewActivityFixture.filter((item) => {
       if (platform === "all") return true;
-      if (platform === "ios") return item.platformScope === "ios" || item.platformScope === "global";
-      return item.platformScope === "android" || item.platformScope === "global";
+      if (platform === "ios")
+        return item.platformScope === "ios" || item.platformScope === "global";
+      return (
+        item.platformScope === "android" || item.platformScope === "global"
+      );
     });
     void period;
     if (scenario === "empty") {
       return HttpResponse.json({
         ...paginate([], page, pageSize),
-        region: { region: "activity" as const, availability: "empty" as const, retryable: true, message: "لا يوجد نشاط للمنصة والفترة المحددة." },
+        region: {
+          region: "activity" as const,
+          availability: "empty" as const,
+          retryable: true,
+          message: "لا يوجد نشاط للمنصة والفترة المحددة.",
+        },
       });
     }
     return HttpResponse.json({

@@ -15,9 +15,18 @@ it('maps the Phase 10 summary, verification, schedule, and output contracts with
       if (path.includes('/reports/summary'))
         return json({
           metadata: {
+            schemaVersion: 1,
             generatedAt,
+            ledgerVersion: 7,
+            reportType: 'financial_summary',
+            period: 'monthly',
+            range: {
+              startDate: '2026-08-01',
+              endDate: '2026-08-31',
+              timezone: 'Asia/Riyadh'
+            },
             dataState: 'complete',
-            evidence: [{ asOf: generatedAt }]
+            evidence: [{ kind: 'ledger', version: 7, asOf: generatedAt }]
           },
           summaries: [
             {
@@ -112,7 +121,7 @@ it('maps the Phase 10 summary, verification, schedule, and output contracts with
       null,
       'schedule-key'
     )
-  ).resolves.toMatchObject({ value: { status: 'active', version: 1 } });
+  ).rejects.toMatchObject({ code: 'report_schedule_settings_unavailable' });
   const preview = await service.previewOutput({
     ...input,
     language: 'ar',

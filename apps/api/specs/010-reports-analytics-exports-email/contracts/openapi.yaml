@@ -39,6 +39,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ReportType'
         - $ref: '#/components/parameters/Period'
+        - $ref: '#/components/parameters/AnchorDate'
         - $ref: '#/components/parameters/Currency'
       responses:
         '200':
@@ -419,6 +420,12 @@ components:
       in: query
       required: true
       schema: {$ref: '#/components/schemas/ReportPeriod'}
+    AnchorDate:
+      name: anchorDate
+      in: query
+      required: false
+      description: Local date selecting the ending calendar month or annual year in the owner profile timezone.
+      schema: {type: string, format: date}
     ReportType:
       name: type
       in: query
@@ -488,13 +495,21 @@ components:
     ReportMetadata:
       type: object
       additionalProperties: false
-      required: [schemaVersion, generatedAt, ledgerVersion, reportType, period, dataState, evidence]
+      required: [schemaVersion, generatedAt, ledgerVersion, reportType, period, range, dataState, evidence]
       properties:
         schemaVersion: {type: integer, const: 1}
         generatedAt: {type: string, format: date-time}
         ledgerVersion: {type: integer, minimum: 0}
         reportType: {$ref: '#/components/schemas/ReportType'}
         period: {$ref: '#/components/schemas/ReportPeriod'}
+        range:
+          type: object
+          additionalProperties: false
+          required: [startDate, endDate, timezone]
+          properties:
+            startDate: {type: string, format: date}
+            endDate: {type: string, format: date}
+            timezone: {type: string, minLength: 1, maxLength: 64}
         dataState: {type: string, enum: [complete, empty, partial, estimated]}
         evidence:
           type: array

@@ -16,7 +16,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import type { Response } from 'express';
 
 import { ClerkAuthGuard, type ClerkPrincipalRequest } from '../identity/clerk-auth.guard';
@@ -236,6 +236,13 @@ for (const route of REPORT_ROUTES) {
     route.operation,
     descriptor,
   );
+  if (route.operation === 'getReportSummary') {
+    ApiQuery({
+      name: 'anchorDate',
+      required: false,
+      schema: { type: 'string', format: 'date' },
+    })(ReportsController.prototype, route.operation, descriptor);
+  }
   ApiBearerAuth('ClerkBearer')(ReportsController.prototype, route.operation, descriptor);
   UseGuards(ClerkAuthGuard)(ReportsController.prototype, route.operation, descriptor);
 }

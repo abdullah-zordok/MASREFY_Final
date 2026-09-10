@@ -62,7 +62,9 @@ export type CompletenessReason =
   | 'unresolved_conflict'
   | 'insufficient_history'
   | 'zero_denominator'
-  | 'no_prior_data';
+  | 'no_prior_data'
+  | 'source_incomplete'
+  | 'unsupported_by_server';
 export type ReportOutputKind =
   'send_test' | 'send_now' | 'scheduled' | 'retry' | 'download' | 'share';
 

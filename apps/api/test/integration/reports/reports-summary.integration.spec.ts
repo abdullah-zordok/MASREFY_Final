@@ -11,6 +11,7 @@ describeLiveDatabase('report summary reads', () => {
   const other = { userId: `report_other_${suffix}`, sessionId: 'other', factorAgeSeconds: 0 };
   const account = randomUUID();
   const otherAccount = randomUUID();
+  const category = randomUUID();
   let pool: PoolService;
   let repository: ReportsRepository;
 
@@ -33,16 +34,22 @@ describeLiveDatabase('report summary reads', () => {
            ($4,$5,'Other','bank','SAR')`,
           [account, owner.userId, randomUUID(), otherAccount, other.userId],
         );
+        await client.query(
+          `insert into public.categories(id,user_id,kind,label_ar,label_en)
+           values($1,$2,'expense','طعام','Food')`,
+          [category, owner.userId],
+        );
         const transactionValues = [
-          [randomUUID(), owner.userId, 'income', 100_00, 'SAR', '2026-08-01T10:00:00Z'],
-          [randomUUID(), owner.userId, 'expense', 40_00, 'SAR', '2026-08-02T10:00:00Z'],
-          [randomUUID(), owner.userId, 'income', 25_00, 'USD', '2026-08-03T10:00:00Z'],
-          [randomUUID(), other.userId, 'income', 999_00, 'SAR', '2026-08-01T10:00:00Z'],
+          [randomUUID(), owner.userId, 'income', 100_00, 'SAR', null, '2026-08-01T10:00:00Z'],
+          [randomUUID(), owner.userId, 'expense', 40_00, 'SAR', category, '2026-08-02T10:00:00Z'],
+          [randomUUID(), owner.userId, 'income', 25_00, 'USD', null, '2026-08-03T10:00:00Z'],
+          [randomUUID(), other.userId, 'income', 999_00, 'SAR', null, '2026-08-01T10:00:00Z'],
         ];
         for (const row of transactionValues) {
           await client.query(
-            `insert into public.transactions(id,user_id,kind,amount_minor,currency_code,title,occurred_at)
-             values($1,$2,$3,$4,$5,'fixture',$6)`,
+            `insert into public.transactions(
+               id,user_id,kind,amount_minor,currency_code,category_id,title,occurred_at
+             ) values($1,$2,$3,$4,$5,$6,'fixture',$7)`,
             row,
           );
         }
@@ -132,6 +139,71 @@ describeLiveDatabase('report summary reads', () => {
         netCashFlow: { amountMinor: 2_500, currency: 'USD' },
         savingsRateBasisPoints: 10_000,
         transactionCount: 1,
+      },
+    ]);
+  });
+
+  it('binds summary, category, and detail rows to the exact requested partial range', async () => {
+    const monthly = resolveReportPeriod('monthly', '2026-08-17', 'Asia/Riyadh');
+    const partial = {
+      ...monthly,
+      startDate: '2026-08-02',
+      endDate: '2026-08-02',
+      startInstant: new Date('2026-08-01T21:00:00.000Z'),
+      endExclusiveInstant: new Date('2026-08-02T21:00:00.000Z'),
+    };
+    const summary = await repository.getSummary(
+      owner,
+      'financial_summary',
+      partial,
+      'SAR',
+      'partial-summary',
+    );
+
+    expect(summary.summaries).toEqual([
+      {
+        income: { amountMinor: 0, currency: 'SAR' },
+        expense: { amountMinor: 4_000, currency: 'SAR' },
+        netCashFlow: { amountMinor: -4_000, currency: 'SAR' },
+        savingsRateBasisPoints: 0,
+        transactionCount: 1,
+      },
+    ]);
+    expect(summary.breakdowns).toEqual([
+      {
+        categoryId: category,
+        labelAr: 'طعام',
+        labelEn: 'Food',
+        currencyCode: 'SAR',
+        expenseMinor: 4_000,
+        transactionCount: 1,
+      },
+    ]);
+
+    const accepted = await repository.captureSnapshot(
+      owner,
+      {
+        type: 'account_activity',
+        periodStart: partial.startDate,
+        periodEnd: partial.endDate,
+        format: 'json',
+        delivery: 'download',
+        recipient: null,
+      },
+      randomUUID(),
+      'partial-detail',
+    );
+    const attempt = await pool.query<{ snapshot: { detailedRows: unknown[] } }>(
+      'select snapshot from private.report_output_attempts where id=$1',
+      [accepted.attemptId],
+    );
+    expect(attempt.rows[0]?.snapshot.detailedRows).toEqual([
+      {
+        occurredAt: '2026-08-02T10:00:00.000Z',
+        kind: 'expense',
+        amountMinor: 4_000,
+        currencyCode: 'SAR',
+        categoryLabel: 'Food',
       },
     ]);
   });

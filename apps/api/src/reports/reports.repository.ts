@@ -42,6 +42,11 @@ export interface ReportsSummaryResponse {
     ledgerVersion: number;
     reportType: ReportType;
     period: string;
+    range: {
+      startDate: string;
+      endDate: string;
+      timezone: string;
+    };
     dataState: 'complete' | 'empty';
     evidence: Array<{ kind: 'ledger'; version: number; asOf: string }>;
   };
@@ -1421,14 +1426,28 @@ export class ReportsRepository {
   ): Promise<ReportsSummaryResponse> {
     const summaries = (
       await client.query<SummaryRow>(
-        `select currency_code,sum(income_minor)::bigint income_minor,
-           sum(expense_minor)::bigint expense_minor,sum(net_cash_flow_minor)::bigint net_cash_flow_minor,
+        `with effects as (
+           select t.currency_code,
+             case when t.kind='income' then t.amount_minor else 0 end::bigint income_minor,
+             case
+               when t.kind='expense' then t.amount_minor+t.fee_minor
+               when t.kind='refund' then -t.amount_minor
+               when t.fee_minor>0 then t.fee_minor
+               else 0
+             end::bigint expense_minor,
+             case when t.kind in ('income','expense','refund') or t.fee_minor>0 then 1 else 0 end transaction_count
+           from public.transactions t
+           where t.user_id=$1 and t.status='confirmed' and t.deleted_at is null
+             and t.occurred_at >= $2::timestamptz and t.occurred_at < $3::timestamptz
+             and ($4::char(3) is null or t.currency_code=$4)
+         )
+         select currency_code,sum(income_minor)::bigint income_minor,
+           sum(expense_minor)::bigint expense_minor,
+           (sum(income_minor)-sum(expense_minor))::bigint net_cash_flow_minor,
            sum(transaction_count)::bigint transaction_count
-         from public.v_monthly_financial_summary
-         where user_id=$1 and month_start between date_trunc('month',$2::date)::date
-           and date_trunc('month',$3::date)::date and ($4::char(3) is null or currency_code=$4)
+         from effects where transaction_count>0
          group by currency_code order by currency_code`,
-        [userId, period.startDate, period.endDate, currency],
+        [userId, period.startInstant, period.endExclusiveInstant, currency],
       )
     ).rows.map((row) => {
       const income = safeInteger(row.income_minor);
@@ -1444,14 +1463,29 @@ export class ReportsRepository {
     });
     const breakdowns = (
       await client.query<CategoryRow>(
-        `select category_id,category_label_ar,category_label_en,currency_code,
-           sum(expense_minor)::bigint expense_minor,sum(transaction_count)::bigint transaction_count
-         from public.v_category_spending_summary
-         where user_id=$1 and month_start between date_trunc('month',$2::date)::date
-           and date_trunc('month',$3::date)::date and ($4::char(3) is null or currency_code=$4)
-         group by category_id,category_label_ar,category_label_en,currency_code
+        `with category_effects as (
+           select t.currency_code,t.category_id,t.amount_minor::bigint expense_minor
+           from public.transactions t
+           where t.user_id=$1 and t.kind='expense' and t.status='confirmed'
+             and t.deleted_at is null and t.category_id is not null
+             and t.occurred_at >= $2::timestamptz and t.occurred_at < $3::timestamptz
+             and ($4::char(3) is null or t.currency_code=$4)
+           union all
+           select r.currency_code,o.category_id,-r.amount_minor::bigint
+           from public.transactions r
+           join public.transactions o on o.id=r.reverses_transaction_id and o.user_id=r.user_id
+           where r.user_id=$1 and r.kind='refund' and r.status='confirmed'
+             and r.deleted_at is null and o.category_id is not null
+             and r.occurred_at >= $2::timestamptz and r.occurred_at < $3::timestamptz
+             and ($4::char(3) is null or r.currency_code=$4)
+         )
+         select e.category_id,c.label_ar category_label_ar,c.label_en category_label_en,e.currency_code,
+           sum(e.expense_minor)::bigint expense_minor,count(*)::bigint transaction_count
+         from category_effects e
+         join public.categories c on c.id=e.category_id
+         group by e.category_id,c.label_ar,c.label_en,e.currency_code
          order by currency_code,expense_minor desc,category_id limit 100`,
-        [userId, period.startDate, period.endDate, currency],
+        [userId, period.startInstant, period.endExclusiveInstant, currency],
       )
     ).rows.map((row) => ({
       categoryId: row.category_id,
@@ -1478,6 +1512,11 @@ export class ReportsRepository {
         ledgerVersion,
         reportType,
         period: period.kind,
+        range: {
+          startDate: period.startDate,
+          endDate: period.endDate,
+          timezone: period.timezone,
+        },
         dataState: summaries.length === 0 ? 'empty' : 'complete',
         evidence: [{ kind: 'ledger', version: ledgerVersion, asOf: generatedAt }],
       },

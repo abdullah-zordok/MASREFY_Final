@@ -9,7 +9,7 @@ const mockGetAllAsync = jest.fn(async (sql: string) => {
     return [{ payload: JSON.stringify(draft) }];
   return [];
 });
-const mockDatabase = { getAllAsync: mockGetAllAsync, runAsync: mockRunAsync };
+let mockDatabase = { getAllAsync: mockGetAllAsync, runAsync: mockRunAsync };
 
 jest.mock('./database', () => ({
   openDatabase: jest.fn(async () => mockDatabase),
@@ -73,4 +73,22 @@ test('persistent reports repository restores and writes schedule state and draft
       String(sql).includes('DELETE FROM planning_drafts')
     )
   ).toBe(true);
+});
+
+test('persistent reports repository drops cached owner data when the database changes', async () => {
+  const repository = new ReportsRepository(true);
+  expect(await repository.getSchedule()).toEqual(schedule);
+
+  const otherSchedule = { ...schedule, id: 'other-owner-schedule' };
+  mockDatabase = {
+    getAllAsync: jest.fn(async (sql: string) =>
+      sql.includes('report_schedules')
+        ? [{ payload: JSON.stringify(otherSchedule) }]
+        : []
+    ),
+    runAsync: mockRunAsync
+  };
+
+  expect(await repository.getSchedule()).toEqual(otherSchedule);
+  expect(await repository.loadDraft()).toBeNull();
 });

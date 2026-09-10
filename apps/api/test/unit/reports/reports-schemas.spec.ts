@@ -144,11 +144,13 @@ describe('Phase 10 report schemas', () => {
     ).toEqual({
       type: 'financial_summary',
       period: 'monthly',
+      anchorDate: null,
       currency: 'SAR',
     });
     expect(normalizeSummaryQuery({ period: 'annual' }, false)).toEqual({
       type: 'financial_summary',
       period: 'annual',
+      anchorDate: null,
       currency: null,
     });
     expect(() => normalizeSummaryQuery({ period: 'monthly', currency: 'sar' }, false)).toThrow(

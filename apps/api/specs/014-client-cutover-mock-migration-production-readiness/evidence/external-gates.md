@@ -2,6 +2,15 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Wave 7 local verification is recorded in [reports evidence](wave-07-reports.md). It does not establish hosted owner/Admin authorization, real SMTP/Storage delivery, physical-device persistence, or a deployed cohort/rollback observation.
+
+| Wave 7 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Hosted Clerk/Supabase report ownership and Admin authorization | open | Strict Clerk-token selectors, owner/Admin guards, exact-range query tests and local authorization/security suites | On designated staging, use two real owners plus authorized/unauthorized Admin identities; prove cross-owner denial, exact financial reconciliation and export permission/MFA behavior with redacted request IDs | Platform, identity and Admin security owners |
+| SMTP and private Storage report delivery | open | Recipient verification, idempotent worker, redaction, outage/retry, private-key stripping, signed-link expiry and recovery tests | Send a canary scheduled/export email and create/download an export in staging; verify inbox/provider receipt, private bucket policy, five-minute link expiry and absence of recipient/report content in logs | Email and Storage owners |
+| Physical-device report persistence | open | Owner-scoped local draft and immutable attempt snapshot tests; cold/other-device missing snapshots fail explicitly | Install the accepted signed build on supported iOS/Android devices; verify draft/restart behavior, export handoff and clear unavailable recovery on another device | Mobile QA/release owner |
+| Deployed Wave 7 shadow, cohort and rollback | open | Zero-tolerance local financial mapping tests plus server-derived cohort and accepted N-1 rollback policy tests | Run shadow/internal/bounded cohorts against staging, observe the approved interval, reconcile exact report values and exercise rollback to accepted Wave 6 without fabricated delivery state | Release/operations owner |
+
 Wave 6 local verification is recorded in [voice/AI evidence](wave-06-voice-ai.md). It does not establish approved OpenRouter production behavior, hosted Clerk/Supabase owner isolation, physical-device microphone behavior, or deployed cohort/rollback observation.
 
 | Wave 6 follow-up | Status | Local supporting proof | Required external action | Owner |

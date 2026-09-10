@@ -69,4 +69,37 @@ describe('ReportsService summaries', () => {
       ),
     ).rejects.toMatchObject({ status: 400 });
   });
+
+  it('uses an explicit report anchor date instead of the request clock', async () => {
+    const repository = {
+      getContext: jest.fn().mockResolvedValue({ timezone: 'Asia/Riyadh', ledgerVersion: 4 }),
+      getSummary: jest.fn().mockResolvedValue(response),
+      getHome: jest.fn(),
+    };
+    const service = new ReportsService(repository as never);
+
+    await service.getReportSummary(
+      principal,
+      {
+        type: 'financial_summary',
+        period: 'monthly',
+        anchorDate: '2026-08-17',
+        currency: 'SAR',
+      },
+      'anchored',
+      new Date('2026-09-04T00:00:00Z'),
+    );
+
+    expect(repository.getSummary).toHaveBeenCalledWith(
+      principal,
+      'financial_summary',
+      expect.objectContaining({
+        startDate: '2026-08-01',
+        endDate: '2026-08-31',
+        timezone: 'Asia/Riyadh',
+      }),
+      'SAR',
+      'anchored',
+    );
+  });
 });

@@ -16,7 +16,7 @@ import type {
   ReportOutputPreviewInput,
   ReportQuery
 } from '@/services/contracts/reports-service';
-import { reportsService } from '@/services/mocks/reports-service';
+import { reportsService } from '@/services/reports-service';
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { usePreferenceStore } from '@/state/preferences';
 import { buildNetWorthTrend } from './report-net-worth';

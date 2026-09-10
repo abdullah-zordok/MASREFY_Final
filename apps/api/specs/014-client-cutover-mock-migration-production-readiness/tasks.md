@@ -186,16 +186,16 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 
 ### Tests and implementation
 
-- [ ] T090 [US7] Add failing BE010 partial-month integration/reconciliation tests under `apps/api/test/integration/reports/` proving summary/category/detail use the exact requested interval.
-- [ ] T091 [US7] Correct BE010 date-range aggregation at the owner source and update its OpenAPI/evidence; rerun reports unit/contract/integration/security/recovery/performance/stress suites.
-- [ ] T092 [US7] Resolve BE010 owner contract for Mobile `anchorDate`, timezone, account scope, rich summaries/breakdowns and schedule fields: extend the existing owner contract minimally where required by accepted Mobile specs, otherwise encode an explicit unavailable client state; update BE010 artifacts before adapter work.
-- [ ] T093 [US7] Add failing Mobile report tests in `apps/mobile/src/services/live/reports-service.test.ts` for exact query scope, partial state/reasons, all rich fields, schedule round-trip, local persistent drafts, cold/other-device attempts, and server-owned delivery.
-- [ ] T094 [US7] Implement strict BE010 mappings in `apps/mobile/src/services/live/reports-service.ts`, remove local relabeling/defaults/cache requirement, and make unsupported dimensions explicit; rerun T093.
-- [ ] T095 [US7] Replace production imports of `apps/mobile/src/services/mocks/reports-service.ts` and delivery simulation with the live service while retaining local draft/preview only; run report selector/query/boundary tests.
-- [ ] T096 [US7] Add failing Admin overview/analytics/export strict tests in `apps/admin-web/src/features/overview/repository.test.ts` and `report-exports.test.ts` for exact financial values, currency/source version, page/filter semantics, explicit incomplete data, export request/status fields, validated short-lived links, and bounded polling.
-- [ ] T097 [US7] Correct `apps/admin-web/src/features/overview/repository.ts` and `report-exports.ts` to map accepted BE010/013 aggregates/exports through the shared client without synthetic totals or delivery state; rerun T096.
-- [ ] T098 [US7] Execute Wave 7 exact financial shadow/cohorts/rollback, export authorization/redaction/link expiry, schedule timezone and provider-outage checks; record `evidence/wave-07-reports.md` and open SMTP/Storage gates honestly.
-- [ ] T099 [US7] Run full BE010/Mobile reports/Admin analytics/security/performance/stress/recovery/production scans; update manifest/mock report/checklists.
+- [x] T090 [US7] Add failing BE010 partial-month integration/reconciliation tests under `apps/api/test/integration/reports/` proving summary/category/detail use the exact requested interval.
+- [x] T091 [US7] Correct BE010 date-range aggregation at the owner source and update its OpenAPI/evidence; rerun reports unit/contract/integration/security/recovery/performance/stress suites.
+- [x] T092 [US7] Resolve BE010 owner contract for Mobile `anchorDate`, timezone, account scope, rich summaries/breakdowns and schedule fields: extend the existing owner contract minimally where required by accepted Mobile specs, otherwise encode an explicit unavailable client state; update BE010 artifacts before adapter work.
+- [x] T093 [US7] Add failing Mobile report tests in `apps/mobile/src/services/live/reports-service.test.ts` for exact query scope, partial state/reasons, all rich fields, schedule round-trip, local persistent drafts, cold/other-device attempts, and server-owned delivery.
+- [x] T094 [US7] Implement strict BE010 mappings in `apps/mobile/src/services/live/reports-service.ts`, remove local relabeling/defaults/cache requirement, and make unsupported dimensions explicit; rerun T093.
+- [x] T095 [US7] Replace production imports of `apps/mobile/src/services/mocks/reports-service.ts` and delivery simulation with the live service while retaining local draft/preview only; run report selector/query/boundary tests.
+- [x] T096 [US7] Add failing Admin overview/analytics/export strict tests in `apps/admin-web/src/features/overview/repository.test.ts` and `report-exports.test.ts` for exact financial values, currency/source version, page/filter semantics, explicit incomplete data, export request/status fields, validated short-lived links, and bounded polling.
+- [x] T097 [US7] Correct `apps/admin-web/src/features/overview/repository.ts` and `report-exports.ts` to map accepted BE010/013 aggregates/exports through the shared client without synthetic totals or delivery state; rerun T096.
+- [x] T098 [US7] Execute Wave 7 exact financial shadow/cohorts/rollback, export authorization/redaction/link expiry, schedule timezone and provider-outage checks; record `evidence/wave-07-reports.md` and open SMTP/Storage gates honestly.
+- [x] T099 [US7] Run full BE010/Mobile reports/Admin analytics/security/performance/stress/recovery/production scans; update manifest/mock report/checklists.
 - [ ] T100 [US7] Run all reviews/scans, fix blockers, stage only Wave 7/BE010 paths, commit `feat(cutover): complete reports wave`, push `main`, and wait for green required CI before T101.
 
 ---

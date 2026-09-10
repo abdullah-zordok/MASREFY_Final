@@ -10,11 +10,11 @@ provider selector or remove mocks; final cutover belongs to SPEC-BE-014.
 
 | Current method | Backend mapping | Adapter rule |
 |---|---|---|
-| `getReport(query)` | `GET /reports/summary?type=financial_summary&period=...&currency=...` | map four period kinds/timezone/currency; select only the requested currency group and preserve data state/evidence |
+| `getReport(query)` | `GET /reports/summary?type=financial_summary&period=...&anchorDate=...&currency=...` | map four period kinds and the explicit anchor; validate the returned exact range/profile timezone, select only the requested currency group, and preserve data state/evidence. Non-empty account scope and rich fields not represented by BE010 are explicit unavailable states, never client-derived values. |
 | `getBreakdown(query)` | same summary with requested supported breakdown or bounded detail query | never fetch all transactions; preserve drill-down filters |
 | `getSchedule()` | `GET /report-schedules?limit=1` | return first owned supported schedule or null |
 | `verifyRecipient(email, operationId)` | `POST /report-schedules/verify-recipient` | normalize safely; no deliverability/account enumeration claim |
-| `saveSchedule(input, version, operationId)` | POST or PATCH schedule | send idempotency and expected version; map paused/disabled states |
+| `saveSchedule(input, version, operationId)` | POST or PATCH schedule | send idempotency and expected version only when every requested setting is represented by BE010; language, currency, delivery day, assistant-summary and detail-level settings remain explicitly unavailable rather than defaulted or relabeled |
 | `setScheduleStatus(...)` | PATCH or DELETE schedule | optimistic version; delete maps disabled local state |
 | `save/load/discardScheduleDraft` | local encrypted repository | remains device-local; never sent until explicit save |
 | `previewOutput(input)` | `GET /reports/summary` plus local safe preview identity | preview URL is not persisted; no snapshot mutation |

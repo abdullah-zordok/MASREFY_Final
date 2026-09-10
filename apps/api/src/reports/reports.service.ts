@@ -108,7 +108,10 @@ export class ReportsService {
     this.requireRecent(principal);
     if (!isReportUuid(attemptId)) throw new HttpException({ code: 'VALIDATION_FAILED' }, 400);
     const attempt = await this.repository.getAttempt(principal, attemptId, requestId);
-    if (new Date(String(attempt.expiresAt)).getTime() <= now.getTime())
+    const remainingSeconds = Math.floor(
+      (new Date(String(attempt.expiresAt)).getTime() - now.getTime()) / 1_000,
+    );
+    if (remainingSeconds <= 0)
       throw new HttpException({ code: 'REPORT_EXPIRED' }, 410);
     const { storageRef, ...safe } = attempt;
     if (
@@ -116,8 +119,15 @@ export class ReportsService {
       typeof storageRef === 'string'
     ) {
       if (!this.storage) throw new HttpException({ code: 'REPORT_STORAGE_UNAVAILABLE' }, 503);
-      const ttl = this.config?.get('MASARIFI_REPORT_SIGNED_URL_SECONDS') ?? 300;
-      return { ...safe, downloadUrl: await this.storage.sign(storageRef, ttl) };
+      const ttl = Math.min(
+        this.config?.get('MASARIFI_REPORT_SIGNED_URL_SECONDS') ?? 300,
+        remainingSeconds,
+      );
+      return {
+        ...safe,
+        downloadUrl: await this.storage.sign(storageRef, ttl),
+        downloadUrlExpiresAt: new Date(now.getTime() + ttl * 1_000).toISOString(),
+      };
     }
     return safe;
   }
@@ -616,13 +626,13 @@ export class ReportsService {
     const context = await this.repository.getContext(principal);
     const period = resolveReportPeriod(
       normalized.period,
-      localDateAt(now, context.timezone),
+      normalized.anchorDate ?? localDateAt(now, context.timezone),
       context.timezone,
     );
     const key = ReportsCache.key(
       principal.userId,
       namespace,
-      `${normalized.type}:${normalized.period}`,
+      `${normalized.type}:${normalized.period}:${normalized.anchorDate ?? 'current'}`,
       normalized.currency ?? 'all',
       context.ledgerVersion,
     );

@@ -50,6 +50,11 @@ describe('Phase 10 summary HTTP contract', () => {
       const paths = generateOpenApi(app).paths;
       expect(paths['/api/v1/dashboard/home']?.get?.operationId).toBe('getDashboardHome');
       expect(paths['/api/v1/reports/summary']?.get?.operationId).toBe('getReportSummary');
+      expect(paths['/api/v1/reports/summary']?.get?.parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'anchorDate', in: 'query', required: false }),
+        ]),
+      );
     } finally {
       await app.close();
     }
