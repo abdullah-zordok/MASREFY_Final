@@ -54,26 +54,27 @@ export const overviewHandlers = [
         status: "queued",
         ledgerVersion: 0,
         schemaVersion: 1,
-        generatedAt: "2026-09-04T00:00:00.000Z",
+        generatedAt: new Date().toISOString(),
       },
       { status: 202 },
     ),
   ),
-  http.get(`/api/v1/admin/exports/${reportAttemptId}`, () =>
-    HttpResponse.json({
+  http.get(`/api/v1/admin/exports/${reportAttemptId}`, () => {
+    const now = Date.now();
+    return HttpResponse.json({
       id: reportAttemptId,
       reportType: "account_activity",
       format: "csv",
       delivery: "download",
       status: "ready",
       metadata: {},
-      requestedAt: "2026-09-04T00:00:00.000Z",
-      expiresAt: "2026-09-05T00:00:00.000Z",
+      requestedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + 24 * 60 * 60_000).toISOString(),
       downloadUrl:
         "https://project.supabase.co/storage/v1/object/sign/report-exports/admin.csv?token=opaque",
-      downloadUrlExpiresAt: "2026-09-04T00:05:00.000Z",
-    }),
-  ),
+      downloadUrlExpiresAt: new Date(now + 5 * 60_000).toISOString(),
+    });
+  }),
   http.get("/api/v1/admin/overview", async ({ request }) => {
     const scenario = readScenario(request);
     const errorResponse = await scenarioResponse(scenario);
