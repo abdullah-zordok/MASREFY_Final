@@ -1,5 +1,23 @@
-import { createPhoneNotificationService } from './phone-notification-service';
+import {
+  createPhoneNotificationService,
+  getPushDeviceRegistration,
+} from './phone-notification-service';
 import { changeLocale } from '@/localization/i18n';
+import { Platform } from 'react-native';
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: { version: '0.0.1', extra: { eas: { projectId: 'project-1' } } },
+  },
+}));
+
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'device-fingerprint-000000000001' }));
+
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+}));
 
 jest.mock('expo-notifications', () => ({
   __esModule: true,
@@ -36,6 +54,10 @@ const mockNotifications = jest.requireMock('expo-notifications') as {
 };
 const mockLinking = jest.requireMock('expo-linking') as {
   openSettings: jest.Mock;
+};
+const mockSecureStore = jest.requireMock('expo-secure-store') as {
+  getItemAsync: jest.Mock;
+  setItemAsync: jest.Mock;
 };
 
 describe('phone notification platform service', () => {
@@ -166,6 +188,28 @@ describe('phone notification platform service', () => {
     );
     expect(remove).toHaveBeenCalledTimes(1);
     expect(mockLinking.openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a persistent installation fingerprint with the Expo push token', async () => {
+    mockSecureStore.getItemAsync.mockResolvedValueOnce(null);
+    mockNotifications.getExpoPushTokenAsync.mockResolvedValueOnce({
+      data: 'ExponentPushToken[device-registration]',
+    });
+
+    await expect(getPushDeviceRegistration()).resolves.toEqual({
+      deviceFingerprint: 'device-fingerprint-000000000001',
+      platform: Platform.OS,
+      appVersion: '0.0.1',
+      pushToken: 'ExponentPushToken[device-registration]',
+      pushProvider: 'expo',
+    });
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith(
+      'masarifi.notification-device-fingerprint.v1',
+      'device-fingerprint-000000000001',
+    );
+    expect(mockNotifications.getExpoPushTokenAsync).toHaveBeenCalledWith({
+      projectId: 'project-1',
+    });
   });
 });
 

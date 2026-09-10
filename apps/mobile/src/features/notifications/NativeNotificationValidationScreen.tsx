@@ -4,7 +4,6 @@ import { ScrollView } from 'react-native';
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import type { NotificationActionKind } from '@/domain/notifications';
-import { assistantNotificationsService } from '@/services/mocks/assistant-notifications-service';
 import { phoneNotificationService } from '@/services/platform/phone-notification-service';
 
 export function NativeNotificationValidationScreen() {
@@ -13,23 +12,11 @@ export function NativeNotificationValidationScreen() {
   async function present(action: NotificationActionKind, expired = false) {
     setStatus('notifications.validation.presenting');
     const createdAt = Date.now();
-    const id = `native-validation-${action}-${createdAt}`;
+    const id = `native-validation-${action}-${expired ? 'expired' : 'active'}-${createdAt}`;
     try {
-      const event = await assistantNotificationsService.createFromSource({
-        eventKey: id,
-        category: 'transaction',
-        eventType: 'native_validation',
-        titleKey: 'notifications.validation.title',
-        bodyKey: 'notifications.validation.body',
-        messageValues: {},
-        sensitivity: 'public',
-        target: { kind: 'transaction', transactionId: 'transaction-1' },
-        availableActions: [{ kind: action, expiresAt: action === 'undo' ? (expired ? createdAt - 1 : createdAt + 300_000) : null, sourceVersion: action === 'undo' ? 1 : null }],
-        occurredAt: createdAt
-      });
       await phoneNotificationService.registerCategories();
       const result = await phoneNotificationService.presentLocal({
-        notificationId: event.id,
+        notificationId: id,
         title: 'Masarifi validation',
         body: 'Open the requested validation action.',
         categoryId: 'financial-change'

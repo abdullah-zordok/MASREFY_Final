@@ -38,7 +38,7 @@ test('support attachment initialize, finalize, and download use protected server
 
 test('live support provider maps tickets and published content into existing screens', async () => {
   const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
-    .mockResolvedValueOnce(ok({ items: [{ id: '10000000-0000-4000-8000-000000000001', categoryId: '20000000-0000-4000-8000-000000000001', subject: 'Help', status: 'waiting_customer', priority: 'normal', version: 3, lastMessageAt: '2026-09-05T08:00:00Z', createdAt: '2026-09-05T07:00:00Z' }], nextCursor: null, hasMore: false }))
+    .mockResolvedValueOnce(ok({ items: [{ id: '10000000-0000-4000-8000-000000000001', categoryId: '20000000-0000-4000-8000-000000000001', subject: 'Help', status: 'waiting_customer', priority: 'normal', version: 3, lastMessageAt: '2026-09-05T08:00:00Z', closedAt: null, createdAt: '2026-09-05T07:00:00Z' }], nextCursor: null, hasMore: false }))
     .mockResolvedValueOnce(ok({ items: [{ key: 'card-help', type: 'faq', locale: 'en', title: 'Card help', body: 'How to get help', version: 2, publishedAt: '2026-09-05T07:00:00Z' }], nextCursor: null, hasMore: false }));
   const drafts = { saveDraft: jest.fn(), loadDraft: jest.fn(), discardDraft: jest.fn() };
   const service = createLiveSupportService({ baseUrl: 'https://api.example', token: () => Promise.resolve('session'), request, drafts });

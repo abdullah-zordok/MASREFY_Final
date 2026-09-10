@@ -24,8 +24,8 @@ import { useVoiceCapture } from './useVoiceCapture';
 
 const mockCreateFromSource = jest.fn();
 
-jest.mock('@/services/mocks/assistant-notifications-service', () => ({
-  assistantNotificationsService: {
+jest.mock('@/services/engagement-service', () => ({
+  notificationService: {
     createFromSource: (event: unknown) => mockCreateFromSource(event)
   }
 }));

@@ -76,6 +76,11 @@ export class EngagementService {
           version: value.version,
           requestId: validated.requestId,
         };
+      if (validated.operation === 'replaceNotificationPreferences')
+        return await this.repository.execute(principal, {
+          operation: 'getNotificationPreferences',
+          requestId: validated.requestId,
+        });
       if (validated.operation === 'createSupportTicket')
         return await this.readById(principal, 'getSupportTicket', 'ticketId', value.resourceId);
       if (validated.operation === 'addSupportMessage')

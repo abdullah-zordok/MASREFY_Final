@@ -1,286 +1,352 @@
-import { describe, expect, test, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+import {
+  configureApiActorProvider,
+  configureApiTokenProvider,
+} from "@/core/api/client";
 import { CommunicationsRepository } from "./repository";
 
-describe("Communications Repository", () => {
+const id = (suffix: number) =>
+  `11000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
+const at = "2026-09-10T08:00:00.000Z";
+const response = (value: unknown, status = 200) =>
+  ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => value,
+  }) as Response;
+const ticket = (suffix: number) => ({
+  id: id(suffix),
+  categoryId: id(90),
+  subject: `Ticket ${suffix}`,
+  status: "waiting_support",
+  priority: "high",
+  lastMessageAt: at,
+  closedAt: null,
+  version: suffix,
+  createdAt: at,
+});
+
+describe("CommunicationsRepository", () => {
   let repository: CommunicationsRepository;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+    configureApiTokenProvider(async () => "admin-token");
+    configureApiActorProvider(() => "admin-1");
     repository = new CommunicationsRepository();
-    vi.clearAllMocks();
   });
 
-  describe("query-key structure", () => {
-    test("generates deterministic query keys for support tickets", () => {
-      const key1 = repository.getSupportTicketsQueryKey({
-        page: 1,
-        pageSize: "25",
-        status: "open",
-      });
-      const key2 = repository.getSupportTicketsQueryKey({
-        page: 1,
-        pageSize: "25",
-        status: "open",
-      });
-
-      expect(key1).toEqual(key2);
-      expect(key1).toEqual(["phase6-communications", "support-tickets", { page: 1, pageSize: "25", status: "open" }]);
-    });
-
-    test("generates different keys for different filter values", () => {
-      const key1 = repository.getSupportTicketsQueryKey({
-        page: 1,
-        pageSize: "25",
-        status: "open",
-      });
-      const key2 = repository.getSupportTicketsQueryKey({
-        page: 2,
-        pageSize: "50",
-        status: "resolved",
-      });
-
-      expect(key1).not.toEqual(key2);
+  test("keeps deterministic query keys, encoding, and targeted invalidation", () => {
+    const params = {
+      page: 1,
+      pageSize: "25" as const,
+      status: "open" as const,
+    };
+    expect(repository.getSupportTicketsQueryKey(params)).toEqual([
+      "phase6-communications",
+      "support-tickets",
+      params,
+    ]);
+    expect(repository.encodeSearchParams({ search: "بحث & value=1" })).toBe(
+      "search=%D8%A8%D8%AD%D8%AB+%26+value%3D1",
+    );
+    const client = { invalidateQueries: vi.fn() };
+    repository.invalidateSupportTicketDetail(client, id(1));
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["phase6-communications", "support-tickets", id(1)],
     });
   });
 
-  describe("URL encoding", () => {
-    test("properly encodes special characters in search queries", () => {
-      const searchQuery = "test search & special=chars";
-      const encoded = repository.encodeSearchParams({ search: searchQuery });
-      
-      expect(encoded).toContain("search=");
-      expect(encoded).toContain("special");
-      expect(encoded).not.toContain("&special=");
-    });
-
-    test("handles Arabic text encoding", () => {
-      const arabicText = "بحث باللغة العربية";
-      const encoded = repository.encodeSearchParams({ search: arabicText });
-      
-      expect(encoded).toContain("search=");
-      expect(encoded).toContain("%D8%A8"); // Arabic character encoding
-    });
+  test("uses shared auth and rejects unknown response fields", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
+      response({
+        items: [{ ...ticket(1), leakedInternalField: "no" }],
+        nextCursor: null,
+        hasMore: false,
+      }),
+    );
+    await expect(
+      repository.getSupportTickets({ page: 1, pageSize: "25" }),
+    ).rejects.toMatchObject({ code: "contract_mismatch", status: 502 });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/admin/support/tickets"),
+      expect.objectContaining({
+        credentials: "same-origin",
+        headers: expect.objectContaining({
+          Authorization: "Bearer admin-token",
+        }),
+      }),
+    );
   });
 
-  describe("strict response parsing", () => {
-    test("accepts valid response structure", async () => {
-      const validResponse = {
-        id: "TKT-1001",
-        subject: "Test ticket",
-        status: "open",
-        priority: "normal",
-        version: 1,
-        createdAt: "2026-07-29T12:00:00+03:00",
-        updatedAt: "2026-07-29T12:00:00+03:00",
-      };
-
-      await expect(
-        repository.validateResponse(validResponse, "supportTicket")
-      ).resolves.toBeDefined();
-    });
+  test.each([
+    [401, "AUTH_TOKEN_INVALID", "session_expired"],
+    [403, "FORBIDDEN", "forbidden"],
+    [409, "VERSION_CONFLICT", "conflict"],
+    [429, "RATE_LIMITED", "rate_limited"],
+  ])("preserves %i/%s as %s", async (status, serverCode, clientCode) => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      response(
+        { code: serverCode, message: "Safe", requestId: "request-1" },
+        status,
+      ),
+    );
+    await expect(
+      repository.getSupportTickets({ page: 1, pageSize: "25" }),
+    ).rejects.toMatchObject({ code: clientCode, status });
   });
 
-  describe("safe error parsing", () => {
-    test("parses API errors without exposing sensitive data", () => {
-      const apiError = {
-        status: 403,
-        code: "FORBIDDEN",
-        message: "Access denied",
-        correlationId: "CORR-12345-ABCDEF",
-      };
-
-      const parsed = repository.parseApiError(apiError);
-      
-      expect(parsed).toEqual({
-        status: "403",
-        code: "FORBIDDEN",
-        message: "Access denied",
-        correlationId: "CORR-12345-ABCDEF",
+  test("traverses every ticket cursor and computes exact local pagination", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockImplementation(async (input) => {
+        const second = String(input).includes("cursor=tickets-2");
+        return response({
+          items: [ticket(second ? 2 : 1)],
+          nextCursor: second ? null : "tickets-2",
+          hasMore: !second,
+        });
       });
+    const page = await repository.getSupportTickets({
+      page: 1,
+      pageSize: "25",
     });
-
-    test("handles errors with field-level validation", () => {
-      const validationError = {
-        status: 422,
-        code: "VALIDATION_ERROR",
-        message: "Invalid input",
-        correlationId: "CORR-12345-ABCDEF",
-        fieldErrors: {
-          subject: ["Subject is required"],
-          priority: ["Invalid priority value"],
-        },
-      };
-
-      const parsed = repository.parseApiError(validationError);
-      
-      expect(parsed.fieldErrors).toBeDefined();
-      expect(parsed.fieldErrors?.subject).toEqual(["Subject is required"]);
+    expect(page.tickets.map((item) => item.id)).toEqual([id(1), id(2)]);
+    expect(page.pagination).toEqual({
+      page: 1,
+      pageSize: 25,
+      totalItems: 2,
+      totalPages: 1,
     });
-
-    test("sanitizes error messages to prevent information leakage", () => {
-      const unsafeError = {
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: "Database connection failed: postgresql://user:pass@localhost/db",
-        correlationId: "CORR-12345-ABCDEF",
-      };
-
-      const parsed = repository.parseApiError(unsafeError);
-      
-      expect(parsed.message).not.toContain("postgresql://");
-      expect(parsed.message).not.toContain("user:pass");
+    expect(page.tickets[0]).toMatchObject({
+      title: "Ticket 1",
+      state: "waiting_support",
+      revision: 1,
+      platform: "unknown",
+      locale: "unknown",
     });
+    expect(
+      fetchSpy.mock.calls.some(([url]) =>
+        String(url).includes("cursor=tickets-2"),
+      ),
+    ).toBe(true);
   });
 
-  describe("targeted invalidation", () => {
-    test("invalidates specific query keys after mutations", () => {
-      const queryClient = {
-        invalidateQueries: vi.fn(),
-      };
-
-      repository.invalidateSupportTicketList(queryClient);
-      
-      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ["phase6-communications", "support-tickets"],
-      });
-    });
-
-    test("invalidates detail views when specific ticket is modified", () => {
-      const queryClient = {
-        invalidateQueries: vi.fn(),
-      };
-
-      repository.invalidateSupportTicketDetail(queryClient, "TKT-1001");
-      
-      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ["phase6-communications", "support-tickets", "TKT-1001"],
-      });
-    });
-  });
-
-  describe("no direct fixture access", () => {
-    test("does not expose fixture data directly", () => {
-      // Repository should not have direct access to fixtures
-      expect(repository).not.toHaveProperty("fixtures");
-      expect(repository).not.toHaveProperty("mockData");
-    });
-
-    test("fetches data through API client only", async () => {
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: [] }),
-      } as Response);
-
-      await repository.getSupportTickets({ page: 1, pageSize: "25" });
-      
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/admin/support/tickets"),
-        expect.any(Object)
+  test("keeps UI pagination local and sends only supported server filters", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(
+        response({ items: [], nextCursor: null, hasMore: false }),
       );
-
-      fetchSpy.mockRestore();
+    await repository.getFeedback({
+      page: 2,
+      pageSize: 25,
+      search: "missing receipt",
+      status: "new",
     });
+    const url = String(fetchSpy.mock.calls[0]?.[0]);
+    expect(url).toContain("query=missing+receipt");
+    expect(url).toContain("status=new");
+    expect(url).not.toContain("page=");
+    expect(url).not.toContain("pageSize=");
+    expect(url).not.toContain("search=");
   });
 
-  describe("API request construction", () => {
-    test("constructs GET requests with correct headers", async () => {
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: [] }),
-      } as Response);
-
-      await repository.getSupportTickets({ page: 1, pageSize: "25" });
-      
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/v1/admin/support/tickets?limit=25",
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            "Content-Type": "application/json",
-          }),
-        })
-      );
-
-      fetchSpy.mockRestore();
+  test("traverses complete ticket history and preserves bodies, notes, and attachments", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockImplementation(async (input) => {
+        const second = String(input).includes("cursor=messages-2");
+        return response({
+          ...ticket(1),
+          messages: [
+            {
+              id: id(second ? 12 : 11),
+              senderType: second ? "admin" : "customer",
+              body: second ? "Support reply" : "Customer body",
+              attachments: second
+                ? []
+                : [
+                    {
+                      id: id(20),
+                      filename: "receipt.png",
+                      contentType: "image/png",
+                      sizeBytes: 2048,
+                      status: "clean",
+                    },
+                  ],
+              createdAt: at,
+            },
+          ],
+          nextCursor: second ? null : "messages-2",
+          hasMore: !second,
+          internalNotes: [
+            { id: id(30), body: "Internal review", createdAt: at },
+          ],
+        });
+      });
+    const detail = await repository.getSupportTicket(id(1));
+    expect(detail).toMatchObject({
+      body: "Customer body",
+      revision: 1,
+      notes: ["Internal review"],
+      attachments: [{ id: id(20), filename: "receipt.png", status: "clean" }],
+      messages: [
+        { id: id(11), body: "Customer body" },
+        { id: id(12), body: "Support reply" },
+      ],
+      internalNotes: [{ id: id(30), body: "Internal review" }],
     });
+    expect(
+      fetchSpy.mock.calls.some(([url]) =>
+        String(url).includes("cursor=messages-2"),
+      ),
+    ).toBe(true);
+  });
 
-    test("constructs POST requests with proper body", async () => {
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true }),
-      } as Response);
-
-      await repository.actOnSupportTicket("TKT-1001", {
+  test("sends exact versions and reasons and accepts only exact action results", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(
+        response({
+          resourceId: id(1),
+          outcome: "success",
+          currentState: "waiting_support",
+          version: 2,
+          requestId: "request-2",
+        }),
+      );
+    await expect(
+      repository.actOnSupportTicket(id(1), {
         action: "assign",
         expectedVersion: 1,
         reason: "Assign for investigation",
-        assignTo: "AGENT-001",
-      });
-      
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/v1/admin/support/tickets/TKT-1001/actions",
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) }),
-          body: expect.stringContaining("assigneeId"),
-        })
-      );
-      expect(fetchSpy.mock.calls[0]?.[1]?.body).not.toContain("assignTo");
-
-      fetchSpy.mockRestore();
+        assignTo: "admin-2",
+      }),
+    ).resolves.toEqual({
+      resourceId: id(1),
+      outcome: "success",
+      currentState: "waiting_support",
+      version: 2,
+      requestId: "request-2",
     });
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual({
+      action: "assign",
+      expectedVersion: 1,
+      reason: "Assign for investigation",
+      assigneeId: "admin-2",
+    });
+  });
 
-    test("maps cursor pages to the existing admin view contract", async () => {
-      vi.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          items: [{ id: "7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f", subject: "Card issue", status: "open", priority: "normal", version: 2, lastMessageAt: "2026-09-05T08:00:00Z" }],
-          nextCursor: "opaque",
-          hasMore: true,
+  test("decodes categories, templates, and campaigns without fabricated totals", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        response({
+          items: [
+            {
+              id: id(40),
+              key: "card",
+              name: "Card",
+              sortOrder: 1,
+              active: true,
+              version: 3,
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
         }),
-      } as Response);
-
-      const result = await repository.getSupportTickets({ page: 1, pageSize: "25" });
-
-      expect(result.tickets[0]).toMatchObject({ title: "Card issue", state: "open", revision: 2 });
-      expect(result.pagination).toMatchObject({ pageSize: 25, totalPages: 2 });
-      expect(JSON.stringify(result)).not.toContain("nextCursor");
-    });
-
-    test("uses real detail routes and bounded audience grammar", async () => {
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: "7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f", subject: "Idea", body: "Details", state: "new", version: 1, createdAt: "2026-09-05T08:00:00Z", updatedAt: "2026-09-05T08:00:00Z", eligible: 7, optedOut: 2 }),
-      } as Response);
-
-      await repository.getFeedbackDetail("7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f");
-      await repository.getContentItem("faqs", "1f888fbd-13fe-4d9b-91a8-38356a9a5380");
-      const preview = await repository.previewAudience({ platform: "ios", locale: "ar" });
-
-      expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/v1/admin/feedback/7dd79c4b-79a0-4a5c-9f07-eb5370eeb26f");
-      expect(fetchSpy.mock.calls[1]?.[0]).toBe("/api/v1/admin/content/1f888fbd-13fe-4d9b-91a8-38356a9a5380");
-      expect(fetchSpy.mock.calls[2]?.[1]?.body).toBe(JSON.stringify({ platforms: ["ios"], locales: ["ar"], activity: "all", segmentKeys: [] }));
-      expect(preview).toMatchObject({ eligibleCount: 7, optedOutCount: 2, denominator: "eligible-audience" });
-    });
-
-    test("retires a support category only through the versioned replacement contract", async () => {
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({ resourceId: "10000000-0000-4000-8000-000000000001", outcome: "success" }),
-      } as Response);
-
-      await repository.actOnSupportCategory("10000000-0000-4000-8000-000000000001", {
-        action: "retire",
-        expectedVersion: 2,
-        reason: "Replaced by the account category",
-        replacementCategoryId: "20000000-0000-4000-8000-000000000002",
-      });
-
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/v1/admin/support/categories/10000000-0000-4000-8000-000000000001/actions",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ action: "retire", expectedVersion: 2, reason: "Replaced by the account category", replacementCategoryId: "20000000-0000-4000-8000-000000000002" }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          items: [
+            {
+              id: id(41),
+              state: "published",
+              version: 4,
+              updatedAt: at,
+              safe: {
+                key: "transaction.created",
+                locale: "en",
+                channel: "push",
+                templateVersion: 4,
+                subject: null,
+                body: "Body",
+              },
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          items: [
+            {
+              id: id(42),
+              state: "draft",
+              version: 2,
+              updatedAt: at,
+              safe: {
+                name: "September campaign",
+                templateId: id(41),
+                scheduledAt: null,
+                createdBy: "admin-1",
+                approvedBy: null,
+              },
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
         }),
       );
+    const categories = await repository.getSupportCategories({});
+    const templates = await repository.getTemplates({});
+    const campaigns = await repository.getCampaigns({});
+    expect(categories).toMatchObject({
+      pagination: { totalItems: 1 },
+      items: [{ title: "Card", revision: 3 }],
+    });
+    expect(templates).toMatchObject({
+      pagination: { totalItems: 1 },
+      items: [{ title: "transaction.created", locale: "en", revision: 4 }],
+    });
+    expect(campaigns).toMatchObject({
+      pagination: { totalItems: 1 },
+      items: [{ title: "September campaign", revision: 2 }],
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  test("preserves exact audience preview identity, expiry, and counts", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(
+        response({
+          previewId: id(50),
+          audienceVersion: "audience-v7",
+          eligible: 7,
+          excluded: 3,
+          optedOut: 2,
+          expiresAt: "2026-09-10T08:10:00.000Z",
+        }),
+      );
+    await expect(
+      repository.previewAudience({ platform: "ios", locale: "ar" }),
+    ).resolves.toEqual({
+      previewId: id(50),
+      audienceVersion: "audience-v7",
+      eligibleCount: 7,
+      excludedCount: 3,
+      optedOutCount: 2,
+      expiresAt: "2026-09-10T08:10:00.000Z",
+    });
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual({
+      platforms: ["ios"],
+      locales: ["ar"],
+      activity: "all",
+      segmentKeys: [],
     });
   });
 });

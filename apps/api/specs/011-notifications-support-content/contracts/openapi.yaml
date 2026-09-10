@@ -72,7 +72,7 @@ paths:
       tags: [Support]
       operationId: listSupportCategories
       responses:
-        '200': { description: Active categories, content: { application/json: { schema: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportCategory' } } } } }
+        '200': { description: Active categories, content: { application/json: { schema: { $ref: '#/components/schemas/SupportCategoryPage' } } } }
         default: { $ref: '#/components/responses/Error' }
   /api/v1/support/tickets:
     get:
@@ -455,6 +455,23 @@ components:
       additionalProperties: false
       required: [nextCursor,hasMore]
       properties: { nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field,code,message]
+      properties:
+        field: { type: string, maxLength: 128 }
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,63}$' }
+        message: { type: string, maxLength: 256 }
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code,message,requestId]
+      properties:
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,63}$' }
+        message: { type: string, maxLength: 256 }
+        requestId: { type: string, maxLength: 128 }
+        fieldErrors: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/FieldError' } }
     NotificationAction:
       type: object
       additionalProperties: false
@@ -477,11 +494,14 @@ components:
         version: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
     NotificationPage:
-      allOf:
-        - $ref: '#/components/schemas/CursorPage'
-        - type: object
-          required: [items,unreadCount]
-          properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Notification' } }, unreadCount: { type: integer, minimum: 0 } }
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore,unreadCount]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Notification' } }
+        nextCursor: { type: [string,'null'], maxLength: 512 }
+        hasMore: { type: boolean }
+        unreadCount: { type: integer, minimum: 0 }
     ReadRequest:
       type: object
       additionalProperties: false
@@ -518,16 +538,26 @@ components:
       required: [items,version]
       properties: { items: { type: array, maxItems: 300, items: { $ref: '#/components/schemas/Preference' } }, version: { type: integer, minimum: 1 } }
     PreferenceMatrixInput:
-      allOf:
-        - $ref: '#/components/schemas/PreferenceMatrix'
-        - type: object
-          required: [expectedVersion]
-          properties: { expectedVersion: { type: integer, minimum: 1 } }
+      type: object
+      additionalProperties: false
+      required: [items,version,expectedVersion]
+      properties:
+        items: { type: array, maxItems: 300, items: { $ref: '#/components/schemas/Preference' } }
+        version: { type: integer, minimum: 1 }
+        expectedVersion: { type: integer, minimum: 1 }
     SupportCategory:
       type: object
       additionalProperties: false
-      required: [id,key,name,sortOrder]
-      properties: { id: { $ref: '#/components/schemas/Uuid' }, key: { type: string, maxLength: 64 }, name: { type: string, maxLength: 120 }, sortOrder: { type: integer, minimum: 0 } }
+      required: [id,key,name,sortOrder,active,version]
+      properties: { id: { $ref: '#/components/schemas/Uuid' }, key: { type: string, maxLength: 64 }, name: { type: string, maxLength: 120 }, sortOrder: { type: integer, minimum: 0 }, active: { type: boolean }, version: { type: integer, minimum: 1 } }
+    SupportCategoryPage:
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportCategory' } }
+        nextCursor: { type: [string,'null'], maxLength: 512 }
+        hasMore: { type: boolean }
     Ticket:
       type: object
       additionalProperties: false
@@ -553,17 +583,30 @@ components:
         attachments: { type: array, maxItems: 6, items: { $ref: '#/components/schemas/Attachment' } }
         createdAt: { type: string, format: date-time }
     TicketDetail:
-      allOf:
-        - $ref: '#/components/schemas/Ticket'
-        - type: object
-          required: [messages,nextCursor,hasMore]
-          properties: { messages: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportMessage' } }, nextCursor: { type: [string,'null'] }, hasMore: { type: boolean } }
+      type: object
+      additionalProperties: false
+      required: [id,categoryId,subject,status,priority,lastMessageAt,closedAt,version,createdAt,messages,nextCursor,hasMore]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        categoryId: { $ref: '#/components/schemas/Uuid' }
+        subject: { type: string, maxLength: 180 }
+        status: { $ref: '#/components/schemas/TicketStatus' }
+        priority: { $ref: '#/components/schemas/TicketPriority' }
+        lastMessageAt: { type: string, format: date-time }
+        closedAt: { type: [string,'null'], format: date-time }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        messages: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportMessage' } }
+        nextCursor: { type: [string,'null'], maxLength: 512 }
+        hasMore: { type: boolean }
     TicketPage:
-      allOf:
-        - $ref: '#/components/schemas/CursorPage'
-        - type: object
-          required: [items]
-          properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Ticket' } } }
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Ticket' } }
+        nextCursor: { type: [string,'null'], maxLength: 512 }
+        hasMore: { type: boolean }
     CreateTicketRequest:
       type: object
       additionalProperties: false
@@ -610,7 +653,10 @@ components:
       required: [type,body]
       properties: { type: { type: string, enum: [bug,idea,experience,other] }, subject: { type: [string,'null'], maxLength: 180 }, body: { type: string, minLength: 1, maxLength: 8192 } }
     FeedbackPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/EngagementFeedback' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/EngagementFeedback' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     CreateAbuseRequest:
       type: object
       additionalProperties: false
@@ -622,14 +668,20 @@ components:
       required: [id,status,createdAt]
       properties: { id: { $ref: '#/components/schemas/Uuid' }, status: { type: string, enum: [open,reviewing,actioned,dismissed] }, createdAt: { type: string, format: date-time } }
     AbusePage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/AbuseReport' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/AbuseReport' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     ContentItem:
       type: object
       additionalProperties: false
       required: [key,type,locale,title,body,version,publishedAt]
       properties: { key: { type: string, maxLength: 96 }, type: { $ref: '#/components/schemas/ContentType' }, locale: { $ref: '#/components/schemas/Locale' }, title: { type: string, maxLength: 180 }, body: { type: string, maxLength: 65536 }, version: { type: integer, minimum: 1 }, publishedAt: { type: string, format: date-time } }
     ContentPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ContentItem' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ContentItem' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     AudienceDefinition:
       type: object
       additionalProperties: false
@@ -687,25 +739,40 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     AdminTicketDetail:
-      allOf:
-        - $ref: '#/components/schemas/TicketDetail'
-        - type: object
-          properties:
-            internalNotes:
-              type: array
-              maxItems: 100
-              items:
-                type: object
-                additionalProperties: false
-                required: [id,body,createdAt]
-                properties: { id: { $ref: '#/components/schemas/Uuid' }, body: { type: string, maxLength: 8192 }, createdAt: { type: string, format: date-time } }
+      type: object
+      additionalProperties: false
+      required: [id,categoryId,subject,status,priority,lastMessageAt,closedAt,version,createdAt,messages,nextCursor,hasMore,internalNotes]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        categoryId: { $ref: '#/components/schemas/Uuid' }
+        subject: { type: string, maxLength: 180 }
+        status: { $ref: '#/components/schemas/TicketStatus' }
+        priority: { $ref: '#/components/schemas/TicketPriority' }
+        lastMessageAt: { type: string, format: date-time }
+        closedAt: { type: [string,'null'], format: date-time }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        messages: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SupportMessage' } }
+        nextCursor: { type: [string,'null'], maxLength: 512 }
+        hasMore: { type: boolean }
+        internalNotes:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [id,body,createdAt]
+            properties: { id: { $ref: '#/components/schemas/Uuid' }, body: { type: string, maxLength: 8192 }, createdAt: { type: string, format: date-time } }
     AdminSupportCategory:
       type: object
       additionalProperties: false
       required: [id,key,name,sortOrder,active,version]
       properties: { id: { $ref: '#/components/schemas/Uuid' }, key: { type: string, maxLength: 64 }, name: { type: string, maxLength: 120 }, sortOrder: { type: integer, minimum: 0 }, active: { type: boolean }, version: { type: integer, minimum: 1 } }
     AdminSupportCategoryPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminSupportCategory' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminSupportCategory' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     AdminFeedback:
       type: object
       additionalProperties: false
@@ -717,21 +784,30 @@ components:
       required: [id,type,body,status,version,createdAt]
       properties: { id: { $ref: '#/components/schemas/Uuid' }, type: { type: string, enum: [bug,idea,experience,other] }, subject: { type: [string,'null'], maxLength: 180 }, body: { type: string, maxLength: 8192 }, status: { type: string, enum: [new,reviewing,planned,resolved,closed] }, version: { type: integer, minimum: 1 }, createdAt: { type: string, format: date-time } }
     AdminFeedbackPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminFeedbackSummary' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminFeedbackSummary' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     AdminAbuseReport:
       type: object
       additionalProperties: false
       required: [id,status,resourceType,resourceId,reason,version,createdAt]
       properties: { id: { $ref: '#/components/schemas/Uuid' }, status: { type: string, enum: [open,reviewing,actioned,dismissed] }, resourceType: { type: string, enum: [content,support_message,assistant_response,other] }, resourceId: { type: string, maxLength: 128 }, reason: { type: string, maxLength: 1000 }, version: { type: integer, minimum: 1 }, createdAt: { type: string, format: date-time } }
     AdminAbuseReportPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminAbuseReport' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminAbuseReport' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     AdminContentSummary:
       type: object
       additionalProperties: false
       required: [id,state,version,updatedAt,safe]
       properties: { id: { $ref: '#/components/schemas/Uuid' }, state: { type: string, enum: [draft,review,published,retired] }, version: { type: integer, minimum: 1 }, updatedAt: { type: string, format: date-time }, safe: { type: object, additionalProperties: false, required: [key,type,publishedAt], properties: { key: { type: string, maxLength: 96 }, type: { $ref: '#/components/schemas/ContentType' }, publishedAt: { type: [string,'null'], format: date-time } } } }
     AdminContentPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminContentSummary' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/AdminContentSummary' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     AdminContent:
       type: object
       additionalProperties: false
@@ -759,7 +835,10 @@ components:
       required: [id,state,version,updatedAt]
       properties: { id: { $ref: '#/components/schemas/Uuid' }, state: { type: string, maxLength: 40 }, version: { type: integer, minimum: 1 }, updatedAt: { type: string, format: date-time }, safe: { type: object, maxProperties: 32, additionalProperties: { type: [string,number,boolean,'null'] } } }
     EngagementAdminPage:
-      allOf: [{ $ref: '#/components/schemas/CursorPage' }, { type: object, required: [items], properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/EngagementAdminResource' } } } }]
+      type: object
+      additionalProperties: false
+      required: [items,nextCursor,hasMore]
+      properties: { items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/EngagementAdminResource' } }, nextCursor: { type: [string,'null'], maxLength: 512 }, hasMore: { type: boolean } }
     ActionResult:
       type: object
       additionalProperties: false

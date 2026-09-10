@@ -4,7 +4,7 @@ import { Redirect, router, usePathname } from 'expo-router';
 import { resolveProtectedAccessGate } from './resolve-entry-route';
 import { useAppShellStore } from '@/state/app-shell';
 import { createNotificationResponseController } from '@/features/notifications/notification-response-controller';
-import { assistantNotificationsService } from '@/services/mocks/assistant-notifications-service';
+import { notificationService } from '@/services/engagement-service';
 import { phoneNotificationService } from '@/services/platform/phone-notification-service';
 
 export function ProtectedRouteGate({ children }: { children: ReactNode }) {
@@ -83,7 +83,7 @@ export function NotificationResponseRuntime() {
     const unlocks = pendingUnlocks.current;
     void phoneNotificationService.registerCategories().catch(() => undefined);
     const controller = createNotificationResponseController({
-      notificationService: assistantNotificationsService,
+      notificationService,
       phoneService: phoneNotificationService,
       navigate: (destination) => router.push(destination),
       unlock: async () => {

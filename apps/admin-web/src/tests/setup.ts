@@ -4,6 +4,7 @@ import {
   configureApiTokenProvider,
 } from "@/core/api/client";
 import { mockServer } from "@/mocks/server";
+import { resetCommunicationsMockState } from "@/mocks/handlers/communications";
 import { resetPhase2MockState } from "@/mocks/phase2-state";
 import { resetPhase5AiState } from "@/mocks/phase5-ai-state";
 import { resetState as resetPhase6CommunicationsState } from "@/mocks/phase6-communications-state";
@@ -24,6 +25,7 @@ afterEach(() => {
   mockServer.resetHandlers();
   resetPhase2MockState();
   resetPhase5AiState();
+  resetCommunicationsMockState();
   resetPhase6CommunicationsState();
   resetPhase7SecurityState();
   resetPhase8SystemHealthState();

@@ -5,6 +5,7 @@ import { isFixtureModeEnabled } from '@/config/demo-mode';
 import { assistantNotificationsService as fixtureNotificationService } from './mocks/assistant-notifications-service';
 import { supportService as fixtureSupportService } from './mocks/support-service';
 import { createLiveNotificationService, createLiveSupportService } from './live/engagement-service';
+import { getLiveClerkToken } from './live/auth-service';
 
 function unavailable<T>(capability: typeof notificationServiceCapability | typeof supportServiceCapability): CapabilityProviderHandle<T> {
   return new Proxy({ metadata: { id: `unavailable-${capability.owner}`, capability: capability.capability, majorVersion: capability.majorVersion, kind: 'live' as const, availability: 'unavailable' as const } } as CapabilityProviderHandle<T>, {
@@ -15,8 +16,8 @@ function unavailable<T>(capability: typeof notificationServiceCapability | typeo
   });
 }
 
-const liveNotifications = createLiveNotificationService();
-const liveSupport = createLiveSupportService();
+const liveNotifications = createLiveNotificationService({ token: getLiveClerkToken });
+const liveSupport = createLiveSupportService({ token: getLiveClerkToken });
 
 export const notificationService: CapabilityProviderHandle<NotificationService> = isFixtureModeEnabled()
   ? fixtureNotificationService

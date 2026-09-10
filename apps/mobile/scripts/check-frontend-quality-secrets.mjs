@@ -18,6 +18,7 @@ export function scanFrontendQualitySecrets(root = process.cwd()) {
     if (isAllowed(rel)) continue;
     const source = fs.readFileSync(file, 'utf8');
     for (const [rule, pattern] of rules) {
+      if (rule === 'push-token-outside-platform' && rel.startsWith('src/services/platform/')) continue;
       if (pattern.test(source)) findings.push({ file: rel, rule });
     }
   }

@@ -169,6 +169,24 @@ function commandBody(command: EngagementCommand): Record<string, unknown> {
   return (command.body ?? {}) as Record<string, unknown>;
 }
 
+function databaseCommandBody(command: EngagementCommand): Record<string, unknown> {
+  const input = commandBody(command);
+  if (command.operation !== 'replaceNotificationPreferences' || !Array.isArray(input.items))
+    return input;
+  return {
+    ...input,
+    items: input.items.map((item) => {
+      const preference = item as Record<string, unknown>;
+      return {
+        channel: preference.channel,
+        event_type: preference.eventType,
+        enabled: preference.enabled,
+        quiet_hours: preference.quietHours,
+      };
+    }),
+  };
+}
+
 function mapDatabaseError(error: unknown): HttpException {
   if (error instanceof HttpException) return error;
   const code = (error as { code?: string }).code;
@@ -789,6 +807,7 @@ export class EngagementRepository {
     command: EngagementCommand,
   ): Promise<unknown> {
     const input = commandBody(command);
+    const databaseInput = databaseCommandBody(command);
     const id = Object.values(command.params ?? {})[0] ?? null;
     let sql: string;
     let values: unknown[];
@@ -834,7 +853,7 @@ export class EngagementRepository {
           principal.userId,
           command.operation,
           id,
-          JSON.stringify(input),
+          JSON.stringify(databaseInput),
           principal.mfaAgeSeconds ?? principal.factorAgeSeconds,
           command.requestId,
           this.config.getRequired('MASARIFI_CAMPAIGN_APPROVAL_THRESHOLD'),

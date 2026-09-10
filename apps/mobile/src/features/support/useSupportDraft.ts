@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SupportDraftInput, SupportDraft } from '@/domain/support';
-import { supportService } from '@/services/mocks/support-service';
+import { supportService } from '@/services/engagement-service';
 
 type DraftValues = SupportDraftInput;
 type DraftService = Pick<typeof supportService, 'saveDraft' | 'loadDraft' | 'discardDraft'>;

@@ -1,143 +1,259 @@
 import { z } from "zod";
+
+import { apiClient } from "@/core/api/client";
+import { ApiError, safeApiMessage } from "@/core/api/errors";
 import type {
-  Pagination,
-  SafeError,
   ActionResult,
+  AudiencePreview,
+  CommunicationDetail,
+  CommunicationOverview,
+  CommunicationPage,
+  Pagination,
   Platform,
   TicketPriority,
   TicketState,
-  ApiError as CommunicationsApiError,
-  CommunicationPage,
-  CommunicationDetail,
-  CommunicationOverview,
-  AudiencePreview,
 } from "./contracts";
-import { engagementAdminActionSchema } from "./contracts";
+import {
+  actionResultSchema,
+  communicationDetailSchema,
+  communicationRecordSchema,
+  engagementAdminActionSchema,
+} from "./contracts";
 
 export type { ActionResult } from "./contracts";
-
 export type QueryPrimitive = string | number | boolean | undefined | null;
 export type CommunicationsQuery = Record<string, QueryPrimitive>;
-type RawApiError = {
-  status?: number | string;
-  code?: string;
-  message?: string;
-  correlationId?: string;
-  fieldErrors?: Record<string, string[]>;
-};
 
-const supportTicketResponseSchema = z
+const timestampSchema = z.iso.datetime({ offset: true });
+const nullableTimestampSchema = timestampSchema.nullable();
+const uuidSchema = z.uuid();
+const attachmentApiSchema = z
   .object({
-    id: z.string().min(1),
-    subject: z.string().min(1),
-    status: z.enum([
-      "open",
-      "waiting_customer",
-      "waiting_support",
-      "resolved",
-      "closed",
+    id: uuidSchema,
+    filename: z.string().min(1).max(255),
+    contentType: z.enum([
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "text/plain",
     ]),
-    priority: z.enum(["low", "normal", "high", "urgent"]),
-    version: z.number().int().min(1),
-    createdAt: z.iso.datetime({ offset: true }),
-    updatedAt: z.iso.datetime({ offset: true }),
+    sizeBytes: z.number().int().positive(),
+    status: z.enum(["pending", "clean", "rejected", "failed"]),
   })
-  .passthrough();
+  .strict();
+const messageApiSchema = z
+  .object({
+    id: uuidSchema,
+    senderType: z.enum(["customer", "admin", "system"]),
+    body: z.string().max(8192),
+    attachments: z.array(attachmentApiSchema).max(6),
+    createdAt: timestampSchema,
+  })
+  .strict();
+const ticketFields = {
+  id: uuidSchema,
+  categoryId: uuidSchema,
+  subject: z.string().max(180),
+  status: z.enum([
+    "open",
+    "waiting_customer",
+    "waiting_support",
+    "resolved",
+    "closed",
+  ]),
+  priority: z.enum(["low", "normal", "high", "urgent"]),
+  lastMessageAt: timestampSchema,
+  closedAt: nullableTimestampSchema,
+  version: z.number().int().positive(),
+  createdAt: timestampSchema,
+};
+const ticketSchema = z.object(ticketFields).strict();
+const internalNoteSchema = z
+  .object({
+    id: uuidSchema,
+    body: z.string().max(8192),
+    createdAt: timestampSchema,
+  })
+  .strict();
+const ticketDetailSchema = z
+  .object({
+    ...ticketFields,
+    messages: z.array(messageApiSchema).max(100),
+    nextCursor: z.string().max(512).nullable(),
+    hasMore: z.boolean(),
+    internalNotes: z.array(internalNoteSchema).max(100),
+  })
+  .strict();
+const feedbackSummarySchema = z
+  .object({
+    id: uuidSchema,
+    type: z.enum(["bug", "idea", "experience", "other"]),
+    subject: z.string().max(180).nullable(),
+    body: z.string().max(8192),
+    status: z.enum(["new", "reviewing", "planned", "resolved", "closed"]),
+    version: z.number().int().positive(),
+    createdAt: timestampSchema,
+  })
+  .strict();
+const feedbackDetailSchema = z
+  .object({
+    id: uuidSchema,
+    type: z.enum(["bug", "idea", "experience", "other"]),
+    subject: z.string().max(180).nullable(),
+    body: z.string().max(8192),
+    state: z.enum(["new", "reviewing", "planned", "resolved", "closed"]),
+    version: z.number().int().positive(),
+    createdAt: timestampSchema,
+    updatedAt: timestampSchema,
+  })
+  .strict();
+const abuseSchema = z
+  .object({
+    id: uuidSchema,
+    status: z.enum(["open", "reviewing", "actioned", "dismissed"]),
+    resourceType: z.enum([
+      "content",
+      "support_message",
+      "assistant_response",
+      "other",
+    ]),
+    resourceId: z.string().max(128),
+    reason: z.string().max(1000),
+    version: z.number().int().positive(),
+    createdAt: timestampSchema,
+  })
+  .strict();
+const categorySchema = z
+  .object({
+    id: uuidSchema,
+    key: z.string().max(64),
+    name: z.string().max(120),
+    sortOrder: z.number().int().nonnegative(),
+    active: z.boolean(),
+    version: z.number().int().positive(),
+  })
+  .strict();
+const contentSummarySchema = z
+  .object({
+    id: uuidSchema,
+    state: z.enum(["draft", "review", "published", "retired"]),
+    version: z.number().int().positive(),
+    updatedAt: timestampSchema,
+    safe: z
+      .object({
+        key: z.string().max(96),
+        type: z.enum(["article", "faq", "policy", "announcement"]),
+        publishedAt: nullableTimestampSchema,
+      })
+      .strict(),
+  })
+  .strict();
+const contentDetailSchema = z
+  .object({
+    id: uuidSchema,
+    key: z.string().max(96),
+    type: z.enum(["article", "faq", "policy", "announcement"]),
+    state: z.enum(["draft", "review", "published", "retired"]),
+    publishedAt: nullableTimestampSchema,
+    version: z.number().int().positive(),
+    createdAt: timestampSchema,
+    updatedAt: timestampSchema,
+    translations: z
+      .array(
+        z
+          .object({
+            locale: z.enum(["ar", "en"]),
+            title: z.string().max(180),
+            body: z.string().max(65536),
+          })
+          .strict(),
+      )
+      .max(2),
+  })
+  .strict();
+const scalarSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const adminResourceSchema = z
+  .object({
+    id: uuidSchema,
+    state: z.string().max(40),
+    version: z.number().int().positive(),
+    updatedAt: timestampSchema,
+    safe: z.record(z.string(), scalarSchema).optional(),
+  })
+  .strict();
+const audienceDefinitionSchema = z
+  .object({
+    platforms: z
+      .array(z.enum(["ios", "android", "web"]))
+      .min(1)
+      .max(3),
+    locales: z
+      .array(z.enum(["ar", "en"]))
+      .min(1)
+      .max(2),
+    activity: z.enum(["all", "active", "inactive"]),
+    segmentKeys: z.array(z.string()).max(10),
+  })
+  .strict();
+const campaignDetailSchema = z
+  .object({
+    id: uuidSchema,
+    name: z.string().max(120),
+    audience: audienceDefinitionSchema,
+    templateId: uuidSchema,
+    state: z.enum([
+      "draft",
+      "approved",
+      "scheduled",
+      "running",
+      "paused",
+      "completed",
+      "cancelled",
+    ]),
+    scheduledAt: nullableTimestampSchema,
+    createdBy: z.string().max(128),
+    approvedBy: z.string().max(128).nullable(),
+    version: z.number().int().positive(),
+    createdAt: timestampSchema,
+    updatedAt: timestampSchema,
+  })
+  .strict();
+const audiencePreviewApiSchema = z
+  .object({
+    previewId: uuidSchema,
+    audienceVersion: z.string().max(128),
+    eligible: z.number().int().nonnegative(),
+    excluded: z.number().int().nonnegative(),
+    optedOut: z.number().int().nonnegative(),
+    expiresAt: timestampSchema,
+  })
+  .strict();
 
-const responseSchemas = {
-  supportTicket: supportTicketResponseSchema,
-} as const;
-
-type RawRecord = Record<string, unknown>;
-type RawPage = { items?: unknown[]; nextCursor?: string | null; hasMore?: boolean };
-
-function record(value: unknown): RawRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RawRecord)
-    : {};
+function cursorPageSchema<T extends z.ZodType>(item: T, maxItems = 200) {
+  return z
+    .object({
+      items: z.array(item).max(maxItems),
+      nextCursor: z.string().max(512).nullable(),
+      hasMore: z.boolean(),
+    })
+    .strict();
 }
 
-function text(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
+const ticketPageSchema = cursorPageSchema(ticketSchema);
+const feedbackPageSchema = cursorPageSchema(feedbackSummarySchema);
+const abusePageSchema = cursorPageSchema(abuseSchema);
+const categoryPageSchema = cursorPageSchema(categorySchema);
+const contentPageSchema = cursorPageSchema(contentSummarySchema);
+const adminResourcePageSchema = cursorPageSchema(adminResourceSchema);
+const responseSchemas = { supportTicket: ticketSchema } as const;
 
-function number(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function toCommunicationRecord(value: unknown): CommunicationPage["items"][number] {
-  const item = record(value);
-  const safe = record(item.safe);
-  const id = text(item.id) ?? "unknown";
-  const title = text(item.subject) ?? text(item.name) ?? text(item.title) ?? text(safe.name) ?? text(safe.key) ?? text(item.key) ?? id;
-  const type = text(item.type) ?? text(safe.type);
-  const channel = text(safe.channel);
-  return {
-    id,
-    title,
-    ...(type ? { subtitle: type } : {}),
-    state: text(item.state) ?? text(item.status) ?? "unknown",
-    ...(text(item.priority) ? { priority: text(item.priority) } : {}),
-    platform: "all",
-    locale: text(safe.locale) === "ar" || text(safe.locale) === "en" ? (text(safe.locale) as "ar" | "en") : "both",
-    updatedAt: text(item.updatedAt) ?? text(item.lastMessageAt) ?? text(item.createdAt) ?? new Date(0).toISOString(),
-    revision: number(item.version) ?? 1,
-    tags: [type, channel].filter((tag): tag is string => Boolean(tag)),
-  };
-}
-
-function toCommunicationPage(value: unknown, pageSize = 50): CommunicationPage {
-  const source = record(value) as RawPage;
-  const items = Array.isArray(source.items) ? source.items.map(toCommunicationRecord) : [];
-  return {
-    items,
-    pagination: {
-      page: 1,
-      pageSize,
-      totalItems: items.length + (source.hasMore ? 1 : 0),
-      totalPages: source.hasMore ? 2 : items.length > 0 ? 1 : 0,
-    },
-    region: { availability: items.length > 0 ? "available" : "empty" },
-  };
-}
-
-function toCommunicationDetail(value: unknown): CommunicationDetail {
-  const source = record(value);
-  const messages = Array.isArray(source.messages) ? source.messages.map(record) : [];
-  const translations = Array.isArray(source.translations) ? source.translations.map(record) : [];
-  const internalNotes = Array.isArray(source.internalNotes) ? source.internalNotes.map(record) : [];
-  const body = text(source.body) ?? text(translations.find((item) => item.locale === "en")?.body) ?? text(translations[0]?.body) ?? text(messages[0]?.body) ?? "No detail text supplied.";
-  const base = toCommunicationRecord({
-    ...source,
-    title: text(source.title) ?? text(translations.find((item) => item.locale === "en")?.title) ?? text(translations[0]?.title),
-  });
-  return {
-    ...base,
-    body: body.slice(0, 4000),
-    notes: internalNotes.map((item) => text(item.body)).filter((note): note is string => Boolean(note)).slice(0, 12),
-    attachments: messages.flatMap((message) => Array.isArray(message.attachments) ? message.attachments.map(record) : []).map((attachment) => ({
-      id: text(attachment.id) ?? "unknown",
-      filename: text(attachment.filename) ?? "attachment.txt",
-      mediaType: (text(attachment.contentType) ?? "text/plain") as "application/pdf" | "image/png" | "image/jpeg" | "text/plain",
-      declaredSizeBytes: number(attachment.sizeBytes) ?? 0,
-    })).slice(0, 6),
-    auditTrail: [],
-  };
-}
-
-function toActionBody(action: TicketActionRequest): RawRecord {
-  return engagementAdminActionSchema.parse({
-    action: action.action,
-    expectedVersion: action.expectedVersion,
-    reason: action.reason,
-    ...(action.assigneeId || action.assignTo ? { assigneeId: action.assigneeId ?? action.assignTo } : {}),
-    ...(action.priority ? { priority: action.priority } : {}),
-    ...(action.message || action.body ? { message: action.message ?? action.body } : {}),
-    ...(action.scheduledAt ? { scheduledAt: action.scheduledAt } : {}),
-    ...(action.translations ? { translations: action.translations } : {}),
-    ...(action.replacementCategoryId ? { replacementCategoryId: action.replacementCategoryId } : {}),
-  });
-}
+type AdminListItem =
+  | z.infer<typeof ticketSchema>
+  | z.infer<typeof feedbackSummarySchema>
+  | z.infer<typeof abuseSchema>
+  | z.infer<typeof categorySchema>
+  | z.infer<typeof contentSummarySchema>
+  | z.infer<typeof adminResourceSchema>;
 
 export interface SupportTicketQuery extends Pagination {
   search?: string;
@@ -197,169 +313,78 @@ export interface TicketActionRequest {
   replacementCategoryId?: string;
 }
 
+type QueryInvalidator = {
+  invalidateQueries: (options: { queryKey: readonly unknown[] }) => void;
+};
+
 export class CommunicationsRepository {
   private readonly baseUrl = "/api/v1/admin";
 
   encodeSearchParams(params: object): string {
     const searchParams = new URLSearchParams();
-
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null && value !== "") {
+    for (const [key, value] of Object.entries(params))
+      if (value !== undefined && value !== null && value !== "")
         searchParams.append(key, String(value));
-      }
-    }
-
     return searchParams.toString();
   }
 
   getSupportTicketsQueryKey(params: SupportTicketQuery) {
     return ["phase6-communications", "support-tickets", params];
   }
-
   getSupportTicketDetailKey(ticketId: string) {
     return ["phase6-communications", "support-tickets", ticketId];
   }
-
   getFeedbackQueryKey(params: CommunicationsQuery) {
     return ["phase6-communications", "feedback", params];
   }
-
   getFeedbackDetailKey(feedbackId: string) {
     return ["phase6-communications", "feedback", feedbackId];
   }
-
   getContentQueryKey(collection: string, params: CommunicationsQuery) {
     return ["phase6-communications", "content", collection, params];
   }
-
   getContentDetailKey(collection: string, itemId: string) {
     return ["phase6-communications", "content", collection, itemId];
   }
-
   getCampaignsQueryKey(params: CommunicationsQuery) {
     return ["phase6-communications", "campaigns", params];
   }
-
   getCampaignDetailKey(campaignId: string) {
     return ["phase6-communications", "campaigns", campaignId];
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const headers = {
-      "Content-Type": "application/json",
-      ...(options.method && options.method !== "GET"
-        ? { "Idempotency-Key": crypto.randomUUID() }
-        : {}),
-      ...options.headers,
-    };
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          status: response.status.toString(),
-          code: "UNKNOWN_ERROR",
-          message: "Request failed",
-          correlationId: "",
-        }));
-        throw this.parseApiError(errorData);
-      }
-
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error && "status" in error) {
-        throw error;
-      }
-      throw {
-        status: "500",
-        code: "NETWORK_ERROR",
-        message: "Network request failed",
-        correlationId: "",
-      } as SafeError;
-    }
-  }
-
-  parseApiError(errorData: RawApiError): CommunicationsApiError {
-    // Sanitize error message to prevent information leakage
-    let sanitizedMessage = errorData.message || "An error occurred";
-
-    // Remove sensitive information from error messages
-    sanitizedMessage = sanitizedMessage
-      .replace(/postgresql:\/\/[^@]+@[^\/]+/g, "***DATABASE***")
-      .replace(/mongodb:\/\/[^@]+@[^\/]+/g, "***DATABASE***")
-      .replace(/password[:=][\s]*[^\s,}]+/gi, "password=***")
-      .replace(/secret[:=][\s]*[^\s,}]+/gi, "secret=***")
-      .replace(/token[:=][\s]*[^\s,}]+/gi, "token=***")
-      .replace(/api[_-]?key[:=][\s]*[^\s,}]+/gi, "api_key=***");
-
-    return {
-      status: String(
-        errorData.status || "500",
-      ) as CommunicationsApiError["status"],
-      code: errorData.code || "UNKNOWN_ERROR",
-      message: sanitizedMessage,
-      correlationId: errorData.correlationId || "",
-      fieldErrors: errorData.fieldErrors,
-    };
-  }
-
-  async validateResponse<TSchemaName extends keyof typeof responseSchemas>(
+  async validateResponse<T extends keyof typeof responseSchemas>(
     payload: unknown,
-    schemaName: TSchemaName,
-  ): Promise<z.infer<(typeof responseSchemas)[TSchemaName]>> {
+    schemaName: T,
+  ): Promise<z.infer<(typeof responseSchemas)[T]>> {
     return responseSchemas[schemaName].parse(payload);
   }
 
-  invalidateSupportTicketList(queryClient: {
-    invalidateQueries: (options: { queryKey: readonly unknown[] }) => void;
-  }): void {
-    queryClient.invalidateQueries({
+  invalidateSupportTicketList(client: QueryInvalidator): void {
+    client.invalidateQueries({
       queryKey: ["phase6-communications", "support-tickets"],
     });
   }
-
-  invalidateSupportTicketDetail(
-    queryClient: {
-      invalidateQueries: (options: { queryKey: readonly unknown[] }) => void;
-    },
-    ticketId: string,
-  ): void {
-    queryClient.invalidateQueries({
-      queryKey: ["phase6-communications", "support-tickets", ticketId],
+  invalidateSupportTicketDetail(client: QueryInvalidator, id: string): void {
+    client.invalidateQueries({
+      queryKey: ["phase6-communications", "support-tickets", id],
     });
   }
-
-  invalidateFeedbackList(queryClient: {
-    invalidateQueries: (options: { queryKey: readonly unknown[] }) => void;
-  }): void {
-    queryClient.invalidateQueries({
+  invalidateFeedbackList(client: QueryInvalidator): void {
+    client.invalidateQueries({
       queryKey: ["phase6-communications", "feedback"],
     });
   }
-
   invalidateContentCollection(
-    queryClient: {
-      invalidateQueries: (options: { queryKey: readonly unknown[] }) => void;
-    },
+    client: QueryInvalidator,
     collection: string,
   ): void {
-    queryClient.invalidateQueries({
+    client.invalidateQueries({
       queryKey: ["phase6-communications", "content", collection],
     });
   }
-
-  invalidateCampaigns(queryClient: {
-    invalidateQueries: (options: { queryKey: readonly unknown[] }) => void;
-  }): void {
-    queryClient.invalidateQueries({
+  invalidateCampaigns(client: QueryInvalidator): void {
+    client.invalidateQueries({
       queryKey: ["phase6-communications", "campaigns"],
     });
   }
@@ -367,258 +392,504 @@ export class CommunicationsRepository {
   async getSupportTickets(
     params: SupportTicketQuery,
   ): Promise<SupportTicketPage> {
-    const pageSize = Number(params.pageSize ?? 50);
-    const queryString = this.encodeSearchParams({
-      limit: pageSize,
-      status: params.status,
-    });
-    const endpoint = `/support/tickets${queryString ? `?${queryString}` : ""}`;
-    const page = toCommunicationPage(await this.request(endpoint), pageSize);
-    return { tickets: page.items, items: page.items, pagination: page.pagination };
+    const items = await this.collect(
+      `/support/tickets${this.query({ status: params.status })}`,
+      ticketPageSchema,
+    );
+    const page = this.mapPage(items, params);
+    return {
+      tickets: page.items,
+      items: page.items,
+      pagination: page.pagination,
+    };
   }
 
   async getSupportTicket(ticketId: string): Promise<SupportTicketDetail> {
-    return toCommunicationDetail(await this.request(`/support/tickets/${ticketId}`));
+    let cursor: string | null = null;
+    let first: z.infer<typeof ticketDetailSchema> | null = null;
+    const messages: z.infer<typeof messageApiSchema>[] = [];
+    const messageIds = new Set<string>();
+    const cursors = new Set<string>();
+    do {
+      const page = await apiClient.get(
+        `${this.baseUrl}/support/tickets/${encodeURIComponent(ticketId)}${this.query({ limit: 100, cursor })}`,
+        ticketDetailSchema,
+      );
+      first ??= page;
+      if (page.id !== first.id || page.version !== first.version)
+        throw contractMismatch();
+      for (const message of page.messages) {
+        if (messageIds.has(message.id)) throw contractMismatch();
+        messageIds.add(message.id);
+        messages.push(message);
+      }
+      cursor = this.nextCursor(page, cursors);
+    } while (cursor);
+    if (!first) throw contractMismatch();
+    return this.ticketDetail({ ...first, messages });
   }
 
   async actOnSupportTicket(
     ticketId: string,
-    actionRequest: TicketActionRequest,
+    request: TicketActionRequest,
   ): Promise<ActionResult> {
-    const payload = toActionBody(actionRequest);
-    return this.request(
-      `/support/tickets/${ticketId}/${actionRequest.action === "note" ? "notes" : "actions"}`,
-      {
-        method: "POST",
-        body: JSON.stringify(
-          actionRequest.action === "note"
-            ? {
-                body: payload.message,
-                expectedVersion: payload.expectedVersion,
-                reason: payload.reason,
-              }
-            : payload,
-        ),
-      },
+    const payload = this.actionBody(request);
+    if (request.action === "note")
+      return apiClient.post(
+        `${this.baseUrl}/support/tickets/${encodeURIComponent(ticketId)}/notes`,
+        {
+          body: payload.message,
+          expectedVersion: payload.expectedVersion,
+          reason: payload.reason,
+        },
+        actionResultSchema,
+      );
+    return this.action(
+      `/support/tickets/${encodeURIComponent(ticketId)}/actions`,
+      payload,
     );
   }
 
   async getSupportOverview(
     params: CommunicationsQuery,
   ): Promise<CommunicationOverview> {
-    const page = toCommunicationPage(await this.request(`/support/tickets?${this.encodeSearchParams({ limit: params.limit ?? 12, status: params.status })}`), 12);
-    return { title: "Support overview", description: "Current support workload", metrics: [{ key: "tickets", label: "Tickets", value: page.pagination.totalItems, unit: "tickets", platform: "all" }], items: page.items.slice(0, 12), region: page.region };
+    const page = await this.getSupportTickets({
+      page: 1,
+      pageSize: "100",
+      status: params.status as TicketState | undefined,
+    });
+    return {
+      title: "Support overview",
+      description: "Current support workload",
+      metrics: [],
+      items: page.tickets.slice(0, 12),
+      region: { availability: page.tickets.length ? "available" : "empty" },
+    };
   }
 
   async getFeedback(params: CommunicationsQuery): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    const endpoint = `/feedback${queryString ? `?${queryString}` : ""}`;
-
-    return toCommunicationPage(await this.request(endpoint));
+    return this.mapPage(
+      await this.collect(
+        `/feedback${this.serverQuery(params)}`,
+        feedbackPageSchema,
+      ),
+      params,
+    );
   }
-
   async getFeedbackDetail(feedbackId: string): Promise<CommunicationDetail> {
-    return toCommunicationDetail(await this.request(`/feedback/${encodeURIComponent(feedbackId)}`));
-  }
-
-  async actOnFeedback(
-    feedbackId: string,
-    actionRequest: TicketActionRequest,
-  ): Promise<ActionResult> {
-    return this.request(`/feedback/${feedbackId}/actions`, {
-      method: "POST",
-      body: JSON.stringify(toActionBody(actionRequest)),
+    const item = await apiClient.get(
+      `${this.baseUrl}/feedback/${encodeURIComponent(feedbackId)}`,
+      feedbackDetailSchema,
+    );
+    return communicationDetailSchema.parse({
+      ...this.mapRecord(item),
+      body: item.body,
+      notes: [],
+      attachments: [],
+      auditTrail: [],
     });
   }
-
+  async actOnFeedback(
+    id: string,
+    request: TicketActionRequest,
+  ): Promise<ActionResult> {
+    return this.action(
+      `/feedback/${encodeURIComponent(id)}/actions`,
+      this.actionBody(request),
+    );
+  }
   async getAbuseReports(
     params: CommunicationsQuery,
   ): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    const endpoint = `/abuse-reports${queryString ? `?${queryString}` : ""}`;
-
-    return toCommunicationPage(await this.request(endpoint));
+    return this.mapPage(
+      await this.collect(
+        `/abuse-reports${this.serverQuery(params)}`,
+        abusePageSchema,
+      ),
+      params,
+    );
   }
-
   async actOnAbuseReport(
-    reportId: string,
-    actionRequest: TicketActionRequest,
+    id: string,
+    request: TicketActionRequest,
   ): Promise<ActionResult> {
-    return this.request(`/abuse-reports/${reportId}/actions`, {
-      method: "POST",
-      body: JSON.stringify(toActionBody(actionRequest)),
-    });
+    return this.action(
+      `/abuse-reports/${encodeURIComponent(id)}/actions`,
+      this.actionBody(request),
+    );
   }
 
   async getContent(
     collection: string,
     params: CommunicationsQuery,
   ): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    const separator = queryString ? "&" : "?";
-    const endpoint = `/content${queryString ? `?${queryString}` : ""}${separator}type=${this.contentType(collection)}`;
-
-    return toCommunicationPage(await this.request(endpoint));
+    return this.mapPage(
+      await this.collect(
+        `/content${this.serverQuery({ ...params, type: this.contentType(collection) })}`,
+        contentPageSchema,
+      ),
+      params,
+    );
   }
-
   async getContentItem(
-    collection: string,
+    _collection: string,
     itemId: string,
   ): Promise<CommunicationDetail> {
-    void collection;
-    return toCommunicationDetail(await this.request(`/content/${encodeURIComponent(itemId)}`));
+    const item = await apiClient.get(
+      `${this.baseUrl}/content/${encodeURIComponent(itemId)}`,
+      contentDetailSchema,
+    );
+    const translation =
+      item.translations.find((value) => value.locale === "en") ??
+      item.translations[0];
+    return communicationDetailSchema.parse({
+      ...this.mapRecord(item),
+      title: translation?.title ?? item.key,
+      body: translation?.body ?? "",
+      notes: [],
+      attachments: [],
+      auditTrail: [],
+    });
   }
-
   async createContent(
     collection: string,
-    contentDraft: CommunicationsQuery,
+    draft: CommunicationsQuery,
   ): Promise<ActionResult> {
-    return this.request(`/content`, {
-      method: "POST",
-      body: JSON.stringify({
-        ...contentDraft,
-        type: contentDraft.type ?? this.contentType(collection),
-      }),
-    });
+    return apiClient.post(
+      `${this.baseUrl}/content`,
+      { ...draft, type: draft.type ?? this.contentType(collection) },
+      actionResultSchema,
+    );
   }
-
   async actOnContent(
-    collection: string,
-    itemId: string,
-    actionRequest: TicketActionRequest,
+    _collection: string,
+    id: string,
+    request: TicketActionRequest,
   ): Promise<ActionResult> {
-    void collection;
-    return this.request(`/content/${itemId}/actions`, {
-      method: "POST",
-      body: JSON.stringify(toActionBody(actionRequest)),
-    });
+    return this.action(
+      `/content/${encodeURIComponent(id)}/actions`,
+      this.actionBody(request),
+    );
   }
 
   async getNotificationOverview(
     params: CommunicationsQuery,
   ): Promise<CommunicationOverview> {
-    const page = toCommunicationPage(await this.request(`/notifications/campaigns?${this.encodeSearchParams({ limit: params.limit ?? 12 })}`), 12);
-    return { title: "Notifications overview", description: "Current campaign activity", metrics: [{ key: "campaigns", label: "Campaigns", value: page.pagination.totalItems, unit: "campaigns", platform: "all" }], items: page.items.slice(0, 12), region: page.region };
+    const page = await this.getCampaigns({ ...params, page: 1, pageSize: 100 });
+    return {
+      title: "Notifications overview",
+      description: "Current campaign activity",
+      metrics: [],
+      items: page.items.slice(0, 12),
+      region: page.region,
+    };
   }
-
   async getCampaigns(params: CommunicationsQuery): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    const endpoint = `/notifications/campaigns${queryString ? `?${queryString}` : ""}`;
-
-    return toCommunicationPage(await this.request(endpoint));
+    return this.mapPage(
+      await this.collect(
+        `/notifications/campaigns${this.serverQuery(params)}`,
+        adminResourcePageSchema,
+      ),
+      params,
+    );
   }
-
   async getCampaign(campaignId: string): Promise<CommunicationDetail> {
-    return toCommunicationDetail(await this.request(`/notifications/campaigns/${campaignId}`));
-  }
-
-  async createCampaignDraft(
-    campaignDraft: CommunicationsQuery,
-  ): Promise<ActionResult> {
-    return this.request(`/notifications/campaigns`, {
-      method: "POST",
-      body: JSON.stringify(campaignDraft),
+    const item = await apiClient.get(
+      `${this.baseUrl}/notifications/campaigns/${encodeURIComponent(campaignId)}`,
+      campaignDetailSchema,
+    );
+    return communicationDetailSchema.parse({
+      ...this.mapRecord(item),
+      body: item.name,
+      notes: [],
+      attachments: [],
+      auditTrail: [],
     });
   }
-
+  async createCampaignDraft(draft: CommunicationsQuery): Promise<ActionResult> {
+    return apiClient.post(
+      `${this.baseUrl}/notifications/campaigns`,
+      draft,
+      actionResultSchema,
+    );
+  }
   async actOnCampaign(
-    campaignId: string,
-    actionRequest: TicketActionRequest,
+    id: string,
+    request: TicketActionRequest,
   ): Promise<ActionResult> {
-    return this.request(`/notifications/campaigns/${campaignId}/actions`, {
-      method: "POST",
-      body: JSON.stringify(toActionBody(actionRequest)),
-    });
+    return this.action(
+      `/notifications/campaigns/${encodeURIComponent(id)}/actions`,
+      this.actionBody(request),
+    );
   }
-
   async getDeliveryLogs(
     params: CommunicationsQuery,
   ): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    const endpoint = `/notifications/deliveries${queryString ? `?${queryString}` : ""}`;
-
-    return toCommunicationPage(await this.request(endpoint));
+    return this.mapPage(
+      await this.collect(
+        `/notifications/deliveries${this.serverQuery(params)}`,
+        adminResourcePageSchema,
+      ),
+      params,
+    );
   }
-
   async getSupportCategories(
     params: CommunicationsQuery,
   ): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    return toCommunicationPage(await this.request(
-      `/support/categories${queryString ? `?${queryString}` : ""}`,
-    ));
+    return this.mapPage(
+      await this.collect(
+        `/support/categories${this.serverQuery(params)}`,
+        categoryPageSchema,
+      ),
+      params,
+    );
   }
-
   async createSupportCategory(
     input: CommunicationsQuery,
   ): Promise<ActionResult> {
-    return this.request("/support/categories", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+    return apiClient.post(
+      `${this.baseUrl}/support/categories`,
+      input,
+      actionResultSchema,
+    );
   }
-
   async actOnSupportCategory(
-    categoryId: string,
-    actionRequest: TicketActionRequest,
+    id: string,
+    request: TicketActionRequest,
   ): Promise<ActionResult> {
-    return this.request(`/support/categories/${encodeURIComponent(categoryId)}/actions`, {
-      method: "POST",
-      body: JSON.stringify(toActionBody(actionRequest)),
-    });
+    return this.action(
+      `/support/categories/${encodeURIComponent(id)}/actions`,
+      this.actionBody(request),
+    );
   }
-
   async getTemplates(params: CommunicationsQuery): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    return toCommunicationPage(await this.request(
-      `/communications/templates${queryString ? `?${queryString}` : ""}`,
-    ));
+    return this.mapPage(
+      await this.collect(
+        `/communications/templates${this.serverQuery(params)}`,
+        adminResourcePageSchema,
+      ),
+      params,
+    );
   }
-
-  async getTransactionalTemplates(
+  getTransactionalTemplates(
     params: CommunicationsQuery,
   ): Promise<CommunicationPage> {
-    const queryString = this.encodeSearchParams(params);
-    return toCommunicationPage(await this.request(
-      `/communications/templates${queryString ? `?${queryString}` : ""}`,
-    ));
+    return this.getTemplates(params);
   }
-
   async createTemplate(input: CommunicationsQuery): Promise<ActionResult> {
-    return this.request("/communications/templates", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+    return apiClient.post(
+      `${this.baseUrl}/communications/templates`,
+      input,
+      actionResultSchema,
+    );
   }
-
   async actOnTemplate(
-    templateId: string,
-    actionRequest: TicketActionRequest,
+    id: string,
+    request: TicketActionRequest,
   ): Promise<ActionResult> {
-    return this.request(`/communications/templates/${templateId}/actions`, {
-      method: "POST",
-      body: JSON.stringify(toActionBody(actionRequest)),
-    });
+    return this.action(
+      `/communications/templates/${encodeURIComponent(id)}/actions`,
+      this.actionBody(request),
+    );
   }
 
   async previewAudience(input: CommunicationsQuery): Promise<AudiencePreview> {
-    const response = record(await this.request("/notifications/audience-preview", {
-      method: "POST",
-      body: JSON.stringify({
-        platforms: input.platform === "ios" || input.platform === "android" ? [input.platform] : ["ios", "android", "web"],
-        locales: input.locale === "ar" || input.locale === "en" ? [input.locale] : ["ar", "en"],
+    const response = await apiClient.post(
+      `${this.baseUrl}/notifications/audience-preview`,
+      {
+        platforms:
+          input.platform === "ios" || input.platform === "android"
+            ? [input.platform]
+            : ["ios", "android", "web"],
+        locales:
+          input.locale === "ar" || input.locale === "en"
+            ? [input.locale]
+            : ["ar", "en"],
         activity: "all",
         segmentKeys: [],
-      }),
-    }));
+      },
+      audiencePreviewApiSchema,
+    );
     return {
-      eligibleCount: number(response.eligible) ?? 0,
-      optedOutCount: number(response.optedOut) ?? 0,
-      denominator: "eligible-audience",
-      generatedAt: new Date().toISOString(),
+      previewId: response.previewId,
+      audienceVersion: response.audienceVersion,
+      eligibleCount: response.eligible,
+      excludedCount: response.excluded,
+      optedOutCount: response.optedOut,
+      expiresAt: response.expiresAt,
     };
   }
 
+  private async collect<T>(
+    path: string,
+    schema: z.ZodType<{
+      items: T[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    }>,
+  ): Promise<T[]> {
+    const items: T[] = [];
+    const cursors = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const page = await apiClient.get(
+        `${this.baseUrl}${path}${path.includes("?") ? "&" : "?"}limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+        schema,
+      );
+      items.push(...page.items);
+      cursor = this.nextCursor(page, cursors);
+    } while (cursor);
+    return items;
+  }
+
+  private nextCursor(
+    page: { nextCursor: string | null; hasMore: boolean },
+    seen: Set<string>,
+  ): string | null {
+    if (!page.hasMore) return null;
+    if (!page.nextCursor || seen.has(page.nextCursor)) throw contractMismatch();
+    seen.add(page.nextCursor);
+    return page.nextCursor;
+  }
+
+  private mapPage(
+    items: AdminListItem[],
+    params: { page?: unknown; pageSize?: unknown },
+  ): CommunicationPage {
+    const pageSize = boundedPageSize(params.pageSize);
+    const page = positiveInteger(params.page, 1);
+    const start = (page - 1) * pageSize;
+    const mapped = items.map((item) => this.mapRecord(item));
+    return {
+      items: mapped.slice(start, start + pageSize),
+      pagination: {
+        page,
+        pageSize,
+        totalItems: mapped.length,
+        totalPages:
+          mapped.length === 0 ? 0 : Math.ceil(mapped.length / pageSize),
+      },
+      region: { availability: mapped.length ? "available" : "empty" },
+    };
+  }
+
+  private mapRecord(
+    item:
+      | AdminListItem
+      | z.infer<typeof feedbackDetailSchema>
+      | z.infer<typeof contentDetailSchema>
+      | z.infer<typeof campaignDetailSchema>,
+  ) {
+    const source = item as unknown as Record<string, unknown>;
+    const safe =
+      source.safe && typeof source.safe === "object"
+        ? (source.safe as Record<string, unknown>)
+        : {};
+    const id = String(source.id);
+    const type = nonempty(source.type) ?? nonempty(safe.type);
+    const title =
+      nonempty(source.subject) ??
+      nonempty(source.name) ??
+      nonempty(source.key) ??
+      nonempty(safe.name) ??
+      nonempty(safe.key) ??
+      nonempty(safe.eventId) ??
+      type ??
+      id;
+    const state =
+      nonempty(source.state) ??
+      nonempty(source.status) ??
+      (typeof source.active === "boolean"
+        ? source.active
+          ? "active"
+          : "retired"
+        : "unknown");
+    const updatedAt =
+      nonempty(source.updatedAt) ??
+      nonempty(source.lastMessageAt) ??
+      nonempty(source.createdAt) ??
+      null;
+    return communicationRecordSchema.parse({
+      id,
+      title,
+      ...(type ? { subtitle: type } : {}),
+      state,
+      ...(typeof source.priority === "string"
+        ? { priority: source.priority }
+        : {}),
+      platform: "unknown",
+      locale:
+        safe.locale === "ar" || safe.locale === "en" ? safe.locale : "unknown",
+      updatedAt,
+      revision: source.version,
+      tags: [type, nonempty(safe.channel)].filter((value): value is string =>
+        Boolean(value),
+      ),
+    });
+  }
+
+  private ticketDetail(
+    item: z.infer<typeof ticketDetailSchema>,
+  ): CommunicationDetail {
+    const attachment = (value: z.infer<typeof attachmentApiSchema>) => ({
+      id: value.id,
+      filename: value.filename,
+      mediaType: value.contentType,
+      declaredSizeBytes: value.sizeBytes,
+      status: value.status,
+    });
+    return communicationDetailSchema.parse({
+      ...this.mapRecord(item),
+      body: item.messages[0]?.body ?? item.subject,
+      notes: item.internalNotes.map((note) => note.body),
+      attachments: item.messages.flatMap((message) =>
+        message.attachments.map(attachment),
+      ),
+      messages: item.messages.map((message) => ({
+        ...message,
+        attachments: message.attachments.map(attachment),
+      })),
+      internalNotes: item.internalNotes,
+      auditTrail: [],
+    });
+  }
+
+  private actionBody(request: TicketActionRequest) {
+    return engagementAdminActionSchema.parse({
+      action: request.action,
+      expectedVersion: request.expectedVersion,
+      reason: request.reason,
+      ...(request.assigneeId || request.assignTo
+        ? { assigneeId: request.assigneeId ?? request.assignTo }
+        : {}),
+      ...(request.priority ? { priority: request.priority } : {}),
+      ...(request.message || request.body
+        ? { message: request.message ?? request.body }
+        : {}),
+      ...(request.scheduledAt ? { scheduledAt: request.scheduledAt } : {}),
+      ...(request.translations ? { translations: request.translations } : {}),
+      ...(request.replacementCategoryId
+        ? { replacementCategoryId: request.replacementCategoryId }
+        : {}),
+    });
+  }
+
+  private action(path: string, body: unknown): Promise<ActionResult> {
+    return apiClient.post(`${this.baseUrl}${path}`, body, actionResultSchema);
+  }
+  private query(params: object): string {
+    const query = this.encodeSearchParams(params);
+    return query ? `?${query}` : "";
+  }
+  private serverQuery(params: CommunicationsQuery): string {
+    return this.query({
+      ...(params.search ? { query: params.search } : {}),
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.type ? { type: params.type } : {}),
+      ...(params.locale ? { locale: params.locale } : {}),
+      ...(typeof params.unread === "boolean" ? { unread: params.unread } : {}),
+    });
+  }
   private contentType(
     collection: string,
   ): "article" | "faq" | "policy" | "announcement" {
@@ -627,6 +898,27 @@ export class CommunicationsRepository {
     if (collection === "policies") return "policy";
     return "article";
   }
+}
+
+function contractMismatch(): ApiError {
+  return new ApiError(
+    "contract_mismatch",
+    safeApiMessage("contract_mismatch"),
+    502,
+  );
+}
+function positiveInteger(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : fallback;
+}
+function boundedPageSize(value: unknown): number {
+  const parsed =
+    typeof value === "string" || typeof value === "number" ? Number(value) : 50;
+  return parsed === 25 || parsed === 50 || parsed === 100 ? parsed : 50;
+}
+function nonempty(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 export const communicationsRepository = new CommunicationsRepository();

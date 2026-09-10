@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import { randomUUID } from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
 
 import type {
   PhoneNotificationResponse,
@@ -14,6 +17,44 @@ const ExpoNotifications =
   Notifications;
 const ExpoLinking =
   (Linking as unknown as { default?: typeof Linking }).default ?? Linking;
+const deviceFingerprintKey = 'masarifi.notification-device-fingerprint.v1';
+
+export type PushDeviceRegistration = {
+  deviceFingerprint: string;
+  platform: 'android' | 'ios';
+  appVersion: string;
+  pushToken: string;
+  pushProvider: 'expo';
+};
+
+export async function getPushDeviceRegistration(): Promise<PushDeviceRegistration | null> {
+  if (
+    (Platform.OS !== 'android' && Platform.OS !== 'ios') ||
+    !ExpoNotifications?.getExpoPushTokenAsync
+  )
+    return null;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  const appVersion = Constants.expoConfig?.version;
+  if (typeof projectId !== 'string' || typeof appVersion !== 'string') return null;
+  try {
+    let deviceFingerprint = await SecureStore.getItemAsync(deviceFingerprintKey);
+    if (!deviceFingerprint || deviceFingerprint.length < 16) {
+      deviceFingerprint = randomUUID();
+      await SecureStore.setItemAsync(deviceFingerprintKey, deviceFingerprint);
+    }
+    const pushToken = (await ExpoNotifications.getExpoPushTokenAsync({ projectId })).data;
+    if (typeof pushToken !== 'string' || pushToken.length < 16) return null;
+    return {
+      deviceFingerprint,
+      platform: Platform.OS,
+      appVersion,
+      pushToken,
+      pushProvider: 'expo',
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function createPhoneNotificationService(): PhoneNotificationService {
   return {

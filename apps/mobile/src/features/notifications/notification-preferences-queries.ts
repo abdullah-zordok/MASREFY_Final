@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { NotificationPreferencesInput } from '@/domain/notifications';
-import { assistantNotificationsService } from '@/services/mocks/assistant-notifications-service';
+import { notificationService } from '@/services/engagement-service';
 import { invalidateNotificationScopes } from './notification-queries';
 
 export const notificationPreferenceKeys = {
@@ -12,7 +12,7 @@ export const notificationPreferenceKeys = {
 export function useNotificationPreferences() {
   return useQuery({
     queryKey: notificationPreferenceKeys.preferences(),
-    queryFn: () => assistantNotificationsService.getPreferences()
+    queryFn: () => notificationService.getPreferences()
   });
 }
 
@@ -28,7 +28,7 @@ export function useSaveNotificationPreferences() {
       expectedVersion: number;
       operationId: string;
     }) =>
-      assistantNotificationsService.savePreferences(
+      notificationService.savePreferences(
         input,
         expectedVersion,
         operationId
@@ -42,7 +42,7 @@ export function useSaveNotificationPreferences() {
 export function useRefreshNotificationPermission() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: () => assistantNotificationsService.refreshPermission(),
+    mutationFn: () => notificationService.refreshPermission(),
     onSuccess: () => invalidatePreferences(client)
   });
 }
@@ -50,7 +50,7 @@ export function useRefreshNotificationPermission() {
 export function useRequestNotificationPermission() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: () => assistantNotificationsService.requestPermissionAfterEducation(),
+    mutationFn: () => notificationService.requestPermissionAfterEducation(),
     onSuccess: () => invalidatePreferences(client)
   });
 }

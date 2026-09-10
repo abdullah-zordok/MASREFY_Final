@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import type { SupportDraftInput, SupportReplyInput } from '@/domain/support';
-import { supportService } from '@/services/mocks/support-service';
+import { supportService } from '@/services/engagement-service';
 
 export const supportKeys = {
   articles: (query: string, category?: string) => ['support', 'articles', query, category ?? 'all'] as const,

@@ -38,12 +38,14 @@ test('live notification provider maps safe server fields and unread totals', asy
 
 test('credit-card reminders resolve to their authenticated account target', async () => {
   const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValue(response(200, {
-    id: 'reminder', type: 'account.credit_card_payment_due',
+    id: '10000000-0000-4000-8000-000000000002', type: 'account.credit_card_payment_due',
+    title: 'Payment reminder', body: 'Your card payment is due.',
     dataSafe: { targetKind: 'account', targetId: 'card-1' },
-    actions: [{ key: 'view' }], version: 1, createdAt: '2026-09-06T08:00:00Z'
+    readAt: null, actedAt: null, expiresAt: null,
+    actions: [{ key: 'view', expiresAt: null }], version: 1, createdAt: '2026-09-06T08:00:00Z'
   }));
   const service = createLiveNotificationService({ baseUrl: 'https://api.example', token: async () => 'session', request });
-  await expect(service.resolveTarget('reminder')).resolves.toEqual({
+  await expect(service.resolveTarget('10000000-0000-4000-8000-000000000002')).resolves.toEqual({
     status: 'exact', target: { kind: 'account', accountId: 'card-1' }
   });
 });

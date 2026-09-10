@@ -2,6 +2,16 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Wave 8 local verification is recorded in [engagement evidence](wave-08-engagement.md). It does not establish hosted owner/Admin authorization, real APNs/FCM or SMTP delivery, hosted private Storage/scanner behavior, physical-device notification behavior, or deployed cohort/rollback observation.
+
+| Wave 8 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Hosted Clerk/Supabase engagement ownership and Admin authorization | open | Strict Clerk/shared-client selection, owner-safe projections, exact errors/versions, internal-note redaction and local authorization/security suites | On designated staging, use two real owners plus authorized/unauthorized Admin identities; prove cross-owner denial, exact permission/MFA behavior and safe audit fields with redacted request IDs | Platform, identity and Admin security owners |
+| APNs/FCM and SMTP delivery | open | Quiet-hours, dedupe, redaction, action-expiry, token lifecycle/digest, provider isolation/outage and safe delivery-state tests | Send canary notifications and mail on designated providers/devices/inboxes; verify foreground/background/lock-screen actions, receipts, retry/dedupe, quiet hours and absence of token/address/message content in logs | Messaging and email owners |
+| Private Storage and malware scanner | open | Attachment type/size/hash checks, private ownership, quarantine, clean/rejected/failed transitions, expiry and recovery tests | Upload clean/EICAR/oversized/wrong-type fixtures to staging; verify private bucket policy, quarantine, scanner transitions, authorized download expiry and recovery | Storage/security owner |
+| Physical-device notification and draft preservation | open | Native boundary, stable secure fingerprint, owner device registration, device-only preference preservation and local support-draft tests | Install the accepted signed build on supported iOS/Android devices; exercise permission denial/recovery, token rotation, notification actions, offline/restart and draft/attachment preservation | Mobile QA/release owner |
+| Deployed Wave 8 shadow, cohort and rollback | open | Structural local mapping tests plus server-derived cohort and accepted N-1 rollback policy tests | Run shadow/internal/bounded cohorts against staging, observe the approved interval, exercise rollback to accepted Wave 7 and reconcile notification/support/Admin state without duplicate delivery or lost drafts | Release/operations owner |
+
 Wave 7 local verification is recorded in [reports evidence](wave-07-reports.md). It does not establish hosted owner/Admin authorization, real SMTP/Storage delivery, physical-device persistence, or a deployed cohort/rollback observation.
 
 | Wave 7 follow-up | Status | Local supporting proof | Required external action | Owner |

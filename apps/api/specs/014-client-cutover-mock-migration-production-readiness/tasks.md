@@ -208,17 +208,17 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 
 ### Tests and implementation
 
-- [ ] T101 [US8] Add an actual GET route regression in `apps/api/test/contract/engagement/notifications-http.contract-spec.ts` proving `/api/v1/notifications/preferences` is not captured as `:notificationId`.
-- [ ] T102 [US8] Reorder the existing BE011 routes in `apps/api/src/engagement/engagement.routes.ts`; rerun T101 and engagement contract/integration tests.
-- [ ] T103 [US8] Add BE011 real-instance schema tests for cursor pages, notifications/preferences, categories, ticket detail and errors; repair BE011 OpenAPI/runtime shape drift and rerun `test:openapi`/engagement contracts.
-- [ ] T104 [US8] Add failing Mobile notification/support tests in `apps/mobile/src/services/live/engagement-service.test.ts` and contract query tests for strict enums/actions, per-action expiry, full preference matrix, mark-all pagination, ticket statuses, attachment IDs/context, draft preservation, and no first-category fallback.
-- [ ] T105 [US8] Correct `apps/mobile/src/services/live/engagement-service.ts` mappings and error handling; traverse cursors, preserve all fields/attachments/drafts, and expose absent delete/source-create/rating capabilities explicitly; rerun T104.
-- [ ] T106 [US8] Replace notification/support query imports of mock modules with `apps/mobile/src/services/engagement-service.ts`; configure Clerk token before selection and connect native notification permission/push-device registration; run notification/preferences/support/native boundary tests.
-- [ ] T107 [US8] Add failing Admin communications tests in `apps/admin-web/src/features/communications/repository.test.ts` for shared auth, 401/403/409/429 preservation, strict response decoding, complete cursor traversal/history/body/notes/attachments, exact versions/reasons, categories/templates/campaigns, and audience preview ID/expiry/counts.
-- [ ] T108 [US8] Refactor `apps/admin-web/src/features/communications/repository.ts` onto the shared API client and exact BE011 schemas; remove custom error rewriting and fabricated metrics; rerun T107.
-- [ ] T109 [US8] Harden MSW engagement handlers in `apps/admin-web/src/mocks/handlers/communications.ts` to validate/persist supported test mutations and reject unknown actions/unhandled requests; keep this test/development-only and run handler/route tests.
-- [ ] T110 [US8] Execute Wave 8 shadow/cohorts/rollback with quiet-hours/dedupe/redaction/owner/internal-note/quarantine/published-only/provider-outage checks; record `evidence/wave-08-engagement.md` plus push/SMTP/Storage/scanner/device gates.
-- [ ] T111 [US8] Run full BE011/Mobile engagement/Admin communications/security/performance/stress/recovery/Playwright/production scans; update manifest/mock report/checklists.
+- [x] T101 [US8] Add an actual GET route regression in `apps/api/test/contract/engagement/notifications-http.contract-spec.ts` proving `/api/v1/notifications/preferences` is not captured as `:notificationId`.
+- [x] T102 [US8] Reorder the existing BE011 routes in `apps/api/src/engagement/engagement.routes.ts`; rerun T101 and engagement contract/integration tests.
+- [x] T103 [US8] Add BE011 real-instance schema tests for cursor pages, notifications/preferences, categories, ticket detail and errors; repair BE011 OpenAPI/runtime shape drift and rerun `test:openapi`/engagement contracts.
+- [x] T104 [US8] Add failing Mobile notification/support tests in `apps/mobile/src/services/live/engagement-service.test.ts` and contract query tests for strict enums/actions, per-action expiry, full preference matrix, mark-all pagination, ticket statuses, attachment IDs/context, draft preservation, and no first-category fallback.
+- [x] T105 [US8] Correct `apps/mobile/src/services/live/engagement-service.ts` mappings and error handling; traverse cursors, preserve all fields/attachments/drafts, and expose absent delete/source-create/rating capabilities explicitly; rerun T104.
+- [x] T106 [US8] Replace notification/support query imports of mock modules with `apps/mobile/src/services/engagement-service.ts`; configure Clerk token before selection and connect native notification permission/push-device registration; run notification/preferences/support/native boundary tests.
+- [x] T107 [US8] Add failing Admin communications tests in `apps/admin-web/src/features/communications/repository.test.ts` for shared auth, 401/403/409/429 preservation, strict response decoding, complete cursor traversal/history/body/notes/attachments, exact versions/reasons, categories/templates/campaigns, and audience preview ID/expiry/counts.
+- [x] T108 [US8] Refactor `apps/admin-web/src/features/communications/repository.ts` onto the shared API client and exact BE011 schemas; remove custom error rewriting and fabricated metrics; rerun T107.
+- [x] T109 [US8] Harden MSW engagement handlers in `apps/admin-web/src/mocks/handlers/communications.ts` to validate/persist supported test mutations and reject unknown actions/unhandled requests; keep this test/development-only and run handler/route tests.
+- [x] T110 [US8] Execute Wave 8 shadow/cohorts/rollback with quiet-hours/dedupe/redaction/owner/internal-note/quarantine/published-only/provider-outage checks; record `evidence/wave-08-engagement.md` plus push/SMTP/Storage/scanner/device gates.
+- [x] T111 [US8] Run full BE011/Mobile engagement/Admin communications/security/performance/stress/recovery/Playwright/production scans; update manifest/mock report/checklists.
 - [ ] T112 [US8] Run all reviews/scans, fix blockers, stage only Wave 8/BE011 paths, commit `feat(cutover): complete engagement wave`, push `main`, and wait for green required CI before T113.
 
 ---

@@ -15,7 +15,7 @@ import {
 import { invalidateCoreFinanceScopes } from '@/features/core-finance/core-finance-queries';
 import type { NotificationSourceEvent } from '@/services/contracts/assistant-notifications-service';
 import { VoiceCaptureError } from '@/services/contracts/voice-capture-service';
-import { assistantNotificationsService } from '@/services/mocks/assistant-notifications-service';
+import { notificationService } from '@/services/engagement-service';
 import { voiceAnalyzerService } from '@/services/voice-analyzer-service';
 import { voiceCategoryService } from '@/services/mocks/voice-category-service';
 import { voiceRecorderService } from '@/services/platform/voice-recorder-service';
@@ -485,10 +485,10 @@ async function emitVoiceNotification(
   if (emitted.has(eventKey)) return;
   const replay = pending.get(eventKey);
   if (replay) return replay;
-  const result = assistantNotificationsService
+  const result = notificationService
     .createFromSource(voiceNotification(group, outcome, transactionId))
     .catch(() =>
-      assistantNotificationsService.createFromSource(
+      notificationService.createFromSource(
         voiceNotification(group, outcome, transactionId)
       )
     )
