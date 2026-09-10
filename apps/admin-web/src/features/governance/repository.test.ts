@@ -265,7 +265,7 @@ describe("BE013 exact live governance mapping", () => {
       rolloutPercent: 2,
       expectedVersion: 7,
       reason: "Advance the stable bounded cohort after review.",
-      submissionKey: "phase13-flag-percent",
+      submissionKey: "SUB-DEMO-FLAG-PERCENT",
     });
     expect(body).toMatchObject({ defaultEnabled: false, expectedVersion: 7 });
     const rules = (body as { rules: Array<{ audience: Record<string, string> }> }).rules;
@@ -383,7 +383,7 @@ describe("BE003 exact live access governance mapping", () => {
       department: "Operations",
       expiryDays: 7,
       message: "Review operations incidents.",
-      submissionKey: "phase14-live-invite",
+      submissionKey: "SUB-DEMO-LIVE-INVITE",
     });
     expect(body).toEqual({
       email: "operator@example.test",
