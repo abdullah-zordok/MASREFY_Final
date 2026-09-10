@@ -6,7 +6,7 @@ import { AccessDeniedState, ConfirmDialog, EmptyState, ErrorState, LoadingState,
 import { getRoleLabel, getStatusLabel } from "@/core/localization/display-labels";
 import type { Locale } from "@/core/localization/direction";
 import { useLocale } from "@/core/localization/provider";
-import type { AdminListResponse, AdminUserDetail, AdminUserSummary, GovernanceRole } from "./contracts";
+import type { AccessAdmin, AccessAdminDetail, AccessPermission, AccessRole, AdminListResponse, AdminUserDetail, AdminUserSummary, GovernanceRole } from "./contracts";
 import { inviteAdminRequestSchema, reasonSchema, roleCreateRequestSchema } from "./contracts";
 import {
   useAdminUser,
@@ -170,16 +170,25 @@ const copy = {
 } as const;
 
 type GovernanceCopy = (typeof copy)[Locale];
+type DisplayRole = GovernanceRole | AccessRole;
+type DisplayAdmin = AdminUserSummary | AccessAdmin;
 
-function AdminRows({ admins, c, locale }: { admins: AdminUserSummary[]; c: GovernanceCopy; locale: Locale }) {
+const roleName = (role: DisplayRole, locale: Locale) => typeof role.name === "string" ? role.name : role.name[locale];
+const roleKind = (role: DisplayRole) => "systemRole" in role ? (role.systemRole ? "system" : "custom") : role.kind;
+const roleStatus = (role: DisplayRole) => "enabled" in role ? (role.enabled ? "active" : "disabled") : role.status;
+const adminName = (admin: DisplayAdmin) => admin.displayName ?? admin.id;
+const adminEmail = (admin: DisplayAdmin) => ("emailMasked" in admin ? admin.emailMasked : admin.maskedEmail) ?? "Unavailable";
+const adminRoleKeys = (admin: DisplayAdmin) => "roleKeys" in admin ? admin.roleKeys : admin.roleSummaries.map((role) => role.key);
+
+function AdminRows({ admins, c, locale }: { admins: DisplayAdmin[]; c: GovernanceCopy; locale: Locale }) {
   return (
     <tbody>
       {admins.map((admin) => (
         <tr key={admin.id}>
-          <td><div className="user-cell governance-user-cell"><div className="avatar">{admin.displayName.slice(0, 2)}</div><div><Link className="table-link" href={`/admin/admin-team/${admin.id}`}>{admin.displayName}</Link><small className="ltr">{admin.maskedEmail}</small></div></div></td>
-          <td><div className="governance-badge-stack">{admin.roleSummaries.map((role) => <Badge key={role.id} value={getRoleLabel(locale, role.key)} tone={roleTone(role.key)} />)}</div></td>
+          <td><div className="user-cell governance-user-cell"><div className="avatar">{adminName(admin).slice(0, 2)}</div><div><Link className="table-link" href={`/admin/admin-team/${admin.id}`}>{adminName(admin)}</Link><small className="ltr">{adminEmail(admin)}</small></div></div></td>
+          <td><div className="governance-badge-stack">{adminRoleKeys(admin).map((role) => <Badge key={role} value={getRoleLabel(locale, role)} tone={roleTone(role)} />)}</div></td>
           <td><Badge value={getStatusLabel(locale, admin.status)} tone={adminStatusTone(admin.status)} /><span className="sr-only">{c.status} {admin.status}</span></td>
-          <td>{admin.department}</td>
+          <td>{admin.department ?? "Unavailable"}</td>
           <td className="numbers">{admin.activeSessionCount}</td>
         </tr>
       ))}
@@ -187,18 +196,18 @@ function AdminRows({ admins, c, locale }: { admins: AdminUserSummary[]; c: Gover
   );
 }
 
-function AdminMobileCards({ admins, c, locale }: { admins: AdminUserSummary[]; c: GovernanceCopy; locale: Locale }) {
+function AdminMobileCards({ admins, c, locale }: { admins: DisplayAdmin[]; c: GovernanceCopy; locale: Locale }) {
   return (
     <div className="mobile-cards ops-mobile-cards">
       {admins.map((admin) => (
         <article className="mobile-data-card" key={admin.id}>
           <div className="mobile-data-head">
-            <div className="governance-mobile-title"><Link href={`/admin/admin-team/${admin.id}`}><strong>{admin.displayName}</strong></Link><small className="ltr">{admin.maskedEmail}</small></div>
+            <div className="governance-mobile-title"><Link href={`/admin/admin-team/${admin.id}`}><strong>{adminName(admin)}</strong></Link><small className="ltr">{adminEmail(admin)}</small></div>
             <Badge value={getStatusLabel(locale, admin.status)} tone={adminStatusTone(admin.status)} />
           </div>
           <div className="mobile-data-meta">
-            <div><small>{c.roles}</small><strong className="governance-badge-stack">{admin.roleSummaries.map((role) => <Badge key={role.id} value={getRoleLabel(locale, role.key)} tone={roleTone(role.key)} />)}</strong></div>
-            <div><small>{c.department}</small><strong>{admin.department}</strong></div>
+                <div><small>{c.roles}</small><strong className="governance-badge-stack">{adminRoleKeys(admin).map((role) => <Badge key={role} value={getRoleLabel(locale, role)} tone={roleTone(role)} />)}</strong></div>
+                <div><small>{c.department}</small><strong>{admin.department ?? "Unavailable"}</strong></div>
             <div><small>{c.activeSessions}</small><strong className="numbers">{admin.activeSessionCount}</strong></div>
           </div>
         </article>
@@ -212,7 +221,7 @@ export function AdminTeamView() {
   const { locale } = useLocale();
   const c = copy[locale];
   const query = useAdminUsers({ role: "super-admin", page: 1, pageSize: 25, search: search || undefined });
-  const payload = query.data as AdminListResponse | undefined;
+  const payload = query.data as (AdminListResponse & { items: DisplayAdmin[] }) | undefined;
 
   return (
     <section className="admin-page">
@@ -296,7 +305,7 @@ export function AdminProfileView({ adminId }: { adminId: string }) {
   const { locale } = useLocale();
   const c = copy[locale];
   const query = useAdminUser(adminId);
-  const admin = query.data as AdminUserDetail | undefined;
+  const admin = query.data as AdminUserDetail | AccessAdminDetail | undefined;
   const assign = useAssignAdminRoles(adminId);
   const revoke = useRevokeAdminSessions(adminId);
   const disable = useDisableAdmin(adminId);
@@ -307,6 +316,21 @@ export function AdminProfileView({ adminId }: { adminId: string }) {
   if (query.isPending) return <LoadingState />;
   if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="admin-team.read" /> : <ErrorState />;
   if (!admin) return <EmptyState title={c.adminNotFound} />;
+  if ("roleKeys" in admin) return (
+    <section className="admin-page">
+      <PageHeader title={admin.displayName ?? admin.id} description={`${admin.emailMasked ?? "Unavailable"} - ${admin.department ?? "Unavailable"}`} />
+      <section className="table-card admin-profile-card" aria-labelledby="admin-profile-title">
+        <h2 id="admin-profile-title">{admin.displayName ?? admin.id}</h2>
+        <dl className="role-detail-grid">
+          <div><dt>{c.status}</dt><dd>{admin.status}</dd></div>
+          <div><dt>{c.version}</dt><dd>{admin.version}</dd></div>
+          <div><dt>{c.activeSessions}</dt><dd>{admin.activeSessionCount}</dd></div>
+          <div><dt>{c.roles}</dt><dd>{admin.roleKeys.join(", ") || "Unavailable"}</dd></div>
+          <div><dt>{locale === "ar" ? "الصلاحيات" : "Permissions"}</dt><dd>{admin.effectivePermissionKeys.join(", ") || "Unavailable"}</dd></div>
+        </dl>
+      </section>
+    </section>
+  );
   const revocable = admin.sessions.filter((session) => session.state === "active" && !session.isCurrentSession);
 
   return (
@@ -442,7 +466,7 @@ export function RolesView() {
   const { locale } = useLocale();
   const c = copy[locale];
   const query = useRoles({ role: "super-admin", page: 1, pageSize: 25, search: search || undefined });
-  const payload = query.data as { items: GovernanceRole[] } | undefined;
+  const payload = query.data as { items: DisplayRole[] } | undefined;
   return (
     <section className="admin-page">
       <PageHeader title={c.rolesTitle} description={c.rolesDescription} actions={<Link className="button primary" href="/admin/roles/new">{c.newRole}</Link>} />
@@ -455,7 +479,7 @@ export function RolesView() {
         </div>
       </div>
       {query.isPending && <LoadingState />}
-      {query.isError && (asStatus(query.error) === 403 ? <AccessDeniedState permission="roles.read" /> : <ErrorState />)}
+      {query.isError && (asStatus(query.error) === 403 ? <AccessDeniedState permission="access.roles.read" /> : <ErrorState />)}
       {payload && (
         <section className="table-card governance-table-card" aria-labelledby="roles-list-title">
           <div className="card-heading ops-card-heading"><div><h2 id="roles-list-title">{c.roleList}</h2><p>{payload.items.length} {c.roles}</p></div></div>
@@ -464,9 +488,9 @@ export function RolesView() {
             <thead><tr><th>{c.role}</th><th>{c.kind}</th><th>{c.status}</th><th>{c.assignments}</th><th>{c.permissions}</th></tr></thead>
             <tbody>{payload.items.map((role) => (
               <tr key={role.id}>
-                <td><Link className="table-link" href={`/admin/roles/${role.id}`}>{role.name[locale]}</Link><small className="ltr">{role.key}</small>{role.kind === "system" && <Badge value={getStatusLabel(locale, "system")} />}</td>
-                <td><Badge value={getStatusLabel(locale, role.kind)} tone={role.kind === "custom" ? "bronze" : "info"} /></td>
-                <td><Badge value={getStatusLabel(locale, role.status)} tone={role.status === "active" ? "success" : "danger"} /></td>
+                <td><Link className="table-link" href={`/admin/roles/${role.id}`}>{roleName(role, locale)}</Link><small className="ltr">{role.key}</small>{roleKind(role) === "system" && <Badge value={getStatusLabel(locale, "system")} />}</td>
+                <td><Badge value={getStatusLabel(locale, roleKind(role))} tone={roleKind(role) === "custom" ? "bronze" : "info"} /></td>
+                <td><Badge value={getStatusLabel(locale, roleStatus(role))} tone={roleStatus(role) === "active" ? "success" : "danger"} /></td>
                 <td className="numbers">{role.assignmentCount}</td>
                 <td className="numbers">{role.permissionKeys.length}</td>
               </tr>
@@ -474,12 +498,12 @@ export function RolesView() {
           </table></div>
           <div className="mobile-cards ops-mobile-cards">{payload.items.map((role) => (
             <article className="mobile-data-card" key={role.id}>
-              <div className="mobile-data-head"><div className="governance-mobile-title"><Link href={`/admin/roles/${role.id}`}><strong>{role.name[locale]}</strong></Link><small className="ltr">{role.key}</small></div><Badge value={getStatusLabel(locale, role.status)} tone={role.status === "active" ? "success" : "danger"} /></div>
+              <div className="mobile-data-head"><div className="governance-mobile-title"><Link href={`/admin/roles/${role.id}`}><strong>{roleName(role, locale)}</strong></Link><small className="ltr">{role.key}</small></div><Badge value={getStatusLabel(locale, roleStatus(role))} tone={roleStatus(role) === "active" ? "success" : "danger"} /></div>
               <div className="mobile-data-meta">
-                <div><small>{c.kind}</small><Badge value={getStatusLabel(locale, role.kind)} tone={role.kind === "custom" ? "bronze" : "info"} /></div>
+                <div><small>{c.kind}</small><Badge value={getStatusLabel(locale, roleKind(role))} tone={roleKind(role) === "custom" ? "bronze" : "info"} /></div>
                 <div><small>{c.assignments}</small><strong className="numbers">{role.assignmentCount}</strong></div>
                 <div><small>{c.permissions}</small><strong className="numbers">{role.permissionKeys.length}</strong></div>
-                {role.kind === "system" && <div><small>{locale === "ar" ? "السياسة" : "Policy"}</small><Badge value={getStatusLabel(locale, "system")} /></div>}
+                {roleKind(role) === "system" && <div><small>{locale === "ar" ? "السياسة" : "Policy"}</small><Badge value={getStatusLabel(locale, "system")} /></div>}
               </div>
             </article>
           ))}</div>
@@ -552,7 +576,14 @@ export function PermissionMatrixView() {
   const query = usePermissionMatrix();
   const { locale } = useLocale();
   const c = copy[locale];
-  const matrix = query.data as { groups: Array<{ group: string; permissions: Array<{ key: string; label: { en: string } }> }>; permissionCount: number } | undefined;
+  const matrix = query.data as ({ groups: Array<{ group: string; permissions: Array<{ key: string; label: { en: string } }> }>; permissionCount: number } | { items: AccessPermission[]; total: number }) | undefined;
+  const groups = matrix && "groups" in matrix
+    ? matrix.groups
+    : Object.values((matrix?.items ?? []).reduce<Record<string, { group: string; permissions: AccessPermission[] }>>((result, permission) => {
+        (result[permission.resource] ??= { group: permission.resource, permissions: [] }).permissions.push(permission);
+        return result;
+      }, {}));
+  const permissionCount = matrix && "permissionCount" in matrix ? matrix.permissionCount : matrix?.total ?? 0;
   return (
     <section className="admin-page">
       <PageHeader title={c.permissionMatrix} description={c.permissionMatrixDescription} />
@@ -560,13 +591,13 @@ export function PermissionMatrixView() {
       {query.isError && (asStatus(query.error) === 403 ? <AccessDeniedState permission="permissions.read" /> : <ErrorState />)}
       {matrix && (
         <section className="table-card role-matrix-card" aria-labelledby="permission-matrix-title">
-          <div className="card-heading ops-card-heading"><div><h2 id="permission-matrix-title">{locale === "ar" ? "مخزون الصلاحيات" : "Permission inventory"}</h2><p><span className="numbers">{matrix.permissionCount}</span> {locale === "ar" ? "صلاحية للقراءة فقط" : "read-only permissions"}</p></div></div>
+          <div className="card-heading ops-card-heading"><div><h2 id="permission-matrix-title">{locale === "ar" ? "مخزون الصلاحيات" : "Permission inventory"}</h2><p><span className="numbers">{permissionCount}</span> {locale === "ar" ? "صلاحية للقراءة فقط" : "read-only permissions"}</p></div></div>
           <div className="role-matrix-grid">
-            {matrix.groups.map((group) => (
+            {groups.map((group) => (
               <article className="role-permission-group" key={group.group}>
                 <div><h3>{group.group}</h3><span className="numbers">{group.permissions.length}</span></div>
                 <div className="role-permission-list">
-                  {group.permissions.map((permission) => <span className="role-permission-chip ltr" key={permission.key}>{permission.label.en}</span>)}
+                  {group.permissions.map((permission) => <span className="role-permission-chip ltr" key={permission.key}>{"label" in permission ? permission.label.en : permission.key}</span>)}
                 </div>
               </article>
             ))}
@@ -581,36 +612,36 @@ export function RoleDetailView({ roleId }: { roleId: string }) {
   const query = useRole(roleId);
   const { locale } = useLocale();
   const c = copy[locale];
-  const role = query.data as GovernanceRole | undefined;
+  const role = query.data as DisplayRole | undefined;
   if (query.isPending) return <LoadingState />;
-  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="roles.read" /> : <ErrorState />;
+  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="access.roles.read" /> : <ErrorState />;
   if (!role) return <EmptyState title={c.roleNotFound} />;
   return (
     <section className="admin-page">
-      <PageHeader title={role.name[locale]} description={role.description} actions={role.kind === "custom" ? <Link className="button" href={`/admin/roles/${role.id}/edit`}>{c.editRole}</Link> : undefined} />
+      <PageHeader title={roleName(role, locale)} description={role.description ?? "Unavailable"} actions={roleKind(role) === "custom" ? <Link className="button" href={`/admin/roles/${role.id}/edit`}>{c.editRole}</Link> : undefined} />
       <section className="table-card role-detail-card" aria-labelledby="role-detail-title">
         <div className="role-detail-head">
           <div>
-            <h2 id="role-detail-title">{role.name[locale]}</h2>
+            <h2 id="role-detail-title">{roleName(role, locale)}</h2>
             <p className="ltr">{role.key}</p>
           </div>
           <div className="governance-badge-stack">
-            <Badge value={getStatusLabel(locale, role.kind)} tone={role.kind === "custom" ? "bronze" : "info"} />
-            <Badge value={getStatusLabel(locale, role.status)} tone={role.status === "active" ? "success" : "danger"} />
-            {role.kind === "system" && <Badge value={getStatusLabel(locale, "system")} />}
+            <Badge value={getStatusLabel(locale, roleKind(role))} tone={roleKind(role) === "custom" ? "bronze" : "info"} />
+            <Badge value={getStatusLabel(locale, roleStatus(role))} tone={roleStatus(role) === "active" ? "success" : "danger"} />
+            {roleKind(role) === "system" && <Badge value={getStatusLabel(locale, "system")} />}
           </div>
         </div>
         <dl className="role-detail-grid">
           <div><dt>{c.assignments}</dt><dd className="numbers">{role.assignmentCount}</dd></div>
           <div><dt>{c.permissions}</dt><dd className="numbers">{role.permissionKeys.length}</dd></div>
-          <div><dt>{c.approval}</dt><dd>{role.approval.required ? (locale === "ar" ? "مطلوبة" : "Required") : (locale === "ar" ? "غير مطلوبة" : "Not required")}</dd></div>
+          <div><dt>{c.approval}</dt><dd>{"approval" in role ? (role.approval.required ? (locale === "ar" ? "مطلوبة" : "Required") : (locale === "ar" ? "غير مطلوبة" : "Not required")) : "Unavailable"}</dd></div>
           <div><dt>{c.version}</dt><dd className="numbers">{role.version}</dd></div>
           <div><dt>{c.roleId}</dt><dd className="ltr">{role.id}</dd></div>
-          <div><dt>{locale === "ar" ? "السياسة" : "Policy"}</dt><dd>{getStatusLabel(locale, role.kind)}</dd></div>
+          <div><dt>{locale === "ar" ? "السياسة" : "Policy"}</dt><dd>{getStatusLabel(locale, roleKind(role))}</dd></div>
         </dl>
         <section className="role-detail-section" aria-labelledby="role-approval-title">
           <h2 id="role-approval-title">{c.governanceApproval}</h2>
-          <p>{role.approval.description}</p>
+          <p>{"approval" in role ? role.approval.description : "Unavailable"}</p>
         </section>
         <section className="role-detail-section" aria-labelledby="role-permissions-title">
           <h2 id="role-permissions-title">{c.permissions}</h2>
@@ -628,22 +659,22 @@ export function EditRoleView({ roleId }: { roleId: string }) {
   const update = useUpdateRole(roleId);
   const { locale } = useLocale();
   const c = copy[locale];
-  const role = query.data as GovernanceRole | undefined;
+  const role = query.data as DisplayRole | undefined;
   const [reason, setReason] = useState("Update custom role after governance review.");
   if (query.isPending) return <LoadingState />;
-  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="roles.read" /> : <ErrorState />;
+  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="access.roles.read" /> : <ErrorState />;
   if (!role) return <EmptyState title={c.roleNotFound} />;
-  if (role.kind === "system") return <AccessDeniedState permission="roles.manage immutable-system-role" />;
+  if (roleKind(role) === "system") return <AccessDeniedState permission="access.roles.write immutable-system-role" />;
   return (
     <section className="admin-page">
-      <PageHeader title={`${c.editRole}: ${role.name[locale]}`} description={c.customRoleDescription} />
+      <PageHeader title={`${c.editRole}: ${roleName(role, locale)}`} description={c.customRoleDescription} />
       <form className="table-card role-edit-form" onSubmit={(event) => {
         event.preventDefault();
-        update.mutate({ status: role.status === "active" ? "disabled" : "active", reason, expectedVersion: role.version, submissionKey: "SUB-DEMO-UI-ROLE-UPDATE" });
+        update.mutate({ status: roleStatus(role) === "active" ? "disabled" : "active", reason, expectedVersion: role.version, submissionKey: "SUB-DEMO-UI-ROLE-UPDATE" });
       }}>
         <div className="role-detail-head">
-          <div><h2>{role.name[locale]}</h2><p className="ltr">{role.key}</p></div>
-          <div className="governance-badge-stack"><Badge value={getStatusLabel(locale, role.kind)} tone="bronze" /><Badge value={getStatusLabel(locale, role.status)} tone={role.status === "active" ? "success" : "danger"} /></div>
+          <div><h2>{roleName(role, locale)}</h2><p className="ltr">{role.key}</p></div>
+          <div className="governance-badge-stack"><Badge value={getStatusLabel(locale, roleKind(role))} tone="bronze" /><Badge value={getStatusLabel(locale, roleStatus(role))} tone={roleStatus(role) === "active" ? "success" : "danger"} /></div>
         </div>
         <section className="role-create-section" aria-labelledby="role-edit-reason-title">
           <h2 id="role-edit-reason-title">{c.reason}</h2>
@@ -651,7 +682,7 @@ export function EditRoleView({ roleId }: { roleId: string }) {
           {role.assignmentCount > 0 && <p role="alert">{locale === "ar" ? "لا يمكن تعطيل دور مسند حاليا." : "Assigned roles cannot be disabled."}</p>}
         </section>
         <div className="role-create-footer">
-          <button className="button primary" disabled={update.isPending}>{role.status === "active" ? c.disableRole : c.activateRole}</button>
+          <button className="button primary" disabled={update.isPending}>{roleStatus(role) === "active" ? c.disableRole : c.activateRole}</button>
         </div>
       </form>
       {update.isSuccess && <SuccessState message="Role updated safely." />}

@@ -83,7 +83,7 @@ export const governanceHandlers: RequestHandler[] = [
     return HttpResponse.json(listPhase9Invitations(parsed.data));
   }),
   http.post("/api/v1/admin/admin-invitations", async ({ request }) => {
-    const permissionError = denied(request, "admin-team.invite");
+    const permissionError = denied(request, "access.invites.write");
     if (permissionError) return permissionError;
     const parsed = inviteAdminRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return HttpResponse.json({ code: "validation_error" }, { status: 400 });
@@ -121,7 +121,7 @@ export const governanceHandlers: RequestHandler[] = [
     }
   }),
   http.post("/api/v1/admin/admin-users/:adminId/roles", async ({ request, params }) => {
-    const permissionError = denied(request, "admin-team.roles.assign");
+    const permissionError = denied(request, "access.assignments.write");
     if (permissionError) return permissionError;
     const parsed = assignAdminRolesRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success || parsed.data.adminId !== params.adminId) {
@@ -142,7 +142,7 @@ export const governanceHandlers: RequestHandler[] = [
     return admin ? HttpResponse.json(admin) : HttpResponse.json({ code: "not_found" }, { status: 404 });
   }),
   http.get("/api/v1/admin/roles", async ({ request }) => {
-    const permissionError = denied(request, "roles.read");
+    const permissionError = denied(request, "access.roles.read");
     if (permissionError) return permissionError;
     const url = new URL(request.url);
     return HttpResponse.json(listPhase9Roles({
@@ -152,7 +152,7 @@ export const governanceHandlers: RequestHandler[] = [
     }));
   }),
   http.post("/api/v1/admin/roles", async ({ request }) => {
-    const permissionError = denied(request, "roles.manage");
+    const permissionError = denied(request, "access.roles.write");
     if (permissionError) return permissionError;
     const parsed = roleCreateRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return HttpResponse.json({ code: "validation_error" }, { status: 400 });
@@ -168,7 +168,7 @@ export const governanceHandlers: RequestHandler[] = [
     return HttpResponse.json(getPhase9PermissionMatrix());
   }),
   http.post("/api/v1/admin/roles/:roleId", async ({ request, params }) => {
-    const permissionError = denied(request, "roles.manage");
+    const permissionError = denied(request, "access.roles.write");
     if (permissionError) return permissionError;
     const parsed = roleUpdateRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return HttpResponse.json({ code: "validation_error" }, { status: 400 });
@@ -179,7 +179,7 @@ export const governanceHandlers: RequestHandler[] = [
     }
   }),
   http.get("/api/v1/admin/roles/:roleId", async ({ request, params }) => {
-    const permissionError = denied(request, "roles.read");
+    const permissionError = denied(request, "access.roles.read");
     if (permissionError) return permissionError;
     const role = getPhase9Role(String(params.roleId));
     return role ? HttpResponse.json(role) : HttpResponse.json({ code: "not_found" }, { status: 404 });
@@ -209,7 +209,7 @@ export const governanceHandlers: RequestHandler[] = [
     }
   }),
   http.get("/api/v1/admin/feature-flags", async ({ request }) => {
-    const permissionError = denied(request, "settings.flags.read");
+    const permissionError = denied(request, "operations.flags.read");
     if (permissionError) return permissionError;
     const url = new URL(request.url);
     return HttpResponse.json(listPhase9FeatureFlags({
@@ -218,7 +218,7 @@ export const governanceHandlers: RequestHandler[] = [
     }));
   }),
   http.post("/api/v1/admin/feature-flags/:flagId", async ({ request, params }) => {
-    const permissionError = denied(request, "settings.flags.manage");
+    const permissionError = denied(request, "operations.flags.manage");
     if (permissionError) return permissionError;
     const parsed = updateFeatureFlagRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return HttpResponse.json({ code: "validation_error" }, { status: 400 });
@@ -229,12 +229,12 @@ export const governanceHandlers: RequestHandler[] = [
     }
   }),
   http.get("/api/v1/admin/maintenance", async ({ request }) => {
-    const permissionError = denied(request, "settings.maintenance.read");
+    const permissionError = denied(request, "operations.maintenance.read");
     if (permissionError) return permissionError;
     return HttpResponse.json(getPhase9Maintenance());
   }),
   http.post("/api/v1/admin/maintenance", async ({ request }) => {
-    const permissionError = denied(request, "settings.maintenance.manage");
+    const permissionError = denied(request, "operations.maintenance.manage");
     if (permissionError) return permissionError;
     const parsed = updateMaintenanceRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return HttpResponse.json({ code: "validation_error" }, { status: 400 });

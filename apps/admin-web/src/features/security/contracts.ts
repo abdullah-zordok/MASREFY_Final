@@ -15,7 +15,7 @@ function boundedText(maxCodePoints: number, maxBytes = 2048) {
 
 export const securityIdSchema = z.string()
   .max(48)
-  .regex(/^(AUTH|SUS|INC|ASA|PCH|SAC|AUD|EXP|DEL|RET|ADM|CUS|DEV|SES|TKT|SUB|SVC|COR)-[A-Za-z0-9-]{1,43}$/);
+  .refine((value) => /^(AUTH|SUS|INC|ASA|PCH|SAC|AUD|EXP|DEL|RET|ADM|CUS|DEV|SES|TKT|SUB|SVC|COR)-[A-Za-z0-9-]{1,43}$/u.test(value) || z.uuid().safeParse(value).success, "invalid security id");
 
 export const platformScopeSchema = z.enum(["all", "ios", "android", "unknown", "global"]);
 export const riskLevelSchema = z.enum(["informational", "low", "medium", "high", "critical"]);
@@ -192,12 +192,17 @@ export const supportAccessGrantSchema = z.object({
 export const supportAccessRevokeSchema = z.object({ context: actionContextSchema }).strict();
 
 export const incidentDetailSchema = z.object({
-  id: securityIdSchema.refine((id) => id.startsWith("INC-")),
-  severity: riskLevelSchema,
-  state: incidentStateSchema,
-  owner: safeReferenceSchema,
+  id: securityIdSchema.refine((id) => id.startsWith("INC-") || z.uuid().safeParse(id).success),
+  title: boundedText(160, 512).optional(),
+  publicSummary: boundedText(500, 2048).nullable().optional(),
+  startedAt: z.iso.datetime({ offset: true }).optional(),
+  resolvedAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  assignedAdminId: z.string().min(1).max(128).nullable().optional(),
+  severity: riskLevelSchema.or(z.enum(["info", "warning"])),
+  state: incidentStateSchema.or(z.enum(["open", "investigating", "monitoring", "resolved"])),
+  owner: safeReferenceSchema.nullable(),
   affectedServices: z.array(safeReferenceSchema).max(10),
-  affectedCustomerCount: z.number().int().nonnegative(),
+  affectedCustomerCount: z.number().int().nonnegative().nullable(),
   platform: platformScopeSchema,
   revision: z.number().int().positive(),
   timeline: z.array(timelineEntrySchema).max(30),
@@ -208,6 +213,29 @@ export const incidentDetailSchema = z.object({
 export const incidentActionSchema = z.object({
   action: z.enum(["contain", "monitor", "resolve", "close", "reopen_monitoring", "note"]),
   context: actionContextSchema,
+}).strict();
+
+export const operationsIncidentSchema = z.object({
+  id: z.uuid(),
+  title: boundedText(160, 512),
+  severity: z.enum(["info", "warning", "critical"]),
+  status: z.enum(["open", "investigating", "monitoring", "resolved"]),
+  startedAt: z.iso.datetime({ offset: true }),
+  resolvedAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  publicSummary: boundedText(500, 2048).nullable().optional(),
+  assignedAdminId: z.string().min(1).max(128).nullable().optional(),
+  version: z.number().int().positive(),
+}).strict();
+
+export const operationsIncidentPageSchema = z.object({
+  items: z.array(operationsIncidentSchema).max(100),
+  nextCursor: z.string().min(1).max(512).nullable(),
+}).strict();
+
+export const operationsIncidentMutationResultSchema = z.object({
+  resourceId: z.uuid(),
+  status: z.string().min(1).max(40),
+  version: z.number().int().positive(),
 }).strict();
 
 export const auditEventSummarySchema = z.object({
@@ -389,3 +417,4 @@ export type ExportRequestDetail = z.infer<typeof exportRequestDetailSchema>;
 export type DeletionRequestDetail = z.infer<typeof deletionRequestDetailSchema>;
 export type RetentionPolicyDetail = z.infer<typeof retentionPolicyDetailSchema>;
 export type ActionResult = z.infer<typeof actionResultSchema>;
+export type OperationsIncidentMutationResult = z.infer<typeof operationsIncidentMutationResultSchema>;

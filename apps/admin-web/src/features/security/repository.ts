@@ -5,6 +5,7 @@ import {
   unavailableClientOperation,
 } from "@/core/api/client";
 import { ApiError, safeApiMessage } from "@/core/api/errors";
+import { z } from "zod";
 import {
   actionResultSchema,
   adminSecurityPageSchema,
@@ -22,6 +23,8 @@ import {
   exportRequestsPageSchema,
   incidentActionSchema,
   incidentDetailSchema,
+  operationsIncidentMutationResultSchema,
+  operationsIncidentPageSchema,
   listQuerySchema,
   overviewQuerySchema,
   permissionChangePageSchema,
@@ -54,6 +57,12 @@ function encodeSecurityId(id: string, prefix: string): string {
     throw new ApiError("validation_error", safeApiMessage("validation_error"), 400);
   }
   return encodeURIComponent(parsed.data);
+}
+
+function encodeIncidentId(id: string): string {
+  if (!z.uuid().safeParse(id).success)
+    throw new ApiError("validation_error", safeApiMessage("validation_error"), 400);
+  return encodeURIComponent(id);
 }
 
 function query(input: ListQuery): string {
@@ -92,13 +101,57 @@ export const securityRepository = {
     if (!mocksEnabled()) return unavailableClientOperation();
     return apiClient.post(`${SECURITY_BASE_PATH}/security/support-access/${encodeSecurityId(id, "SAC-")}/revoke`, supportAccessRevokeSchema.parse(input), actionResultSchema);
   },
-  getSecurityIncident(id: string) {
-    if (!mocksEnabled()) return unavailableClientOperation();
-    return apiClient.get(`${SECURITY_BASE_PATH}/security/incidents/${encodeSecurityId(id, "INC-")}`, incidentDetailSchema);
+  async getSecurityIncident(id: string) {
+    if (mocksEnabled())
+      return apiClient.get(`${SECURITY_BASE_PATH}/security/incidents/${encodeSecurityId(id, "INC-")}`, incidentDetailSchema);
+    const incidentId = encodeIncidentId(id);
+    let cursor: string | null = null;
+    for (let page = 0; page < 100; page += 1) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const response = await apiClient.get(`${SECURITY_BASE_PATH}/incidents?${params.toString()}`, operationsIncidentPageSchema);
+      const incident = response.items.find((item) => item.id === decodeURIComponent(incidentId));
+      if (incident)
+        return incidentDetailSchema.parse({
+          id: incident.id,
+          title: incident.title,
+          publicSummary: incident.publicSummary ?? null,
+          startedAt: incident.startedAt,
+          resolvedAt: incident.resolvedAt ?? null,
+          assignedAdminId: incident.assignedAdminId ?? null,
+          severity: incident.severity,
+          state: incident.status,
+          owner: null,
+          affectedServices: [],
+          affectedCustomerCount: null,
+          platform: "unknown",
+          revision: incident.version,
+          timeline: [],
+          allowedActions: incident.status === "resolved"
+            ? []
+            : incident.status === "open"
+              ? ["contain", "resolve"]
+              : incident.status === "investigating"
+                ? ["monitor", "resolve"]
+                : ["resolve"],
+          auditReferences: [],
+        });
+      cursor = response.nextCursor;
+      if (!cursor) break;
+    }
+    throw new ApiError("not_found", safeApiMessage("not_found"), 404);
   },
   actOnSecurityIncident(id: string, input: unknown) {
-    if (!mocksEnabled()) return unavailableClientOperation();
-    return apiClient.post(`${SECURITY_BASE_PATH}/security/incidents/${encodeSecurityId(id, "INC-")}/actions`, incidentActionSchema.parse(input), actionResultSchema);
+    const request = incidentActionSchema.parse(input);
+    if (mocksEnabled())
+      return apiClient.post(`${SECURITY_BASE_PATH}/security/incidents/${encodeSecurityId(id, "INC-")}/actions`, request, actionResultSchema);
+    const status = ({ contain: "investigating", monitor: "monitoring", resolve: "resolved" } as const)[request.action as "contain" | "monitor" | "resolve"];
+    if (!status) return unavailableClientOperation();
+    return apiClient.patch(`${SECURITY_BASE_PATH}/incidents/${encodeIncidentId(id)}`, {
+      status,
+      expectedVersion: request.context.expectedRevision,
+      reason: request.context.reason,
+    }, operationsIncidentMutationResultSchema);
   },
   listAuditEvents(input: ListQuery) {
     if (!mocksEnabled()) return unavailableClientOperation();

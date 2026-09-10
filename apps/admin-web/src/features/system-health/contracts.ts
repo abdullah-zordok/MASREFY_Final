@@ -8,20 +8,28 @@ export const operationalRangeSchema = z.enum(["1h", "24h", "7d", "30d"]);
 export const platformScopeSchema = z.enum(["all", "ios", "android", "unknown", "global"]);
 export const freshnessStateSchema = z.enum(["fresh", "stale", "unknown"]);
 
-export const freshnessSchema = z.object({
-  observedAt: offsetDateTimeSchema,
-  staleAt: offsetDateTimeSchema,
-  state: freshnessStateSchema,
-  sourceLabel: z.string().min(1).max(80).optional(),
-}).strict().superRefine((value, context) => {
-  if (Date.parse(value.observedAt) >= Date.parse(value.staleAt)) {
-    context.addIssue({
-      code: "custom",
-      message: "staleAt must be later than observedAt",
-      path: ["staleAt"],
-    });
-  }
-});
+export const freshnessSchema = z.union([
+  z.object({
+    observedAt: offsetDateTimeSchema,
+    staleAt: offsetDateTimeSchema,
+    state: freshnessStateSchema.exclude(["unknown"]),
+    sourceLabel: z.string().min(1).max(80).optional(),
+  }).strict().superRefine((value, context) => {
+    if (Date.parse(value.observedAt) >= Date.parse(value.staleAt)) {
+      context.addIssue({
+        code: "custom",
+        message: "staleAt must be later than observedAt",
+        path: ["staleAt"],
+      });
+    }
+  }),
+  z.object({
+    observedAt: z.null(),
+    staleAt: z.null(),
+    state: z.literal("unknown"),
+    sourceLabel: z.string().min(1).max(80).optional(),
+  }).strict(),
+]);
 
 export const metricValueSchema = z.object({
   key: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/u),
@@ -98,9 +106,9 @@ export const safeReferenceSchema = z.object({
 }).strict();
 
 export const serviceHealthSummarySchema = z.object({
-  id: z.string().regex(/^SVC-[A-Za-z0-9-]+$/u),
+  id: z.string().min(1).max(80),
   name: z.string().min(1).max(80),
-  category: z.enum(["api", "database", "auth", "storage", "cache", "workers", "payments", "ai", "email", "push", "exchange_rates", "monitoring"]),
+  category: z.string().min(1).max(80),
   status: healthStatusSchema,
   uptime: metricValueSchema,
   latency: metricValueSchema,
@@ -114,7 +122,7 @@ export const serviceHealthSummarySchema = z.object({
 export const healthOverviewSchema = z.object({
   range: operationalRangeSchema,
   summary: z.string().max(240),
-  services: z.array(serviceHealthSummarySchema).length(12),
+  services: z.array(serviceHealthSummarySchema).max(20),
   attention: z.array(safeReferenceSchema).max(20).optional(),
   freshness: freshnessSchema,
   partial: z.boolean(),
@@ -186,7 +194,7 @@ export const providerCategorySchema = z.enum(["database", "storage", "identity",
 export const fallbackStateSchema = z.enum(["active", "available", "unavailable", "not_applicable"]);
 
 export const providerHealthSummarySchema = z.object({
-  id: z.string().regex(/^PRV-[A-Za-z0-9-]+$/u),
+  id: z.string().min(1).max(80),
   name: z.string().min(1).max(80),
   category: providerCategorySchema,
   status: healthStatusSchema,
@@ -358,7 +366,10 @@ export const cancelJobResultSchema = z.object({
 }).strict();
 
 export const scheduledJobSummarySchema = z.object({
-  id: z.string().regex(/^SCH-[A-Za-z0-9-]+$/u),
+  id: z.string().max(64).refine(
+    (value) => /^SCH-[A-Za-z0-9-]+$/u.test(value) || z.uuid().safeParse(value).success,
+    "invalid scheduled job id",
+  ),
   name: z.string().min(1).max(100),
   queue: queueKeySchema,
   schedule: z.string().min(1).max(120),

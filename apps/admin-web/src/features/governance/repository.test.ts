@@ -1,5 +1,10 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { mockServer } from "@/mocks/server";
 import { governanceRepository } from "./repository";
+
+const liveId = "13000000-0000-4000-8000-000000000001";
+const liveAt = "2026-09-10T08:00:00.000Z";
 
 describe("US1 governance repository", () => {
   test("lists admins, details, and invitations through strict safe responses", async () => {
@@ -187,3 +192,211 @@ describe("US4 flag and maintenance repository", () => {
     })).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe("BE013 exact live governance mapping", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS = "false";
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS = "true";
+  });
+
+  test("preserves redaction and sends every setting value field", async () => {
+    let body: unknown;
+    mockServer.use(
+      http.get("/api/v1/admin/settings/operations.history.retention_days", () =>
+        HttpResponse.json({
+          key: "operations.history.retention_days",
+          sensitivity: "restricted",
+          redacted: true,
+          version: 4,
+          updatedAt: liveAt,
+        }),
+      ),
+      http.patch("/api/v1/admin/settings/operations.history.retention_days", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ resourceId: "operations.history.retention_days", status: "updated", version: 5 });
+      }),
+    );
+
+    await expect(governanceRepository.getSettingsGroup("general")).resolves.toMatchObject({
+      values: { settingKey: "operations.history.retention_days", redacted: true, value: null },
+    });
+    await governanceRepository.updateSettingsGroup("general", {
+      expectedVersion: 4,
+      changes: { minimumDays: 30, maximumDays: 365 },
+      reason: "Update the complete bounded retention configuration.",
+      submissionKey: "phase13-settings-fields",
+    });
+    expect(body).toEqual({
+      value: { minimumDays: 30, maximumDays: 365 },
+      expectedVersion: 4,
+      reason: "Update the complete bounded retention configuration.",
+    });
+  });
+
+  test("keeps one-percent cohorts and targeting rules exact", async () => {
+    let body: unknown;
+    const flag = {
+      id: liveId,
+      key: "mobile.safe-demo",
+      description: "Safe bounded mobile rollout",
+      defaultEnabled: false,
+      status: "active",
+      rules: [
+        { id: "13000000-0000-4000-8000-000000000002", priority: 1, audience: { platform: "ios" }, enabled: true, version: 1 },
+        { id: "13000000-0000-4000-8000-000000000003", priority: 800, audience: { cohort: "percent-00" }, enabled: true, version: 1 },
+      ],
+      version: 7,
+    };
+    mockServer.use(
+      http.get("/api/v1/admin/feature-flags", () => HttpResponse.json({ items: [flag], nextCursor: null })),
+      http.patch("/api/v1/admin/feature-flags/mobile.safe-demo", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ resourceId: "mobile.safe-demo", status: "updated", version: 8 });
+      }),
+    );
+
+    const page = await governanceRepository.listFeatureFlags({ page: 1, pageSize: 25 });
+    expect(page).toMatchObject({ items: [{ rolloutPercent: 1, updatedAt: null, targetingRules: expect.arrayContaining([expect.objectContaining({ audience: { platform: "ios" } })]) }] });
+    await governanceRepository.updateFeatureFlag("mobile.safe-demo", {
+      rolloutPercent: 2,
+      expectedVersion: 7,
+      reason: "Advance the stable bounded cohort after review.",
+      submissionKey: "phase13-flag-percent",
+    });
+    expect(body).toMatchObject({ defaultEnabled: false, expectedVersion: 7 });
+    const rules = (body as { rules: Array<{ audience: Record<string, string> }> }).rules;
+    expect(rules.filter((rule) => rule.audience.platform === "ios")).toHaveLength(1);
+    expect(rules.filter((rule) => percentageRule(rule.audience.cohort))).toHaveLength(2);
+  });
+
+  test("selects only active or scheduled maintenance and preserves canonical edits", async () => {
+    let body: unknown;
+    const scheduled = {
+      id: liveId,
+      startsAt: liveAt,
+      endsAt: "2026-09-10T09:00:00.000Z",
+      scopes: ["api", "database"],
+      message: { ar: "صيانة مجدولة", en: "Scheduled maintenance" },
+      status: "scheduled",
+      version: 3,
+    };
+    mockServer.use(
+      http.get("/api/v1/admin/maintenance", () => HttpResponse.json({
+        items: [{ ...scheduled, id: "13000000-0000-4000-8000-000000000009", status: "completed" }, scheduled],
+        nextCursor: null,
+      })),
+      http.patch(`/api/v1/admin/maintenance/${liveId}`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ resourceId: liveId, status: "updated", version: 4 });
+      }),
+    );
+
+    await expect(governanceRepository.getMaintenance()).resolves.toMatchObject({
+      state: "scheduled",
+      startsAt: liveAt,
+      updatedAt: null,
+    });
+    await governanceRepository.updateMaintenance({
+      nextState: "active",
+      message: { ar: "صيانة جارية", en: "Maintenance active" },
+      startsAt: liveAt,
+      endsAt: "2026-09-10T09:30:00.000Z",
+      expectedVersion: 3,
+      reason: "Activate the reviewed maintenance window now.",
+      submissionKey: "phase13-maintenance-edit",
+    });
+    expect(body).toEqual({
+      status: "active",
+      startsAt: liveAt,
+      endsAt: "2026-09-10T09:30:00.000Z",
+      message: { ar: "صيانة جارية", en: "Maintenance active" },
+      expectedVersion: 3,
+      reason: "Activate the reviewed maintenance window now.",
+    });
+  });
+});
+
+describe("BE003 exact live access governance mapping", () => {
+  const roleId = "23000000-0000-4000-8000-000000000001";
+  const permissionId = "23000000-0000-4000-8000-000000000002";
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS = "false";
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS = "true";
+  });
+
+  test("uses exact access routes and preserves role and permission values", async () => {
+    let roleCalls = 0;
+    let permissionCalls = 0;
+    mockServer.use(
+      http.get("/api/v1/admin/access/roles", ({ request }) => {
+        roleCalls += 1;
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        return HttpResponse.json(cursor
+          ? { items: [{ id: roleId, key: "operations-reviewer", name: "Operations reviewer", description: null, systemRole: false, enabled: true, permissionKeys: ["operations.incidents.read"], assignmentCount: 2, version: 4 }], nextCursor: null }
+          : { items: [], nextCursor: "roles-page-2" });
+      }),
+      http.get("/api/v1/admin/access/permissions", ({ request }) => {
+        permissionCalls += 1;
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        return HttpResponse.json(cursor
+          ? { items: [{ id: permissionId, key: "operations.incidents.read", resource: "operations.incidents", action: "read", description: null }], nextCursor: null, manifestHash: "sha256:permissions" }
+          : { items: [], nextCursor: "permissions-page-2", manifestHash: "sha256:permissions" });
+      }),
+    );
+
+    await expect(governanceRepository.listRoles({ page: 1, pageSize: 25 })).resolves.toMatchObject({
+      total: 1,
+      items: [{ id: roleId, key: "operations-reviewer", description: null, systemRole: false, enabled: true, permissionKeys: ["operations.incidents.read"], assignmentCount: 2, version: 4 }],
+    });
+    await expect(governanceRepository.getPermissionMatrix({ page: 1, pageSize: 25 })).resolves.toMatchObject({
+      total: 1,
+      items: [{ id: permissionId, key: "operations.incidents.read", resource: "operations.incidents", action: "read", description: null }],
+    });
+    expect(roleCalls).toBe(2);
+    expect(permissionCalls).toBe(2);
+  });
+
+  test("combines invite permission with the exact BE003 body and automatic idempotency header", async () => {
+    let body: unknown;
+    let idempotencyKey: string | null = null;
+    mockServer.use(
+      http.post("/api/v1/admin/access/invitations", async ({ request }) => {
+        body = await request.json();
+        idempotencyKey = request.headers.get("idempotency-key");
+        return HttpResponse.json({ id: "23000000-0000-4000-8000-000000000003", emailMasked: "o***@example.test", roleId, department: "Operations", status: "pending", expiresAt: "2026-09-17T08:00:00.000Z", version: 1 }, { status: 201 });
+      }),
+    );
+
+    await governanceRepository.inviteAdmin({
+      email: "operator@example.test",
+      name: "Operations Reviewer",
+      roleId,
+      department: "Operations",
+      expiryDays: 7,
+      message: "Review operations incidents.",
+      submissionKey: "phase14-live-invite",
+    });
+    expect(body).toEqual({
+      email: "operator@example.test",
+      name: "Operations Reviewer",
+      roleId,
+      department: "Operations",
+      expiresInHours: 168,
+      message: "Review operations incidents.",
+    });
+    expect(idempotencyKey).toBeTruthy();
+  });
+});
+
+function percentageRule(value: string | undefined): boolean {
+  return /^percent-(?:0\d|[1-9]\d)$/u.test(value ?? "");
+}

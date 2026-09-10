@@ -10,6 +10,7 @@ import { authService } from '@/features/auth/auth-flow';
 import { restoreAppShellSession } from '@/features/auth/session-controller';
 import { useLiveClerkSessionKey } from '@/services/live/clerk-provider';
 import { synchronizeLiveCoreFinance } from '@/services/live/core-finance-service';
+import { refreshPlatformOperations } from '@/services/platform-operations-service';
 
 interface AppShellProviderProps {
   children: ReactNode;
@@ -60,8 +61,10 @@ export function AppShellProvider({
         current ? restoreAppShellSession(authService, () => current) : undefined
       )
       .then(() => {
-        if (current && liveClerkSessionKey)
+        if (current && liveClerkSessionKey) {
           void synchronizeLiveCoreFinance().catch(() => undefined);
+          void refreshPlatformOperations().catch(() => undefined);
+        }
       })
       .catch(() =>
         current ? useAppShellStore.getState().signOut() : undefined
@@ -107,8 +110,10 @@ export function AppShellProvider({
         state === 'active' &&
         resolveClientMode() === 'live' &&
         liveClerkSessionKey
-      )
+      ) {
         void synchronizeLiveCoreFinance().catch(() => undefined);
+        void refreshPlatformOperations().catch(() => undefined);
+      }
     });
     return () => subscription.remove();
   }, [liveClerkSessionKey, onAppStateChange]);

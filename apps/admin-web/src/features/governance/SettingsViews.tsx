@@ -102,7 +102,7 @@ function SettingsForm({
   const payload = query.data as (SettingsGroup & { operationsSetting?: boolean }) | undefined;
   const [reason, setReason] = useState("Update settings after governance review.");
   if (query.isPending) return <LoadingState />;
-  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission={`settings.${group}.read`} /> : <ErrorState />;
+  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="operations.settings.read" /> : <ErrorState />;
   if (!payload) return <ErrorState />;
   if (payload.operationsSetting) {
     const bounds = { general: [30, 365], mobile: [24, 720], imports: [100, 10000], ai: [5, 5] }[group as "general" | "mobile" | "imports" | "ai"];
@@ -262,7 +262,7 @@ export function FeatureFlagsSettingsView() {
     <section className="admin-page">
       <PageHeader title={c.featureFlags} description={c.featureFlagsDescription} />
       {query.isPending && <LoadingState />}
-      {query.isError && (asStatus(query.error) === 403 ? <AccessDeniedState permission="settings.flags.read" /> : <ErrorState />)}
+      {query.isError && (asStatus(query.error) === 403 ? <AccessDeniedState permission="operations.flags.read" /> : <ErrorState />)}
       {payload?.items.map((flag) => <FeatureFlagCard flag={flag} key={flag.id} />)}
     </section>
   );
@@ -275,7 +275,7 @@ export function MaintenanceSettingsView() {
   const { locale } = useLocale();
   const c = copy[locale];
   if (query.isPending) return <LoadingState />;
-  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="settings.maintenance.read" /> : <ErrorState />;
+  if (query.isError) return asStatus(query.error) === 403 ? <AccessDeniedState permission="operations.maintenance.read" /> : <ErrorState />;
   if (!maintenance) return <ErrorState />;
   const nextState = maintenance.state === "off" ? "scheduled" : maintenance.state === "scheduled" ? "active" : "off";
   return (
@@ -283,15 +283,15 @@ export function MaintenanceSettingsView() {
       <PageHeader title={c.maintenance} description={c.maintenanceDescription} />
       <article className="metric-card">
         <h2>{maintenance.state}</h2>
-        <p>{maintenance.message[locale]}</p>
-        <p>{c.version} <span className="numbers">{maintenance.version}</span></p>
+        <p>{maintenance.message?.[locale] ?? (locale === "ar" ? "لا توجد صيانة مجدولة" : "No maintenance scheduled")}</p>
+        <p>{c.version} <span className="numbers">{maintenance.version ?? "-"}</span></p>
       </article>
       <button className="button primary" disabled={update.isPending} onClick={() => update.mutate({
         nextState,
         message: { ar: `Maintenance ${nextState}`, en: `Maintenance ${nextState}` },
         startsAt: nextState === "scheduled" ? new Date(Date.now() + 300_000).toISOString() : null,
         endsAt: nextState === "scheduled" ? new Date(Date.now() + 3_900_000).toISOString() : null,
-        expectedVersion: maintenance.version,
+        expectedVersion: maintenance.version ?? 1,
         reason: "Update maintenance state after operator confirmation.",
         submissionKey: "SUB-DEMO-UI-MAINTENANCE",
       })}>{c.moveTo} {nextState}</button>

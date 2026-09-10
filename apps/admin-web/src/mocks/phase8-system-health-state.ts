@@ -43,7 +43,9 @@ const labels: Record<QueueKey, string> = {
 const queueKeys: QueueKey[] = ["imports", "ai_processing", "notifications", "reports", "data_exports", "account_deletion", "subscription_reconciliation"];
 
 function freshness(state: Freshness["state"] = "fresh"): Freshness {
-  return { observedAt, staleAt, state, sourceLabel: "Phase 8 fixed mock state" };
+  return state === "unknown"
+    ? { observedAt: null, staleAt: null, state, sourceLabel: "Phase 8 fixed mock state" }
+    : { observedAt, staleAt, state, sourceLabel: "Phase 8 fixed mock state" };
 }
 
 function metric(key: string, label: string, value: number | null, semantic: MetricValue["semantic"], unit: MetricValue["unit"] = "count"): MetricValue {

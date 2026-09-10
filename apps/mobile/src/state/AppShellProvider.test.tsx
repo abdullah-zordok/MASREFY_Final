@@ -11,6 +11,7 @@ const mockRestoreAppShellSession = jest.fn(
   async (..._args: unknown[]) => undefined
 );
 const mockSynchronizeLiveCoreFinance = jest.fn(async () => undefined);
+const mockRefreshPlatformOperations = jest.fn(async () => undefined);
 let mockLiveClerkSessionKey: string | null | undefined;
 
 jest.mock('@/features/auth/session-controller', () => ({
@@ -23,6 +24,9 @@ jest.mock('@/services/live/clerk-provider', () => ({
 }));
 jest.mock('@/services/live/core-finance-service', () => ({
   synchronizeLiveCoreFinance: () => mockSynchronizeLiveCoreFinance()
+}));
+jest.mock('@/services/platform-operations-service', () => ({
+  refreshPlatformOperations: () => mockRefreshPlatformOperations()
 }));
 
 jest.mock('expo-secure-store', () => ({

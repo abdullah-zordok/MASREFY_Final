@@ -40,14 +40,13 @@ export class ClerkAuthGuard implements CanActivate {
     return true;
   }
 
-  async verifyToken(token: string): Promise<boolean> {
+  async verifyToken(token: string): Promise<ClerkPrincipal> {
     const request = {
       method: 'GET',
       originalUrl: '/api/v1/meta',
       headers: { authorization: `Bearer ${token}` },
     } as ClerkPrincipalRequest;
-    await this.authenticate(request);
-    return true;
+    return this.authenticate(request);
   }
 
   private async authenticate(request: ClerkPrincipalRequest): Promise<ClerkPrincipal> {

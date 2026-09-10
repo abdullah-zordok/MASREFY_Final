@@ -1,10 +1,15 @@
+import { createHash } from 'node:crypto';
+
 import type { FlagContext } from './operations.schemas';
+
+const INVARIANT_FLAG =
+  /auth|permission|role|rls|audit|idempot|ledger|webhook|encrypt|release|billing|payment|subscription|entitlement|checkout|promotion|stripe/iu;
 
 export type EvaluatedFlag = Readonly<{
   key: string;
   enabled: boolean;
   version: number;
-  source: 'rule' | 'default' | 'missing' | 'retired' | 'invalid_context';
+  source: 'rule' | 'default' | 'missing' | 'retired' | 'invalid_context' | 'invariant_blocked';
 }>;
 
 export type FeatureDefinition = Readonly<{
@@ -27,11 +32,23 @@ function matches(audience: FlagContext, context: FlagContext): boolean {
   );
 }
 
+export function derivePercentageCohort(subject: string): string {
+  const bucket = createHash('sha256').update(subject).digest().readUInt32BE(0) % 100;
+  return `percent-${String(bucket).padStart(2, '0')}`;
+}
+
 export function evaluateFeatureFlag(
   flag: FeatureDefinition | undefined,
   context: FlagContext,
 ): EvaluatedFlag {
   if (!flag) return { key: '', enabled: false, version: 0, source: 'missing' };
+  if (INVARIANT_FLAG.test(flag.key))
+    return {
+      key: flag.key,
+      enabled: false,
+      version: flag.version,
+      source: 'invariant_blocked',
+    };
   if (flag.status !== 'active')
     return { key: flag.key, enabled: false, version: flag.version, source: 'retired' };
   const rule = [...flag.rules]

@@ -1,4 +1,8 @@
 export interface PlatformOperations {
+  apiVersion: 'v1';
+  serverTime: string;
+  minMobileVersion: string | null;
+  minAdminVersion: string | null;
   capabilities: {
     coreFinanceAvailable: true;
     billingAvailable: false;

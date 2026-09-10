@@ -16,7 +16,9 @@ const observedAt = "2026-08-01T11:58:00+03:00";
 const staleAt = "2026-08-01T12:03:00+03:00";
 
 function freshness(state: "fresh" | "stale" | "unknown" = "fresh") {
-  return { observedAt, staleAt, state, sourceLabel: "Phase 8 mock telemetry" };
+  return state === "unknown"
+    ? { observedAt: null, staleAt: null, state, sourceLabel: "Phase 8 mock telemetry" }
+    : { observedAt, staleAt, state, sourceLabel: "Phase 8 mock telemetry" };
 }
 
 function metric(key: string, label: string, value: number | null, unit: MetricValue["unit"], completeness: MetricValue["completeness"] = "complete"): MetricValue {

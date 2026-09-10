@@ -748,15 +748,16 @@ components:
         assignedAdminId: { type: [string, 'null'], maxLength: 128 }
         reason: { type: string, minLength: 10, maxLength: 500 }
     UpdateIncidentRequest:
-      allOf:
-        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
-        - type: object
-          additionalProperties: false
-          properties:
-            status: { $ref: '#/components/schemas/OperationsIncidentStatus' }
-            severity: { $ref: '#/components/schemas/OperationsIncidentSeverity' }
-            publicSummary: { type: [string, 'null'], maxLength: 500 }
-            assignedAdminId: { type: [string, 'null'], maxLength: 128 }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+        status: { $ref: '#/components/schemas/OperationsIncidentStatus' }
+        severity: { $ref: '#/components/schemas/OperationsIncidentSeverity' }
+        publicSummary: { type: [string, 'null'], maxLength: 500 }
+        assignedAdminId: { type: [string, 'null'], maxLength: 128 }
     OperationsIncidentPage:
       allOf:
         - { $ref: '#/components/schemas/OperationsCursorPage' }
@@ -776,12 +777,13 @@ components:
         version: { type: integer, minimum: 1 }
         updatedAt: { $ref: '#/components/schemas/OperationsTimestamp' }
     UpdateSettingRequest:
-      allOf:
-        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
-        - type: object
-          required: [value]
-          properties:
-            value: {}
+      type: object
+      additionalProperties: false
+      required: [value, expectedVersion, reason]
+      properties:
+        value: {}
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
     SettingPage:
       type: object
       additionalProperties: false
@@ -798,6 +800,14 @@ components:
         audience: { $ref: '#/components/schemas/FeatureContext' }
         enabled: { type: boolean }
         version: { type: integer, minimum: 1 }
+    FeatureRuleInput:
+      type: object
+      additionalProperties: false
+      required: [priority, audience, enabled]
+      properties:
+        priority: { type: integer, minimum: 1, maximum: 1000 }
+        audience: { $ref: '#/components/schemas/FeatureContext' }
+        enabled: { type: boolean }
     FeatureFlag:
       type: object
       additionalProperties: false
@@ -827,7 +837,7 @@ components:
         key: { type: string, minLength: 3, maxLength: 80 }
         enabled: { type: boolean }
         version: { type: integer, minimum: 0 }
-        source: { type: string, enum: [rule, default, missing, retired, invalid_context] }
+        source: { type: string, enum: [rule, default, missing, retired, invalid_context, invariant_blocked] }
     CreateFlagRequest:
       type: object
       additionalProperties: false
@@ -838,14 +848,16 @@ components:
         defaultEnabled: { type: boolean }
         reason: { type: string, minLength: 10, maxLength: 500 }
     UpdateFlagRequest:
-      allOf:
-        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
-        - type: object
-          properties:
-            description: { type: string, minLength: 10, maxLength: 240 }
-            defaultEnabled: { type: boolean }
-            status: { type: string, enum: [draft, active, retired] }
-            rules: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/FeatureRule' } }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        description: { type: string, minLength: 10, maxLength: 240 }
+        defaultEnabled: { type: boolean }
+        status: { type: string, enum: [draft, active, retired] }
+        rules: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/FeatureRuleInput' } }
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
     FlagPage:
       allOf:
         - { $ref: '#/components/schemas/OperationsCursorPage' }
@@ -889,15 +901,17 @@ components:
             message: { $ref: '#/components/schemas/LocalizedMessage' }
             reason: { type: string, minLength: 10, maxLength: 500 }
     UpdateMaintenanceRequest:
-      allOf:
-        - { $ref: '#/components/schemas/OperationsVersionedReasonRequest' }
-        - type: object
-          properties:
-            startsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
-            endsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
-            scopes: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { type: string } }
-            message: { $ref: '#/components/schemas/LocalizedMessage' }
-            status: { type: string, enum: [scheduled, active, completed, canceled] }
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        startsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        endsAt: { $ref: '#/components/schemas/OperationsTimestamp' }
+        scopes: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { type: string } }
+        message: { $ref: '#/components/schemas/LocalizedMessage' }
+        status: { type: string, enum: [scheduled, active, completed, canceled] }
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
     MaintenancePage:
       allOf:
         - { $ref: '#/components/schemas/OperationsCursorPage' }

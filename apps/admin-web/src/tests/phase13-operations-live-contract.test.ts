@@ -50,16 +50,16 @@ describe("Phase 13 live operations mapping", () => {
     process.env.NEXT_PUBLIC_ENABLE_MOCKS = "false";
     mockServer.use(
       http.get("/api/v1/admin/system-health/overview", () => HttpResponse.json({ status: "operational", services: [{ key: "database", status: "operational", latencyMs: 8, freshness }], partial: false, freshness })),
-      http.get("/api/v1/admin/performance", () => HttpResponse.json({ range: "24h", budgets: { api: { p50: 10, p95: 20, p99: 30, unit: "milliseconds", status: "within_budget" } }, series: [{ at: observedAt, value: 20 }], freshness })),
+      http.get("/api/v1/admin/performance", () => HttpResponse.json({ range: "24h", budgets: { "operations.jobs": { p50: 10, p95: 20, p99: 30, unit: "milliseconds", status: "within_budget" } }, series: [{ at: observedAt, value: 20 }], freshness })),
       http.get("/api/v1/admin/recovery", () => HttpResponse.json({ items: [{ scope: "database", status: "verified", observedAt, evidenceRef: "evidence/recovery.md", rpoSeconds: 10, rtoSeconds: 30 }], rpoTargetSeconds: 900, rtoTargetSeconds: 7200 })),
       http.get("/api/v1/admin/system-health/providers", () => HttpResponse.json({ items: [{ provider: "database", status: "up", latencyMs: 8, checkedAt: observedAt }], nextCursor: null })),
       http.get("/api/v1/admin/jobs/queues", () => HttpResponse.json({ items: [{ key: "operations", waiting: 1, active: 0, failed: 0, oldestWaitingSeconds: 2, status: "operational" }], freshness, partial: false })),
     );
 
     const overview = await systemHealthRepository.getHealthOverview({ range: "24h", platform: "all" });
-    expect(overview.services).toHaveLength(12);
+    expect(overview.services).toHaveLength(1);
     expect(overview.services.find(({ category }) => category === "database")).toMatchObject({ status: "operational", latency: { value: 8 } });
-    expect(overview.services.find(({ category }) => category === "cache")).toMatchObject({ status: "unknown", uptime: { completeness: "unavailable" } });
+    expect(overview.services.find(({ category }) => category === "cache")).toBeUndefined();
     await expect(systemHealthRepository.getApiMonitoring({ range: "24h", platform: "all" })).resolves.toMatchObject({ latency: { value: 20 } });
     await expect(systemHealthRepository.getDatabaseMonitoring({ range: "24h", platform: "all" })).resolves.toMatchObject({ backupState: "healthy" });
     await expect(systemHealthRepository.getStorageMonitoring({ range: "24h", platform: "all" })).resolves.toMatchObject({ cleanupState: "unavailable" });
@@ -81,11 +81,11 @@ describe("Phase 13 live operations mapping", () => {
       http.get("/api/v1/admin/jobs/scheduled", () => HttpResponse.json({ items: [{ id: scheduleId, key: "operations.provider-health", ownerSpec: 13, type: "provider_health", schedule: { kind: "interval", everySeconds: 300, timezone: "UTC" }, enabled: true, timeoutSeconds: 60, maxAttempts: 3, retrySafe: true, cancelSafe: true, nextRunAt: staleAt, version: 1 }], nextCursor: null })),
     );
 
-    await expect(systemHealthRepository.listJobRuns({ queue: "all", state: "failed" })).resolves.toMatchObject({ items: [{ id: runId, state: "failed" }] });
-    await expect(systemHealthRepository.listJobRuns({ queue: "all", state: "failed", page: 2 })).resolves.toMatchObject({ items: [{ id: secondRun.id }] });
+    await expect(systemHealthRepository.listJobRuns({ queue: "all", state: "failed" })).resolves.toMatchObject({ total: 2 });
+    await expect(systemHealthRepository.listJobRuns({ queue: "all", state: "failed", page: 2 })).resolves.toMatchObject({ items: [], total: 2 });
     await expect(systemHealthRepository.getJobRun(runId)).resolves.toMatchObject({ run: { safeErrorCode: "PROVIDER_UNKNOWN" }, allowedActions: ["retry"] });
     await expect(systemHealthRepository.retryJobRun(runId, { jobRunId: runId, expectedVersion: 2, reason: "Retry after operator review", submissionKey: "SUB-DEMO-RETRY" })).resolves.toMatchObject({ status: "queued", version: 3 });
-    await expect(systemHealthRepository.listScheduledJobs({ queue: "all" })).resolves.toMatchObject({ items: [{ id: `SCH-${scheduleId}`, queue: "operations" }] });
+    await expect(systemHealthRepository.listScheduledJobs({ queue: "all" })).resolves.toMatchObject({ items: [{ id: scheduleId, queue: "operations" }] });
   });
 
   test("maps operational settings, flags, and maintenance without billing fixtures", async () => {

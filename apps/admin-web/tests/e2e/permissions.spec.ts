@@ -169,8 +169,7 @@ test("role simulation states that backend authorization remains required", async
 });
 
 test("direct denied routes remove protected content", async ({ page }) => {
-  await page.goto("/admin");
-  await page.getByRole("combobox", { name: "الدور التجريبي" }).selectOption("billing-operator");
+  await page.addInitScript(() => sessionStorage.setItem("admin-simulated-role", "billing-operator"));
   await page.goto("/admin/users");
   await expect(page.locator("section[role='alert']")).toContainText("لا تملك صلاحية الوصول");
   await expect(page.getByRole("heading", { name: "إدارة المستخدمين" })).toHaveCount(0);

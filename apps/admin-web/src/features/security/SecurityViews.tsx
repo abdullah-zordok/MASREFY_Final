@@ -11,12 +11,12 @@ import {
   useSecurityOverview,
 } from "./hooks";
 import { securityRepository } from "./repository";
-import type { ActionResult, AuthenticationEvent, IncidentDetail, SuspiciousActivity, SupportAccessGrant } from "./contracts";
+import type { ActionResult, AuthenticationEvent, IncidentDetail, OperationsIncidentMutationResult, SuspiciousActivity, SupportAccessGrant } from "./contracts";
 
 const defaultContext = (state: string, revision: number) => ({
   expectedState: state,
   expectedRevision: revision,
-  reason: "Phase 7 mock review",
+  reason: "Admin security review",
   confirmationToken: "CONFIRM-SPEC-008" as const,
 });
 
@@ -431,7 +431,7 @@ function SupportAccessCard({ grant }: { grant: SupportAccessGrant }) {
 export function IncidentDetailRoute({ incidentId }: { incidentId: string }) {
   const incident = useSecurityIncident(incidentId);
   const mutation = useSecurityAction();
-  const [result, setResult] = useState<ActionResult | null>(null);
+  const [result, setResult] = useState<ActionResult | OperationsIncidentMutationResult | null>(null);
   if (incident.isPending) return <div className="page"><LoadingState /></div>;
   if (incident.isError) return <div className="page"><ErrorState /></div>;
   const data: IncidentDetail = incident.data;
@@ -442,8 +442,8 @@ export function IncidentDetailRoute({ incidentId }: { incidentId: string }) {
       <FieldList rows={[
         ["State", data.state],
         ["Severity", data.severity],
-        ["Owner", data.owner.label],
-        ["Affected customers", data.affectedCustomerCount],
+        ["Owner", data.owner?.label ?? data.assignedAdminId ?? "Unavailable"],
+        ["Affected customers", data.affectedCustomerCount ?? "Unavailable"],
       ]} />
       <ol>{data.timeline.map((item) => <li key={`${item.at}:${item.label}`}><Id value={item.at} /> {item.label}</li>)}</ol>
       {action && <button className="button primary" onClick={() => mutation.mutate({
@@ -451,8 +451,8 @@ export function IncidentDetailRoute({ incidentId }: { incidentId: string }) {
         id: data.id,
         action,
         run: () => securityRepository.actOnSecurityIncident(data.id, { action, context: defaultContext(data.state, data.revision) }),
-      }, { onSuccess: (value) => setResult(value as ActionResult) })}>{action}</button>}
-      {result && <p role="status">Audit reference <Id value={result.auditReference.eventId} /></p>}
+      }, { onSuccess: (value) => setResult(value as ActionResult | OperationsIncidentMutationResult) })}>{action}</button>}
+      {result && <p role="status">{"auditReference" in result ? <>Audit reference <Id value={result.auditReference.eventId} /></> : <>Incident version {result.version}</>}</p>}
     </div>
   );
 }

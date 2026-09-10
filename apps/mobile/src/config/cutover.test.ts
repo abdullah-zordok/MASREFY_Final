@@ -102,7 +102,12 @@ describe('Mobile cutover policy', () => {
   test.each([
     [1, 2, '4f1ba15', '4f1ba15'],
     [2, 3, '4fa0626', '4f1ba15'],
-    [3, 4, 'f86a61f', '4fa0626']
+    [3, 4, 'f86a61f', '4fa0626'],
+    [4, 5, 'c4c5dcb', 'f86a61f'],
+    [5, 6, '72b2d28', 'c4c5dcb'],
+    [6, 7, 'ec475d3', '72b2d28'],
+    [7, 8, '4f360a2', 'ec475d3'],
+    [8, 9, '74a5c52', '4f360a2']
   ])(
     'keeps accepted Wave %i as the Wave %i rollback target',
     (acceptedWave, nextWave, acceptedVersion, priorRollback) => {

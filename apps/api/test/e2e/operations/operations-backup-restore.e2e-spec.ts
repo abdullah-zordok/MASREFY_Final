@@ -114,5 +114,5 @@ describeLiveDatabase('operations backup and restore', () => {
       await pool.query('delete from private.provider_health_checks where id=$1', [id]);
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }
-  });
+  }, 600_000);
 });

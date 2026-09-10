@@ -1,8 +1,9 @@
-import { apiClient, liveCursor, mocksEnabled, rememberLiveCursor } from "@/core/api/client";
-import type { z } from "zod";
+import { apiClient, mocksEnabled } from "@/core/api/client";
+import { z } from "zod";
 import {
   apiMonitoringSchema,
   databaseMonitoringSchema,
+  freshnessSchema,
   healthOverviewSchema,
   jobRunDetailSchema,
   jobRunIdSchema,
@@ -68,18 +69,40 @@ export interface SystemHealthRepository {
   listScheduledJobs(query: ScheduledJobsQuery): Promise<ScheduledJobsPage>;
 }
 
-type Phase13Freshness = z.infer<typeof phase13HealthOverviewSchema>["freshness"];
+type Phase13Freshness = z.infer<typeof freshnessSchema>;
+type SourceFreshness = z.infer<typeof phase13HealthOverviewSchema>["freshness"];
 type Phase13JobRun = z.infer<typeof phase13JobRunPageSchema>["items"][number];
-type ServiceCategory = z.infer<typeof healthOverviewSchema>["services"][number]["category"];
-const serviceCategories: readonly ServiceCategory[] = ["api", "database", "auth", "storage", "cache", "workers", "payments", "ai", "email", "push", "exchange_rates", "monitoring"];
+const unknownFreshness = { observedAt: null, staleAt: null, state: "unknown" as const };
+
+function presentFreshness(value: SourceFreshness | Phase13Freshness): Phase13Freshness {
+  return value.state === "unknown" ? unknownFreshness : value as Phase13Freshness;
+}
+
+async function allCursorItems<T>(
+  path: string,
+  params: URLSearchParams,
+  schema: z.ZodType<{ items: T[]; nextCursor: string | null }>,
+): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 100; page += 1) {
+    const query = new URLSearchParams(params);
+    if (cursor) query.set("cursor", cursor);
+    const response = await apiClient.get(`${path}?${query.toString()}`, schema);
+    items.push(...response.items);
+    cursor = response.nextCursor;
+    if (!cursor) return items;
+  }
+  throw new Error("CURSOR_PAGE_LIMIT_EXCEEDED");
+}
 
 const unavailableMetric = (
   key: string,
   label: string,
   unit: "count" | "percent" | "milliseconds" | "seconds" | "bytes" | "ratio",
-  freshness: Phase13Freshness,
+  freshness: SourceFreshness | Phase13Freshness,
   value: number | null = null,
-) => ({ key, label, value, unit, semantic: "selected_range" as const, completeness: value === null ? "unavailable" as const : "complete" as const, freshness });
+) => ({ key, label, value, unit, semantic: "selected_range" as const, completeness: value === null ? "unavailable" as const : "complete" as const, freshness: presentFreshness(freshness) });
 
 function healthStatus(status: string) {
   return status === "operational" || status === "up"
@@ -145,25 +168,23 @@ export const systemHealthRepository: SystemHealthRepository = {
       return apiClient.get(`/api/v1/admin/system-health/overview?${monitoringParams(query)}`, healthOverviewSchema);
     const liveParams = new URLSearchParams({ range: query.range, platform: query.platform });
     const value = await apiClient.get(`/api/v1/admin/system-health/overview?${liveParams.toString()}`, phase13HealthOverviewSchema);
-    const services = new Map(value.services.map((service) => [service.key === "identity" ? "auth" : service.key, service]));
     return healthOverviewSchema.parse({
       range: query.range,
       summary: `Overall status: ${value.status}`,
-      services: serviceCategories.map((category) => {
-        const service = services.get(category);
-        const freshness = service?.freshness ?? value.freshness;
+      services: value.services.map((service) => {
+        const category = service.key === "identity" ? "auth" : service.key;
         return {
-          id: `SVC-${category.toUpperCase().replace(/[^A-Z0-9]+/gu, "-")}`,
+          id: service.key,
           name: category,
           category,
-          status: service ? healthStatus(service.status) : "unknown",
-          uptime: unavailableMetric("uptime", "Uptime", "percent", freshness),
-          latency: unavailableMetric("latency", "Latency", "milliseconds", freshness, service?.latencyMs ?? null),
-          errorRate: unavailableMetric("error_rate", "Error rate", "percent", freshness),
-          freshness,
+          status: healthStatus(service.status),
+          uptime: unavailableMetric("uptime", "Uptime", "percent", service.freshness),
+          latency: unavailableMetric("latency", "Latency", "milliseconds", service.freshness, service.latencyMs ?? null),
+          errorRate: unavailableMetric("error_rate", "Error rate", "percent", service.freshness),
+          freshness: presentFreshness(service.freshness),
         };
       }),
-      freshness: value.freshness,
+      freshness: presentFreshness(value.freshness),
       partial: value.partial,
     });
   },
@@ -171,16 +192,19 @@ export const systemHealthRepository: SystemHealthRepository = {
     if (mocksEnabled())
       return apiClient.get(`/api/v1/admin/system-health/api?${monitoringParams(query)}`, apiMonitoringSchema);
     const value = await apiClient.get(`/api/v1/admin/performance?range=${query.range}`, phase13PerformanceSchema);
-    const budget = Object.values(value.budgets)[0];
+    const budget = value.budgets["operations.jobs"];
     return apiMonitoringSchema.parse({
       range: value.range,
       requestVolume: unavailableMetric("request_volume", "Request volume", "count", value.freshness),
       errorRate: unavailableMetric("error_rate", "Error rate", "percent", value.freshness),
-      latency: unavailableMetric("latency", "P95 latency", "milliseconds", value.freshness, budget?.p95 ?? null),
+      latency: {
+        ...unavailableMetric("latency", "P95 latency", "milliseconds", value.freshness, budget?.p95 ?? null),
+        summary: budget?.status,
+      },
       series: value.series,
       endpoints: [],
       statusCodes: [],
-      freshness: value.freshness,
+      freshness: presentFreshness(value.freshness),
     });
   },
   async getDatabaseMonitoring(query) {
@@ -188,32 +212,30 @@ export const systemHealthRepository: SystemHealthRepository = {
       return apiClient.get(`/api/v1/admin/system-health/database?${monitoringParams(query)}`, databaseMonitoringSchema);
     const value = await apiClient.get("/api/v1/admin/recovery", phase13RecoverySchema);
     const item = value.items.find(({ scope }) => scope === "database");
-    const freshness = { observedAt: item?.observedAt ?? new Date().toISOString(), staleAt: new Date(Date.parse(item?.observedAt ?? new Date().toISOString()) + 300_000).toISOString(), state: item ? "fresh" as const : "unknown" as const };
     return databaseMonitoringSchema.parse({
       range: query.range,
-      connectionUsage: unavailableMetric("connections", "Connections", "count", freshness),
-      queryLatency: unavailableMetric("query_latency", "Query latency", "milliseconds", freshness),
-      storageUsage: unavailableMetric("storage_usage", "Storage usage", "bytes", freshness),
+      connectionUsage: unavailableMetric("connections", "Connections", "count", unknownFreshness),
+      queryLatency: unavailableMetric("query_latency", "Query latency", "milliseconds", unknownFreshness),
+      storageUsage: unavailableMetric("storage_usage", "Storage usage", "bytes", unknownFreshness),
       slowQueries: [],
       backupState: item?.status === "verified" ? "healthy" : item?.status === "failed" ? "failed" : "unavailable",
       recoveryState: item?.status === "verified" ? "healthy" : item?.status === "failed" ? "degraded" : "unavailable",
-      freshness,
+      freshness: unknownFreshness,
     });
   },
   async getStorageMonitoring(query) {
     if (mocksEnabled())
       return apiClient.get(`/api/v1/admin/system-health/storage?${monitoringParams(query)}`, storageMonitoringSchema);
     const value = await apiClient.get("/api/v1/admin/recovery", phase13RecoverySchema);
-    const observedAt = value.items[0]?.observedAt ?? new Date().toISOString();
-    const freshness = { observedAt, staleAt: new Date(Date.parse(observedAt) + 300_000).toISOString(), state: value.items.length ? "fresh" as const : "unknown" as const };
+    const item = value.items.find(({ scope }) => scope === "storage");
     return storageMonitoringSchema.parse({
       range: query.range,
-      storageUsage: unavailableMetric("storage_usage", "Storage usage", "bytes", freshness),
-      uploadCount: unavailableMetric("upload_count", "Uploads", "count", freshness),
-      failedUploads: unavailableMetric("failed_uploads", "Failed uploads", "count", freshness),
-      temporaryFiles: unavailableMetric("temporary_files", "Temporary files", "count", freshness),
-      cleanupState: "unavailable",
-      freshness,
+      storageUsage: unavailableMetric("storage_usage", "Storage usage", "bytes", unknownFreshness),
+      uploadCount: unavailableMetric("upload_count", "Uploads", "count", unknownFreshness),
+      failedUploads: unavailableMetric("failed_uploads", "Failed uploads", "count", unknownFreshness),
+      temporaryFiles: unavailableMetric("temporary_files", "Temporary files", "count", unknownFreshness),
+      cleanupState: item?.status === "verified" ? "healthy" : item?.status === "failed" ? "failed" : "unavailable",
+      freshness: unknownFreshness,
     });
   },
   async listProviderHealth(query) {
@@ -227,38 +249,24 @@ export const systemHealthRepository: SystemHealthRepository = {
       sort: parsed.sort,
     });
     if (parsed.scenario) params.set("__scenario", parsed.scenario);
-    const cursorScope = `providers:${parsed.category}:${parsed.status}:${parsed.platform}:${parsed.pageSize}:${parsed.sort}`;
-    const cursor = liveCursor(cursorScope, parsed.page);
     const liveParams = new URLSearchParams({ limit: String(parsed.pageSize) });
-    if (cursor) liveParams.set("cursor", cursor);
     if (parsed.category !== "all" && ["database", "storage", "identity", "ai", "email", "push"].includes(parsed.category)) liveParams.set("provider", parsed.category);
     if (["up", "degraded", "down", "unknown"].includes(parsed.status)) liveParams.set("status", parsed.status);
     if (mocksEnabled())
       return apiClient.get(`/api/v1/admin/system-health/providers?${params.toString()}`, providerHealthPageSchema);
-    const value = await apiClient.get(`/api/v1/admin/system-health/providers?${liveParams.toString()}`, phase13ProviderPageSchema);
-    rememberLiveCursor(cursorScope, parsed.page, value.nextCursor);
-    const now = Date.now();
-    const aggregateFreshness = value.items.length
-      ? {
-          observedAt: value.items.reduce((latest, item) => item.checkedAt > latest ? item.checkedAt : latest, value.items[0]!.checkedAt),
-          staleAt: value.items.reduce((earliest, item) => item.checkedAt < earliest ? item.checkedAt : earliest, value.items[0]!.checkedAt),
-          state: value.items.some((item) => Date.parse(item.checkedAt) + 300_000 < now) ? "stale" as const : "fresh" as const,
-        }
-      : { observedAt: new Date().toISOString(), staleAt: new Date(Date.now() + 300_000).toISOString(), state: "unknown" as const };
-    if (value.items.length) aggregateFreshness.staleAt = new Date(Date.parse(aggregateFreshness.staleAt) + 300_000).toISOString();
+    const items = await allCursorItems("/api/v1/admin/system-health/providers", liveParams, phase13ProviderPageSchema);
     return providerHealthPageSchema.parse({
-      items: value.items.map((provider) => {
-        const freshness = { observedAt: provider.checkedAt, staleAt: new Date(Date.parse(provider.checkedAt) + 300_000).toISOString(), state: Date.parse(provider.checkedAt) + 300_000 < now ? "stale" as const : "fresh" as const };
+      items: items.slice((parsed.page - 1) * parsed.pageSize, parsed.page * parsed.pageSize).map((provider) => {
         return {
-          id: `PRV-${provider.provider.toUpperCase()}`,
+          id: provider.provider,
           name: provider.provider,
           category: provider.provider,
           status: healthStatus(provider.status),
-          latency: unavailableMetric("latency", "Latency", "milliseconds", freshness, provider.latencyMs),
-          errorRate: unavailableMetric("error_rate", "Error rate", "percent", freshness),
-          lastSuccessAt: provider.status === "up" ? provider.checkedAt : null,
+          latency: unavailableMetric("latency", "Latency", "milliseconds", unknownFreshness, provider.latencyMs),
+          errorRate: unavailableMetric("error_rate", "Error rate", "percent", unknownFreshness),
+          lastSuccessAt: null,
           lastCheckedAt: provider.checkedAt,
-          freshness,
+          freshness: unknownFreshness,
           capabilities: [provider.provider],
           fallbackState: "not_applicable",
           safeError: provider.safeCode ?? null,
@@ -268,9 +276,9 @@ export const systemHealthRepository: SystemHealthRepository = {
       }),
       page: parsed.page,
       pageSize: parsed.pageSize,
-      total: (parsed.page - 1) * parsed.pageSize + value.items.length + (value.nextCursor ? 1 : 0),
-      freshness: aggregateFreshness,
-      partial: false,
+      total: items.length,
+      freshness: unknownFreshness,
+      partial: parsed.platform !== "all",
     });
   },
   async listQueueHealth(query) {
@@ -295,13 +303,13 @@ export const systemHealthRepository: SystemHealthRepository = {
         throughput: unavailableMetric("throughput", "Throughput", "count", value.freshness),
         failureRate: unavailableMetric("failure_rate", "Failure rate", "percent", value.freshness),
         lastProcessedAt: null,
-        freshness: value.freshness,
+        freshness: presentFreshness(value.freshness),
         backlogState: healthStatus(item.status),
         access: "full",
       })),
       range: parsed.range,
       platform: parsed.platform,
-      freshness: value.freshness,
+      freshness: presentFreshness(value.freshness),
       partial: value.partial,
     });
   },
@@ -314,21 +322,16 @@ export const systemHealthRepository: SystemHealthRepository = {
       pageSize: String(parsed.pageSize),
     });
     if (parsed.search) params.set("search", parsed.search);
-    const cursorScope = `job-runs:${parsed.queue}:${parsed.state}:${parsed.search ?? ""}:${parsed.pageSize}`;
-    const cursor = liveCursor(cursorScope, parsed.page);
     const liveParams = new URLSearchParams({ limit: String(parsed.pageSize) });
-    if (cursor) liveParams.set("cursor", cursor);
     if (parsed.state !== "all") liveParams.set("status", ({ waiting: "queued", active: "running", completed: "succeeded", failed: "failed", delayed: "retrying", cancelled: "canceled" } as const)[parsed.state]);
     if (mocksEnabled())
       return apiClient.get(`/api/v1/admin/jobs/runs?${params.toString()}`, paginatedJobRunsSchema);
-    const value = await apiClient.get(`/api/v1/admin/jobs/runs?${liveParams.toString()}`, phase13JobRunPageSchema);
-    rememberLiveCursor(cursorScope, parsed.page, value.nextCursor);
-    const items = value.items.filter((run) =>
+    const allItems = await allCursorItems("/api/v1/admin/jobs/runs", liveParams, phase13JobRunPageSchema);
+    const items = allItems.filter((run) =>
       (parsed.queue === "all" || queueKey(run.jobKey) === parsed.queue) &&
       (!parsed.search || run.jobKey.toLocaleLowerCase().includes(parsed.search.toLocaleLowerCase())),
     );
-    const observedAt = new Date().toISOString();
-    return paginatedJobRunsSchema.parse({ items: items.map(adaptRun), page: parsed.page, pageSize: parsed.pageSize, total: (parsed.page - 1) * parsed.pageSize + items.length + (value.nextCursor ? 1 : 0), freshness: { observedAt, staleAt: new Date(Date.now() + 60_000).toISOString(), state: "fresh" }, partial: parsed.queue !== "all" || Boolean(parsed.search) });
+    return paginatedJobRunsSchema.parse({ items: items.slice((parsed.page - 1) * parsed.pageSize, parsed.page * parsed.pageSize).map(adaptRun), page: parsed.page, pageSize: parsed.pageSize, total: items.length, freshness: unknownFreshness, partial: false });
   },
   getJobRun(jobRunId) {
     const parsed = jobRunIdSchema.parse(jobRunId);
@@ -369,25 +372,19 @@ export const systemHealthRepository: SystemHealthRepository = {
     if (parsed.search) params.set("search", parsed.search);
     if (mocksEnabled())
       return apiClient.get(`/api/v1/admin/jobs/scheduled?${params.toString()}`, scheduledJobsPageSchema);
-    const cursorScope = `scheduled-jobs:${parsed.queue}:${parsed.search ?? ""}:${parsed.pageSize}`;
-    const cursor = liveCursor(cursorScope, parsed.page);
     const liveParams = new URLSearchParams({ limit: String(parsed.pageSize) });
-    if (cursor) liveParams.set("cursor", cursor);
-    const value = await apiClient.get(`/api/v1/admin/jobs/scheduled?${liveParams.toString()}`, phase13ScheduledJobPageSchema);
-    rememberLiveCursor(cursorScope, parsed.page, value.nextCursor);
-    const items = value.items.filter((job) =>
+    const allItems = await allCursorItems("/api/v1/admin/jobs/scheduled", liveParams, phase13ScheduledJobPageSchema);
+    const items = allItems.filter((job) =>
       (parsed.queue === "all" || queueKey(job.key) === parsed.queue) &&
       (!parsed.search || job.key.toLocaleLowerCase().includes(parsed.search.toLocaleLowerCase())),
     );
-    const observedAt = new Date().toISOString();
-    const freshness = { observedAt, staleAt: new Date(Date.now() + 60_000).toISOString(), state: "fresh" as const };
     return scheduledJobsPageSchema.parse({
-      items: items.map((job) => ({ id: `SCH-${job.id}`, name: job.key, queue: queueKey(job.key), schedule: job.schedule ? `Every ${job.schedule.everySeconds} seconds (${job.schedule.timezone})` : "Manual", lastRun: null, lastRunAt: null, nextRunAt: job.nextRunAt, lastState: null, enabled: job.enabled, freshness, access: "full" })),
+      items: items.slice((parsed.page - 1) * parsed.pageSize, parsed.page * parsed.pageSize).map((job) => ({ id: job.id, name: job.key, queue: queueKey(job.key), schedule: job.schedule ? `Every ${job.schedule.everySeconds} seconds (${job.schedule.timezone})` : "Manual", lastRun: null, lastRunAt: null, nextRunAt: job.nextRunAt, lastState: null, enabled: job.enabled, freshness: unknownFreshness, access: "full" })),
       page: parsed.page,
       pageSize: parsed.pageSize,
-      total: (parsed.page - 1) * parsed.pageSize + items.length + (value.nextCursor ? 1 : 0),
-      freshness,
-      partial: parsed.queue !== "all" || Boolean(parsed.search),
+      total: items.length,
+      freshness: unknownFreshness,
+      partial: false,
     });
   },
 };

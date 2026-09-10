@@ -1,9 +1,10 @@
-import { Controller, Get, Headers, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Headers, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 
 import { SafeErrorDto } from '../http/platform-contract.dto';
-import { MetaAuthGuard } from './meta-auth.guard';
+import { derivePercentageCohort } from '../../operations/feature-evaluator';
+import { MetaAuthGuard, type MetaRequest } from './meta-auth.guard';
 import { MetaResponseDto } from './meta.dto';
 import { MetaService } from './meta.service';
 
@@ -27,6 +28,7 @@ export class MetaController {
     @Headers('x-masarifi-platform') platform: string | undefined,
     @Headers('x-masarifi-app-version') appVersion: string | undefined,
     @Headers('x-masarifi-locale') locale: string | undefined,
+    @Req() request: MetaRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<MetaResponseDto | undefined> {
     const context = {
@@ -35,6 +37,9 @@ export class MetaController {
         : {}),
       ...(appVersion && /^\d+(?:\.\d+){0,2}$/u.test(appVersion) ? { appVersion } : {}),
       ...(locale && ['ar', 'en'].includes(locale) ? { locale: locale as 'ar' | 'en' } : {}),
+      ...(request.metaSubject
+        ? { cohort: derivePercentageCohort(request.metaSubject) }
+        : {}),
     };
     const value = await this.meta.get(context);
     const etag = await this.meta.etag(context);

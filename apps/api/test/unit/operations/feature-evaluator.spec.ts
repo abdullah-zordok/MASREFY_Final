@@ -1,4 +1,7 @@
-import { evaluateFeatureFlag } from '../../../src/operations/feature-evaluator';
+import {
+  derivePercentageCohort,
+  evaluateFeatureFlag,
+} from '../../../src/operations/feature-evaluator';
 
 describe('feature evaluator', () => {
   const flag = {
@@ -51,5 +54,40 @@ describe('feature evaluator', () => {
         { appVersion: '2.4.7' },
       ),
     ).toMatchObject({ enabled: true, source: 'rule' });
+  });
+
+  it('derives a stable server-owned percentage cohort for one-percent rules', () => {
+    const subjects = Array.from({ length: 1_000 }, (_, index) => `owner-${String(index)}`);
+    const included = subjects.find((subject) => derivePercentageCohort(subject) === 'percent-00');
+    const excluded = subjects.find((subject) => derivePercentageCohort(subject) !== 'percent-00');
+    expect(included).toBeDefined();
+    expect(excluded).toBeDefined();
+    if (!included || !excluded) throw new Error('expected included and excluded cohort fixtures');
+    expect(derivePercentageCohort(included)).toBe(derivePercentageCohort(included));
+
+    const onePercent = {
+      ...flag,
+      rules: [{ priority: 1, audience: { cohort: 'percent-00' }, enabled: true }],
+    };
+    expect(
+      evaluateFeatureFlag(onePercent, { cohort: derivePercentageCohort(included) }),
+    ).toMatchObject({ enabled: true, source: 'rule' });
+    expect(
+      evaluateFeatureFlag(onePercent, { cohort: derivePercentageCohort(excluded) }),
+    ).toMatchObject({ enabled: false, source: 'default' });
+  });
+
+  it('blocks invariant flag keys even if a stored definition enables them', () => {
+    expect(
+      evaluateFeatureFlag(
+        { ...flag, key: 'billing.checkout', defaultEnabled: true, rules: [] },
+        {},
+      ),
+    ).toEqual({
+      key: 'billing.checkout',
+      enabled: false,
+      version: 4,
+      source: 'invariant_blocked',
+    });
   });
 });

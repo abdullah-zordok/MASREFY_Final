@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 
 import type {
   PlatformOperations,
@@ -12,8 +14,8 @@ const metadataSchema = z
   .object({
     apiVersion: z.literal('v1'),
     serverTime: z.string().datetime({ offset: true }),
-    minMobileVersion: z.string().max(32).nullable(),
-    minAdminVersion: z.string().max(32).nullable(),
+    minMobileVersion: z.string().regex(/^\d+(?:\.\d+){0,2}$/u).max(32).nullable(),
+    minAdminVersion: z.string().regex(/^\d+(?:\.\d+){0,2}$/u).max(32).nullable(),
     capabilities: z
       .object({
         coreFinanceAvailable: z.literal(true),
@@ -43,21 +45,14 @@ const metadataSchema = z
   })
   .strict();
 
-const unavailable: PlatformOperations = {
-  capabilities: {
-    coreFinanceAvailable: true,
-    billingAvailable: false,
-    paidEntitlement: false,
-    checkoutAvailable: false,
-    subscriptionManagementAvailable: false,
-    promotionsAvailable: false,
-    aiAvailable: false,
-    aiAllowancePerRolling24Hours: 5
-  },
-  maintenance: { active: false, scopes: [], message: null },
-  featureFlags: {},
-  configurationVersion: 1
-};
+const CACHE_TTL_MS = 30_000;
+
+export class PlatformOperationsUnavailableError extends Error {
+  constructor() {
+    super('foundation.operations.unavailable');
+    this.name = 'PlatformOperationsUnavailableError';
+  }
+}
 
 export function createLivePlatformOperationsService({
   baseUrl = process.env.EXPO_PUBLIC_API_URL ?? '',
@@ -65,7 +60,8 @@ export function createLivePlatformOperationsService({
   request = fetch,
   platform = Platform.OS === 'ios' ? 'ios' : 'android',
   appVersion = Constants.expoConfig?.version ?? '1.0.0',
-  locale = currentLocale()
+  locale = currentLocale(),
+  now = Date.now
 }: {
   baseUrl?: string;
   token: () => Promise<string>;
@@ -73,34 +69,57 @@ export function createLivePlatformOperationsService({
   platform?: 'ios' | 'android';
   appVersion?: string;
   locale?: 'ar' | 'en';
+  now?: () => number;
 }): PlatformOperationsService {
-  let cached: PlatformOperations | undefined;
-  let etag: string | undefined;
+  let cached: {
+    value: PlatformOperations;
+    expiresAt: number;
+    tokenDigest: string;
+    etag?: string;
+  } | undefined;
   return {
     async get() {
       try {
-        if (!baseUrl) return unavailable;
+        const requestedAt = now();
+        if (!baseUrl) throw new PlatformOperationsUnavailableError();
+        const bearerToken = await token();
+        const tokenDigest = bytesToHex(
+          sha256(new TextEncoder().encode(bearerToken))
+        );
+        const sameSession = cached?.tokenDigest === tokenDigest;
+        if (cached && sameSession && cached.expiresAt > requestedAt)
+          return cached.value;
         const response = await request(
           `${baseUrl.replace(/\/$/u, '')}/api/v1/meta`,
           {
             headers: {
-              Authorization: `Bearer ${await token()}`,
+              Authorization: `Bearer ${bearerToken}`,
               'X-Masarifi-Platform': platform,
               'X-Masarifi-App-Version': appVersion,
               'X-Masarifi-Locale': locale,
-              ...(etag ? { 'If-None-Match': etag } : {})
+              ...(sameSession && cached?.etag
+                ? { 'If-None-Match': cached.etag }
+                : {})
             }
           }
         );
-        if (response.status === 304) return cached ?? unavailable;
-        if (!response.ok) return unavailable;
-        const { capabilities, maintenance, featureFlags, configurationVersion } =
-          metadataSchema.parse(await response.json());
-        cached = { capabilities, maintenance, featureFlags, configurationVersion };
-        etag = response.headers?.get?.('etag') ?? undefined;
-        return cached;
+        if (response.status === 304) {
+          if (!cached || !sameSession)
+            throw new PlatformOperationsUnavailableError();
+          cached.expiresAt = requestedAt + CACHE_TTL_MS;
+          return cached.value;
+        }
+        if (!response.ok) throw new PlatformOperationsUnavailableError();
+        const value = metadataSchema.parse(await response.json());
+        cached = {
+          value,
+          expiresAt: requestedAt + CACHE_TTL_MS,
+          tokenDigest,
+          etag: response.headers?.get?.('etag') ?? undefined
+        };
+        return value;
       } catch {
-        return unavailable;
+        throw new PlatformOperationsUnavailableError();
       }
     }
   };

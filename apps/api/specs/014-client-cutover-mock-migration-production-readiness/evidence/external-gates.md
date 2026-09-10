@@ -2,6 +2,16 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Wave 9 local verification is recorded in [operations evidence](wave-09-operations.md). It does not establish hosted Admin MFA/authorization, deployed dashboards/alerts, physical-device minimum-version/maintenance behavior, hosted backup/PITR/regional DR, or deployed cohort/rollback observation.
+
+| Wave 9 follow-up | Status | Local supporting proof | Required external action | Owner |
+|---|---|---|---|---|
+| Hosted operations authorization and observability | open | Exact BE003/BE013 permission keys, guard/MFA, redaction, safe-cardinality, cache/performance/security and Admin repository/browser tests | On designated staging, exercise every job/incident/settings/flag/maintenance action with authorized, denied and stale-MFA Admin identities; trigger dashboards/alerts and retain redacted audit/request IDs and links | Operations and Admin security owners |
+| Physical-device platform metadata behavior | open | Strict Clerk-authenticated `/meta` mapping, ETag/cache/unavailable tests, version schema and all free-only literals | Install accepted signed iOS/Android builds; exercise minimum-version, maintenance, stale/revalidated metadata, token expiry/recovery and offline behavior without a fixture fallback | Mobile QA/release owner |
+| Deployed Wave 9 shadow, cohort and rollback | open | Actual live metadata mapper shadow match, deterministic server-derived percentage buckets, invariant-blocked flags and accepted Wave 8 rollback policy tests | Run shadow/internal/bounded cohorts against staging, observe the approved interval, prove invariant flags remain disabled, exercise rollback to accepted Wave 8 and reconcile operations/Admin state | Release/operations owner |
+| Hosted backup, PITR and regional DR | open | Disposable local backup/restore, recovery, stress and reconciliation suites | Restore a current hosted backup to an isolated target, execute approved PITR/regional failover, measure RPO/RTO and reconcile exact data/checksums | Platform/DR owner |
+| Production free-only configuration | open | Mobile/Admin live builds and bundle scans enforce `billingAvailable:false`; no Stripe/provider secret or billing network activation was added | Inspect the protected deployment environment and accepted artifacts, prove no billing provider credential/job/webhook is active and capture the `/meta` free-only response | Release and platform owners |
+
 Wave 8 local verification is recorded in [engagement evidence](wave-08-engagement.md). It does not establish hosted owner/Admin authorization, real APNs/FCM or SMTP delivery, hosted private Storage/scanner behavior, physical-device notification behavior, or deployed cohort/rollback observation.
 
 | Wave 8 follow-up | Status | Local supporting proof | Required external action | Owner |

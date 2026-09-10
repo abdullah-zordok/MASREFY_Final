@@ -122,7 +122,7 @@ describe("US1 health overview contracts", () => {
     },
   };
 
-  test("requires exactly 12 service summaries with authoritative freshness and units", () => {
+  test("accepts source-provided service summaries up to the safe cardinality bound", () => {
     const overview = {
       range: "24h",
       summary: "One degraded service requires attention.",
@@ -137,7 +137,7 @@ describe("US1 health overview contracts", () => {
       partialReason: null,
     };
     expect(contracts.healthOverviewSchema.safeParse(overview).success).toBe(true);
-    expect(contracts.healthOverviewSchema.safeParse({ ...overview, services: overview.services.slice(0, 11) }).success).toBe(false);
+    expect(contracts.healthOverviewSchema.safeParse({ ...overview, services: Array.from({ length: 21 }, (_, index) => ({ ...service, id: `service-${index + 1}`, name: `Service ${index + 1}` })) }).success).toBe(false);
   });
 
   test("keeps platform impact separate from global health status", () => {

@@ -98,7 +98,7 @@ describe("US3 settings views", () => {
 
     window.sessionStorage.setItem("admin-simulated-role", "support-agent");
     const denied = await renderView(<MobileSettingsView />);
-    expect(denied.textContent).toContain("settings.mobile.read");
+    expect(denied.textContent).toContain("operations.settings.read");
   });
 
   test("submits the operator-entered live setting value instead of a constant", async () => {

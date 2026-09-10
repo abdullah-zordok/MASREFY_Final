@@ -154,7 +154,7 @@ export const systemHealthHandlers = [
     }));
   }),
   http.post("/api/v1/admin/jobs/runs/:jobRunId/retry", async ({ request, params }) => {
-    const permissionError = denied(request, "jobs.runs.retry");
+    const permissionError = denied(request, "operations.jobs.manage");
     if (permissionError) return permissionError;
     const parsed = jobActionRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success || parsed.data.jobRunId !== params.jobRunId) {
@@ -167,7 +167,7 @@ export const systemHealthHandlers = [
     }
   }),
   http.post("/api/v1/admin/jobs/runs/:jobRunId/cancel", async ({ request, params }) => {
-    const permissionError = denied(request, "jobs.runs.cancel");
+    const permissionError = denied(request, "operations.jobs.manage");
     if (permissionError) return permissionError;
     const parsed = jobActionRequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success || parsed.data.jobRunId !== params.jobRunId) {
@@ -218,15 +218,6 @@ export const systemHealthHandlers = [
       queueSummary: empty ? [] : queueSummary,
       partial: scenario === "partial" || undefined,
       warning: scenario === "partial" ? "بيانات أحد المزودين متأخرة." : undefined,
-    });
-  }),
-  http.post("/api/v1/admin/system-health/refresh", async ({ request }) => {
-    const permissionError = denied(request);
-    if (permissionError) return permissionError;
-    const response = await scenarioResponse(readScenario(request));
-    return response ?? HttpResponse.json({
-      status: "scheduled",
-      checkedAt: new Date().toISOString(),
     });
   }),
 ];

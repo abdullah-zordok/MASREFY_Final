@@ -37,6 +37,10 @@ export function configureApiActorProvider(provider: ActorProvider): void {
   actorProvider = provider;
 }
 
+export function apiActorCacheKey(): string {
+  return actorProvider?.() ?? (mocksEnabled() ? "mock" : "anonymous");
+}
+
 function actorScopedCursorKey(scope: string): string {
   const actor = actorProvider?.();
   if (!actor && !mocksEnabled())

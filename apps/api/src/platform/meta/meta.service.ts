@@ -11,6 +11,7 @@ export type MetaContext = Readonly<{
   platform?: 'ios' | 'android' | 'admin';
   appVersion?: string;
   locale?: 'ar' | 'en';
+  cohort?: string;
 }>;
 
 type SafeDynamicMeta = Pick<
@@ -32,7 +33,7 @@ export class MetaService {
 
   async get(context: MetaContext = {}): Promise<MetaResponseDto> {
     const now = Date.now();
-    const cacheKey = `${context.platform ?? ''}|${context.appVersion ?? ''}|${context.locale ?? ''}`;
+    const cacheKey = `${context.platform ?? ''}|${context.appVersion ?? ''}|${context.locale ?? ''}|${context.cohort ?? ''}`;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt >= now) {
       recordPlatformMetric(OPERATIONS_METRICS.cache, 1, { cache: 'safe_meta', outcome: 'hit' });
@@ -68,7 +69,7 @@ export class MetaService {
 
   async etag(context: MetaContext = {}): Promise<string> {
     await this.get(context);
-    const cacheKey = `${context.platform ?? ''}|${context.appVersion ?? ''}|${context.locale ?? ''}`;
+    const cacheKey = `${context.platform ?? ''}|${context.appVersion ?? ''}|${context.locale ?? ''}|${context.cohort ?? ''}`;
     return this.cache.get(cacheKey)?.etag ?? '"unavailable"';
   }
 

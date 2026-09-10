@@ -13,9 +13,9 @@ const safeBoundedText = (min: number, max: number) =>
     .transform((text) => text.normalize("NFC"))
     .pipe(z.string().min(min).max(max).refine((text) => !unsafeText.test(text), "unsafe text"));
 
-export const adminIdSchema = prefixedId("ADM");
-export const invitationIdSchema = prefixedId("INV");
-export const roleIdSchema = prefixedId("ROLE");
+export const adminIdSchema = prefixedId("ADM").or(z.string().trim().min(6).max(128).regex(/^user_[A-Za-z0-9_-]+$/u));
+export const invitationIdSchema = prefixedId("INV").or(z.uuid());
+export const roleIdSchema = prefixedId("ROLE").or(z.uuid());
 export const sessionReferenceSchema = prefixedId("ASES");
 export const flagIdSchema = prefixedId("FLAG").or(z.uuid()).or(z.string().regex(/^[a-z][a-z0-9.-]{2,79}$/u));
 export const auditReferenceIdSchema = z.string().trim().regex(/^AUD-[A-Z0-9-]{3,80}$/u);
@@ -406,6 +406,11 @@ export type UpdateSettingsGroupRequest = z.input<typeof updateSettingsGroupReque
 
 export const featureFlagStatusSchema = z.enum(["disabled", "scheduled", "active", "ended"]);
 export const platformScopeSchema = z.enum(["ios", "android", "shared"]);
+export const featureTargetRuleSchema = z.object({
+  priority: z.number().int().min(1).max(1000),
+  audience: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  enabled: z.boolean(),
+}).strict();
 export const featureFlagSchema = z.object({
   id: flagIdSchema,
   key: z.string().trim().min(3).max(80).regex(/^[a-z][a-z0-9.-]*$/u),
@@ -417,7 +422,8 @@ export const featureFlagSchema = z.object({
   startsAt: isoTimestampSchema.nullable(),
   endsAt: isoTimestampSchema.nullable(),
   version: versionSchema,
-  updatedAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema.nullable(),
+  targetingRules: z.array(featureTargetRuleSchema).max(100).default([]),
 }).strict();
 
 export const featureFlagListResponseSchema = z.object({
@@ -446,11 +452,11 @@ export const featureFlagResultSchema = z.object({
 export const maintenanceStateSchema = z.enum(["off", "scheduled", "active"]);
 export const maintenanceSchema = z.object({
   state: maintenanceStateSchema,
-  message: localizedTextSchema,
+  message: localizedTextSchema.nullable(),
   startsAt: isoTimestampSchema.nullable(),
   endsAt: isoTimestampSchema.nullable(),
-  version: versionSchema,
-  updatedAt: isoTimestampSchema,
+  version: versionSchema.nullable(),
+  updatedAt: isoTimestampSchema.nullable(),
   mockOnly: z.boolean(),
 }).strict();
 
@@ -481,13 +487,12 @@ export const phase13SettingSchema = z.object({
   redacted: z.boolean(),
   version: versionSchema,
   updatedAt: isoTimestampSchema,
-}).strict();
+}).strict().refine((setting) => !setting.redacted || setting.value === undefined, {
+  message: "redacted settings must omit value",
+});
 
-const phase13FeatureRuleSchema = z.object({
+const phase13FeatureRuleSchema = featureTargetRuleSchema.extend({
   id: z.uuid(),
-  priority: z.number().int().min(1).max(1000),
-  audience: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
-  enabled: z.boolean(),
   version: versionSchema,
 }).strict();
 
@@ -523,3 +528,52 @@ export const phase13MutationResultSchema = z.object({
   version: versionSchema,
   replayed: z.boolean().optional(),
 }).strict();
+
+const be3CursorSchema = z.object({ nextCursor: z.string().min(1).max(512).nullable() });
+export const be3AdminSchema = z.object({
+  id: z.string().min(1).max(128),
+  displayName: z.string().max(120).nullable(),
+  emailMasked: z.string().max(254).nullable(),
+  status: z.enum(["invited", "active", "suspended", "revoked"]),
+  department: z.string().max(80).nullable().optional(),
+  roleKeys: z.array(z.string().max(64)).max(50),
+  mfaStatus: z.enum(["enabled", "missing", "unknown"]),
+  activeSessionCount: z.number().int().nonnegative(),
+  version: versionSchema,
+}).strict();
+export const be3AssignmentSchema = z.object({
+  id: z.uuid(), userId: z.string().min(1).max(128), roleId: z.uuid(),
+  startsAt: isoTimestampSchema, endsAt: isoTimestampSchema.nullable(), revokedAt: isoTimestampSchema.nullable(), version: versionSchema,
+}).strict();
+export const be3AdminDetailSchema = be3AdminSchema.extend({
+  assignments: z.array(be3AssignmentSchema).max(100),
+  effectivePermissionKeys: z.array(z.string().min(1).max(128)).max(500),
+  eligibleActions: z.array(z.string().min(1).max(64)).max(20),
+}).strict();
+export const be3AdminPageSchema = be3CursorSchema.extend({ items: z.array(be3AdminSchema).max(200) }).strict();
+export const be3InvitationSchema = z.object({
+  id: z.uuid(), emailMasked: z.string().min(3).max(254), roleId: z.uuid(),
+  department: z.string().max(80).nullable().optional(), status: invitationStatusSchema,
+  expiresAt: isoTimestampSchema, version: versionSchema,
+}).strict();
+export const be3InvitationPageSchema = be3CursorSchema.extend({ items: z.array(be3InvitationSchema).max(200) }).strict();
+export const be3RoleSchema = z.object({
+  id: z.uuid(), key: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/u), name: z.string().min(1).max(120),
+  description: z.string().max(500).nullable(), systemRole: z.boolean(), enabled: z.boolean(),
+  permissionKeys: z.array(z.string().min(1).max(128)).max(500), assignmentCount: z.number().int().nonnegative(), version: versionSchema,
+}).strict();
+export const be3RolePageSchema = be3CursorSchema.extend({ items: z.array(be3RoleSchema).max(200) }).strict();
+export const be3PermissionSchema = z.object({
+  id: z.uuid(), key: z.string().min(1).max(128), resource: z.string().min(1).max(64),
+  action: z.string().min(1).max(64), description: z.string().max(500).nullable(),
+}).strict();
+export const be3PermissionPageSchema = be3CursorSchema.extend({
+  items: z.array(be3PermissionSchema).max(200), manifestHash: z.string().max(128),
+}).strict();
+export const be3SessionRevokeResultSchema = z.object({
+  sessionReferences: z.array(z.string().min(1).max(128)).max(100), version: versionSchema,
+}).strict();
+export type AccessRole = z.infer<typeof be3RoleSchema>;
+export type AccessPermission = z.infer<typeof be3PermissionSchema>;
+export type AccessAdmin = z.infer<typeof be3AdminSchema>;
+export type AccessAdminDetail = z.infer<typeof be3AdminDetailSchema>;

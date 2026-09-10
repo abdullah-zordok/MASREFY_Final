@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AdminRole } from "@/core/permissions/permissions";
+import { apiActorCacheKey } from "@/core/api/client";
 import type {
   AssignAdminRolesRequest,
   DisableAdminRequest,
@@ -26,24 +27,25 @@ type GovernanceQueryInput = {
 
 export const governanceQueryKeys = {
   all: ["phase9-governance"] as const,
+  actor: () => [...governanceQueryKeys.all, apiActorCacheKey()] as const,
   adminUsers: (input: GovernanceQueryInput) =>
-    [...governanceQueryKeys.all, input.role, "admin-users", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
+    [...governanceQueryKeys.actor(), input.role, "admin-users", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
   adminUser: (role: AdminRole, adminId: string) =>
-    [...governanceQueryKeys.all, role, "admin-user", adminId] as const,
+    [...governanceQueryKeys.actor(), role, "admin-user", adminId] as const,
   adminInvitations: (input: GovernanceQueryInput) =>
-    [...governanceQueryKeys.all, input.role, "admin-invitations", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
+    [...governanceQueryKeys.actor(), input.role, "admin-invitations", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
   roles: (input: GovernanceQueryInput) =>
-    [...governanceQueryKeys.all, input.role, "roles", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
+    [...governanceQueryKeys.actor(), input.role, "roles", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
   role: (role: AdminRole, roleId: string) =>
-    [...governanceQueryKeys.all, role, "role", roleId] as const,
+    [...governanceQueryKeys.actor(), role, "role", roleId] as const,
   permissionMatrix: (role: AdminRole) =>
-    [...governanceQueryKeys.all, role, "permission-matrix"] as const,
+    [...governanceQueryKeys.actor(), role, "permission-matrix"] as const,
   settingsGroup: (role: AdminRole, group: string) =>
-    [...governanceQueryKeys.all, role, "settings", group] as const,
+    [...governanceQueryKeys.actor(), role, "settings", group] as const,
   featureFlags: (input: GovernanceQueryInput) =>
-    [...governanceQueryKeys.all, input.role, "feature-flags", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
+    [...governanceQueryKeys.actor(), input.role, "feature-flags", paginationQuerySchema.parse({ page: input.page, pageSize: input.pageSize }), input.search ?? ""] as const,
   maintenance: (role: AdminRole) =>
-    [...governanceQueryKeys.all, role, "maintenance"] as const,
+    [...governanceQueryKeys.actor(), role, "maintenance"] as const,
 };
 
 export const governanceQueryOptions = {
@@ -88,7 +90,7 @@ export function useInviteAdmin() {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.admin("invite", "new")],
     mutationFn: (request: InviteAdminRequest) => governanceRepository.inviteAdmin(request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -97,7 +99,7 @@ export function useAssignAdminRoles(adminId: string) {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.admin("assign-roles", adminId)],
     mutationFn: (request: AssignAdminRolesRequest) => governanceRepository.assignAdminRoles(adminId, request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -106,7 +108,7 @@ export function useRevokeAdminSessions(adminId: string) {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.admin("revoke-sessions", adminId)],
     mutationFn: (request: RevokeAdminSessionsRequest) => governanceRepository.revokeAdminSessions(adminId, request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -115,7 +117,7 @@ export function useDisableAdmin(adminId: string) {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.admin("disable", adminId)],
     mutationFn: (request: DisableAdminRequest) => governanceRepository.disableAdmin(adminId, request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -148,7 +150,7 @@ export function useCreateRole() {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.role("create", "new")],
     mutationFn: (request: RoleCreateRequest) => governanceRepository.createRole(request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -157,7 +159,7 @@ export function useUpdateRole(roleId: string) {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.role("update", roleId)],
     mutationFn: (request: RoleUpdateRequest) => governanceRepository.updateRole(roleId, request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -191,7 +193,7 @@ export function useUpdateFeatureFlag(flagId: string) {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.flag(flagId)],
     mutationFn: (request: UpdateFeatureFlagRequest) => governanceRepository.updateFeatureFlag(flagId, request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
 
@@ -208,6 +210,6 @@ export function useUpdateMaintenance() {
   return useMutation({
     mutationKey: [governanceMutationLockKeys.maintenance()],
     mutationFn: (request: UpdateMaintenanceRequest) => governanceRepository.updateMaintenance(request),
-    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.all }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: governanceQueryKeys.actor() }),
   });
 }
