@@ -196,7 +196,7 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T097 [US7] Correct `apps/admin-web/src/features/overview/repository.ts` and `report-exports.ts` to map accepted BE010/013 aggregates/exports through the shared client without synthetic totals or delivery state; rerun T096.
 - [x] T098 [US7] Execute Wave 7 exact financial shadow/cohorts/rollback, export authorization/redaction/link expiry, schedule timezone and provider-outage checks; record `evidence/wave-07-reports.md` and open SMTP/Storage gates honestly.
 - [x] T099 [US7] Run full BE010/Mobile reports/Admin analytics/security/performance/stress/recovery/production scans; update manifest/mock report/checklists.
-- [ ] T100 [US7] Run all reviews/scans, fix blockers, stage only Wave 7/BE010 paths, commit `feat(cutover): complete reports wave`, push `main`, and wait for green required CI before T101.
+- [x] T100 [US7] Run all reviews/scans, fix blockers, stage only Wave 7/BE010 paths, commit `feat(cutover): complete reports wave`, push `main`, and wait for green required CI before T101.
 
 ---
 

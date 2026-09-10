@@ -1,6 +1,6 @@
 # Wave 7 — Reports
 
-Status: Wave 7 is locally complete through T099. T100 remains open until the implementation commit is pushed and every required GitHub Actions job passes for the exact SHA.
+Status: Wave 7 is accepted through T100. The implementation and its CI forward-fix are pushed, and every required GitHub Actions job passed for the final exact SHA.
 
 - Base and rollback SHA: `ec475d36e122596a16e21cda670dbbf8f67f1f07` (accepted Wave 6 evidence SHA).
 - No Phase 14-owned endpoint, DTO resource, database object, migration, worker, event or generic cutover store was added. The owner corrections stay within BE010's existing reports service/repository and accepted OpenAPI.
@@ -52,3 +52,11 @@ Clean Code/SOLID/DRY/KISS/YAGNI and test-quality review pass: the patch reuses e
 Hosted Clerk/Supabase owner/Admin execution, real SMTP receipt, private hosted Storage, physical-device persistence, deployed shadow/cohort observation and N-1 binary rollback remain open in [external gates](external-gates.md). Local fixtures and source-level cutover tests are not represented as hosted or physical proof.
 
 Pre-commit preservation receipt: `apps/mobile/src/services/contracts/assistant-notifications-service.ts` SHA-256 must remain `02D4E2FD1C74B55603C72D9E70EFF68CE5BDD5EA23C6AF31048EA9D022E9709A`. `.agents/plugins/`, `apps/api/pnpm-lock.yaml`, `apps/api/pnpm-workspace.yaml`, `apps/api/supabase/`, and the assistant file remain excluded from staging.
+
+## Remote acceptance
+
+- Wave implementation commit: `069499dd5aa0883332058c367af81c6db15f185a` (`feat(cutover): complete reports wave`).
+- Its exact-SHA run `34449410712` passed every application, mobile, admin, database, security, image-independent and four of five viewport jobs, then failed only because the test-only Admin export handler still emitted a September 4 signed-link expiry that the new strict client correctly rejected.
+- The one-file forward fix `f158666f38a35cf34c7a20510586dd4eaadda3e5` makes only the mock attempt and signed-link expiries current and bounded; the formerly failing desktop-1440 test passed locally before push.
+- Final exact-SHA Backend Foundation run `34452034138` completed successfully at `https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/34452034138`: 12 jobs passed, including the authoritative database, all five Admin viewports, application, mobile, Admin, secrets, sentinel-redaction and container image jobs. `signed-release-evidence` was skipped by workflow conditions after all required jobs passed.
+- `main` and `origin/main` both resolved to the final accepted SHA before this evidence checkpoint. No force push or history rewrite was used.

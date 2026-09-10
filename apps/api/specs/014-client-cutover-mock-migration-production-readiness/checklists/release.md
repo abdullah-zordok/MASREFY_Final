@@ -18,7 +18,7 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 - [x] Wave 4 Planning accepted at `09dd0f0968226c37b849dc35955f40a9cc54d86d`; all required jobs in Backend Foundation run `34310124533` passed, with evidence follow-up `c4c5dcb6ef68984f69898ecc40d7af68cbf85695` also remotely green in run `34311999577`.
 - [x] Wave 5 Tracking/imports accepted at `943ba40734a1a142c30d68a3c34d189ac4349b96`; all 12 required jobs in Backend Foundation run `34323754467` passed.
 - [x] Wave 6 Voice/AI accepted at `0b000d1dcc82de4a3f9a8e86c7f5c0eab6982ceb`; all required jobs in Backend Foundation run `34347313370` passed, with evidence follow-up `ec475d36e122596a16e21cda670dbbf8f67f1f07` also remotely green in run `34349876623`.
-- [ ] Wave 7 Reports accepted, pushed, and remotely green.
+- [x] Wave 7 Reports accepted at `069499dd5aa0883332058c367af81c6db15f185a`; the stale test-only export fixture exposed by run `34449410712` was forward-fixed at `f158666f38a35cf34c7a20510586dd4eaadda3e5`, and all required jobs passed in Backend Foundation run `34452034138`.
 - [ ] Wave 8 Engagement accepted, pushed, and remotely green.
 - [ ] Wave 9 Operations accepted, pushed, and remotely green.
 
