@@ -54,7 +54,7 @@ test("Phase 9 navigation and direct-route permissions are projected for all seve
   await page.goto("/admin/settings/security");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("إعدادات الأمن");
   await page.goto("/admin/settings/maintenance");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("الصيانة");
+  await expect(page.locator("main").getByRole("alert")).toBeVisible();
   await page.goto("/admin/settings");
   await expect(page.locator("main").getByRole("alert")).toBeVisible();
 
