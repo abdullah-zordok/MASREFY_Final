@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { ADMIN_ROLES, type PermissionKey } from "@/core/permissions/permissions";
+import { ADMIN_ROLES } from "@/core/permissions/permissions";
 import { hasPermission } from "@/core/permissions/role-map";
 import { jobActionRequestSchema } from "@/features/system-health/contracts";
 import {
@@ -27,7 +27,7 @@ import {
 } from "@/mocks/phase8-system-health-state";
 import { scenarioResponse } from "./shared";
 
-function denied(request: Request, permission: PermissionKey = "system-health.read"): Response | null {
+function denied(request: Request, permission: string = "system-health.read"): Response | null {
   const candidate = request.headers.get("x-admin-simulated-role");
   const role = candidate === null
     ? "super-admin"

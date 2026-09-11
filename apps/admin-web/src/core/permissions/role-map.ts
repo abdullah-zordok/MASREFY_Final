@@ -208,20 +208,6 @@ const PHASE8_FULL: readonly PermissionKey[] = [
   ...PHASE8_READ,
   "jobs.runs.retry",
   "jobs.runs.cancel",
-  "operations.health.read",
-  "operations.providers.read",
-  "operations.jobs.read",
-  "operations.jobs.manage",
-  "operations.incidents.read",
-  "operations.incidents.manage",
-  "operations.settings.read",
-  "operations.settings.manage",
-  "operations.flags.read",
-  "operations.flags.manage",
-  "operations.maintenance.read",
-  "operations.maintenance.manage",
-  "operations.performance.read",
-  "operations.recovery.read",
 ];
 
 const PHASE8_DOMAIN_RETRY: readonly PermissionKey[] = [
@@ -230,9 +216,6 @@ const PHASE8_DOMAIN_RETRY: readonly PermissionKey[] = [
   "jobs.runs.read",
   "jobs.runs.retry",
   "jobs.schedules.read",
-  "operations.providers.read",
-  "operations.jobs.read",
-  "operations.jobs.manage",
 ];
 
 const PHASE8_DOMAIN_ACTIONS: readonly PermissionKey[] = [
@@ -246,10 +229,6 @@ const PHASE9_FULL: readonly PermissionKey[] = [
   "admin-team.disable",
   "admin-team.sessions.revoke",
   "admin-team.roles.assign",
-  "access.invites.write",
-  "access.roles.read",
-  "access.roles.write",
-  "access.assignments.write",
   "roles.read",
   "roles.manage",
   "permissions.read",
@@ -275,19 +254,10 @@ const PHASE9_FULL: readonly PermissionKey[] = [
 const PHASE9_SECURITY_ADMIN: readonly PermissionKey[] = [
   "admin-team.read",
   "roles.read",
-  "access.roles.read",
   "permissions.read",
   "settings.security.read",
   "settings.security.manage",
   "settings.maintenance.read",
-  "operations.settings.read",
-  "operations.settings.manage",
-  "operations.flags.read",
-  "operations.flags.manage",
-  "operations.maintenance.read",
-  "operations.maintenance.manage",
-  "operations.incidents.read",
-  "operations.incidents.manage",
 ];
 
 export const permissionsByRole: Record<AdminRole, readonly PermissionKey[]> = {
@@ -392,6 +362,33 @@ export const SIMULATED_ACTORS: Record<AdminRole, string> = {
   "security-administrator": "ADM-DEMO-SECURITY",
 };
 
+const CANONICAL_CLIENT_PERMISSION: Readonly<Record<string, PermissionKey>> = {
+  "access.invites.write": "admin-team.invite",
+  "access.roles.read": "roles.read",
+  "access.roles.write": "roles.manage",
+  "access.assignments.write": "admin-team.roles.assign",
+};
+
+const BACKEND_ONLY_OPERATIONS_PERMISSIONS = new Set([
+  "operations.health.read",
+  "operations.providers.read",
+  "operations.jobs.read",
+  "operations.jobs.manage",
+  "operations.incidents.read",
+  "operations.incidents.manage",
+  "operations.settings.read",
+  "operations.settings.manage",
+  "operations.flags.read",
+  "operations.flags.manage",
+  "operations.maintenance.read",
+  "operations.maintenance.manage",
+  "operations.performance.read",
+  "operations.recovery.read",
+]);
+
 export function hasPermission(role: AdminRole, permission: string): boolean {
-  return permissionsByRole[role].includes(permission as PermissionKey);
+  if (BACKEND_ONLY_OPERATIONS_PERMISSIONS.has(permission)) return role === "super-admin";
+  return permissionsByRole[role].includes(
+    CANONICAL_CLIENT_PERMISSION[permission] ?? (permission as PermissionKey),
+  );
 }

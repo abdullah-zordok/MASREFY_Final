@@ -81,4 +81,17 @@ describe("Spec 010 role matrix", () => {
       }
     },
   );
+
+  test("evaluates canonical access aliases without expanding the client manifest", () => {
+    expect(hasPermission("super-admin", "access.invites.write")).toBe(true);
+    expect(hasPermission("security-administrator", "access.roles.read")).toBe(true);
+    expect(hasPermission("security-administrator", "access.roles.write")).toBe(false);
+    expect(hasPermission("support-agent", "access.assignments.write")).toBe(false);
+  });
+
+  test("keeps backend-only operations permissions super-admin-only", () => {
+    expect(hasPermission("super-admin", "operations.jobs.manage")).toBe(true);
+    expect(hasPermission("security-administrator", "operations.jobs.manage")).toBe(false);
+    expect(hasPermission("super-admin", "operations.billing.read")).toBe(false);
+  });
 });

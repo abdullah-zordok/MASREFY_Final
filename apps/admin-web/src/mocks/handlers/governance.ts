@@ -42,7 +42,7 @@ function simulatedRole(request: Request) {
   return candidate === null ? "super-admin" : ADMIN_ROLES.find((role) => role === candidate);
 }
 
-function denied(request: Request, permission: PermissionKey): Response | null {
+function denied(request: Request, permission: string): Response | null {
   const role = simulatedRole(request);
   return role && hasPermission(role, permission)
     ? null
