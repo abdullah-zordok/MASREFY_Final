@@ -47,5 +47,5 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 - [x] Clean Code review, test review, per-wave independent code review, and final aggregate security diff scan have no unresolved blocker.
 - [x] Mock-removal report is complete and every retained mock is explicitly demo/test-only.
 - [x] `billingAvailable` is false and no billing provider is active in repository code or local release artifacts; protected deployment inspection remains external.
-- [ ] Every task is checked or accurately marked as an unavoidable external gate after all local work.
-- [ ] Final `main` equals `origin/main` and required remote CI for the final SHA is successful.
+- [x] Every task is checked or accurately marked as an unavoidable external gate after all local work.
+- [x] Final `main` equals `origin/main` and required remote CI for the final implementation/evidence SHA is successful.

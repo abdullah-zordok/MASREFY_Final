@@ -1,6 +1,6 @@
 # Masarifi Backend Master Plan
 
-Status: SPEC-BE-001 through SPEC-BE-011 and SPEC-BE-013 implemented; SPEC-BE-014 is the next active MVP phase
+Status: SPEC-BE-001 through SPEC-BE-011, SPEC-BE-013, and the local free-only SPEC-BE-014 scope implemented; external Phase 14 release evidence remains tracked separately
 Target branch: `main`
 Canonical implementation sequence: 14 backend Specs
 Backend state at publication: Free-only MVP through SPEC-BE-013; SPEC-BE-012 is reserved Post-MVP
@@ -3171,6 +3171,13 @@ Acceptance: all active free-only MVP domains run live without hidden mock fallba
 Mobile offline data survives; Admin permissions are server-enforced; ledger and
 reports reconcile; rollback is demonstrated; and every active release-blocking gate in
 this document has evidence.
+
+Completion status (2026-09-11): all 137 SPEC-BE-014 tasks are locally complete.
+The final implementation/evidence SHA `04ba0fba945ce2508ff76fb04b8d3b7886517906`
+passed every required job in Backend Foundation run `34607875973`. SPEC-BE-012
+and all paid-provider scope remain unimplemented. Access-dependent hosted,
+physical-device, provider, deployment, registry, signing, and store evidence stays
+open in the Phase 14 external-gates ledger.
 
 ## 15. Dependency and Delivery Order
 

@@ -259,8 +259,8 @@ Every task uses the exact current checkout. Never stage the pre-existing user-ow
 - [x] T133 Use `clean-code-guard` on all Phase 14 production diffs, `test-guard` on all changed tests, `codex-security:security-diff-scan` on every Phase 14/owner correction diff, and independent code review on the final aggregate; resolve all blockers and rerun affected gates.
 - [x] T134 Complete `checklists/release.md`, `evidence/mock-removal-report.md`, `evidence/external-gates.md`, and `evidence/closeout.md`; every open external item must name exact missing access/action, completed local proof, and follow-up procedure.
 - [x] T135 Recompute preserved user-path hashes/diffs, prove all unrelated work remains and only approved assistant capability hunks were integrated, and record the result in `evidence/closeout.md`.
-- [ ] T136 Stage only final Phase 14 evidence/fixes, inspect `git diff --cached` plus secret scan, commit `docs(cutover): close phase 14`, push `main`, and wait for every required final workflow on the exact SHA; forward-fix failures without force/history rewrite.
-- [ ] T137 Verify `git rev-parse main` equals `git rev-parse origin/main`, required final CI is successful, no locally actionable task remains, every task is checked or precisely marked external, and SPEC-BE-012 is absent; only then update final Master Plan/status evidence and declare local Phase 14 completion.
+- [x] T136 Stage only final Phase 14 evidence/fixes, inspect `git diff --cached` plus secret scan, commit `docs(cutover): close phase 14`, push `main`, and wait for every required final workflow on the exact SHA; forward-fix failures without force/history rewrite.
+- [x] T137 Verify `git rev-parse main` equals `git rev-parse origin/main`, required final CI is successful, no locally actionable task remains, every task is checked or precisely marked external, and SPEC-BE-012 is absent; only then update final Master Plan/status evidence and declare local Phase 14 completion.
 
 ## Requirement Coverage
 

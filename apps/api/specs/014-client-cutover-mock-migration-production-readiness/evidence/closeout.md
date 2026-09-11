@@ -5,7 +5,7 @@
 
 ## Local completion
 
-Waves 1–9 are implemented, pushed and accepted by exact-SHA CI. Wave 9 is accepted at `86a64c4c3f70bd9f8cd2d388144be470f90c7ff7` by Backend Foundation run `34593905513`. Final local verification T124–T133 is complete: artifact convergence/analysis found no locally actionable gap; disposable database, API, Mobile, Admin, reconciliation, recovery, security, dependency, image and aggregate review gates passed. Exact results are in `final-local-verification.md` and standards mapping is in `security-traceability.md`.
+Waves 1–9 are implemented, pushed and accepted by exact-SHA CI. Wave 9 is accepted at `86a64c4c3f70bd9f8cd2d388144be470f90c7ff7` by Backend Foundation run `34593905513`. Final local verification T124–T133 is complete: artifact convergence/analysis found no locally actionable gap; disposable database, API, Mobile, Admin, reconciliation, recovery, security, dependency, image and aggregate review gates passed. The final evidence commit `04ba0fba945ce2508ff76fb04b8d3b7886517906` passed every required job in Backend Foundation run `34607875973`. Exact local results are in `final-local-verification.md` and standards mapping is in `security-traceability.md`.
 
 The final aggregate Codex Security scan is `23aac6cf-9c90-40e4-b40c-61f29f5b8c8a`: immutable range `24d3cacefd39726b36e314b3a3988d11e0cfb50a..86a64c4c3f70bd9f8cd2d388144be470f90c7ff7`, 271/271 review items, complete coverage and zero findings.
 
@@ -33,4 +33,6 @@ The required user-owned assistant contract SHA-256 remains exactly `02D4E2FD1C74
 
 ## Final delivery
 
-T136 will record the closeout commit SHA, staged secret scan and exact-SHA workflow. T137 will record final branch equality, remote CI acceptance and Master Plan/status closure. Until those rows are filled, this document records local verification and preservation but not final delivery.
+T136 staged only the nine approved Phase 14 evidence files, reviewed the cached diff, and passed the staged Gitleaks scan before creating and pushing `docs(cutover): close phase 14` at `04ba0fba945ce2508ff76fb04b8d3b7886517906`. Backend Foundation run `34607875973` completed successfully on that exact SHA with all required database, application, Mobile, Admin, five Admin E2E viewport, sentinel/redaction, secrets and image jobs green.
+
+For T137, `main` and `origin/main` both resolved to `04ba0fba945ce2508ff76fb04b8d3b7886517906` before this status-only update; the task ledger contained 137 unique task IDs with only T136/T137 awaiting their recorded closure; no Phase 14 migration existed; production additions contained no SPEC-BE-012, Stripe, paid-provider or active-billing implementation; and the protected assistant contract retained SHA-256 `02D4E2FD1C74B55603C72D9E70EFF68CE5BDD5EA23C6AF31048EA9D022E9709A`. All locally actionable Phase 14 work is complete. The access-dependent items in `external-gates.md` remain explicitly open and must not be represented as local passes.
