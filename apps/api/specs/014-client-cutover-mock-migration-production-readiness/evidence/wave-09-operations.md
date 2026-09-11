@@ -52,4 +52,4 @@ Pre-commit preservation requirement: `apps/mobile/src/services/contracts/assista
 
 ## Remote acceptance
 
-Pending T123 implementation commit, push and exact-SHA required CI.
+Accepted on `main` at exact SHA `86a64c4c3f70bd9f8cd2d388144be470f90c7ff7` by required workflow run `34593905513`. Application, database, Admin, Mobile, sentinel redaction, secret scanning, image build and all five Admin Playwright projects completed successfully; signed release evidence was correctly skipped for the non-tag push.

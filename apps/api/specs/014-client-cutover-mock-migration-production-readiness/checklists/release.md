@@ -4,11 +4,11 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 
 ## Artifact and Scope Gates
 
-- [ ] SpecKit analysis has zero unresolved material finding.
-- [ ] Contract manifest contains every active Mobile/Admin operation with exact live or explicit unavailable disposition and linked evidence.
-- [ ] No Phase 14 database object, migration, endpoint, DTO, worker, job, or event exists.
-- [ ] SPEC-BE-012, Stripe, paid entitlement, checkout, subscriptions, promotions, payment history, and billing reconciliation remain unimplemented and unavailable.
-- [ ] Existing unrelated user work remains present and excluded from Phase 14 commits unless an exact reviewed hunk is integrated.
+- [x] SpecKit analysis has zero unresolved material finding.
+- [x] Contract manifest contains every active Mobile/Admin operation with exact live or explicit unavailable disposition and linked evidence.
+- [x] No Phase 14 database object, migration, endpoint, DTO, worker, job, or event exists.
+- [x] SPEC-BE-012, Stripe, paid entitlement, checkout, subscriptions, promotions, payment history, and billing reconciliation remain unimplemented and unavailable.
+- [x] Existing unrelated user work remains present and excluded from Phase 14 commits unless an exact reviewed hunk is integrated.
 
 ## Per-Wave Gates
 
@@ -20,32 +20,32 @@ Unchecked items are implementation/release gates, not omissions from the plannin
 - [x] Wave 6 Voice/AI accepted at `0b000d1dcc82de4a3f9a8e86c7f5c0eab6982ceb`; all required jobs in Backend Foundation run `34347313370` passed, with evidence follow-up `ec475d36e122596a16e21cda670dbbf8f67f1f07` also remotely green in run `34349876623`.
 - [x] Wave 7 Reports accepted at `069499dd5aa0883332058c367af81c6db15f185a`; the stale test-only export fixture exposed by run `34449410712` was forward-fixed at `f158666f38a35cf34c7a20510586dd4eaadda3e5`, and all required jobs passed in Backend Foundation run `34452034138`.
 - [x] Wave 8 Engagement accepted, pushed, and remotely green.
-- [ ] Wave 9 Operations accepted, pushed, and remotely green.
+- [x] Wave 9 Operations accepted at `86a64c4c3f70bd9f8cd2d388144be470f90c7ff7`; all required jobs in Backend Foundation run `34593905513` passed.
 
 ## Client and Data Gates
 
 - [x] Production Mobile identity selects Clerk/live owner providers explicitly and rejects missing/invalid API or Clerk configuration.
 - [x] Production Admin rejects MSW and uses Clerk-authenticated Wave 1 repositories.
 - [x] Unhandled MSW API requests fail in test/development while framework navigation remains available.
-- [ ] Production static/bundle scan finds no mock/demo route, provider secret, service-role call, direct OpenRouter call, unsafe URL, or hidden debug mode.
-- [ ] SQLite records, pending mutations, conflicts, drafts, device-only preferences, PIN/biometric material, and encryption guarantees survive upgrade/cutover/rollback.
-- [ ] Unknown fields, states, errors, and malformed responses fail explicitly.
-- [ ] Financial and report values reconcile exactly with zero tolerance.
+- [x] Production static/bundle scan finds no reachable mock/demo route, provider secret, service-role call, direct OpenRouter call, unsafe service URL, or hidden debug mode; inert code-split fixtures remain demo/test-only behind fail-closed production policy.
+- [x] SQLite records, pending mutations, conflicts, drafts, device-only preferences, PIN/biometric material, and encryption guarantees survive upgrade/cutover/rollback in the repository-provided local/real-SQLite coverage; physical-device proof remains external.
+- [x] Unknown fields, states, errors, and malformed responses fail explicitly.
+- [x] Financial and report values reconcile exactly with zero tolerance.
 
 ## Security, Performance, and Recovery Gates
 
-- [ ] Complete RLS/grant owner/non-owner/Admin/worker/anonymous matrix passes.
-- [ ] Authentication/authorization, MFA/recent-auth, audit/redaction, provider outage, and OWASP traceability pass.
-- [ ] Secret, dependency, container/image, and security diff scans have zero unresolved exploitable Critical/High finding.
-- [ ] All owning P95/P99, payload, pagination, query-plan, cache, sync, queue, AI, report, stress, and no-unbounded-query gates pass.
-- [ ] N-1 client/image rollback, failed migration/forward correction, replay, backup/restore, storage recovery, ledger/report reconciliation, and locally provable RPO/RTO pass.
-- [ ] External provider/device/hosted/registry/signing/store gaps remain accurately open until genuine proof exists.
+- [x] Complete local RLS/grant owner/non-owner/Admin/worker/anonymous matrix passes.
+- [x] Authentication/authorization, MFA/recent-auth, audit/redaction, provider outage, and OWASP traceability pass locally; hosted identity evidence remains external.
+- [x] Secret, dependency, container/image, and security diff scans have zero unresolved exploitable Critical/High finding.
+- [x] All owning P95/P99, payload, pagination, query-plan, cache, sync, queue, AI, report, stress, and no-unbounded-query gates pass.
+- [x] Source/local N-1 client/image policy, failed migration/forward correction, replay, disposable backup/restore, storage recovery, ledger/report reconciliation, and locally provable RPO/RTO pass; deployed rollback and full DR remain external.
+- [x] External provider/device/hosted/registry/signing/store gaps remain accurately open until genuine proof exists.
 
 ## Final Verification and Delivery
 
-- [ ] Full API, Supabase, Mobile, Admin, contract drift, bundle, mock-removal, review, and release commands pass freshly.
-- [ ] Clean Code review, test review, independent code review, and security diff scan have no unresolved blocker.
-- [ ] Mock-removal report is complete and every retained mock is explicitly demo/test-only.
-- [ ] `billingAvailable` is false and no billing provider is active.
+- [x] Full API, Supabase, Mobile, Admin, contract drift, bundle, mock-removal, review, and release commands pass freshly.
+- [x] Clean Code review, test review, per-wave independent code review, and final aggregate security diff scan have no unresolved blocker.
+- [x] Mock-removal report is complete and every retained mock is explicitly demo/test-only.
+- [x] `billingAvailable` is false and no billing provider is active in repository code or local release artifacts; protected deployment inspection remains external.
 - [ ] Every task is checked or accurately marked as an unavoidable external gate after all local work.
 - [ ] Final `main` equals `origin/main` and required remote CI for the final SHA is successful.

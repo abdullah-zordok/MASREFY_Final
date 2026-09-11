@@ -1,0 +1,21 @@
+# Phase 14 Security Traceability
+
+**Date**: 2026-09-11
+**Scope**: Phase 14 client cutover plus the existing BE003–BE013 owner corrections it consumes. This is engineering test traceability, not an external certification.
+
+| Control family | Phase 14 control | Primary executable evidence |
+|---|---|---|
+| OWASP API1 / ASVS V4 / MASVS-AUTH | Object ownership is derived from the verified Clerk principal; cross-owner reads/writes and direct client SQL are denied | API `test/security/**/ownership*`, `admin-self.security.spec.ts`, live integration owner-isolation suites; Mobile `database-owner.test.ts` and authenticated live-selector tests |
+| OWASP API2 / ASVS V2 / MASVS-AUTH | Clerk bearer validation, session refresh/revocation, recent-auth and MFA-sensitive Admin mutations fail closed | API identity/admin boundary suites; Mobile auth/session suites; Admin authenticated client/runtime/security repository suites |
+| OWASP API3 / ASVS V4,V8 / MASVS-PRIVACY | DTO allowlists, private schemas/buckets and response redaction prevent excessive data exposure | API ledger hardening, profile/device exposure, report storage/email and engagement DTO/realtime/observability suites; client strict decoders and bundle scans |
+| OWASP API4 / ASVS V5 / MASVS-RESILIENCE | Bounds cover cursor traversal, payload size, upload/attachment limits, quotas, timeouts and abuse controls | API abuse, attachment, planning, tracking and AI safety suites plus all domain stress/payload gates |
+| OWASP API5 / ASVS V4 | Exact action permissions, role grants and recent MFA protect Admin/function-level operations | API exact-permission, admin, AI, planning, reports and operations security suites; Admin repository/action tests |
+| OWASP API6 / ASVS V4,V11 | Financial/business flows preserve integer money, expected versions, idempotency, atomic audit/outbox effects and zero-tolerance reconciliation | Ledger/planning/report integration, security and recovery suites; Mobile shadow, queue, receipt and recovery suites |
+| OWASP API7 / ASVS V5,V12 | User-controlled URLs, signed storage links and provider destinations are validated and constrained | API provider/storage, report-storage and operations-observability suites; Mobile/Admin HTTPS-origin runtime tests and production output scans |
+| OWASP API8 / ASVS V5,V7,V9,V14 / MASVS-NETWORK | Strict schemas, safe errors/logs, HTTPS production origins, fixed telemetry labels and fail-closed configuration prevent unsafe defaults | API ledger/engagement/sync/operations boundary suites; shared HTTP-client redaction tests; client runtime invalid-config matrix |
+| OWASP API9 / ASVS V1,V14 | Contract/ownership manifests and workflow-pin tests inventory accepted endpoints, providers, queues, buckets and release dependencies | Client contract manifest, OpenAPI drift tests, `ownership-boundary.spec.ts`, `scope-boundary.spec.ts`, `workflow-pins.spec.ts` |
+| OWASP API10 / ASVS V10,V12 / MASVS-NETWORK | Provider calls stay server-side, responses are minimized, failures isolated and secrets never enter public bundles | AI/provider isolation, webhook/email/storage tests; Mobile/Admin direct-provider and secret scans; non-root release-image tests |
+| ASVS V6 / MASVS-CRYPTO,STORAGE | Server secrets remain server-only; local sensitive state uses existing secure-storage/encryption boundaries and owner-partitioned SQLite | Secret scans, runtime public-variable rejection, Mobile secure-preferences/app-shell/database-owner/encryption tests |
+| MASVS-PLATFORM,RESILIENCE | Platform permissions, privacy lock, durable restart/reconnect state and production-mode selection fail safely | Mobile biometric/privacy/security journeys, sync SQLite migration/recovery, cutover and production export gates |
+
+Fresh aggregate proof: API live security 43 suites / 145 tests; Admin 81 files / 867 tests plus invalid production configuration and browser matrices; Mobile 435 suites / 2,030 tests plus runtime/export scans. Docker Scout found 0 Critical/High/Moderate/Low findings in the built release image. Required High-threshold dependency gates passed; known moderate-only upstream advisories are disclosed in `final-local-verification.md`. Hosted identity/provider/device/DR validation remains external in `external-gates.md`.

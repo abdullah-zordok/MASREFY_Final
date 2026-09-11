@@ -2,6 +2,8 @@
 
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
+Final local closeout through T133 is recorded in [final local verification](final-local-verification.md), with security-family mapping in [security traceability](security-traceability.md). Every row below remains open only because it requires an external identity, credential, provider account, hosted target, signed artifact, physical device, operator action or observation interval. Each row names the completed local proof, exact follow-up and responsible owner; none is a locally actionable implementation gap.
+
 Wave 9 local verification is recorded in [operations evidence](wave-09-operations.md). It does not establish hosted Admin MFA/authorization, deployed dashboards/alerts, physical-device minimum-version/maintenance behavior, hosted backup/PITR/regional DR, or deployed cohort/rollback observation.
 
 | Wave 9 follow-up | Status | Local supporting proof | Required external action | Owner |
