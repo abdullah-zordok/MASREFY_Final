@@ -82,6 +82,7 @@ export interface AutomaticTrackingService {
     idempotencyKey: string
   ): Promise<TrackingImportSession>;
   getImportSession(id: string): Promise<TrackingImportSession>;
+  listImportItemIds(sessionId: string): Promise<string[]>;
   listDuplicates(): Promise<DuplicateCandidate[]>;
   getStatus(): Promise<TrackingStatusSnapshot>;
   setMode(mode: TrackingMode): Promise<TrackingStatusSnapshot>;

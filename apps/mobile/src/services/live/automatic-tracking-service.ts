@@ -347,6 +347,13 @@ export function createLiveAutomaticTrackingService({
       importSession(
         record(await get(`/api/v1/imports/${encodeURIComponent(id)}`))
       ),
+    async listImportItemIds(sessionId) {
+      return (
+        await allPages(
+          `/api/v1/imports/${encodeURIComponent(sessionId)}/items`
+        )
+      ).map((item) => text(item.id));
+    },
     async listDuplicates() {
       return (await allPages('/api/v1/duplicates')).map(duplicate);
     },

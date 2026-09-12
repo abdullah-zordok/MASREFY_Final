@@ -126,6 +126,25 @@ describe('live automatic tracking adapter', () => {
     expect(request.mock.calls[1]?.[0]).toContain('cursor=next');
   });
 
+  it('lists import item IDs through the existing session-items endpoint', async () => {
+    const request = jest
+      .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(response({ items: [{ id: 'item-1' }], nextCursor: 'next' }))
+      .mockResolvedValueOnce(response({ items: [{ id: 'item-2' }], nextCursor: null }));
+    const service = createLiveAutomaticTrackingService({
+      token: async () => 'token',
+      request
+    });
+
+    await expect(service.listImportItemIds('session-1')).resolves.toEqual([
+      'item-1',
+      'item-2'
+    ]);
+    expect(request.mock.calls[0]?.[0]).toContain(
+      '/api/v1/imports/session-1/items'
+    );
+  });
+
   it('rejects malformed import sessions', async () => {
     const service = createLiveAutomaticTrackingService({
       token: async () => 'token',

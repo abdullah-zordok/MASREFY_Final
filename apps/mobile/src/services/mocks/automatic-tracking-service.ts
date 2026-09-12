@@ -96,6 +96,7 @@ export function createMockAutomaticTrackingService({
     Promise<TrackingMutationResult<AutomaticFeedback>>
   >();
   const importSessions = new Map<string, TrackingImportSession>();
+  const importItems = new Map<string, string[]>();
   if (registerForReset)
     registerRuntimeUserDataReset(() => {
       repository.reset();
@@ -146,12 +147,19 @@ export function createMockAutomaticTrackingService({
         updatedAt: now
       };
       importSessions.set(session.id, session);
+      importItems.set(
+        session.id,
+        input.events.map((event) => event.sourceItemKey)
+      );
       return session;
     },
     async getImportSession(id) {
       const session = importSessions.get(id);
       if (!session) throw new TrackingError('not_found');
       return session;
+    },
+    async listImportItemIds(sessionId) {
+      return importItems.get(sessionId) ?? [];
     },
     async listDuplicates() {
       await ensureReady();

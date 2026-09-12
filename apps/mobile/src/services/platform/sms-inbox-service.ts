@@ -23,3 +23,4 @@ export function createSmsInboxService(): SmsInboxService {
   };
 }
 
+export const smsInboxService = createSmsInboxService();
