@@ -260,7 +260,7 @@ describe('live automatic tracking adapter', () => {
     });
   });
 
-  it('creates new keyword rules and deletes removed custom rules', async () => {
+  it('creates new keyword rules and deletes removed rules of either origin', async () => {
     const request = jest
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
       .mockResolvedValueOnce(
@@ -271,7 +271,7 @@ describe('live automatic tracking adapter', () => {
               keyword: 'paid',
               groupKey: 'expense',
               languageCode: 'en',
-              origin: 'custom',
+              origin: 'default',
               enabled: true,
               recentUseCount: 0,
               lastUsedAt: null,

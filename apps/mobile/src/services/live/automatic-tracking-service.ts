@@ -617,7 +617,7 @@ export function createLiveAutomaticTrackingService({
       });
       await Promise.all([
         ...persistedRules
-          .filter((rule) => rule.origin === 'custom' && !nextIds.has(rule.id))
+          .filter((rule) => !nextIds.has(rule.id))
           .map((rule) =>
             send(
               'DELETE',

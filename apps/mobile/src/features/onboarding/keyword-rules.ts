@@ -47,7 +47,7 @@ export function addKeywordRule(
 }
 
 export function deleteKeywordRule(rules: KeywordRule[], id: string): KeywordRule[] {
-  return rules.filter((rule) => rule.id !== id || rule.origin === 'default');
+  return rules.filter((rule) => rule.id !== id);
 }
 
 export function editKeywordRule(

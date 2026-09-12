@@ -36,7 +36,7 @@ describe('keyword rules', () => {
     })).toMatchObject({ error: 'duplicate' });
   });
 
-  it('adds custom rules and only deletes custom-origin rules', () => {
+  it('adds custom rules and deletes rules of either origin', () => {
     const added = addKeywordRule([baseRule], {
       group: 'expense',
       language: 'en',
@@ -51,7 +51,9 @@ describe('keyword rules', () => {
         origin: 'custom'
       })
     );
-    expect(deleteKeywordRule(added.rules, 'expense-en-default')).toHaveLength(2);
+    expect(deleteKeywordRule(added.rules, 'expense-en-default')).toEqual([
+      expect.objectContaining({ origin: 'custom' })
+    ]);
     expect(deleteKeywordRule(added.rules, added.rules[1].id)).toHaveLength(1);
   });
 

@@ -276,6 +276,10 @@ describe('TrackingStatusScreen', () => {
       screen.getByTestId('tracking-keyword-remove-expense-ar-starbuckscoffee')
     );
     await waitFor(() => expect(screen.queryByText('StarbucksCoffee')).toBeNull());
+    fireEvent.press(
+      screen.getByTestId('tracking-keyword-remove-expense-en-default')
+    );
+    await waitFor(() => expect(screen.queryByText('Grocery')).toBeNull());
   });
 
   it('allows editing a keyword', async () => {

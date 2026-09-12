@@ -16,20 +16,20 @@ import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import {
   addKeywordRule,
   deleteKeywordRule,
-  disableKeywordRule,
-  editKeywordRule,
-  restoreDefaultKeywordRules
+  editKeywordRule
 } from '@/features/onboarding/keyword-rules';
 
 export interface TrackingKeywordChipsProps {
   rules: KeywordRule[];
   onChange: (rules: KeywordRule[]) => void;
+  onRestore: () => void;
   disabled?: boolean;
 }
 
 export function TrackingKeywordChips({
   rules,
   onChange,
+  onRestore,
   disabled = false
 }: TrackingKeywordChipsProps) {
   const direction = usePreferenceStore((state) => state.direction);
@@ -77,14 +77,7 @@ export function TrackingKeywordChips({
 
   const handleRemove = (rule: KeywordRule) => {
     if (disabled) return;
-    if (rule.origin === 'custom') {
-      onChange(deleteKeywordRule(rules, rule.id));
-    } else {
-      const result = disableKeywordRule(rules, rule.id);
-      if (!result.warning) {
-        onChange(result.rules);
-      }
-    }
+    onChange(deleteKeywordRule(rules, rule.id));
   };
 
   const submitKeywordEdit = (rule: KeywordRule) => {
@@ -102,7 +95,7 @@ export function TrackingKeywordChips({
 
   const handleRestore = () => {
     if (disabled) return;
-    onChange(restoreDefaultKeywordRules(rules));
+    onRestore();
   };
 
   return (

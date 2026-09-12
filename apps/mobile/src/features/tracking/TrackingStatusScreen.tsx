@@ -72,6 +72,16 @@ export function TrackingStatusScreen() {
     }
   }
 
+  async function restoreKeywords() {
+    setActionFailed(false);
+    try {
+      const restored = await automaticTrackingService.restoreDefaultKeywords();
+      setKeywordRules(restored.value);
+    } catch {
+      setActionFailed(true);
+    }
+  }
+
   async function recoverPermission(status: string | null) {
     setActionFailed(false);
     try {
@@ -390,6 +400,7 @@ export function TrackingStatusScreen() {
           <TrackingKeywordChips
             rules={keywordRules}
             onChange={(rules) => void handleKeywordsChange(rules)}
+            onRestore={() => void restoreKeywords()}
             disabled={updating || permissionUnavailable}
           />
         </SurfaceCard>
