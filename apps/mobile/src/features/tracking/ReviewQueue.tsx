@@ -11,16 +11,20 @@ import {
 import { currentLocale, translate } from '@/localization/i18n';
 import { formatMinorAmount } from '@/utils/format-financial-value';
 import { trackingReasonSummary } from './tracking-display';
-import { useReviewItems } from './useAutomaticTracking';
+import {
+  useDuplicateCandidates,
+  useReviewItems
+} from './useAutomaticTracking';
 import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 
 export function ReviewQueue() {
   const query = useReviewItems();
-  if (query.isLoading)
+  const duplicates = useDuplicateCandidates();
+  if (query.isLoading || duplicates.isLoading)
     return (
       <StateView state="loading" title={translate('tracking.state.loading')} />
     );
-  if (query.isError)
+  if (query.isError || duplicates.isError)
     return (
       <StateView
         state="error"
@@ -48,16 +52,19 @@ export function ReviewQueue() {
       renderItem={({ item }) => {
         const reason = trackingReasonSummary(item.reasonCodes);
         const proposed = item.proposedValues;
+        const duplicate = duplicates.data?.find(
+          (candidate) => candidate.detectedEventId === item.detectedEventId
+        );
         const merchant =
           typeof proposed.merchant === 'string' && proposed.merchant
             ? proposed.merchant
             : undefined;
         const amount =
           typeof proposed.amountMinor === 'number' &&
-          typeof proposed.currencyCode === 'string'
+          typeof (proposed.currencyCode ?? proposed.currency) === 'string'
             ? formatMinorAmount(
                 proposed.amountMinor,
-                proposed.currencyCode,
+                String(proposed.currencyCode ?? proposed.currency),
                 currentLocale()
               )
             : translate('tracking.review.notDetected');
@@ -67,7 +74,13 @@ export function ReviewQueue() {
               label={reason}
               description={merchant}
               value={amount}
-              onPress={() => router.push(`/tracking/review/${item.id}`)}
+              onPress={() =>
+                router.push(
+                  duplicate
+                    ? `/tracking/duplicates/${duplicate.id}`
+                    : `/tracking/review/${item.id}`
+                )
+              }
             />
           </GroupedList>
         );

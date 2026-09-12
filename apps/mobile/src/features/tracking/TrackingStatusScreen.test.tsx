@@ -6,14 +6,27 @@ import { router } from 'expo-router';
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 import { renderWithQueryData } from '@/test-utils/render';
 import { changeLocale, translate } from '@/localization/i18n';
-import { TrackingStatusScreen } from './TrackingStatusScreen';
+import {
+  TrackingStatusScreen,
+  TrackingSyncPanel
+} from './TrackingStatusScreen';
 import { createAppShellStorage } from '@/storage/app-shell-storage';
 import { defaultKeywordRules } from '@/services/mocks/default-keywords';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
+import * as trackingPermissionModule from '@/services/platform/tracking-permission-service';
+import { permissionState } from '@/services/mocks/tracking-permission-service';
 import type { TrackingStatusSnapshot } from '@/domain/automatic-tracking';
 
 function renderStatus(status: TrackingStatusSnapshot) {
   jest.spyOn(automaticTrackingService, 'getStatus').mockResolvedValue(status);
+  jest
+    .spyOn(trackingPermissionModule, 'createTrackingPermissionService')
+    .mockReturnValue({
+      getState: async () => permissionState(status.permissionStatus ?? 'not_requested'),
+      requestAfterEducation: async () =>
+        permissionState(status.permissionStatus ?? 'not_requested'),
+      openSettings: async () => undefined
+    });
   return renderWithQueryData(<TrackingStatusScreen />, [
     [automaticTrackingKeys.status, status]
   ]);
@@ -136,6 +149,59 @@ describe('TrackingStatusScreen', () => {
       );
     }
   );
+
+  it.each([
+    ['scanning', 'tracking.state.loading'],
+    ['processing', 'tracking.state.loading'],
+    ['queued', 'tracking.service.offline'],
+    ['imported', 'tracking.status.enabled'],
+    ['account_required', 'coreFinance.accounts.noEligible'],
+    ['error', 'tracking.state.error']
+  ] as const)('renders coordinator state %s', (status, titleKey) => {
+    renderWithQueryData(
+      <TrackingSyncPanel
+        state={{
+          status,
+          sessionId: null,
+          reviewId: null,
+          duplicateId: null,
+          errorCode: status === 'error' ? 'offline' : null
+        }}
+        onRetry={jest.fn()}
+      />,
+      []
+    );
+
+    expect(screen.getByText(translate(titleKey))).toBeOnTheScreen();
+  });
+
+  it.each([
+    ['review', 'reviewId', 'review-1', '/tracking/review/review-1'],
+    ['duplicate', 'duplicateId', 'duplicate-1', '/tracking/duplicates/duplicate-1']
+  ] as const)('opens the real %s result ID', (status, idKey, id, route) => {
+    const push = jest.spyOn(router, 'push').mockImplementation(jest.fn());
+    renderWithQueryData(
+      <TrackingSyncPanel
+        state={{
+          status,
+          sessionId: 'session-1',
+          reviewId: null,
+          duplicateId: null,
+          errorCode: null,
+          [idKey]: id
+        }}
+        onRetry={jest.fn()}
+      />,
+      []
+    );
+
+    fireEvent.press(
+      screen.getByLabelText(
+        translate(status === 'review' ? 'tracking.action.review' : 'tracking.action.open')
+      )
+    );
+    expect(push).toHaveBeenCalledWith(route);
+  });
 
   it.each(['ar', 'en'] as const)(
     'labels demo tracking as non-production in %s',

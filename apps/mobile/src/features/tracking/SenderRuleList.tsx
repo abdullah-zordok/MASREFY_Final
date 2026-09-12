@@ -10,7 +10,7 @@ import {
   NavigationRow
 } from '@/design-system/components/navigation/GroupedList';
 import { translate } from '@/localization/i18n';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import {
   invalidateTrackingScopes,
   useSenderRules

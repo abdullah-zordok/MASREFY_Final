@@ -11,6 +11,7 @@ import { restoreAppShellSession } from '@/features/auth/session-controller';
 import { useLiveClerkSessionKey } from '@/services/live/clerk-provider';
 import { synchronizeLiveCoreFinance } from '@/services/live/core-finance-service';
 import { refreshPlatformOperations } from '@/services/platform-operations-service';
+import { syncAutomaticTracking } from '@/services/automatic-tracking-coordinator';
 
 interface AppShellProviderProps {
   children: ReactNode;
@@ -64,6 +65,7 @@ export function AppShellProvider({
         if (current && liveClerkSessionKey) {
           void synchronizeLiveCoreFinance().catch(() => undefined);
           void refreshPlatformOperations().catch(() => undefined);
+          void syncAutomaticTracking().catch(() => undefined);
         }
       })
       .catch(() =>
@@ -113,6 +115,7 @@ export function AppShellProvider({
       ) {
         void synchronizeLiveCoreFinance().catch(() => undefined);
         void refreshPlatformOperations().catch(() => undefined);
+        void syncAutomaticTracking().catch(() => undefined);
       }
     });
     return () => subscription.remove();

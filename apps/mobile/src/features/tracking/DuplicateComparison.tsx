@@ -10,7 +10,7 @@ import { SurfaceCard } from '@/design-system/components/SurfaceCard';
 import { AmountText } from '@/design-system/components/financial/FinancialPrimitives';
 import { useTransaction } from '@/features/core-finance/core-finance-queries';
 import { translate } from '@/localization/i18n';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import type { DuplicateResolution } from '@/services/contracts/automatic-tracking-service';
 import { trackingReasonSummary } from './tracking-display';
 import { TrackingDemoNotice } from './components/TrackingDemoNotice';

@@ -5,6 +5,8 @@ import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 import { renderWithQueryData } from '@/test-utils/render';
 import { translate } from '@/localization/i18n';
 import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import * as trackingPermissionModule from '@/services/platform/tracking-permission-service';
+import { permissionState } from '@/services/mocks/tracking-permission-service';
 import { TrackingStatusScreen } from './TrackingStatusScreen';
 
 jest.mock('expo-router', () => ({
@@ -14,6 +16,16 @@ jest.mock('expo-router', () => ({
 afterEach(() => jest.restoreAllMocks());
 
 describe('TrackingStatusJourney', () => {
+  function mockPermission(status: 'unavailable' | 'denied') {
+    jest
+      .spyOn(trackingPermissionModule, 'createTrackingPermissionService')
+      .mockReturnValue({
+        getState: async () => permissionState(status),
+        requestAfterEducation: async () => permissionState(status),
+        openSettings: async () => undefined
+      });
+  }
+
   it('shows unavailable platform tracking as disabled without a dead permission action', async () => {
     const status = {
       platform: 'android' as const,
@@ -28,6 +40,7 @@ describe('TrackingStatusJourney', () => {
       activeSenderCount: 0,
       lastUpdatedAt: 1
     };
+    mockPermission('unavailable');
     jest.spyOn(automaticTrackingService, 'getStatus').mockResolvedValue(status);
     renderWithQueryData(<TrackingStatusScreen />, [
       [automaticTrackingKeys.status, status]
@@ -61,6 +74,7 @@ describe('TrackingStatusJourney', () => {
       activeSenderCount: 4,
       lastUpdatedAt: 1
     };
+    mockPermission('denied');
     jest.spyOn(automaticTrackingService, 'getStatus').mockResolvedValue(status);
     renderWithQueryData(<TrackingStatusScreen />, [
       [automaticTrackingKeys.status, status]

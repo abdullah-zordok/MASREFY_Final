@@ -8,7 +8,7 @@ import { ActionButton } from '@/design-system/components/ActionButton';
 import { SurfaceCard } from '@/design-system/components/SurfaceCard';
 import type { AutomaticFeedback as AutomaticFeedbackValue } from '@/domain/automatic-tracking';
 import { translate } from '@/localization/i18n';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { invalidateTrackingScopes } from './useAutomaticTracking';
 import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 

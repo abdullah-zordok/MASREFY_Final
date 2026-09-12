@@ -1,4 +1,7 @@
 import {
+  useSyncExternalStore,
+} from 'react';
+import {
   useMutation,
   useQuery,
   useQueryClient,
@@ -9,15 +12,41 @@ import type {
   MockFinancialEventInput,
   TrackingMode
 } from '@/domain/automatic-tracking';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
+import {
+  getAutomaticTrackingSyncState,
+  subscribeAutomaticTrackingSyncState
+} from '@/services/automatic-tracking-coordinator';
+import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 
 export function useTrackingStatus() {
   return useQuery({
     queryKey: automaticTrackingKeys.status,
-    queryFn: () => automaticTrackingService.getStatus(),
+    queryFn: async () => {
+      const [status, permission] = await Promise.all([
+        automaticTrackingService.getStatus(),
+        createTrackingPermissionService().getState()
+      ]);
+      return {
+        ...status,
+        permissionStatus: permission.status,
+        serviceState:
+          permission.status === 'unavailable'
+            ? ('unavailable' as const)
+            : status.serviceState
+      };
+    },
     refetchOnMount: 'always'
   });
+}
+
+export function useAutomaticTrackingSyncState() {
+  return useSyncExternalStore(
+    subscribeAutomaticTrackingSyncState,
+    getAutomaticTrackingSyncState,
+    getAutomaticTrackingSyncState
+  );
 }
 
 export function useTrackingHistory() {
@@ -47,6 +76,13 @@ export function useDuplicateCandidate(id: string) {
     queryKey: automaticTrackingKeys.duplicate(id),
     queryFn: () => automaticTrackingService.getDuplicate(id),
     enabled: Boolean(id)
+  });
+}
+
+export function useDuplicateCandidates() {
+  return useQuery({
+    queryKey: automaticTrackingKeys.duplicates(),
+    queryFn: () => automaticTrackingService.listDuplicates()
   });
 }
 

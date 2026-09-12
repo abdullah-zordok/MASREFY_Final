@@ -12,6 +12,7 @@ const mockRestoreAppShellSession = jest.fn(
 );
 const mockSynchronizeLiveCoreFinance = jest.fn(async () => undefined);
 const mockRefreshPlatformOperations = jest.fn(async () => undefined);
+const mockSyncAutomaticTracking = jest.fn(async () => undefined);
 let mockLiveClerkSessionKey: string | null | undefined;
 
 jest.mock('@/features/auth/session-controller', () => ({
@@ -27,6 +28,9 @@ jest.mock('@/services/live/core-finance-service', () => ({
 }));
 jest.mock('@/services/platform-operations-service', () => ({
   refreshPlatformOperations: () => mockRefreshPlatformOperations()
+}));
+jest.mock('@/services/automatic-tracking-coordinator', () => ({
+  syncAutomaticTracking: () => mockSyncAutomaticTracking()
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -106,6 +110,7 @@ describe('AppShellProvider', () => {
 
     expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(1);
     expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
+    expect(mockSyncAutomaticTracking).toHaveBeenCalledTimes(1);
     expect(hydrate).not.toHaveBeenCalled();
     hydrate.mockRestore();
   });
@@ -199,10 +204,12 @@ describe('AppShellProvider', () => {
       await Promise.resolve();
     });
     mockSynchronizeLiveCoreFinance.mockClear();
+    mockSyncAutomaticTracking.mockClear();
     const emitAppState = listener as ((state: string) => void) | null;
     emitAppState?.('active');
 
     expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
+    expect(mockSyncAutomaticTracking).toHaveBeenCalledTimes(1);
   });
 
   it('retains only a safe initial deep-link destination across authentication gates', async () => {

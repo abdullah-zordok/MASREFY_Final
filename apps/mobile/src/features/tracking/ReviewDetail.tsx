@@ -17,7 +17,7 @@ import {
   useCategories
 } from '@/features/core-finance/core-finance-queries';
 import { translate } from '@/localization/i18n';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { formatMinorAmount } from '@/utils/format-financial-value';
 import { currentLocale } from '@/localization/i18n';
 import { useTheme } from '@/state/theme-context';
@@ -66,7 +66,7 @@ export function ReviewDetail({ id }: { id: string }) {
     }
   }
   const proposed = item.proposedValues;
-  const currency = stringValue(proposed.currencyCode);
+  const currency = stringValue(proposed.currencyCode ?? proposed.currency);
   const accountId = stringValue(proposed.accountId);
   const categoryId = stringValue(proposed.categoryId);
   const account = accounts.data?.find(

@@ -9,7 +9,7 @@ import type { Transaction } from '@/domain/core-finance';
 import { invalidateCoreFinanceScopes } from '@/features/core-finance/core-finance-queries';
 import { invalidateTrackingScopes } from '@/features/tracking/useAutomaticTracking';
 import { translate, translateDynamic } from '@/localization/i18n';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { useTheme } from '@/state/theme-context';
 import { buildTransactionSupportContext } from '@/features/support/support-context';

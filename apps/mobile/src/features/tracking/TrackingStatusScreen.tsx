@@ -15,7 +15,10 @@ import { StateView } from '@/design-system/components/feedback/StateView';
 import { SurfaceCard } from '@/design-system/components/SurfaceCard';
 import { Toggle } from '@/design-system/components/forms/SelectionControls';
 import { DesignIcon } from '@/design-system/icons';
-import { useTrackingStatus } from './useAutomaticTracking';
+import {
+  useAutomaticTrackingSyncState,
+  useTrackingStatus
+} from './useAutomaticTracking';
 import { translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
@@ -24,12 +27,17 @@ import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import type { KeywordRule } from '@/domain/app-shell';
 import { TrackingKeywordChips } from './components/TrackingKeywordChips';
 import { TrackingDemoNotice } from './components/TrackingDemoNotice';
+import {
+  syncAutomaticTracking,
+  type AutomaticTrackingSyncState
+} from '@/services/automatic-tracking-coordinator';
 
 export function TrackingStatusScreen() {
   const direction = usePreferenceStore((state) => state.direction);
   const isRtl = direction === 'rtl';
 
   const query = useTrackingStatus();
+  const syncState = useAutomaticTrackingSyncState();
   const refetchTrackingStatus = query.refetch;
   const permissionService = useMemo(createTrackingPermissionService, []);
 
@@ -202,6 +210,10 @@ export function TrackingStatusScreen() {
           </View>
 
           <TrackingDemoNotice />
+          <TrackingSyncPanel
+            state={syncState}
+            onRetry={() => void syncAutomaticTracking()}
+          />
 
           {/* Actionable Permission Warning: START = Warning Icon, MIDDLE = Warning Text, END = Chevron */}
           {!hasPermission && (
@@ -388,6 +400,71 @@ export function TrackingStatusScreen() {
         ) : null}
       </ScrollView>
     </View>
+  );
+}
+
+export function TrackingSyncPanel({
+  state,
+  onRetry
+}: {
+  state: AutomaticTrackingSyncState;
+  onRetry: () => void;
+}) {
+  if (state.status === 'idle') return null;
+  if (state.status === 'scanning' || state.status === 'processing')
+    return (
+      <StateView state="loading" title={translate('tracking.state.loading')} />
+    );
+  if (state.status === 'queued')
+    return (
+      <StateView
+        state="offline"
+        title={translate('tracking.service.offline')}
+        message={translate('tracking.recovery.message')}
+        actionLabel={translate('coreFinance.action.retry')}
+        onAction={onRetry}
+      />
+    );
+  if (state.status === 'imported')
+    return (
+      <StateView state="success" title={translate('tracking.status.enabled')} />
+    );
+  if (state.status === 'review' && state.reviewId)
+    return (
+      <StateView
+        state="review"
+        title={translate('tracking.review.title')}
+        actionLabel={translate('tracking.action.review')}
+        onAction={() => router.push(`/tracking/review/${state.reviewId}`)}
+      />
+    );
+  if (state.status === 'duplicate' && state.duplicateId)
+    return (
+      <StateView
+        state="review"
+        title={translate('tracking.duplicate.title')}
+        actionLabel={translate('tracking.action.open')}
+        onAction={() =>
+          router.push(`/tracking/duplicates/${state.duplicateId}`)
+        }
+      />
+    );
+  if (state.status === 'account_required')
+    return (
+      <StateView
+        state="review"
+        title={translate('coreFinance.accounts.noEligible')}
+        actionLabel={translate('coreFinance.accounts.open')}
+        onAction={() => router.push('/accounts')}
+      />
+    );
+  return (
+    <StateView
+      state="error"
+      title={translate('tracking.state.error')}
+      actionLabel={translate('coreFinance.action.retry')}
+      onAction={onRetry}
+    />
   );
 }
 

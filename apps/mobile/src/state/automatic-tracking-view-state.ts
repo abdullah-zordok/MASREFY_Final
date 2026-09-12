@@ -8,6 +8,7 @@ export const automaticTrackingKeys = {
     ['automatic-tracking', 'review', query ?? {}] as const,
   reviewItem: (id: string) => ['automatic-tracking', 'review', id] as const,
   duplicate: (id: string) => ['automatic-tracking', 'duplicate', id] as const,
+  duplicates: () => ['automatic-tracking', 'duplicates'] as const,
   keywords: (query?: unknown) =>
     ['automatic-tracking', 'keywords', query ?? {}] as const,
   senders: (query?: unknown) =>

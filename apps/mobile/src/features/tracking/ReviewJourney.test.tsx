@@ -23,6 +23,21 @@ describe('ReviewJourney', () => {
   it('opens review items and renders duplicate actions accessibly', () => {
     renderWithQueryData(<ReviewQueue />, [
       [
+        automaticTrackingKeys.duplicates(),
+        [
+          {
+            id: 'duplicate-1',
+            detectedEventId: 'event-1',
+            existingTransactionId: 'transaction-1',
+            probabilityBasisPoints: 9_200,
+            reasonCodes: ['amount'],
+            resolution: null,
+            status: 'pending',
+            resolvedAt: null
+          }
+        ]
+      ],
+      [
         automaticTrackingKeys.review(),
         {
           items: [
@@ -56,7 +71,7 @@ describe('ReviewJourney', () => {
         new RegExp(translate('tracking.reason.duplicate'))
       )
     );
-    expect(router.push).toHaveBeenCalledWith('/tracking/review/review-1');
+    expect(router.push).toHaveBeenCalledWith('/tracking/duplicates/duplicate-1');
     expect(
       screen.getByText(translate('tracking.reason.duplicate'))
     ).toBeOnTheScreen();
@@ -92,6 +107,7 @@ describe('ReviewJourney', () => {
 
   it('shows an unavailable queue amount until the currency is detected', () => {
     renderWithQueryData(<ReviewQueue />, [
+      [automaticTrackingKeys.duplicates(), []],
       [
         automaticTrackingKeys.review(),
         {
