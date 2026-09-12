@@ -8,6 +8,7 @@ import type {
   ReviewItem,
   SenderRule,
   TrackingHistoryEntry,
+  TrackingImportSession,
   TrackingReasonCode,
   TrackingStatusSnapshot
 } from '@/domain/automatic-tracking';
@@ -287,6 +288,22 @@ export function createLiveAutomaticTrackingService({
     ] as DuplicateCandidate['status'],
     resolvedAt: nullableEpoch(value.decidedAt)
   });
+  const importSession = (value: Json): TrackingImportSession => ({
+    id: text(value.id),
+    status: member(value.status, [
+      'received',
+      'processing',
+      'review',
+      'complete',
+      'failed',
+      'cancelled'
+    ]),
+    itemCount: integer(value.itemCount),
+    acceptedCount: integer(value.acceptedCount),
+    rejectedCount: integer(value.rejectedCount),
+    completedAt: nullableEpoch(value.completedAt),
+    updatedAt: requiredEpoch(value.updatedAt)
+  });
   const status = async (): Promise<TrackingStatusSnapshot> => {
     const value = record(await get('/api/v1/tracking/status'));
     const available = boolean(value.available);
@@ -318,6 +335,20 @@ export function createLiveAutomaticTrackingService({
       majorVersion: automaticTrackingServiceCapability.majorVersion,
       kind: 'live',
       availability: 'available'
+    },
+    async submitImport(input, idempotencyKey) {
+      return importSession(
+        resource(
+          await send('POST', '/api/v1/imports', input, idempotencyKey)
+        )
+      );
+    },
+    getImportSession: async (id) =>
+      importSession(
+        record(await get(`/api/v1/imports/${encodeURIComponent(id)}`))
+      ),
+    async listDuplicates() {
+      return (await allPages('/api/v1/duplicates')).map(duplicate);
     },
     getStatus: status,
     refreshStatus: status,

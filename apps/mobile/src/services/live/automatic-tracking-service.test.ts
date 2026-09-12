@@ -17,6 +17,126 @@ function response(value: unknown, status = 200): Response {
 }
 
 describe('live automatic tracking adapter', () => {
+  const importSession = (status: string) => ({
+    id: 'session-1',
+    sourceType: 'sms',
+    sourceName: null,
+    schemaVersion: 1,
+    status,
+    itemCount: 1,
+    acceptedCount: status === 'complete' ? 1 : 0,
+    rejectedCount: status === 'failed' ? 1 : 0,
+    attemptCount: 1,
+    nextAttemptAt: null,
+    startedAt: '2026-09-12T10:00:00.000Z',
+    completedAt: ['complete', 'failed', 'cancelled'].includes(status)
+      ? '2026-09-12T10:01:00.000Z'
+      : null,
+    createdAt: '2026-09-12T10:00:00.000Z',
+    updatedAt: '2026-09-12T10:01:00.000Z',
+    version: 2
+  });
+
+  it('submits an SMS import with the caller idempotency key', async () => {
+    const request = jest
+      .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockResolvedValue(response({ resource: importSession('received') }, 202));
+    const service = createLiveAutomaticTrackingService({
+      baseUrl: 'https://api.example.test',
+      token: async () => 'token',
+      request
+    });
+    const input = {
+      schemaVersion: 1 as const,
+      sourceType: 'sms' as const,
+      sourceChannel: 'android_sms' as const,
+      events: [
+        {
+          sourceItemKey: 'sha256:message',
+          sender: 'BANK',
+          amountMinor: -1250,
+          currency: 'SAR',
+          kind: 'expense' as const,
+          accountId: '10000000-0000-4000-8000-000000000001',
+          receivedAt: '2026-09-12T10:00:00.000Z'
+        }
+      ]
+    };
+
+    await expect(service.submitImport(input, 'sms:sha256:message')).resolves.toMatchObject({
+      id: 'session-1',
+      status: 'received',
+      itemCount: 1
+    });
+    expect(request).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/imports',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'sms:sha256:message'
+        }),
+        body: JSON.stringify(input)
+      })
+    );
+  });
+
+  it.each(['received', 'processing', 'review', 'complete', 'failed', 'cancelled'])(
+    'maps the %s import session state',
+    async (status) => {
+      const service = createLiveAutomaticTrackingService({
+        token: async () => 'token',
+        request: jest.fn().mockResolvedValue(response(importSession(status)))
+      });
+
+      await expect(service.getImportSession('session-1')).resolves.toMatchObject({
+        id: 'session-1',
+        status,
+        updatedAt: Date.parse('2026-09-12T10:01:00.000Z')
+      });
+    }
+  );
+
+  it('lists every duplicate page and preserves backend IDs', async () => {
+    const duplicate = {
+      id: 'duplicate-1',
+      leftItemId: 'item-1',
+      rightTransactionId: 'transaction-1',
+      score: '0.91',
+      reasons: ['same_amount'],
+      resolution: null,
+      status: 'proposed',
+      decidedAt: null
+    };
+    const request = jest
+      .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(response({ items: [], nextCursor: 'next' }))
+      .mockResolvedValueOnce(response({ items: [duplicate], nextCursor: null }));
+    const service = createLiveAutomaticTrackingService({
+      token: async () => 'token',
+      request
+    });
+
+    await expect(service.listDuplicates()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'duplicate-1',
+        detectedEventId: 'item-1',
+        existingTransactionId: 'transaction-1'
+      })
+    ]);
+    expect(request.mock.calls[1]?.[0]).toContain('cursor=next');
+  });
+
+  it('rejects malformed import sessions', async () => {
+    const service = createLiveAutomaticTrackingService({
+      token: async () => 'token',
+      request: jest.fn().mockResolvedValue(response({ ...importSession('complete'), itemCount: -1 }))
+    });
+
+    await expect(service.getImportSession('session-1')).rejects.toMatchObject({
+      code: 'unknown'
+    });
+  });
+
   it('uses authenticated HTTP and maps owner status without fixture data', async () => {
     const request = jest
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()

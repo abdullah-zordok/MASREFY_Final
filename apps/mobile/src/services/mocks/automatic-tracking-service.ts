@@ -11,6 +11,7 @@ import {
   type DetectedFinancialEvent,
   type KeywordRuleSummary,
   type MockFinancialEventInput,
+  type TrackingImportSession,
   type TrackingMode,
   type TrackingStatusSnapshot
 } from '@/domain/automatic-tracking';
@@ -45,7 +46,6 @@ import { defaultKeywordRules } from './default-keywords';
 import { coreFinanceService } from './core-finance-service';
 import { createMockTrackingPermissionService } from './tracking-permission-service';
 import { assistantNotificationsService } from './assistant-notifications-service';
-import { createLiveAutomaticTrackingService } from '../live/automatic-tracking-service';
 
 const silentNotificationService: Pick<NotificationService, 'createFromSource'> =
   {
@@ -95,6 +95,7 @@ export function createMockAutomaticTrackingService({
     string,
     Promise<TrackingMutationResult<AutomaticFeedback>>
   >();
+  const importSessions = new Map<string, TrackingImportSession>();
   if (registerForReset)
     registerRuntimeUserDataReset(() => {
       repository.reset();
@@ -132,6 +133,29 @@ export function createMockAutomaticTrackingService({
       majorVersion: automaticTrackingServiceCapability.majorVersion,
       kind: 'mock',
       availability: platform === 'ios' ? 'unavailable' : 'available'
+    },
+    async submitImport(input) {
+      const now = Date.now();
+      const session: TrackingImportSession = {
+        id: `fixture-${input.events[0]?.sourceItemKey ?? 'import'}`,
+        status: 'complete',
+        itemCount: input.events.length,
+        acceptedCount: input.events.length,
+        rejectedCount: 0,
+        completedAt: now,
+        updatedAt: now
+      };
+      importSessions.set(session.id, session);
+      return session;
+    },
+    async getImportSession(id) {
+      const session = importSessions.get(id);
+      if (!session) throw new TrackingError('not_found');
+      return session;
+    },
+    async listDuplicates() {
+      await ensureReady();
+      return repository.listDuplicates();
     },
     async getStatus() {
       await ensureReady();
@@ -459,9 +483,7 @@ export function createProductionAutomaticTrackingService(
 export const automaticTrackingService =
   process.env.NODE_ENV === 'test'
     ? createMockAutomaticTrackingService()
-    : isDemoModeEnabled()
-      ? createProductionAutomaticTrackingService()
-      : createLiveAutomaticTrackingService();
+    : createProductionAutomaticTrackingService();
 
 export function relocalizeDemoAutomaticTrackingRepository(
   locale: Locale

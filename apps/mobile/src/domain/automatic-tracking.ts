@@ -61,6 +61,50 @@ export type TrackingDecisionStatus = (typeof trackingDecisionStatuses)[number];
 export type TrackingReasonCode = (typeof trackingReasonCodes)[number];
 export type TrackingMode = TrackingPreference['mode'];
 
+export interface TrackingImportEvent {
+  sourceItemKey: string;
+  sender?: string;
+  body?: string;
+  amountMinor?: number;
+  currency?: string;
+  merchant?: string;
+  receivedAt: string;
+  occurredAt?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  kind?: 'income' | 'expense' | 'transfer' | 'refund' | 'fee';
+  accountId?: string;
+  categoryId?: string;
+}
+
+export interface TrackingImportSubmission {
+  schemaVersion: 1;
+  sourceType: 'sms' | 'manual';
+  sourceChannel?:
+    | 'android_sms'
+    | 'android_notification'
+    | 'ios_shortcut'
+    | 'ios_app_intent'
+    | 'ios_share_extension'
+    | 'manual';
+  events: TrackingImportEvent[];
+}
+
+export interface TrackingImportSession {
+  id: string;
+  status:
+    | 'received'
+    | 'processing'
+    | 'review'
+    | 'complete'
+    | 'failed'
+    | 'cancelled';
+  itemCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  completedAt: number | null;
+  updatedAt: number;
+}
+
 const epochSchema = z.number().int().nonnegative();
 const confidenceSchema = z.number().int().min(0).max(10_000);
 const currencySchema = z

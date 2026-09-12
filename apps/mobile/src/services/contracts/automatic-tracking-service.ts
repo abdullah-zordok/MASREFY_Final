@@ -7,6 +7,8 @@ import type {
   ReviewItem,
   SenderRule,
   TrackingHistoryEntry,
+  TrackingImportSession,
+  TrackingImportSubmission,
   TrackingMode,
   TrackingStatusSnapshot
 } from '@/domain/automatic-tracking';
@@ -75,6 +77,12 @@ export type DuplicateResolution =
   'keep_existing' | 'keep_new' | 'keep_both' | 'merge_details';
 
 export interface AutomaticTrackingService {
+  submitImport(
+    input: TrackingImportSubmission,
+    idempotencyKey: string
+  ): Promise<TrackingImportSession>;
+  getImportSession(id: string): Promise<TrackingImportSession>;
+  listDuplicates(): Promise<DuplicateCandidate[]>;
   getStatus(): Promise<TrackingStatusSnapshot>;
   setMode(mode: TrackingMode): Promise<TrackingStatusSnapshot>;
   refreshStatus(): Promise<TrackingStatusSnapshot>;
