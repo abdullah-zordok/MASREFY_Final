@@ -65,7 +65,14 @@ export function ApplicationSettingsScreen() {
       />
 
       {/* Section 1: Regional Preferences (Language & Week Start) */}
-      <View style={styles.sectionWrapper}>
+      <View
+        testID="application-settings-regional-group"
+        style={[
+          styles.sectionWrapper,
+          styles.physicalLtr,
+          { alignItems: isRtl ? 'flex-end' : 'flex-start' }
+        ]}
+      >
         <StyledText
           style={[
             styles.sectionHeading,
@@ -89,7 +96,11 @@ export function ApplicationSettingsScreen() {
             <StyledText
               style={[
                 styles.fieldLabel,
-                { textAlign: isRtl ? 'right' : 'left', writingDirection: direction }
+                {
+                  alignSelf: isRtl ? 'flex-end' : 'flex-start',
+                  textAlign: isRtl ? 'right' : 'left',
+                  writingDirection: direction
+                }
               ]}
               variant="body"
             >
@@ -118,7 +129,11 @@ export function ApplicationSettingsScreen() {
             <StyledText
               style={[
                 styles.fieldLabel,
-                { textAlign: isRtl ? 'right' : 'left', writingDirection: direction }
+                {
+                  alignSelf: isRtl ? 'flex-end' : 'flex-start',
+                  textAlign: isRtl ? 'right' : 'left',
+                  writingDirection: direction
+                }
               ]}
               variant="body"
             >
@@ -176,7 +191,15 @@ export function ApplicationSettingsScreen() {
                   decorative
                 />
               </View>
-              <StyledText style={styles.navRowTitle}>
+              <StyledText
+                style={[
+                  styles.navRowTitle,
+                  {
+                    textAlign: isRtl ? 'right' : 'left',
+                    writingDirection: direction
+                  }
+                ]}
+              >
                 {t('settings.application.currency')}
               </StyledText>
             </View>
@@ -240,7 +263,15 @@ export function ApplicationSettingsScreen() {
                   decorative
                 />
               </View>
-              <StyledText style={styles.navRowTitle}>
+              <StyledText
+                style={[
+                  styles.navRowTitle,
+                  {
+                    textAlign: isRtl ? 'right' : 'left',
+                    writingDirection: direction
+                  }
+                ]}
+              >
                 {t('settings.application.monthStart')}
               </StyledText>
             </View>
@@ -269,7 +300,13 @@ export function ApplicationSettingsScreen() {
       </View>
 
       {/* Section 2: Account & Privacy (Default Account Dropdown & Hide Balances) */}
-      <View style={styles.sectionWrapper}>
+      <View
+        style={[
+          styles.sectionWrapper,
+          styles.physicalLtr,
+          { alignItems: isRtl ? 'flex-end' : 'flex-start' }
+        ]}
+      >
         <StyledText
           style={[
             styles.sectionHeading,
@@ -293,7 +330,11 @@ export function ApplicationSettingsScreen() {
             <StyledText
               style={[
                 styles.fieldLabel,
-                { textAlign: isRtl ? 'right' : 'left', writingDirection: direction }
+                {
+                  alignSelf: isRtl ? 'flex-end' : 'flex-start',
+                  textAlign: isRtl ? 'right' : 'left',
+                  writingDirection: direction
+                }
               ]}
               variant="body"
             >
@@ -339,7 +380,16 @@ export function ApplicationSettingsScreen() {
                     { alignItems: isRtl ? 'flex-end' : 'flex-start' }
                   ]}
                 >
-                  <StyledText style={styles.dropdownSelectedText} variant="body">
+                  <StyledText
+                    style={[
+                      styles.dropdownSelectedText,
+                      {
+                        textAlign: isRtl ? 'right' : 'left',
+                        writingDirection: direction
+                      }
+                    ]}
+                    variant="body"
+                  >
                     {selectedAccount?.name ??
                       t('settings.application.defaultAccount.placeholder')}
                   </StyledText>
@@ -511,7 +561,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
-    gap: spacing.md
+    gap: spacing.md,
+    width: '100%'
   },
   fieldGroup: {
     gap: spacing.xs

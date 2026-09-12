@@ -30,6 +30,10 @@ describe('AppNavigation', () => {
         translate('designSystem.navigation.moreOptions', 'ar')
       )
     ).toBeTruthy();
+    expect(screen.getByTestId('app-bar')).toHaveStyle({
+      direction: 'ltr',
+      flexDirection: 'row-reverse'
+    });
     expect(screen.getByText('Edit')).toBeTruthy();
   });
 });

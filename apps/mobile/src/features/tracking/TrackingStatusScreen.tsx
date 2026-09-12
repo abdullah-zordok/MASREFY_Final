@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { StyledText } from '@/components/StyledText';
+import { layoutDirectionStyle } from '@/design-system/direction';
 import { AppBar } from '@/design-system/components/navigation/AppNavigation';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { StateView } from '@/design-system/components/feedback/StateView';
@@ -181,18 +182,29 @@ export function TrackingStatusScreen() {
         {/* 2. Tracking Status Card */}
         <SurfaceCard style={styles.card}>
           {/* Status Row: START = Status text (Right in RTL, Left in LTR), END = Switch (Left in RTL, Right in LTR) */}
-          <View style={styles.statusRow}>
+          <View
+            testID="tracking-status-row"
+            style={[
+              styles.statusRow,
+              styles.physicalLtr,
+              { flexDirection: isRtl ? 'row-reverse' : 'row' }
+            ]}
+          >
             <View
+              testID="tracking-status-text"
               style={[
                 styles.statusTextGroup,
-                { alignItems: isRtl ? 'flex-start' : 'flex-start' }
+                { alignItems: isRtl ? 'flex-end' : 'flex-start' }
               ]}
             >
               <StyledText
                 variant="caption"
                 style={[
                   styles.statusLabel,
-                  { textAlign: isRtl ? 'right' : 'left' }
+                  {
+                    textAlign: isRtl ? 'right' : 'left',
+                    writingDirection: direction
+                  }
                 ]}
               >
                 {translate('tracking.status.label')}
@@ -201,7 +213,10 @@ export function TrackingStatusScreen() {
                 variant="title"
                 style={[
                   styles.statusValue,
-                  { textAlign: isRtl ? 'right' : 'left' }
+                  {
+                    textAlign: isRtl ? 'right' : 'left',
+                    writingDirection: direction
+                  }
                 ]}
               >
                 {permissionUnavailable
@@ -241,6 +256,8 @@ export function TrackingStatusScreen() {
               }
               style={({ pressed }) => [
                 styles.warningBanner,
+                styles.physicalLtr,
+                { flexDirection: isRtl ? 'row-reverse' : 'row' },
                 pressed && styles.bannerPressed
               ]}
               accessibilityRole="button"
@@ -289,7 +306,14 @@ export function TrackingStatusScreen() {
         <SurfaceCard style={styles.card}>
           <View style={styles.explanationList}>
             {/* Automatic Detection */}
-            <View style={styles.explanationItem}>
+            <View
+              testID="tracking-explanation-row"
+              style={[
+                styles.explanationItem,
+                styles.physicalLtr,
+                { flexDirection: isRtl ? 'row-reverse' : 'row' }
+              ]}
+            >
               <View style={styles.iconCircle}>
                 <DesignIcon
                   name="obligation"
@@ -313,7 +337,14 @@ export function TrackingStatusScreen() {
             </View>
 
             {/* Privacy */}
-            <View style={styles.explanationItem}>
+            <View
+              testID="tracking-explanation-row"
+              style={[
+                styles.explanationItem,
+                styles.physicalLtr,
+                { flexDirection: isRtl ? 'row-reverse' : 'row' }
+              ]}
+            >
               <View style={styles.iconCircle}>
                 <DesignIcon
                   name="privacy"
@@ -337,7 +368,14 @@ export function TrackingStatusScreen() {
             </View>
 
             {/* Background Execution */}
-            <View style={styles.explanationItem}>
+            <View
+              testID="tracking-explanation-row"
+              style={[
+                styles.explanationItem,
+                styles.physicalLtr,
+                { flexDirection: isRtl ? 'row-reverse' : 'row' }
+              ]}
+            >
               <View style={styles.iconCircle}>
                 <DesignIcon
                   name="settings"
@@ -366,6 +404,8 @@ export function TrackingStatusScreen() {
                 onPress={() => void recoverPermission(status.permissionStatus)}
                 style={({ pressed }) => [
                   styles.explanationItem,
+                  styles.physicalLtr,
+                  { flexDirection: isRtl ? 'row-reverse' : 'row' },
                   pressed && styles.bannerPressed
                 ]}
               >
@@ -516,6 +556,10 @@ export function TrackingRecoveryPanel({
 }
 
 const styles = StyleSheet.create({
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    writingDirection: 'ltr'
+  },
   root: {
     backgroundColor: colorTokens.sand['100'],
     flex: 1

@@ -16,6 +16,7 @@ import { automaticTrackingService } from '@/services/automatic-tracking-service'
 import * as trackingPermissionModule from '@/services/platform/tracking-permission-service';
 import { permissionState } from '@/services/mocks/tracking-permission-service';
 import type { TrackingStatusSnapshot } from '@/domain/automatic-tracking';
+import { usePreferenceStore } from '@/state/preferences';
 
 function renderStatus(status: TrackingStatusSnapshot) {
   jest.spyOn(automaticTrackingService, 'getStatus').mockResolvedValue(status);
@@ -83,6 +84,39 @@ describe('TrackingStatusScreen', () => {
     // Grocery / مصروف should be in the default keywords
     expect(screen.getByText('Grocery')).toBeOnTheScreen();
     expect(screen.getByText('مصروف')).toBeOnTheScreen();
+  });
+
+  it('anchors Arabic tracking rows to a physical LTR canvas and mirrors them explicitly', async () => {
+    changeLocale('ar');
+    usePreferenceStore.setState({ direction: 'rtl', locale: 'ar' });
+    const rendered = renderStatus({
+      platform: 'android',
+      mode: 'automatic_clear',
+      permissionStatus: 'granted',
+      serviceState: 'healthy',
+      lastDetectedAt: null,
+      lastSuccessfulTransactionId: null,
+      detectedThisMonth: 0,
+      reviewCount: 0,
+      activeKeywordCount: 22,
+      activeSenderCount: 0,
+      lastUpdatedAt: Date.now()
+    });
+
+    await screen.findByTestId('tracking-status-screen');
+    expect(screen.getByTestId('tracking-status-row')).toHaveStyle({
+      flexDirection: 'row-reverse'
+    });
+    expect(screen.getByTestId('tracking-status-text')).toHaveStyle({
+      alignItems: 'flex-end'
+    });
+    expect(screen.getAllByTestId('tracking-explanation-row')[0]).toHaveStyle({
+      flexDirection: 'row-reverse'
+    });
+
+    rendered.unmount();
+    usePreferenceStore.setState({ direction: 'ltr', locale: 'en' });
+    changeLocale('en');
   });
 
   it('displays actionable permission warning when permission is not granted', async () => {

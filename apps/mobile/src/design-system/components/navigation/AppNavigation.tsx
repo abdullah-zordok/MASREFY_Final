@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { StyledText } from '@/components/StyledText';
+import { layoutDirectionStyle } from '@/design-system/direction';
 import { DesignIcon } from '@/design-system/icons';
 import type { LayoutDirection } from '@/domain/foundation';
 import { translate } from '@/localization/i18n';
@@ -22,7 +23,14 @@ export function AppBar({
   const backLabel = translate('appShell.navigation.back');
   const moreLabel = translate('designSystem.navigation.moreOptions');
   return (
-    <View style={styles.bar}>
+    <View
+      testID="app-bar"
+      style={[
+        styles.bar,
+        styles.physicalLtr,
+        { flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' }
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={backLabel}
@@ -37,7 +45,10 @@ export function AppBar({
           decorative
         />
       </Pressable>
-      <StyledText accessible={false} style={styles.title}>
+      <StyledText
+        accessible={false}
+        style={[styles.title, { writingDirection: direction }]}
+      >
         {title}
       </StyledText>
       {onOverflow ? (
@@ -84,6 +95,10 @@ export function ContextMenu({
 }
 
 const styles = StyleSheet.create({
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    writingDirection: 'ltr'
+  },
   bar: {
     alignItems: 'center',
     flexDirection: 'row',

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 
 import { renderWithProviders } from '@/test-utils/render';
 import { changeLocale, translateDynamic as t } from '@/localization/i18n';
+import { usePreferenceStore } from '@/state/preferences';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('./settings-queries', () => ({
@@ -125,6 +126,21 @@ test('application settings renders controls: language, weekStart, currency, mont
     name: t('settings.application.defaultAccount.none'),
     selected: true
   })).toBeTruthy();
+});
+
+test('anchors Arabic application settings to the physical right edge', () => {
+  changeLocale('ar');
+  usePreferenceStore.setState({ direction: 'rtl', locale: 'ar' });
+
+  const rendered = renderWithProviders(<ApplicationSettingsScreen />);
+
+  expect(
+    screen.getByTestId('application-settings-regional-group')
+  ).toHaveStyle({ alignItems: 'flex-end', direction: 'ltr' });
+
+  rendered.unmount();
+  usePreferenceStore.setState({ direction: 'ltr', locale: 'en' });
+  changeLocale('en');
 });
 
 test('privacy settings requests export/deletion and local deletion without false completion claims', () => {
