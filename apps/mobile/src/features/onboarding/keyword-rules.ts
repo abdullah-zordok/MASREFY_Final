@@ -50,6 +50,30 @@ export function deleteKeywordRule(rules: KeywordRule[], id: string): KeywordRule
   return rules.filter((rule) => rule.id !== id || rule.origin === 'default');
 }
 
+export function editKeywordRule(
+  rules: KeywordRule[],
+  id: string,
+  value: string
+): KeywordChange {
+  const target = rules.find((rule) => rule.id === id);
+  if (!target) return { rules };
+  const normalizedValue = normalizeKeyword(value, target.language);
+  if (!normalizedValue) return { rules, error: 'empty' };
+  const duplicate = rules.some(
+    (rule) =>
+      rule.id !== id &&
+      rule.group === target.group &&
+      rule.language === target.language &&
+      rule.normalizedValue === normalizedValue
+  );
+  if (duplicate) return { rules, error: 'duplicate' };
+  return {
+    rules: rules.map((rule) =>
+      rule.id === id ? { ...rule, value: value.trim(), normalizedValue } : rule
+    )
+  };
+}
+
 export function disableKeywordRule(rules: KeywordRule[], id: string): KeywordChange {
   const target = rules.find((rule) => rule.id === id);
   if (!target) return { rules };

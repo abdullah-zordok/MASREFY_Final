@@ -3,6 +3,7 @@ import {
   deleteKeywordRule,
   deriveKeywordRuleSummaries,
   disableKeywordRule,
+  editKeywordRule,
   normalizeKeyword,
   restoreDefaultKeywordRules
 } from './keyword-rules';
@@ -52,6 +53,26 @@ describe('keyword rules', () => {
     );
     expect(deleteKeywordRule(added.rules, 'expense-en-default')).toHaveLength(2);
     expect(deleteKeywordRule(added.rules, added.rules[1].id)).toHaveLength(1);
+  });
+
+  it('edits a rule while rejecting an empty or duplicate value', () => {
+    const cafe = {
+      ...baseRule,
+      id: 'expense-en-cafe',
+      value: 'Cafe',
+      normalizedValue: 'cafe',
+      origin: 'custom' as const
+    };
+
+    expect(
+      editKeywordRule([baseRule, cafe], cafe.id, '  Coffee  ').rules[1]
+    ).toMatchObject({ value: 'Coffee', normalizedValue: 'coffee' });
+    expect(editKeywordRule([baseRule, cafe], cafe.id, ' ')).toMatchObject({
+      error: 'empty'
+    });
+    expect(editKeywordRule([baseRule, cafe], cafe.id, 'grocery')).toMatchObject(
+      { error: 'duplicate' }
+    );
   });
 
   it('disables, warns on last enabled rule, and restores defaults', () => {

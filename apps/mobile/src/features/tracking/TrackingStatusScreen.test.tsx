@@ -272,6 +272,40 @@ describe('TrackingStatusScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('StarbucksCoffee')).toBeOnTheScreen();
     });
+    fireEvent.press(
+      screen.getByTestId('tracking-keyword-remove-expense-ar-starbuckscoffee')
+    );
+    await waitFor(() => expect(screen.queryByText('StarbucksCoffee')).toBeNull());
+  });
+
+  it('allows editing a keyword', async () => {
+    renderStatus({
+      platform: 'android',
+      mode: 'automatic_clear',
+      permissionStatus: 'granted',
+      serviceState: 'healthy',
+      lastDetectedAt: null,
+      lastSuccessfulTransactionId: null,
+      detectedThisMonth: 0,
+      reviewCount: 0,
+      activeKeywordCount: 22,
+      activeSenderCount: 0,
+      lastUpdatedAt: Date.now()
+    });
+
+    await screen.findByText('Grocery');
+    fireEvent.press(
+      screen.getByTestId('tracking-keyword-edit-expense-en-default')
+    );
+    fireEvent.changeText(
+      screen.getByTestId('tracking-keyword-edit-input-expense-en-default'),
+      'Groceries'
+    );
+    fireEvent.press(
+      screen.getByTestId('tracking-keyword-save-expense-en-default')
+    );
+
+    expect(await screen.findByText('Groceries')).toBeOnTheScreen();
   });
 
   it('allows restoring default keywords', async () => {

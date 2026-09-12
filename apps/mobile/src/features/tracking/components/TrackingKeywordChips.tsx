@@ -17,6 +17,7 @@ import {
   addKeywordRule,
   deleteKeywordRule,
   disableKeywordRule,
+  editKeywordRule,
   restoreDefaultKeywordRules
 } from '@/features/onboarding/keyword-rules';
 
@@ -40,6 +41,8 @@ export function TrackingKeywordChips({
   const [draftKeyword, setDraftKeyword] = useState('');
   const [draftLang, setDraftLang] = useState<'ar' | 'en'>(isRtl ? 'ar' : 'en');
   const [addError, setAddError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editKeyword, setEditKeyword] = useState('');
 
   const activeCount = rules.filter((r) => r.enabled).length;
 
@@ -82,6 +85,19 @@ export function TrackingKeywordChips({
         onChange(result.rules);
       }
     }
+  };
+
+  const submitKeywordEdit = (rule: KeywordRule) => {
+    const keywordChange = editKeywordRule(rules, rule.id, editKeyword);
+    if (keywordChange.error) {
+      setAddError(
+        translate(`appShell.tracking.keywords.${keywordChange.error}`)
+      );
+      return;
+    }
+    setAddError(null);
+    setEditingId(null);
+    onChange(keywordChange.rules);
   };
 
   const handleRestore = () => {
@@ -313,27 +329,85 @@ export function TrackingKeywordChips({
               testID={`tracking-keyword-chip-${rule.id}`}
               style={styles.chip}
             >
-              {/* START: Keyword label */}
-              <StyledText
-                style={[
-                  styles.chipText,
-                  {
-                    writingDirection: isArabicKeyword ? 'rtl' : 'ltr',
-                    textAlign: isArabicKeyword ? 'right' : 'left'
-                  }
-                ]}
-              >
-                {rule.value}
-              </StyledText>
+              {editingId === rule.id ? (
+                <TextInput
+                  testID={`tracking-keyword-edit-input-${rule.id}`}
+                  value={editKeyword}
+                  onChangeText={setEditKeyword}
+                  onSubmitEditing={() => submitKeywordEdit(rule)}
+                  autoFocus
+                  style={styles.editInput}
+                  accessibilityLabel={translate('trust.edit')}
+                />
+              ) : (
+                <StyledText
+                  style={[
+                    styles.chipText,
+                    {
+                      writingDirection: isArabicKeyword ? 'rtl' : 'ltr',
+                      textAlign: isArabicKeyword ? 'right' : 'left'
+                    }
+                  ]}
+                >
+                  {rule.value}
+                </StyledText>
+              )}
 
-              {/* END: Remove button × */}
               <Pressable
-                testID={`tracking-keyword-remove-${rule.id}`}
-                onPress={() => handleRemove(rule)}
+                testID={
+                  editingId === rule.id
+                    ? `tracking-keyword-save-${rule.id}`
+                    : `tracking-keyword-edit-${rule.id}`
+                }
+                onPress={() => {
+                  if (editingId === rule.id) submitKeywordEdit(rule);
+                  else {
+                    setEditingId(rule.id);
+                    setEditKeyword(rule.value);
+                    setAddError(null);
+                  }
+                }}
                 disabled={disabled}
                 hitSlop={6}
                 style={styles.chipRemoveButton}
-                accessibilityLabel={`${translate('appShell.tracking.keywords.delete').replace('{{value}}', rule.value)}`}
+                accessibilityLabel={translate(
+                  editingId === rule.id ? 'tracking.action.save' : 'trust.edit'
+                )}
+                accessibilityRole="button"
+              >
+                <DesignIcon
+                  name={editingId === rule.id ? 'check' : 'edit'}
+                  size="xs"
+                  color={colorTokens.ink['700']}
+                  direction={direction}
+                  decorative
+                />
+              </Pressable>
+
+              {/* END: Remove button × */}
+              <Pressable
+                testID={
+                  editingId === rule.id
+                    ? `tracking-keyword-cancel-${rule.id}`
+                    : `tracking-keyword-remove-${rule.id}`
+                }
+                onPress={() => {
+                  if (editingId === rule.id) {
+                    setEditingId(null);
+                    setAddError(null);
+                  } else handleRemove(rule);
+                }}
+                disabled={disabled}
+                hitSlop={6}
+                style={styles.chipRemoveButton}
+                accessibilityLabel={
+                  editingId === rule.id
+                    ? translate('designSystem.action.cancel')
+                    : translate('appShell.tracking.keywords.delete').replace(
+                        '{{value}}',
+                        rule.value
+                      )
+                }
                 accessibilityRole="button"
               >
                 <DesignIcon
@@ -348,6 +422,11 @@ export function TrackingKeywordChips({
           );
         })}
       </View>
+      {!isAdding && addError ? (
+        <StyledText style={styles.addErrorText} accessibilityRole="alert">
+          {addError}
+        </StyledText>
+      ) : null}
     </View>
   );
 }
@@ -508,6 +587,12 @@ const styles = StyleSheet.create({
     color: colorTokens.ink['900'],
     fontSize: 13,
     fontWeight: '600'
+  },
+  editInput: {
+    color: colorTokens.ink['900'],
+    fontSize: 13,
+    minWidth: 96,
+    padding: 0
   },
   chipRemoveButton: {
     alignItems: 'center',

@@ -604,12 +604,31 @@ export function createLiveAutomaticTrackingService({
       );
     },
     async saveKeywordRules(rules: readonly KeywordRule[]) {
-      await this.listKeywordRules();
-      await Promise.all(
-        rules.map((rule) =>
-          send(
-            rule.id ? 'PATCH' : 'POST',
-            rule.id
+      const persistedRules = await this.listKeywordRules();
+      const persistedById = new Map(
+        persistedRules.map((rule) => [rule.id, rule])
+      );
+      const nextIds = new Set(rules.map((rule) => rule.id));
+      const changedRules = rules.filter((rule) => {
+        const persisted = persistedById.get(rule.id);
+        return !persisted || persisted.value !== rule.value ||
+          persisted.group !== rule.group || persisted.language !== rule.language ||
+          persisted.enabled !== rule.enabled;
+      });
+      await Promise.all([
+        ...persistedRules
+          .filter((rule) => rule.origin === 'custom' && !nextIds.has(rule.id))
+          .map((rule) =>
+            send(
+              'DELETE',
+              `/api/v1/tracking/keyword-rules/${encodeURIComponent(rule.id)}?expectedVersion=${String(keywordVersions.get(rule.id))}`
+            )
+          ),
+        ...changedRules.map((rule) => {
+          const persisted = persistedById.get(rule.id);
+          return send(
+            persisted ? 'PATCH' : 'POST',
+            persisted
               ? `/api/v1/tracking/keyword-rules/${encodeURIComponent(rule.id)}`
               : '/api/v1/tracking/keyword-rules',
             {
@@ -617,13 +636,13 @@ export function createLiveAutomaticTrackingService({
               group: rule.group,
               language: rule.language,
               enabled: rule.enabled,
-              ...(rule.id
+              ...(persisted
                 ? { expectedVersion: keywordVersions.get(rule.id) }
                 : {})
             }
-          )
-        )
-      );
+          );
+        })
+      ]);
       return {
         value: await this.listKeywordRules(),
         affectedScopes: ['tracking.keywords']

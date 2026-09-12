@@ -260,6 +260,78 @@ describe('live automatic tracking adapter', () => {
     });
   });
 
+  it('creates new keyword rules and deletes removed custom rules', async () => {
+    const request = jest
+      .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(
+        response({
+          items: [
+            {
+              id: 'rule-1',
+              keyword: 'paid',
+              groupKey: 'expense',
+              languageCode: 'en',
+              origin: 'custom',
+              enabled: true,
+              recentUseCount: 0,
+              lastUsedAt: null,
+              version: 7
+            }
+          ],
+          nextCursor: null
+        })
+      )
+      .mockResolvedValueOnce(response({}, 204))
+      .mockResolvedValueOnce(response({ id: 'rule-2' }, 201))
+      .mockResolvedValueOnce(
+        response({
+          items: [
+            {
+              id: 'rule-2',
+              keyword: 'coffee',
+              groupKey: 'expense',
+              languageCode: 'en',
+              origin: 'custom',
+              enabled: true,
+              recentUseCount: 0,
+              lastUsedAt: null,
+              version: 1
+            }
+          ],
+          nextCursor: null
+        })
+      );
+    const service = createLiveAutomaticTrackingService({
+      baseUrl: 'https://api.example.test',
+      token: async () => 'token',
+      request
+    });
+
+    await service.saveKeywordRules([
+      {
+        id: 'expense-en-coffee',
+        value: 'coffee',
+        normalizedValue: 'coffee',
+        group: 'expense',
+        language: 'en',
+        origin: 'custom',
+        enabled: true
+      }
+    ]);
+
+    expect(request.mock.calls[1]?.[0]).toContain(
+      '/api/v1/tracking/keyword-rules/rule-1?expectedVersion=7'
+    );
+    expect(request.mock.calls[1]?.[1]?.method).toBe('DELETE');
+    expect(request.mock.calls[2]?.[0]).toContain(
+      '/api/v1/tracking/keyword-rules'
+    );
+    expect(request.mock.calls[2]?.[1]?.method).toBe('POST');
+    expect(
+      JSON.parse(String(request.mock.calls[2]?.[1]?.body))
+    ).not.toHaveProperty('expectedVersion');
+  });
+
   it('preserves owner cursors and maps review filters to the backend contract', async () => {
     const request = jest
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()

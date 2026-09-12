@@ -60,10 +60,14 @@ export function TrackingStatusScreen() {
   }, [refetchTrackingStatus]);
 
   async function handleKeywordsChange(newRules: KeywordRule[]) {
+    const previousRules = keywordRules;
     setKeywordRules(newRules);
     try {
-      await automaticTrackingService.saveKeywordRules(newRules);
+      const savedRules =
+        await automaticTrackingService.saveKeywordRules(newRules);
+      setKeywordRules(savedRules.value);
     } catch {
+      setKeywordRules(previousRules);
       setActionFailed(true);
     }
   }
