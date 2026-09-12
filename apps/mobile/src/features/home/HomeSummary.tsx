@@ -13,14 +13,12 @@ import {
 import { router } from 'expo-router';
 
 import { layoutDirectionStyle } from '@/design-system/direction';
-import { AmountText, CategoryIcon } from '@/design-system/components/financial/FinancialPrimitives';
-import { resolveCategoryVisual } from '@/design-system/components/financial/category-visuals';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { SurfaceCard } from '@/design-system/components/SurfaceCard';
 import { DesignIcon, type DesignIconName } from '@/design-system/icons';
 import { borderWidth, elevation, minTouchTarget, radius, spacing } from '@/design-system/tokens';
 import type { Account, Category, HomeSummary as HomeSummaryValue, Transaction } from '@/domain/core-finance';
-import { projectTransaction } from '@/features/transactions/transaction-presentation';
+import { TransactionCard } from '@/features/transactions/TransactionCard';
 import { useVoiceCapture } from '@/features/voice/useVoiceCapture';
 import { VoiceReviewGroup } from '@/features/voice/VoiceReviewGroup';
 import { translate, translateDynamic } from '@/localization/i18n';
@@ -545,11 +543,12 @@ function ActivitySection({ accounts, hidden, largeText, testID, title, transacti
         style={styles.transactionList}
       >
         {transactions.map((transaction) => (
-          <HomeTransactionRow
+          <TransactionCard
             key={transaction.id}
             accountName={accounts?.find(({ id }) => id === transaction.accountId)?.name}
             hidden={hidden}
             largeText={largeText}
+            testIDPrefix="home"
             transaction={transaction}
           />
         ))}
@@ -569,75 +568,6 @@ function SectionHeading({ testID, title }: { testID: string; title: string }) {
         <Text style={[styles.sectionActionText, { color: theme.colors.content.link, writingDirection: direction }]}>{action}</Text>
       </Pressable>
     </View>
-  );
-}
-
-function HomeTransactionRow({ accountName, transaction, hidden, largeText }: {
-  accountName?: string;
-  transaction: Transaction;
-  hidden: boolean;
-  largeText: boolean;
-}) {
-  const theme = useTheme();
-  const locale = usePreferenceStore((state) => state.locale);
-  const direction = usePreferenceStore((state) => state.direction);
-  const presentation = projectTransaction(transaction, locale);
-  const visualKey = transaction.categoryId ?? (transaction.type === 'income' ? 'salary' : null);
-  const category = resolveCategoryVisual(visualKey, 'category');
-  const categoryLabel = translateDynamic(
-    category?.labelKey ?? (transaction.categoryId ? `coreFinance.meaning.${presentation.meaning}` : 'coreFinance.ledger.uncategorized'),
-    {},
-    locale
-  );
-  return (
-    <Pressable
-      testID={`home-transaction-row-${transaction.id}`}
-      accessibilityLabel={[presentation.title, categoryLabel, accountName, presentation.dateLabel].filter(Boolean).join(', ')}
-      accessibilityRole="button"
-      onPress={() => router.push(`/transactions/${transaction.id}/edit`)}
-      style={({ pressed }) => [
-        styles.transaction,
-        largeText
-          ? styles.transactionStacked
-          : { flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' },
-        {
-          backgroundColor: theme.colors.surfaces.card,
-          borderColor: theme.colors.horizon.sheetBorder
-        },
-        pressed && { backgroundColor: theme.colors.interactions.quietPressed }
-      ]}
-    >
-      <View
-        testID={`home-transaction-info-${transaction.id}`}
-        style={[styles.transactionInfo, { flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' }]}
-      >
-        <CategoryIcon label={categoryLabel} size="md" visualKey={visualKey} />
-        <View testID={`home-transaction-text-${transaction.id}`} style={[styles.transactionText, { alignItems: direction === 'rtl' ? 'flex-end' : 'flex-start' }]}>
-          <Text numberOfLines={largeText ? undefined : 2} style={[styles.transactionTitle, { color: theme.colors.content.primary, textAlign: direction === 'rtl' ? 'right' : 'left', writingDirection: direction }]}>{presentation.title}</Text>
-          <Text numberOfLines={largeText ? undefined : 1} style={[styles.transactionMeta, { color: theme.colors.content.secondary, textAlign: direction === 'rtl' ? 'right' : 'left', writingDirection: direction }]}>{categoryLabel}</Text>
-          {accountName ? (
-            <View style={styles.transactionAccount}>
-              <View style={[styles.transactionAccountDot, { backgroundColor: theme.colors.content.link }]} />
-              <Text numberOfLines={largeText ? undefined : 1} style={[styles.transactionAccountText, { color: theme.colors.content.secondary }]}>{accountName}</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-      <View
-        testID={`home-transaction-amount-${transaction.id}`}
-        style={[
-          styles.transactionAmount,
-          largeText && styles.transactionAmountStacked,
-          {
-            alignItems: direction === 'rtl' ? 'flex-start' : 'flex-end',
-            alignSelf: largeText ? direction === 'rtl' ? 'flex-start' : 'flex-end' : 'auto'
-          }
-        ]}
-      >
-        <AmountText currency={transaction.currencyCode} masked={hidden} meaning={presentation.meaning} minorUnits={transaction.amountMinor} />
-        <Text style={[styles.transactionDate, { color: theme.colors.content.muted, textAlign: direction === 'rtl' ? 'left' : 'right', writingDirection: direction }]}>{presentation.dateLabel}</Text>
-      </View>
-    </Pressable>
   );
 }
 
@@ -675,18 +605,6 @@ const styles = StyleSheet.create({
   sectionActionText: { fontSize: 12, fontWeight: '700' },
   empty: { padding: spacing.xl, textAlign: 'center' },
   transactionList: { gap: spacing.sm },
-  transaction: { alignItems: 'center', borderRadius: radius.group, borderWidth: borderWidth.default, ...layoutDirectionStyle('ltr'), gap: spacing.md, minHeight: 80, overflow: 'hidden', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, writingDirection: 'ltr' },
-  transactionStacked: { alignItems: 'stretch', flexDirection: 'column' },
-  transactionInfo: { alignItems: 'center', flex: 1, gap: spacing.md, minWidth: 0 },
-  transactionText: { flex: 1, gap: 2, minWidth: 0 },
-  transactionTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
-  transactionMeta: { fontSize: 12, lineHeight: 17 },
-  transactionAccount: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, maxWidth: '100%' },
-  transactionAccountText: { fontSize: 11, lineHeight: 15, writingDirection: 'auto' },
-  transactionAccountDot: { borderRadius: radius.pill, height: 6, width: 6 },
-  transactionAmount: { flexShrink: 1, gap: 2, maxWidth: '38%' },
-  transactionAmountStacked: { maxWidth: '100%' },
-  transactionDate: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   processingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, zIndex: 10 },
   processingInline: { alignItems: 'center', alignSelf: 'stretch', borderRadius: radius.lg, borderWidth: borderWidth.default, ...layoutDirectionStyle('ltr'), gap: spacing.md, padding: spacing.md },
   processingIcon: { alignItems: 'center', borderRadius: radius.pill, height: 56, justifyContent: 'center', width: 56 },

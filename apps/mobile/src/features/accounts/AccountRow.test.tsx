@@ -6,6 +6,7 @@ import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
 import { renderWithProviders } from '@/test-utils/render';
 import { changeLocale } from '@/localization/i18n';
 import { elevation } from '@/design-system/tokens';
+import { usePreferenceStore } from '@/state/preferences';
 import { AccountRow } from './AccountRow';
 import { projectAccount } from './account-presentation';
 
@@ -76,6 +77,37 @@ it('renders account balance with currency-owned precision', () => {
   );
 
   expect(screen.getByText('12.345')).toBeTruthy();
+});
+
+it('isolates Arabic account metadata and the balance column from RTL reordering', () => {
+  changeLocale('ar');
+  usePreferenceStore.setState({ direction: 'rtl', locale: 'ar' });
+  const account = {
+    ...fixtureAccounts[0],
+    currencyCode: 'SAR',
+    lastFour: '4821',
+    name: 'بطاقة العميل'
+  };
+
+  renderWithProviders(
+    <AccountRow
+      presentation={projectAccount(account, {
+        accountId: account.id,
+        balanceMinor: 48_21,
+        currencyCode: account.currencyCode
+      })}
+    />
+  );
+
+  expect(screen.getByTestId('account-row-meta-identifier')).toHaveStyle({
+    writingDirection: 'ltr'
+  });
+  expect(screen.getByTestId('account-row-balance')).toHaveStyle({
+    direction: 'ltr'
+  });
+  expect(screen.getByTestId('account-row-details')).toHaveStyle({
+    alignItems: 'flex-end'
+  });
 });
 
 it('stacks account identity and balance at 200% text', () => {

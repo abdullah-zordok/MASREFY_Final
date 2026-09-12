@@ -4,6 +4,7 @@ import { screen } from '@testing-library/react-native';
 import { radius } from '@/design-system/tokens';
 import { coreFinanceKeys } from '@/features/core-finance/core-finance-queries';
 import { translate } from '@/localization/i18n';
+import { usePreferenceStore } from '@/state/preferences';
 import { fixtureAccounts } from '@/test-utils/core-finance-fixtures';
 import { renderWithQueryData } from '@/test-utils/render';
 import { AccountListScreen } from './AccountListScreen';
@@ -38,4 +39,20 @@ it('renders active, archived, duplicate, and add-account states', () => {
   const rows = screen.getAllByTestId('account-row');
   expect(rows[0]).toHaveStyle({ borderTopLeftRadius: radius.lg });
   expect(rows[1]).toHaveStyle({ borderTopLeftRadius: 0 });
+});
+
+it('aligns account search input for Arabic RTL', () => {
+  usePreferenceStore.setState({ direction: 'rtl', locale: 'ar' });
+  const rendered = renderWithQueryData(<AccountListScreen />, [
+    [coreFinanceKeys.accounts(true), fixtureAccounts],
+    [coreFinanceKeys.accountBalances(true), []]
+  ]);
+
+  expect(screen.getByTestId('accounts-list-search')).toHaveStyle({
+    textAlign: 'right',
+    writingDirection: 'rtl'
+  });
+
+  rendered.unmount();
+  usePreferenceStore.setState({ direction: 'ltr', locale: 'en' });
 });

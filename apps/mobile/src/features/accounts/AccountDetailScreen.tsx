@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, PixelRatio, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -8,13 +8,11 @@ import { ActionButton } from '@/design-system/components/ActionButton';
 import { FormField } from '@/design-system/components/forms/FormField';
 import { StateView } from '@/design-system/components/feedback/StateView';
 import { FinancialPulse } from '@/design-system/components/financial/FinancialPulse';
-import { TransactionRow } from '@/design-system/components/financial/TransactionRow';
 import { GroupedList } from '@/design-system/components/navigation/GroupedList';
 import {
   emptyTransactionFilters,
   parseAmountToMinor,
   supportsAutomaticTrackingAccountType,
-  type Category,
   type Transaction
 } from '@/domain/core-finance';
 import { calculateCreditCardPayoff } from '@/domain/credit-card-payoff';
@@ -22,14 +20,10 @@ import {
   invalidateCoreFinanceScopes,
   useAccount,
   useAccountBalances,
-  useCategories,
   useTransactions
 } from '@/features/core-finance/core-finance-queries';
-import {
-  currentLocale,
-  translate,
-  translateDynamic
-} from '@/localization/i18n';
+import { TransactionCard } from '@/features/transactions/TransactionCard';
+import { translate, translateDynamic } from '@/localization/i18n';
 import type { AccountBalanceProjection } from '@/services/contracts/core-finance-service';
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { usePreferenceStore } from '@/state/preferences';
@@ -37,7 +31,6 @@ import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { formatFinancialDisplayValue } from '@/utils/format-financial-value';
 import { AccountRow } from './AccountRow';
 import { projectAccount } from './account-presentation';
-import { projectTransaction } from '@/features/transactions/transaction-presentation';
 
 export function AccountDetailScreen({ id }: { id: string }) {
   const client = useQueryClient();
@@ -53,10 +46,10 @@ export function AccountDetailScreen({ id }: { id: string }) {
     ...emptyTransactionFilters,
     accountIds: [id]
   });
-  const categories = useCategories(true);
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
   const locale = usePreferenceStore((state) => state.locale);
   const { revealed } = useSensitiveVisibility();
+  const largeText = PixelRatio.getFontScale() >= 1.5;
   if (account.isLoading || balances.isLoading)
     return (
       <StateView
@@ -285,41 +278,16 @@ export function AccountDetailScreen({ id }: { id: string }) {
         ) : (activity.data?.items ?? []).length ? (
           ((activity.data?.items ?? []) as Transaction[])
             .slice(0, 3)
-            .map((transaction) => {
-              const category = categories.data?.find(
-                (item: Category) => item.id === transaction.categoryId
-              );
-              const projected = projectTransaction(
-                transaction,
-                currentLocale(),
-                value,
-                category
-              );
-              return (
-                <TransactionRow
-                  key={transaction.id}
-                  title={projected.title}
-                  category={
-                    projected.categoryName ??
-                    translate('coreFinance.ledger.uncategorized')
-                  }
-                  date={projected.dateLabel}
-                  account={value.name}
-                  source={translate(projected.sourceLabelKey as never)}
-                  meaning={projected.meaning}
-                  statusLabel={
-                    projected.syncLabelKey
-                      ? translate(projected.syncLabelKey as never)
-                      : undefined
-                  }
-                  amountMinor={transaction.amountMinor}
-                  currency={transaction.currencyCode}
-                  onPress={() =>
-                    router.push(`/transactions/${transaction.id}/edit`)
-                  }
-                />
-              );
-            })
+            .map((transaction) => (
+              <TransactionCard
+                key={transaction.id}
+                accountName={value.name}
+                hidden={hidden}
+                largeText={largeText}
+                testIDPrefix="account"
+                transaction={transaction}
+              />
+            ))
         ) : (
           <StateView
             state="empty"

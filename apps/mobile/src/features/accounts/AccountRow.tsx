@@ -2,6 +2,7 @@ import React from 'react';
 import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DesignIcon } from '@/design-system/icons';
+import { layoutDirectionStyle } from '@/design-system/direction';
 import {
   colorTokens,
   elevation,
@@ -60,9 +61,9 @@ export function AccountRow({
   const typeLabel = translate(
     `coreFinance.accountType.${account.type}` as never
   );
-  const metaSubtitle = account.lastFour
-    ? `${typeLabel}, ${account.currencyCode} ${account.lastFour}`
-    : `${typeLabel}, ${account.currencyCode}`;
+  const accountIdentifier = account.lastFour
+    ? `${account.currencyCode} ${account.lastFour}`
+    : account.currencyCode;
 
   return (
     <Pressable
@@ -92,10 +93,10 @@ export function AccountRow({
             : selected
               ? 1.5
               : 1,
-          flexDirection: largeText ? 'column' : 'row',
-          opacity: disabled ? 0.56 : 1,
-          direction
+          flexDirection: largeText ? 'column' : isRtl ? 'row-reverse' : 'row',
+          opacity: disabled ? 0.56 : 1
         },
+        styles.physicalLtr,
         !groupedPosition && elevation.raised,
         groupedPosition && styles.grouped,
         groupedPosition === 'first' && styles.groupedFirst,
@@ -109,7 +110,12 @@ export function AccountRow({
       ]}
     >
       {/* START: Account Icon & Identity */}
-      <View style={[styles.identityGroup, { flexDirection: 'row' }]}>
+      <View
+        style={[
+          styles.identityGroup,
+          { flexDirection: isRtl ? 'row-reverse' : 'row' }
+        ]}
+      >
         {/* Icon badge */}
         <View testID="account-row-icon-accounts" style={styles.iconBadge}>
           <DesignIcon
@@ -123,7 +129,13 @@ export function AccountRow({
         </View>
 
         {/* Text details */}
-        <View style={styles.identityDetails}>
+        <View
+          testID="account-row-details"
+          style={[
+            styles.identityDetails,
+            { alignItems: isRtl ? 'flex-end' : 'flex-start' }
+          ]}
+        >
           <Text
             numberOfLines={largeText ? undefined : 1}
             style={[
@@ -147,7 +159,14 @@ export function AccountRow({
               }
             ]}
           >
-            {metaSubtitle}
+            {typeLabel}
+            {' · '}
+            <Text
+              testID="account-row-meta-identifier"
+              style={styles.ltrText}
+            >
+              {accountIdentifier}
+            </Text>
           </Text>
 
           {/* Default account indicator */}
@@ -181,6 +200,7 @@ export function AccountRow({
 
       {/* END: Balance & Currency Stack (Visually and vertically centered) */}
       <View
+        testID="account-row-balance"
         style={[
           styles.balanceGroup,
           {
@@ -189,6 +209,7 @@ export function AccountRow({
                 ? 'flex-end'
                 : 'flex-start'
               : 'center',
+            direction: 'ltr',
             marginTop: largeText ? spacing.xs : 0
           }
         ]}
@@ -230,6 +251,10 @@ export function AccountRow({
 }
 
 const styles = StyleSheet.create({
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    writingDirection: 'ltr'
+  },
   card: {
     alignItems: 'center',
     borderRadius: radius.card,
@@ -268,6 +293,9 @@ const styles = StyleSheet.create({
     color: colorTokens.ink['500'],
     fontSize: 12,
     lineHeight: 16
+  },
+  ltrText: {
+    writingDirection: 'ltr'
   },
   defaultLabel: {
     color: colorTokens.teal['700'],

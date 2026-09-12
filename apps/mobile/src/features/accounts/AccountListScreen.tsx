@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { StateView } from '@/design-system/components/feedback/StateView';
+import { fontFamilyForLocale } from '@/design-system/typography';
 import type { Account } from '@/domain/core-finance';
 import {
   useAccounts,
@@ -32,6 +33,8 @@ export function AccountListScreen() {
   const accounts = useAccounts(true);
   const balances = useAccountBalances(true);
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
+  const direction = usePreferenceStore((state) => state.direction);
+  const locale = usePreferenceStore((state) => state.locale);
   const { revealed } = useSensitiveVisibility();
   const hidden = hideBalances && !revealed;
   const balanceByAccount = useMemo(
@@ -105,6 +108,7 @@ export function AccountListScreen() {
             {translate('appShell.shell.accounts')}
           </StyledText>
           <TextInput
+            testID="accounts-list-search"
             accessibilityLabel={translate('coreFinance.accounts.search')}
             placeholder={translate('coreFinance.accounts.search')}
             placeholderTextColor={theme.colors.textSecondary}
@@ -114,7 +118,10 @@ export function AccountListScreen() {
               styles.search,
               {
                 borderColor: theme.colors.border,
-                color: theme.colors.textPrimary
+                color: theme.colors.textPrimary,
+                fontFamily: fontFamilyForLocale(locale, 400),
+                textAlign: direction === 'rtl' ? 'right' : 'left',
+                writingDirection: direction
               }
             ]}
           />

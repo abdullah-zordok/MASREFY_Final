@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react-native';
+import { PixelRatio } from 'react-native';
 import { router } from 'expo-router';
 
 import { emptyTransactionFilters } from '@/domain/core-finance';
@@ -158,6 +159,41 @@ it('opens account activity directly in edit mode', () => {
   expect(router.push).toHaveBeenCalledWith(
     `/transactions/${transaction.id}/edit`
   );
+});
+
+it('reuses the RTL transaction card for recent account activity', () => {
+  jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(1);
+  usePreferenceStore.setState({ direction: 'rtl', locale: 'ar' });
+  const account = fixtureAccounts[0];
+  const transaction = fixtureTransactions[0];
+  const rendered = renderWithQueryData(
+    <AccountDetailScreen id={account.id} />,
+    [
+      [coreFinanceKeys.account(account.id), account],
+      [coreFinanceKeys.accountBalances(true), []],
+      [
+        coreFinanceKeys.transactions({
+          ...emptyTransactionFilters,
+          accountIds: [account.id]
+        }),
+        { items: [transaction], nextCursor: null, total: 1 }
+      ]
+    ]
+  );
+
+  expect(
+    screen.getByTestId(`account-transaction-row-${transaction.id}`)
+  ).toHaveStyle({ direction: 'ltr', flexDirection: 'row-reverse' });
+  expect(
+    screen.getByTestId(`account-transaction-amount-${transaction.id}`)
+  ).toHaveStyle({
+    alignItems: 'flex-start',
+    flexShrink: 0,
+    maxWidth: '45%'
+  });
+
+  rendered.unmount();
+  usePreferenceStore.setState({ direction: 'ltr', locale: 'en' });
 });
 
 it('shows card terms and calculates an integer-safe payoff', async () => {
