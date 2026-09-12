@@ -18,7 +18,7 @@ import { DesignIcon } from '@/design-system/icons';
 import { useTrackingStatus } from './useAutomaticTracking';
 import { translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
 import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import type { KeywordRule } from '@/domain/app-shell';
@@ -66,8 +66,15 @@ export function TrackingStatusScreen() {
       if (status === 'revoked' || status === 'permanently_denied') {
         await permissionService.openSettings();
       } else {
-        await permissionService.requestAfterEducation();
-        await query.refetch();
+        router.push({
+          pathname: '/tracking/permission',
+          params: {
+            mode:
+              query.data?.mode === 'review_all'
+                ? 'review_all'
+                : 'automatic_clear'
+          }
+        });
       }
     } catch {
       setActionFailed(true);
@@ -80,17 +87,15 @@ export function TrackingStatusScreen() {
     setUpdating(true);
     try {
       if (nextValue) {
-        // User wants to enable tracking
-        await automaticTrackingService.setMode('automatic_clear');
         if (query.data?.permissionStatus !== 'granted') {
-          try {
-            await permissionService.requestAfterEducation();
-          } catch {
-            // Permission flow was cancelled or denied
-          }
+          router.push({
+            pathname: '/tracking/permission',
+            params: { mode: 'automatic_clear' }
+          });
+          return;
         }
+        await automaticTrackingService.setMode('automatic_clear');
       } else {
-        // User wants to disable tracking
         await automaticTrackingService.setMode('paused');
       }
       await query.refetch();

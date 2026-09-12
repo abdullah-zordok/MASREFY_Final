@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { PixelRatio } from 'react-native';
+import { router } from 'expo-router';
 
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 import { renderWithQueryData } from '@/test-utils/render';
@@ -8,7 +9,7 @@ import { changeLocale, translate } from '@/localization/i18n';
 import { TrackingStatusScreen } from './TrackingStatusScreen';
 import { createAppShellStorage } from '@/storage/app-shell-storage';
 import { defaultKeywordRules } from '@/services/mocks/default-keywords';
-import { automaticTrackingService } from '@/services/mocks/automatic-tracking-service';
+import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import type { TrackingStatusSnapshot } from '@/domain/automatic-tracking';
 
 function renderStatus(status: TrackingStatusSnapshot) {
@@ -92,6 +93,16 @@ describe('TrackingStatusScreen', () => {
     expect(
       screen.getByText(translate('tracking.permission.warning'))
     ).toBeOnTheScreen();
+
+    const setMode = jest.spyOn(automaticTrackingService, 'setMode');
+    const push = jest.spyOn(router, 'push').mockImplementation(jest.fn());
+    fireEvent.press(screen.getByTestId('tracking-permission-warning-banner'));
+
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/tracking/permission',
+      params: { mode: 'automatic_clear' }
+    });
+    expect(setMode).not.toHaveBeenCalled();
   });
 
   it.each(['ar', 'en'] as const)(

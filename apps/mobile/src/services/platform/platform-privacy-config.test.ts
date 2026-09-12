@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('native privacy configuration', () => {
-  it('does not request SMS access and excludes local financial data from Android backup', () => {
+  it('requests inbox-only SMS access and excludes local financial data from Android backup', () => {
     const appConfig = JSON.parse(
       readFileSync(resolve(process.cwd(), 'app.json'), 'utf8')
     ) as {
@@ -19,10 +19,13 @@ describe('native privacy configuration', () => {
       'utf8'
     );
 
-    expect(appConfig.expo.android.permissions).not.toContain(
+    expect(appConfig.expo.android.permissions).toContain(
       'android.permission.READ_SMS'
     );
-    expect(appConfig.expo.android.blockedPermissions).toContain(
+    expect(appConfig.expo.android.permissions).not.toContain(
+      'android.permission.RECEIVE_SMS'
+    );
+    expect(appConfig.expo.android.blockedPermissions ?? []).not.toContain(
       'android.permission.READ_SMS'
     );
     expect(appConfig.expo.android.allowBackup).toBe(false);
@@ -30,7 +33,8 @@ describe('native privacy configuration', () => {
       manifest.match(
         /<uses-permission[^>]*android\.permission\.READ_SMS[^>]*\/>/g
       ) ?? []
-    ).toEqual([expect.stringContaining('tools:node="remove"')]);
+    ).toEqual([expect.not.stringContaining('tools:node="remove"')]);
+    expect(manifest).not.toContain('android.permission.RECEIVE_SMS');
     expect(manifest).toContain('android:allowBackup="false"');
   });
 });
