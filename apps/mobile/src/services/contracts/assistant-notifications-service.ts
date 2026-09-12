@@ -62,7 +62,7 @@ export const assistantServiceCapability: CapabilityContractMetadata = {
   capability: 'assistant.conversations',
   majorVersion: 1,
   owner: 'assistant',
-  providerKinds: ['mock'],
+  providerKinds: ['mock', 'live'],
   unavailableOutcome: 'assistant.state.unavailable'
 };
 
@@ -70,7 +70,7 @@ export const subscriptionServiceCapability: CapabilityContractMetadata = {
   capability: 'subscriptions.billing',
   majorVersion: 1,
   owner: 'subscriptions',
-  providerKinds: ['mock'],
+  providerKinds: ['mock', 'live'],
   unavailableOutcome: 'subscriptions.state.unavailable'
 };
 

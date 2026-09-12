@@ -93,7 +93,8 @@ export function AppSheet({
             menu && styles.menuSheet,
             {
               backgroundColor: menu ? theme.colors.horizon.sheet : theme.colors.surface,
-              borderColor: menu ? theme.colors.horizon.sheetBorder : theme.colors.border
+              borderColor: menu ? theme.colors.horizon.sheetBorder : theme.colors.border,
+              direction
             },
             menu && { transform: [{ translateY }] }
           ]}
@@ -103,9 +104,11 @@ export function AppSheet({
               <View style={[styles.handle, { backgroundColor: theme.colors.borders.default }]} />
             </View>
           ) : null}
-          <View style={styles.sheetHandleArea}>
-            <View style={[styles.handle, { backgroundColor: theme.colors.borders?.subtle ?? colorTokens.raw["E0E6E2"] }]} />
-          </View>
+          {!menu ? (
+            <View style={styles.sheetHandleArea}>
+              <View style={[styles.handle, { backgroundColor: theme.colors.borders?.subtle ?? colorTokens.raw["E0E6E2"] }]} />
+            </View>
+          ) : null}
           <View style={[styles.header, menu && styles.menuHeader]}>
             <StyledText
               accessible={false}
@@ -115,7 +118,7 @@ export function AppSheet({
                 menu && styles.menuTitle,
                 {
                   color: menu ? theme.colors.horizon.ink : theme.colors.textPrimary,
-                  textAlign: 'center',
+                  textAlign: direction === 'rtl' ? 'right' : 'left',
                   writingDirection: direction
                 }
               ]}
@@ -180,7 +183,7 @@ const styles = StyleSheet.create({
   },
   handle: { borderRadius: radius.pill, height: 4, width: 36 },
   header: {
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
     minHeight: 48,
     position: 'relative',
@@ -189,8 +192,7 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: '700',
     fontSize: 17,
-    paddingHorizontal: 48,
-    textAlign: 'center'
+    paddingHorizontal: 48
   },
   menuHeader: { alignItems: 'stretch', justifyContent: 'flex-start', minHeight: 52 },
   menuTitle: { alignSelf: 'stretch', flex: 1, fontSize: 20, lineHeight: 28, paddingHorizontal: 0 },

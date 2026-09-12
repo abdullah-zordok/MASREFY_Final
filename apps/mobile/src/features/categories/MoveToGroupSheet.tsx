@@ -40,8 +40,14 @@ export function MoveToGroupSheet({
   if (!category) return null;
 
   const categoryName = locale === 'ar' ? category.labelAr : category.labelEn;
-  // Groups are root categories excluding this category itself
-  const availableGroups = groups.filter((g) => g.id !== category.id && !g.parentId);
+  const availableGroups = groups.filter(
+    (group) =>
+      group.id !== category.id &&
+      !group.parentId &&
+      group.kind === 'custom' &&
+      group.status === 'active' &&
+      group.financialType === category.financialType
+  );
 
   return (
     <Modal
@@ -254,10 +260,7 @@ export function MoveToGroupSheet({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={translate('coreFinance.categories.newGroup')}
-            onPress={() => {
-              onClose();
-              onNewGroup();
-            }}
+            onPress={onNewGroup}
             style={({ pressed }) => [
               styles.newGroupBtn,
               {
@@ -317,11 +320,11 @@ const styles = StyleSheet.create({
   closeBtn: {
     alignItems: 'center',
     borderRadius: 999,
-    height: 36,
+    height: 48,
     justifyContent: 'center',
     position: 'absolute',
     top: 0,
-    width: 36
+    width: 48
   },
   closeBtnLtr: { right: 0 },
   closeBtnRtl: { left: 0 },

@@ -4,6 +4,7 @@ import { render } from '@testing-library/react-native';
 
 import {
   FONT_ASSETS,
+  editorialFontFamilyForLocale,
   FontGate,
   financialFontFamily,
   fontFamilyForLocale,
@@ -30,8 +31,23 @@ describe('SPEC-002 typography', () => {
       'MasarifiLatin-500',
       'MasarifiLatin-600',
       'MasarifiLatin-700',
-      'MasarifiLatin-900'
+      'MasarifiLatin-900',
+      'MasarifiEditorialArabic-400',
+      'MasarifiEditorialArabic-600',
+      'MasarifiEditorialArabic-700',
+      'MasarifiEditorialLatin-400',
+      'MasarifiEditorialLatin-600',
+      'MasarifiEditorialLatin-700'
     ]);
+  });
+
+  it('exposes the approved editorial families used by visual mockups', () => {
+    expect(editorialFontFamilyForLocale('ar', 700)).toBe(
+      'MasarifiEditorialArabic-700'
+    );
+    expect(editorialFontFamilyForLocale('en', 600)).toBe(
+      'MasarifiEditorialLatin-600'
+    );
   });
 
   it('selects approved Arabic and English font families', () => {
@@ -55,7 +71,9 @@ describe('SPEC-002 typography', () => {
   it('exports hierarchy and tabular amount styles', () => {
     expect(typographyStyles.heading.fontWeight).toBe('700');
     expect(typographyStyles.body.fontWeight).toBe('400');
-    expect(typographyStyles.helper.fontSize).toBeLessThan(typographyStyles.body.fontSize);
+    expect(typographyStyles.helper.fontSize).toBeLessThan(
+      typographyStyles.body.fontSize
+    );
     expect(typographyStyles.label.fontWeight).toBe('600');
     expect(typographyStyles.amount.fontVariant).toEqual(['tabular-nums']);
   });

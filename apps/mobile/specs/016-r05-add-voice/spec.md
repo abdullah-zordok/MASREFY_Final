@@ -4,7 +4,11 @@
 
 **Created**: 2026-08-15
 
-**Status**: Draft for product review
+**Status**: CLOSED / SUPERSEDED (2026-09-11)
+
+**Closure decision**: Do not execute or use this specification as an active dependency. Its
+Manual/Voice-in-Add premise was rejected: Add remains manual-only and Voice remains on Home.
+All unchecked R05 tasks are cancelled historical backlog, not completed work.
 
 **Input**: Redesign the existing Masarifi Add tab as one focused manual-and-voice capture workspace without changing transaction creation, voice permission, proposal validation, confirmation, privacy, route, or downstream financial behavior.
 

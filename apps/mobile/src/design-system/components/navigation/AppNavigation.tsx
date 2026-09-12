@@ -7,6 +7,9 @@ import { DesignIcon } from '@/design-system/icons';
 import type { LayoutDirection } from '@/domain/foundation';
 import { translate } from '@/localization/i18n';
 import { useTheme } from '@/state/theme-context';
+import { editorialFontFamilyForLocale } from '@/design-system/typography';
+import { usePreferenceStore } from '@/state/preferences';
+import { colorTokens } from '@/design-system/tokens';
 
 export function AppBar({
   title,
@@ -72,6 +75,125 @@ export function AppBar({
   );
 }
 
+export function BrandedScreenHeader({
+  compact = false,
+  direction,
+  onBack,
+  scope,
+  subtitle,
+  testID,
+  title,
+  titleAlignEnd = false,
+  titleTestID
+}: {
+  compact?: boolean;
+  direction: LayoutDirection;
+  onBack?: () => void;
+  scope?: React.ReactNode;
+  subtitle?: string;
+  testID?: string;
+  title: string;
+  titleAlignEnd?: boolean;
+  titleTestID?: string;
+}) {
+  const theme = useTheme();
+  const locale = usePreferenceStore((state) => state.locale);
+  const backLabel = translate('appShell.navigation.back');
+  const isRtl = direction === 'rtl';
+
+  return (
+    <View
+      testID={testID}
+      style={[
+        styles.masthead,
+        compact && styles.mastheadCompact,
+        compact && styles.physicalLtr,
+        compact && {
+          flexDirection: isRtl ? 'row-reverse' : 'row'
+        },
+        {
+          backgroundColor: theme.colors.surfaces.card,
+          borderBottomColor: colorTokens.raw.E2E7E3
+        }
+      ]}
+    >
+      {onBack ? (
+        <View
+          style={[
+            styles.mastheadTopline,
+            styles.physicalLtr,
+            { flexDirection: isRtl ? 'row-reverse' : 'row' }
+          ]}
+        >
+          <Pressable
+            accessibilityLabel={backLabel}
+            accessibilityRole="button"
+            onPress={onBack}
+            style={[
+              styles.mastheadAction,
+              {
+                backgroundColor: colorTokens.surface.white,
+                borderColor: colorTokens.raw.E2E7E3
+              }
+            ]}
+          >
+            <DesignIcon
+              name="back"
+              label={backLabel}
+              color={theme.colors.primary}
+              direction={direction}
+              decorative
+            />
+          </Pressable>
+        </View>
+      ) : null}
+      <View
+        style={[
+          styles.mastheadHeading,
+          compact && styles.mastheadHeadingCompact
+        ]}
+      >
+        <StyledText
+          testID={titleTestID}
+          style={[
+            styles.mastheadTitle,
+            compact && styles.mastheadTitleCompact,
+            {
+              fontFamily: editorialFontFamilyForLocale(locale, 700),
+              alignSelf: compact
+                ? 'stretch'
+                : titleAlignEnd || isRtl
+                  ? 'flex-end'
+                  : 'flex-start',
+              textAlign: isRtl ? 'right' : 'left',
+              width: titleAlignEnd ? '100%' : undefined,
+              writingDirection: direction
+            }
+          ]}
+        >
+          {title}
+        </StyledText>
+        {subtitle ? (
+          <StyledText
+            style={[
+              styles.mastheadSubtitle,
+              {
+                color: theme.colors.content.secondary,
+                fontFamily: editorialFontFamilyForLocale(locale, 400),
+                textAlign: isRtl ? 'right' : 'left',
+                writingDirection: direction
+              }
+            ]}
+          >
+            {subtitle}
+          </StyledText>
+        ) : null}
+        {scope}
+      </View>
+    </View>
+  );
+}
+
 export function ContextMenu({
   items
 }: {
@@ -122,5 +244,39 @@ const styles = StyleSheet.create({
   menuItem: {
     justifyContent: 'center',
     minHeight: 48
-  }
+  },
+  masthead: {
+    borderBottomWidth: 1,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12
+  },
+  mastheadTopline: {
+    alignItems: 'center',
+    justifyContent: 'flex-start'
+  },
+  mastheadAction: {
+    alignItems: 'center',
+    borderRadius: 13,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    width: 48
+  },
+  mastheadHeading: { marginTop: 12 },
+  mastheadCompact: {
+    alignItems: 'center',
+    gap: 12,
+    paddingBottom: 8,
+    paddingTop: 8
+  },
+  mastheadHeadingCompact: { flex: 1, marginTop: 0 },
+  mastheadTitleCompact: { fontSize: 24, lineHeight: 30 },
+  mastheadTitle: {
+    fontSize: 27,
+    fontWeight: '700',
+    letterSpacing: -0.675,
+    lineHeight: 33
+  },
+  mastheadSubtitle: { fontSize: 13, lineHeight: 20, marginTop: 6 }
 });

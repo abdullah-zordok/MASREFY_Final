@@ -43,3 +43,17 @@ it('persists the selected income meaning and returns it after save', async () =>
   );
   expect(screen.queryByText('Transfer')).toBeNull();
 });
+
+it('uses Android-sized header actions', () => {
+  renderWithProviders(
+    <GroupFormModal visible onClose={jest.fn()} onCreated={jest.fn()} />
+  );
+
+  expect(screen.getByLabelText(translate('coreFinance.cancel'))).toHaveStyle({
+    height: 48,
+    width: 48
+  });
+  expect(
+    screen.getByLabelText(translate('coreFinance.categories.save'))
+  ).toHaveStyle({ height: 48, width: 48 });
+});

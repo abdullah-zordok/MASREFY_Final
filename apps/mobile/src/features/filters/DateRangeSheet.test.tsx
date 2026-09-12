@@ -44,7 +44,10 @@ it('renders the 7 date range options in Arabic RTL with instruction text', () =>
   expect(screen.getByText('اختر نطاق التاريخ')).toBeTruthy();
   expect(
     screen.getByText('اختر واحدًا من النطاقات المحددة أدناه')
-  ).toBeTruthy();
+  ).toHaveStyle({ textAlign: 'right', writingDirection: 'rtl' });
+  expect(screen.getByTestId('date-period-option-custom')).toHaveStyle({
+    flexDirection: 'row-reverse'
+  });
 
   // 1. Custom Range
   expect(screen.getByText('نطاق مخصص')).toBeTruthy();
@@ -88,6 +91,11 @@ it('renders the 7 date range options in Arabic RTL with instruction text', () =>
     screen.getByTestId('date-period-option-custom')
   ).toHaveAccessibilityState({
     selected: false
+  });
+
+  fireEvent.press(screen.getByTestId('date-period-option-custom'));
+  expect(screen.getByLabelText('رجوع')).toHaveStyle({
+    alignSelf: 'flex-end'
   });
 });
 

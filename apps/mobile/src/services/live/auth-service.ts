@@ -6,6 +6,7 @@ import {
   type OnboardingProgress
 } from '@/domain/app-shell';
 import type {
+  PrivacyRequest,
   RepresentativeSession,
   UserProfile,
   UserProfileInput
@@ -109,6 +110,41 @@ const devicePageSchema = z
   .object({
     items: z.array(deviceSchema).max(100),
     nextCursor: z.string().nullable()
+  })
+  .strict();
+const privacyExportSchema = z
+  .object({
+    id: z.string().min(1),
+    status: z.enum([
+      'requested',
+      'verified',
+      'processing',
+      'ready',
+      'expired',
+      'failed'
+    ]),
+    scope: z.array(z.string().min(1)).min(1).max(100),
+    requestedAt: z.string().datetime(),
+    expiresAt: z.string().datetime().nullable(),
+    version: z.number().int().positive()
+  })
+  .strict();
+const deletionRequestSchema = z
+  .object({
+    id: z.string().min(1),
+    status: z.enum([
+      'requested',
+      'verified',
+      'processing',
+      'completed',
+      'cancelled',
+      'failed'
+    ]),
+    requestedAt: z.string().datetime(),
+    coolingOffEndsAt: z.string().datetime(),
+    completedAt: z.string().datetime().nullable(),
+    retainedCategories: z.array(z.string()).max(100),
+    version: z.number().int().positive()
   })
   .strict();
 const emptySchema = z.null();
@@ -321,8 +357,33 @@ export function createLiveIdentityService({
     async listSecurityEvents() {
       throw new HttpError('provider_unavailable', 503);
     },
-    async requestPrivacyAction() {
-      throw new HttpError('provider_unavailable', 503);
+    async requestPrivacyAction(kind, operationId) {
+      const serverRequest =
+        kind === 'data_export'
+          ? await parsedRequest(
+              request,
+              '/api/v1/me/privacy/exports',
+              privacyExportSchema,
+              {
+                method: 'POST',
+                headers: { 'Idempotency-Key': operationId },
+                body: {}
+              }
+            )
+          : await parsedRequest(
+              request,
+              '/api/v1/me/deletion-requests',
+              deletionRequestSchema,
+              {
+                method: 'POST',
+                headers: { 'Idempotency-Key': operationId },
+                body: { confirmation: 'DELETE_MY_ACCOUNT' }
+              }
+            );
+      return mutation(
+        privacyRequest(kind, operationId, serverRequest),
+        [`settings.privacy-request.${kind}`]
+      );
     },
     async deleteLocalData(operationId: string) {
       const deleted = await resetLocalUserData(operationId);
@@ -421,6 +482,43 @@ function deviceSession(
     isCurrentDevice: device.current,
     status: device.revokedAt ? 'revoked' : 'active'
   };
+}
+
+function privacyRequest(
+  kind: PrivacyRequest['kind'],
+  operationId: string,
+  serverRequest: Pick<
+    z.infer<typeof privacyExportSchema> | z.infer<typeof deletionRequestSchema>,
+    'id' | 'requestedAt' | 'status'
+  >
+): PrivacyRequest {
+  const requestedAt = Date.parse(serverRequest.requestedAt);
+  if (!Number.isSafeInteger(requestedAt) || requestedAt < 0)
+    throw new HttpError('contract_mismatch', 502);
+  return {
+    id: serverRequest.id,
+    operationId,
+    kind,
+    status: privacyStatus(serverRequest.status),
+    requestedAt,
+    updatedAt: requestedAt,
+    safeFailure:
+      serverRequest.status === 'expired'
+        ? 'expired'
+        : serverRequest.status === 'failed'
+          ? 'representative_failure'
+          : null
+  };
+}
+
+function privacyStatus(status: string): PrivacyRequest['status'] {
+  if (status === 'requested') return 'review';
+  if (status === 'processing') return 'pending';
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'expired' || status === 'failed') return 'failed';
+  if (status === 'verified' || status === 'ready' || status === 'completed')
+    return 'accepted';
+  throw new HttpError('contract_mismatch', 502);
 }
 
 function isClientOnboardingStep(

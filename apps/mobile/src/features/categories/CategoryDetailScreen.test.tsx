@@ -28,7 +28,23 @@ const customTarget = {
   id: 'custom-shopping',
   kind: 'custom' as const
 };
-const categories = [customCategory, customTarget, ...fixtureCategories];
+const archivedTarget = {
+  ...customTarget,
+  id: 'archived-target',
+  status: 'archived' as const
+};
+const incompatibleTarget = {
+  ...customTarget,
+  id: 'incompatible-target',
+  financialType: customCategory.financialType === 'expense' ? 'income' as const : 'expense' as const
+};
+const categories = [
+  customCategory,
+  customTarget,
+  archivedTarget,
+  incompatibleTarget,
+  ...fixtureCategories
+];
 
 it('keeps system category lifecycle read-only', () => {
   renderWithQueryData(<CategoryDetailScreen id="food" />, [
@@ -96,7 +112,15 @@ it('uses the canonical picker for a merge target and excludes the source', () =>
     params: { requestId: string };
   };
   const session = getCategorySelectionSession(route.params.requestId);
-  expect(session).toMatchObject({ excludedIds: [customCategory.id] });
+  expect(session?.excludedIds).toEqual(
+    expect.arrayContaining([
+      customCategory.id,
+      archivedTarget.id,
+      incompatibleTarget.id,
+      fixtureCategories[0].id
+    ])
+  );
+  expect(session?.excludedIds).not.toContain(customTarget.id);
   act(() => completeCategorySelection(route.params.requestId, customTarget.id));
 
   expect(

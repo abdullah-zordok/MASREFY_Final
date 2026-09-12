@@ -129,12 +129,25 @@ it('shows the financial hierarchy and values by default', () => {
   renderWithProviders(<HomeScreen summary={summary} />);
   expect(screen.queryByText('•••• SAR')).toBeNull();
   expect(screen.getAllByText('1,250.00 SAR')).toHaveLength(2);
+  expect(screen.getAllByText('1,250.00 SAR')[0]).toHaveStyle({
+    fontSize: 35.2,
+    lineHeight: 43.2
+  });
   expect(screen.getByText('2 active accounts')).toBeTruthy();
   expect(screen.getByTestId('home-horizon')).toBeTruthy();
   expect(screen.getByTestId('financial-horizon-surface')).toBeTruthy();
   expect(screen.getByTestId('home-account-card')).toBeTruthy();
   expect(screen.getByTestId('home-action-tray')).toBeTruthy();
   expect(screen.getByTestId('home-quick-actions')).toBeTruthy();
+});
+
+it('shows a minus sign when the total balance is negative', () => {
+  changeLocale('en');
+  renderWithProviders(
+    <HomeScreen summary={{ ...summary, totalBalanceMinor: -15_000 }} />
+  );
+
+  expect(screen.getAllByText('-150.00 SAR')).toHaveLength(2);
 });
 
 it('keeps the financial hierarchy visible when there are no accounts', () => {

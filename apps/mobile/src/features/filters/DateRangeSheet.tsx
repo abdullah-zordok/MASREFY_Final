@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { AppSheet } from '@/design-system/components/overlays/AppSheet';
+import { layoutDirectionStyle } from '@/design-system/direction';
 import { DesignIcon } from '@/design-system/icons';
 import {
   colorTokens,
@@ -133,7 +134,11 @@ export function DateRangeSheet({
           <Text
             style={[
               styles.sheetInstruction,
-              { color: theme.colors.content.secondary }
+              {
+                color: theme.colors.content.secondary,
+                textAlign: direction === 'rtl' ? 'right' : 'left',
+                writingDirection: direction
+              }
             ]}
           >
             {translate('coreFinance.home.period.instruction')}
@@ -281,7 +286,11 @@ export function DateRangeSheet({
             <Text
               style={[
                 styles.duration,
-                { color: theme.colors.content.secondary }
+                {
+                  color: theme.colors.content.secondary,
+                  textAlign: direction === 'rtl' ? 'right' : 'left',
+                  writingDirection: direction
+                }
               ]}
             >
               {translateDynamic('coreFinance.home.period.duration', {
@@ -290,7 +299,14 @@ export function DateRangeSheet({
             </Text>
           ) : (
             <Text
-              style={[styles.duration, { color: theme.colors.status.danger }]}
+              style={[
+                styles.duration,
+                {
+                  color: theme.colors.status.danger,
+                  textAlign: direction === 'rtl' ? 'right' : 'left',
+                  writingDirection: direction
+                }
+              ]}
             >
               {translate('coreFinance.filters.dateRangeInvalid')}
             </Text>
@@ -339,6 +355,7 @@ function DateRangeOptionRow({
       onPress={onPress}
       style={({ pressed }) => [
         styles.optionCard,
+        styles.physicalLtr,
         featured ? styles.featuredOption : styles.groupedOption,
         appearance === 'grouped-last' && styles.groupedLastOption,
         {
@@ -348,7 +365,7 @@ function DateRangeOptionRow({
           borderColor: selected
             ? theme.colors.borders.selected
             : theme.colors.borders.subtle,
-          direction
+          flexDirection: isRtl ? 'row-reverse' : 'row'
         },
         pressed && {
           backgroundColor: colorTokens.sand['200']
@@ -356,7 +373,13 @@ function DateRangeOptionRow({
       ]}
     >
       {/* 1. START of reading: Content Group (Calendar icon badge + Text Stack) */}
-      <View style={[styles.contentGroup, { flexDirection: 'row' }]}>
+      <View
+        style={[
+          styles.contentGroup,
+          styles.physicalLtr,
+          { flexDirection: isRtl ? 'row-reverse' : 'row' }
+        ]}
+      >
         {/* Calendar Icon Badge */}
         {featured ? (
           <View testID="date-period-icon-custom" style={styles.iconBadge}>
@@ -430,7 +453,10 @@ function BackAction({
       accessibilityLabel={label}
       accessibilityRole="button"
       onPress={onPress}
-      style={styles.back}
+      style={[
+        styles.back,
+        { alignSelf: direction === 'rtl' ? 'flex-end' : 'flex-start' }
+      ]}
     >
       <DesignIcon
         name="back"
@@ -470,12 +496,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
-    marginBottom: spacing.xs,
-    textAlign: 'center'
+    marginBottom: spacing.xs
   },
   optionCard: {
     alignItems: 'center',
-    flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
@@ -502,6 +526,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.md,
     minWidth: 0
+  },
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    writingDirection: 'ltr'
   },
   iconBadge: {
     alignItems: 'center',
@@ -551,7 +579,6 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center'
+    lineHeight: 20
   }
 });

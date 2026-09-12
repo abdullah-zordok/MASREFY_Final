@@ -3,7 +3,7 @@ import { fireEvent } from '@testing-library/react-native';
 
 import { renderWithProviders } from '@/test-utils/render';
 import { translate } from '@/localization/i18n';
-import { AppBar, ContextMenu } from './AppNavigation';
+import { AppBar, BrandedScreenHeader, ContextMenu } from './AppNavigation';
 
 describe('AppNavigation', () => {
   it('renders app bar actions with accessible names and directional mirroring', () => {
@@ -35,5 +35,32 @@ describe('AppNavigation', () => {
       flexDirection: 'row-reverse'
     });
     expect(screen.getByText('Edit')).toBeTruthy();
+  });
+
+  it('keeps branded back navigation at the Android minimum touch target', () => {
+    const screen = renderWithProviders(
+      <BrandedScreenHeader
+        compact
+        direction="rtl"
+        onBack={jest.fn()}
+        testID="compact-header"
+        title="الحسابات"
+        titleAlignEnd
+      />
+    );
+
+    expect(screen.getByTestId('compact-header')).toHaveStyle({
+      flexDirection: 'row-reverse',
+      paddingBottom: 8,
+      paddingTop: 8
+    });
+    expect(screen.getByText('الحسابات')).toHaveStyle({
+      alignSelf: 'stretch',
+      textAlign: 'right',
+      width: '100%'
+    });
+    expect(
+      screen.getByLabelText(translate('appShell.navigation.back', 'ar'))
+    ).toHaveStyle({ height: 48, width: 48 });
   });
 });

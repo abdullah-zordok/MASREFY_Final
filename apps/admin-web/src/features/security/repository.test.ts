@@ -152,3 +152,135 @@ describe("BE013 operations incident mapping", () => {
     })).rejects.toMatchObject({ code: "provider_unavailable" });
   });
 });
+
+describe("BE003 live deletion workflow mapping", () => {
+  const deletionId = "13000000-0000-4000-8000-000000000021";
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS = "false";
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    process.env.NEXT_PUBLIC_ENABLE_MOCKS = "true";
+  });
+
+  test("loads the real deletion page without inventing customer or checklist data", async () => {
+    mockServer.use(
+      http.get("/api/v1/admin/privacy/deletions", ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("limit")).toBe("25");
+        expect(url.searchParams.has("page")).toBe(false);
+        return HttpResponse.json({
+          items: [{
+            id: deletionId,
+            status: "verified",
+            requestedAt: "2026-09-12T10:00:00.000Z",
+            coolingOffEndsAt: "2026-09-13T10:00:00.000Z",
+            completedAt: null,
+            version: 2,
+          }],
+          nextCursor: null,
+        });
+      }),
+    );
+
+    await expect(
+      securityRepository.listDeletionRequests({ page: 1, pageSize: 25 }),
+    ).resolves.toMatchObject({
+      items: [{
+        id: deletionId,
+        state: "Scheduled",
+        requestedAt: "2026-09-12T10:00:00.000Z",
+        coolingOffEndsAt: "2026-09-13T10:00:00.000Z",
+        completedAt: null,
+        legalHold: null,
+        checklist: [],
+        revision: 2,
+        allowedActions: ["cancel"],
+        auditReferences: [],
+      }],
+      pagination: { page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
+      region: { availability: "available" },
+    });
+  });
+
+  test("translates the Admin workflow state to the backend status filter", async () => {
+    mockServer.use(
+      http.get("/api/v1/admin/privacy/deletions", ({ request }) => {
+        expect(new URL(request.url).searchParams.get("status")).toBe("verified");
+        return HttpResponse.json({ items: [], nextCursor: null });
+      }),
+    );
+
+    await expect(securityRepository.listDeletionRequests({
+      state: "Scheduled",
+      page: 1,
+      pageSize: 25,
+    })).resolves.toMatchObject({ region: { availability: "empty" } });
+  });
+
+  test("finds a deletion detail through the real cursor pages", async () => {
+    mockServer.use(
+      http.get("/api/v1/admin/privacy/deletions", ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        return HttpResponse.json(cursor
+          ? {
+              items: [{
+                id: deletionId,
+                status: "failed",
+                requestedAt: "2026-09-12T10:00:00.000Z",
+                coolingOffEndsAt: "2026-09-13T10:00:00.000Z",
+                completedAt: null,
+                version: 3,
+              }],
+              nextCursor: null,
+            }
+          : { items: [], nextCursor: "deletion-page-2" });
+      }),
+    );
+
+    await expect(securityRepository.getDeletionRequest(deletionId)).resolves.toMatchObject({
+      id: deletionId,
+      state: "Blocked",
+      revision: 3,
+      allowedActions: ["retry"],
+    });
+  });
+
+  test("maps the reviewed UI action to the exact backend action contract", async () => {
+    let body: unknown;
+    mockServer.use(
+      http.post(`/api/v1/admin/privacy/deletions/${deletionId}/actions`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          id: deletionId,
+          status: "verified",
+          requestedAt: "2026-09-12T10:00:00.000Z",
+          coolingOffEndsAt: "2026-09-13T10:00:00.000Z",
+          completedAt: null,
+          version: 2,
+        });
+      }),
+    );
+
+    await expect(securityRepository.actOnDeletionRequest(deletionId, {
+      action: "review",
+      context: {
+        expectedState: "Requested",
+        expectedRevision: 1,
+        reason: "Deletion request reviewed against the retention policy.",
+        confirmationToken: "CONFIRM-SPEC-008",
+      },
+    })).resolves.toMatchObject({
+      id: deletionId,
+      state: "Scheduled",
+      revision: 2,
+    });
+    expect(body).toEqual({
+      action: "verify",
+      reason: "Deletion request reviewed against the retention policy.",
+      expectedVersion: 1,
+    });
+  });
+});

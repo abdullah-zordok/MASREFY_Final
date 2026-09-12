@@ -1,5 +1,8 @@
 # Implementation Plan: R05 — Add Transaction and Voice Entry
 
+> **CLOSED / SUPERSEDED (2026-09-11):** Do not execute or depend on this plan. Add remains
+> manual-only and Voice remains on Home. Unchecked tasks are cancelled historical backlog.
+
 **Branch**: `016-r05-add-voice` | **Date**: 2026-08-15 | **Spec**: [spec.md](./spec.md)
 
 **Input**: R05 specification in `specs/016-r05-add-voice/spec.md`, the approved redesign analysis, the implemented Add/manual/voice flows, R01 shared contracts, and existing core-finance/voice contracts.

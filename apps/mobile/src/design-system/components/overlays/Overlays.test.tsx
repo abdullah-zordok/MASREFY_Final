@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { act, fireEvent } from '@testing-library/react-native';
 
 import { renderWithProviders } from '@/test-utils/render';
@@ -74,12 +74,37 @@ describe('overlays', () => {
     const handle = screen.getByTestId('app-sheet-handle');
     expect(handle).toBeTruthy();
     expect(
+      screen.UNSAFE_getAllByType(View).filter((view) => {
+        const style = StyleSheet.flatten(view.props.style);
+        return style?.height === 4 && style?.width === 36;
+      })
+    ).toHaveLength(1);
+    expect(
       screen.queryByLabelText(translate('appShell.navigation.close'))
     ).toBeNull();
     expect(handle.props.onResponderRelease).toEqual(expect.any(Function));
     expect(shouldDismissMenuSheet(96, 0)).toBe(true);
     expect(shouldDismissMenuSheet(12, 1)).toBe(true);
     expect(shouldDismissMenuSheet(12, 0.2)).toBe(false);
+  });
+
+  it('applies RTL layout direction inside the modal sheet', () => {
+    changeLocale('ar');
+    usePreferenceStore.setState({ locale: 'ar', direction: 'rtl' });
+
+    const screen = renderWithProviders(
+      <AppSheet appearance="menu" title="اختر الحساب" visible onDismiss={jest.fn()}>
+        <></>
+      </AppSheet>
+    );
+
+    expect(screen.getByTestId('app-sheet-menu')).toHaveStyle({
+      direction: 'rtl'
+    });
+    expect(screen.getByText('اختر الحساب')).toHaveStyle({
+      textAlign: 'right',
+      writingDirection: 'rtl'
+    });
   });
 
   it('snaps back without a spring when reduced motion is enabled', () => {

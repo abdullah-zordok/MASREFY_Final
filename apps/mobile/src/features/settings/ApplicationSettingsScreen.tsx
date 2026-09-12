@@ -25,13 +25,21 @@ export function ApplicationSettingsScreen() {
   const locale = usePreferenceStore((state) => state.locale);
   const setLocale = usePreferenceStore((state) => state.setLocale);
 
-  const baseCurrencyCode = usePreferenceStore((state) => state.baseCurrencyCode);
+  const baseCurrencyCode = usePreferenceStore(
+    (state) => state.baseCurrencyCode
+  );
   const monthStartDay = usePreferenceStore((state) => state.monthStartDay);
   const firstDayOfWeek = usePreferenceStore((state) => state.firstDayOfWeek);
-  const defaultAccountId = usePreferenceStore((state) => state.defaultAccountId);
+  const defaultAccountId = usePreferenceStore(
+    (state) => state.defaultAccountId
+  );
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
-  const toggleHideBalances = usePreferenceStore((state) => state.toggleHideBalances);
-  const update = usePreferenceStore((state) => state.updateApplicationPreferences);
+  const toggleHideBalances = usePreferenceStore(
+    (state) => state.toggleHideBalances
+  );
+  const update = usePreferenceStore(
+    (state) => state.updateApplicationPreferences
+  );
 
   const accountsQuery = useAccounts(true);
   const accounts: Account[] = accountsQuery.data ?? [];
@@ -108,9 +116,7 @@ export function ApplicationSettingsScreen() {
             </StyledText>
             <ChipSelector
               options={languageLabels}
-              selected={[
-                t(`settings.application.language.${locale}`)
-              ]}
+              selected={[t(`settings.application.language.${locale}`)]}
               onToggle={(label) =>
                 setLocale(languages[languageLabels.indexOf(label)] ?? locale)
               }
@@ -118,10 +124,7 @@ export function ApplicationSettingsScreen() {
           </View>
 
           <View
-            style={[
-              styles.divider,
-              { backgroundColor: theme.colors.border }
-            ]}
+            style={[styles.divider, { backgroundColor: theme.colors.border }]}
           />
 
           {/* 2. First Day of Week */}
@@ -141,9 +144,7 @@ export function ApplicationSettingsScreen() {
             </StyledText>
             <ChipSelector
               options={weekStartLabels}
-              selected={[
-                t(`notifications.preferences.day.${firstDayOfWeek}`)
-              ]}
+              selected={[t(`notifications.preferences.day.${firstDayOfWeek}`)]}
               onToggle={(label) =>
                 update({
                   firstDayOfWeek:
@@ -154,10 +155,7 @@ export function ApplicationSettingsScreen() {
           </View>
 
           <View
-            style={[
-              styles.divider,
-              { backgroundColor: theme.colors.border }
-            ]}
+            style={[styles.divider, { backgroundColor: theme.colors.border }]}
           />
 
           {/* 3. Currency */}
@@ -170,7 +168,9 @@ export function ApplicationSettingsScreen() {
               styles.physicalLtr,
               {
                 flexDirection: isRtl ? 'row-reverse' : 'row',
-                backgroundColor: pressed ? theme.colors.surfaceMuted : 'transparent'
+                backgroundColor: pressed
+                  ? theme.colors.surfaceMuted
+                  : 'transparent'
               }
             ]}
           >
@@ -181,11 +181,16 @@ export function ApplicationSettingsScreen() {
                 { flexDirection: isRtl ? 'row-reverse' : 'row' }
               ]}
             >
-              <View style={[styles.iconBadge, { backgroundColor: colorTokens.raw["E3F7F2"] }]}>
+              <View
+                style={[
+                  styles.iconBadge,
+                  { backgroundColor: colorTokens.raw['E3F7F2'] }
+                ]}
+              >
                 <DesignIcon
                   name="accounts"
                   label="Currency"
-                  color={colorTokens.raw["0F6B58"]}
+                  color={colorTokens.raw['0F6B58']}
                   size="md"
                   direction={direction}
                   decorative
@@ -211,7 +216,12 @@ export function ApplicationSettingsScreen() {
                 { flexDirection: isRtl ? 'row-reverse' : 'row' }
               ]}
             >
-              <StyledText style={[styles.navRowValue, { color: theme.colors.content.secondary }]}>
+              <StyledText
+                style={[
+                  styles.navRowValue,
+                  { color: theme.colors.content.secondary }
+                ]}
+              >
                 {baseCurrencyCode}
               </StyledText>
               <DesignIcon
@@ -226,10 +236,7 @@ export function ApplicationSettingsScreen() {
           </Pressable>
 
           <View
-            style={[
-              styles.divider,
-              { backgroundColor: theme.colors.border }
-            ]}
+            style={[styles.divider, { backgroundColor: theme.colors.border }]}
           />
 
           {/* 4. Month Start Day */}
@@ -242,7 +249,9 @@ export function ApplicationSettingsScreen() {
               styles.physicalLtr,
               {
                 flexDirection: isRtl ? 'row-reverse' : 'row',
-                backgroundColor: pressed ? theme.colors.surfaceMuted : 'transparent'
+                backgroundColor: pressed
+                  ? theme.colors.surfaceMuted
+                  : 'transparent'
               }
             ]}
           >
@@ -253,11 +262,16 @@ export function ApplicationSettingsScreen() {
                 { flexDirection: isRtl ? 'row-reverse' : 'row' }
               ]}
             >
-              <View style={[styles.iconBadge, { backgroundColor: colorTokens.raw["F3EEF9"] }]}>
+              <View
+                style={[
+                  styles.iconBadge,
+                  { backgroundColor: colorTokens.raw['F3EEF9'] }
+                ]}
+              >
                 <DesignIcon
                   name="tracking"
                   label="Month Start"
-                  color={colorTokens.raw["68469C"]}
+                  color={colorTokens.raw['68469C']}
                   size="md"
                   direction={direction}
                   decorative
@@ -283,7 +297,12 @@ export function ApplicationSettingsScreen() {
                 { flexDirection: isRtl ? 'row-reverse' : 'row' }
               ]}
             >
-              <StyledText style={[styles.navRowValue, { color: theme.colors.content.secondary }]}>
+              <StyledText
+                style={[
+                  styles.navRowValue,
+                  { color: theme.colors.content.secondary }
+                ]}
+              >
                 {formatDayOrdinal(monthStartDay, locale)}
               </StyledText>
               <DesignIcon
@@ -345,15 +364,20 @@ export function ApplicationSettingsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${t('settings.application.defaultAccount')} ${
-                selectedAccount?.name ?? t('settings.application.defaultAccount.placeholder')
+                selectedAccount?.name ??
+                t('settings.application.defaultAccount.placeholder')
               }`}
               accessibilityState={{ expanded: isDropdownOpen }}
               onPress={() => setIsDropdownOpen(!isDropdownOpen)}
               style={({ pressed }) => [
                 styles.dropdownTrigger,
                 {
-                  borderColor: isDropdownOpen ? colorTokens.raw["103F37"] : theme.colors.border,
-                  backgroundColor: isDropdownOpen ? colorTokens.raw["F6FAF8"] : colorTokens.raw["FAFCFB"],
+                  borderColor: isDropdownOpen
+                    ? colorTokens.raw['103F37']
+                    : theme.colors.border,
+                  backgroundColor: isDropdownOpen
+                    ? colorTokens.raw['F6FAF8']
+                    : colorTokens.raw['FAFCFB'],
                   flexDirection: isRtl ? 'row-reverse' : 'row'
                 },
                 pressed && { opacity: 0.85 }
@@ -369,7 +393,7 @@ export function ApplicationSettingsScreen() {
                   <DesignIcon
                     name="accounts"
                     label="Account"
-                    color={colorTokens.raw["1F7A5A"]}
+                    color={colorTokens.raw['1F7A5A']}
                     size="control"
                     decorative
                   />
@@ -396,7 +420,9 @@ export function ApplicationSettingsScreen() {
                   {selectedAccount ? (
                     <StyledText style={styles.subtext}>
                       {selectedAccount.currencyCode}
-                      {selectedAccount.lastFour ? ` · ****${selectedAccount.lastFour}` : ''}
+                      {selectedAccount.lastFour
+                        ? ` · ****${selectedAccount.lastFour}`
+                        : ''}
                     </StyledText>
                   ) : null}
                 </View>
@@ -405,7 +431,7 @@ export function ApplicationSettingsScreen() {
               <DesignIcon
                 name="chevronDown"
                 label="Expand"
-                color={colorTokens.raw["707870"]}
+                color={colorTokens.raw['707870']}
                 size="control"
                 decorative
               />
@@ -425,7 +451,9 @@ export function ApplicationSettingsScreen() {
                 {/* Option: None / No default account */}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t('settings.application.defaultAccount.none')}
+                  accessibilityLabel={t(
+                    'settings.application.defaultAccount.none'
+                  )}
                   accessibilityState={{ selected: !defaultAccountId }}
                   onPress={() => {
                     update({ defaultAccountId: null });
@@ -435,7 +463,7 @@ export function ApplicationSettingsScreen() {
                     styles.dropdownItem,
                     { flexDirection: isRtl ? 'row-reverse' : 'row' },
                     !defaultAccountId && styles.dropdownItemActive,
-                    pressed && { backgroundColor: colorTokens.raw["F0F6F3"] }
+                    pressed && { backgroundColor: colorTokens.raw['F0F6F3'] }
                   ]}
                 >
                   <StyledText
@@ -450,7 +478,7 @@ export function ApplicationSettingsScreen() {
                     <DesignIcon
                       name="check"
                       label="Selected"
-                      color={colorTokens.raw["103F37"]}
+                      color={colorTokens.raw['103F37']}
                       size="sm"
                       decorative
                     />
@@ -474,7 +502,9 @@ export function ApplicationSettingsScreen() {
                         styles.dropdownItem,
                         { flexDirection: isRtl ? 'row-reverse' : 'row' },
                         isSelected && styles.dropdownItemActive,
-                        pressed && { backgroundColor: colorTokens.raw["F0F6F3"] }
+                        pressed && {
+                          backgroundColor: colorTokens.raw['F0F6F3']
+                        }
                       ]}
                     >
                       <View
@@ -499,7 +529,7 @@ export function ApplicationSettingsScreen() {
                         <DesignIcon
                           name="check"
                           label="Selected"
-                          color={colorTokens.raw["103F37"]}
+                          color={colorTokens.raw['103F37']}
                           size="sm"
                           decorative
                         />
@@ -520,10 +550,7 @@ export function ApplicationSettingsScreen() {
           </View>
 
           <View
-            style={[
-              styles.divider,
-              { backgroundColor: theme.colors.border }
-            ]}
+            style={[styles.divider, { backgroundColor: theme.colors.border }]}
           />
 
           {/* 4. Hide Balances Row */}
@@ -531,8 +558,8 @@ export function ApplicationSettingsScreen() {
             label="settings.application.hideBalances"
             subtext="settings.application.hideBalancesSubtitle"
             icon={hideBalances ? 'eyeSlash' : 'eye'}
-            iconBg={colorTokens.raw["EBF5EC"]}
-            iconFg={colorTokens.raw["1F7A5A"]}
+            iconBg={colorTokens.raw['EBF5EC']}
+            iconFg={colorTokens.raw['1F7A5A']}
             value={hideBalances}
             onValueChange={toggleHideBalances}
           />
@@ -552,7 +579,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs
   },
   sectionHeading: {
-    color: colorTokens.raw["707870"],
+    color: colorTokens.raw['707870'],
     fontSize: 13,
     fontWeight: '600',
     paddingHorizontal: 4
@@ -570,11 +597,11 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: colorTokens.raw["10231F"]
+    color: colorTokens.raw['10231F']
   },
   subtext: {
     fontSize: 12,
-    color: colorTokens.raw["707870"],
+    color: colorTokens.raw['707870'],
     lineHeight: 16
   },
   divider: {
@@ -600,7 +627,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: colorTokens.raw["EBF5EC"],
+    backgroundColor: colorTokens.raw['EBF5EC'],
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -611,14 +638,14 @@ const styles = StyleSheet.create({
   dropdownSelectedText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colorTokens.raw["10231F"]
+    color: colorTokens.raw['10231F']
   },
   dropdownMenu: {
     marginTop: spacing.xs,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
     overflow: 'hidden',
-    shadowColor: colorTokens.raw["000"],
+    shadowColor: colorTokens.raw['000'],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -631,11 +658,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colorTokens.raw["F0F4F2"],
+    borderBottomColor: colorTokens.raw['F0F4F2'],
     minHeight: 46
   },
   dropdownItemActive: {
-    backgroundColor: colorTokens.raw["F3F9F6"]
+    backgroundColor: colorTokens.raw['F3F9F6']
   },
   dropdownItemTextStack: {
     flex: 1,
@@ -644,15 +671,15 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colorTokens.raw["2A332F"]
+    color: colorTokens.raw['2A332F']
   },
   dropdownItemTextActive: {
     fontWeight: '700',
-    color: colorTokens.raw["103F37"]
+    color: colorTokens.raw['103F37']
   },
   dropdownItemSub: {
     fontSize: 12,
-    color: colorTokens.raw["707870"]
+    color: colorTokens.raw['707870']
   },
   emptyItem: {
     padding: spacing.md,
@@ -673,7 +700,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: colorTokens.raw["EBF5EC"],
+    backgroundColor: colorTokens.raw['EBF5EC'],
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -689,17 +716,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   switchTrackOn: {
-    backgroundColor: colorTokens.raw["103F37"]
+    backgroundColor: colorTokens.raw['103F37']
   },
   switchTrackOff: {
-    backgroundColor: colorTokens.raw["DDE5E1"]
+    backgroundColor: colorTokens.raw['DDE5E1']
   },
   switchThumb: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colorTokens.raw["FFFFFF"],
-    shadowColor: colorTokens.raw["000000"],
+    backgroundColor: colorTokens.raw['FFFFFF'],
+    shadowColor: colorTokens.raw['000000'],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -742,7 +769,7 @@ const styles = StyleSheet.create({
   navRowTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colorTokens.raw["10231F"]
+    color: colorTokens.raw['10231F']
   },
   navRowRight: {
     alignItems: 'center',

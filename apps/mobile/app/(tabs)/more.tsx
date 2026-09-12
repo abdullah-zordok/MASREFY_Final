@@ -1,12 +1,11 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { MenuLink } from '@/components/MenuLink';
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { AppBar } from '@/design-system/components/navigation/AppNavigation';
-import { DesignIcon } from '@/design-system/icons';
 import {
   useAssistantAvailability,
   useAssistantConsent
@@ -52,8 +51,6 @@ export default function MoreRoute() {
     session?.userId ?? translate('appShell.more.defaultUserEmail', locale);
   const initial =
     userName.trim().charAt(0).toUpperCase() || (isRtl ? '\u0639' : 'M');
-  const profileLabel = translate('appShell.more.profileSummary', locale);
-  const basicPlanLabel = translate('appShell.more.planBasic', locale);
 
   return (
     <ScrollView
@@ -69,18 +66,14 @@ export default function MoreRoute() {
       />
 
       {/* Top Profile Summary Card */}
-      <Pressable
-        onPress={() => router.push('/subscriptions')}
-        accessibilityRole="link"
-        accessibilityLabel={`${userName}, ${basicPlanLabel}`}
-        style={({ pressed }) => [
+      <View
+        style={[
           styles.profileCard,
           {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border,
             flexDirection: 'row'
-          },
-          pressed && { backgroundColor: theme.colors.surfaceMuted }
+          }
         ]}
       >
         <View style={styles.avatar}>
@@ -94,35 +87,16 @@ export default function MoreRoute() {
             { alignItems: 'flex-start' }
           ]}
         >
-          <View
-            style={[
-              styles.profileNameRow,
-              { flexDirection: 'row' }
-            ]}
-          >
-            <StyledText style={styles.profileName} variant="body">
-              {userName}
-            </StyledText>
-            <View style={styles.planBadge}>
-              <StyledText style={styles.planBadgeText}>
-                {basicPlanLabel}
-              </StyledText>
-            </View>
-          </View>
+          <StyledText style={styles.profileName} variant="body">
+            {userName}
+          </StyledText>
           <StyledText
             style={[styles.profileSub, { color: theme.colors.content.secondary }]}
           >
             {userEmail}
           </StyledText>
         </View>
-        <DesignIcon
-          name="chevronEnd"
-          label={profileLabel}
-          color={theme.colors.textSecondary}
-          direction={direction}
-          decorative
-        />
-      </Pressable>
+      </View>
 
       {/* Section 1: Account and Settings */}
       <View style={styles.section}>
@@ -379,10 +353,6 @@ const styles = StyleSheet.create({
   profileInfo: {
     flex: 1
   },
-  profileNameRow: {
-    alignItems: 'center',
-    gap: spacing.xs
-  },
   profileName: {
     fontSize: 16,
     fontWeight: '700'
@@ -390,17 +360,6 @@ const styles = StyleSheet.create({
   profileSub: {
     fontSize: 12,
     marginTop: 2
-  },
-  planBadge: {
-    backgroundColor: colorTokens.raw["E7F3EF"],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 18
-  },
-  planBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colorTokens.raw["175B4F"]
   },
   cardGroup: {
     borderRadius: 18,

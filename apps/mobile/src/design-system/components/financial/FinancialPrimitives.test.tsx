@@ -29,11 +29,13 @@ describe('financial primitives', () => {
         currency="EGP"
         meaning="income"
         sign="positive"
+        size="home"
       />
     );
 
     expect(screen.getByText('+1,250.00 EGP')).toHaveStyle({
       fontFamily: 'MasarifiLatin-700',
+      fontSize: 16.5,
       writingDirection: 'ltr',
       fontVariant: ['tabular-nums']
     });

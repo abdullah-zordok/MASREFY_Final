@@ -66,7 +66,7 @@ export function AmountText({
   color?: string;
   masked?: boolean;
   sign?: FinancialDisplaySign;
-  size?: 'default' | 'row' | 'hero';
+  size?: 'compact' | 'default' | 'home' | 'row' | 'hero';
   state?: FinancialDisplayState;
 }) {
   const theme = useTheme();
@@ -92,6 +92,8 @@ export function AmountText({
       }
       style={[
         styles.amount,
+        size === 'compact' && styles.compactAmount,
+        size === 'home' && styles.homeAmount,
         size === 'row' && styles.rowAmount,
         size === 'hero' && styles.heroAmount,
         {
@@ -195,6 +197,10 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 22,
     fontWeight: '700'
+  },
+  compactAmount: { fontSize: 13, lineHeight: 18 },
+  homeAmount: {
+    fontSize: 16.5
   },
   rowAmount: {
     fontSize: 16

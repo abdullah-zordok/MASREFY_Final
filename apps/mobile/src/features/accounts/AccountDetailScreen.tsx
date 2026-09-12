@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { Alert, PixelRatio, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  PixelRatio,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -7,8 +15,11 @@ import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { FormField } from '@/design-system/components/forms/FormField';
 import { StateView } from '@/design-system/components/feedback/StateView';
-import { FinancialPulse } from '@/design-system/components/financial/FinancialPulse';
-import { GroupedList } from '@/design-system/components/navigation/GroupedList';
+import { BrandedScreenHeader } from '@/design-system/components/navigation/AppNavigation';
+import { layoutDirectionStyle } from '@/design-system/direction';
+import { DesignIcon } from '@/design-system/icons';
+import { colorTokens, spacing } from '@/design-system/tokens';
+import { editorialFontFamilyForLocale } from '@/design-system/typography';
 import {
   emptyTransactionFilters,
   parseAmountToMinor,
@@ -28,8 +39,8 @@ import type { AccountBalanceProjection } from '@/services/contracts/core-finance
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { usePreferenceStore } from '@/state/preferences';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
+import { useTheme } from '@/state/theme-context';
 import { formatFinancialDisplayValue } from '@/utils/format-financial-value';
-import { AccountRow } from './AccountRow';
 import { projectAccount } from './account-presentation';
 
 export function AccountDetailScreen({ id }: { id: string }) {
@@ -48,6 +59,8 @@ export function AccountDetailScreen({ id }: { id: string }) {
   });
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
   const locale = usePreferenceStore((state) => state.locale);
+  const direction = usePreferenceStore((state) => state.direction);
+  const theme = useTheme();
   const { revealed } = useSensitiveVisibility();
   const largeText = PixelRatio.getFontScale() >= 1.5;
   if (account.isLoading || balances.isLoading)
@@ -91,7 +104,10 @@ export function AccountDetailScreen({ id }: { id: string }) {
         : presentation.balanceMinor,
     currencyCode: value.currencyCode,
     locale,
-    sign: 'none',
+    sign:
+      presentation.balanceMinor !== null && presentation.balanceMinor < 0
+        ? 'negative'
+        : 'none',
     state: presentation.balanceState
   });
   const archiveLabel =
@@ -174,153 +190,322 @@ export function AccountDetailScreen({ id }: { id: string }) {
       setPayoffResult(translate('coreFinance.state.error'));
     }
   };
+  const isRtl = direction === 'rtl';
+  const recentTransactions = (activity.data?.items ?? []) as Transaction[];
+  const trackingLabel = supportsAutomaticTrackingAccountType(value.type)
+    ? translate(
+        value.automaticTrackingEnabled
+          ? 'coreFinance.accounts.automaticTrackingEnabled'
+          : 'coreFinance.accounts.automaticTrackingDisabled'
+      )
+    : null;
+  const accountIdentity = `${translate(
+    `coreFinance.accountType.${value.type}` as never
+  )} · ${presentation.identityLine}`;
   return (
-    <ScrollView contentContainerStyle={styles.stack}>
-      <FinancialPulse
-        accessibilityLabel={balanceDisplay.accessibilityLabel}
-        scope={translate('coreFinance.accounts.balanceAvailable')}
-        statement={balanceDisplay.text.replace(/[\u2066\u2069]/g, '')}
-        supportingValue={value.name}
+    <ScrollView
+      contentContainerStyle={{
+        backgroundColor: colorTokens.raw.F3F5F3,
+        minHeight: '100%'
+      }}
+    >
+      <BrandedScreenHeader
+        compact
+        direction={direction}
+        subtitle={accountIdentity}
+        testID="account-detail-masthead"
+        title={value.name}
+        titleTestID="account-detail-masthead-title"
       />
-      <GroupedList label={value.name}>
-        <AccountRow presentation={presentation} />
-      </GroupedList>
-      {supportsAutomaticTrackingAccountType(value.type) ? (
-        <StyledText variant="caption">
-          {translate(
-            value.automaticTrackingEnabled
-              ? 'coreFinance.accounts.automaticTrackingEnabled'
-              : 'coreFinance.accounts.automaticTrackingDisabled'
+      <View style={styles.content}>
+        <View
+          testID="account-detail-hero"
+          accessibilityLabel={[balanceDisplay.accessibilityLabel, trackingLabel]
+            .filter(Boolean)
+            .join(', ')}
+          style={styles.hero}
+        >
+          <View style={styles.heroOrbit} />
+          <Text
+            style={[
+              styles.heroLabel,
+              {
+                fontFamily: editorialFontFamilyForLocale(locale, 400),
+                textAlign: isRtl ? 'right' : 'left',
+                writingDirection: direction
+              }
+            ]}
+          >
+            {translate('coreFinance.accounts.balanceCurrent')}
+          </Text>
+          <Text
+            testID="financial-pulse-statement"
+            adjustsFontSizeToFit={!largeText}
+            minimumFontScale={0.72}
+            numberOfLines={largeText ? 2 : 1}
+            style={[
+              styles.heroAmount,
+              {
+                fontFamily: editorialFontFamilyForLocale('en', 700),
+                textAlign: isRtl ? 'right' : 'left'
+              }
+            ]}
+          >
+            {balanceDisplay.text.replace(/[\u2066\u2069]/g, '')}
+          </Text>
+          <Text
+            style={[
+              styles.heroNote,
+              {
+                fontFamily: editorialFontFamilyForLocale(locale, 400),
+                textAlign: isRtl ? 'right' : 'left',
+                writingDirection: direction
+              }
+            ]}
+          >
+            {translate('coreFinance.accounts.balanceCalculated')}
+          </Text>
+        </View>
+        {value.type === 'credit_card' ? (
+          <View style={styles.creditCardPanel}>
+            {value.statementDay !== null ? (
+              <TermRow
+                label={translate('coreFinance.accounts.setup.statementDay')}
+                value={String(value.statementDay)}
+              />
+            ) : null}
+            {value.paymentDueDay !== null ? (
+              <TermRow
+                label={translate('coreFinance.accounts.setup.dueDay')}
+                value={String(value.paymentDueDay)}
+              />
+            ) : null}
+            {value.monthlyInterestRateBasisPoints !== null ? (
+              <TermRow
+                label={translate(
+                  'coreFinance.accounts.setup.monthlyInterestBasisPoints'
+                )}
+                value={String(value.monthlyInterestRateBasisPoints)}
+              />
+            ) : null}
+            {value.minimumPaymentMinor !== null ? (
+              <TermRow
+                label={translate('coreFinance.accounts.setup.minimumPayment')}
+                value={
+                  formatFinancialDisplayValue({
+                    minorUnits: value.minimumPaymentMinor,
+                    currencyCode: value.currencyCode,
+                    locale,
+                    sign: 'none',
+                    state: hidden ? 'hidden' : 'confirmed'
+                  }).text
+                }
+              />
+            ) : null}
+            <StyledText variant="subtitle">
+              {translate('coreFinance.accounts.payoff.title')}
+            </StyledText>
+            <FormField
+              label={translate('coreFinance.accounts.payoff.balance')}
+              value={payoffBalance}
+              onChangeText={setPayoffBalance}
+              variant="amount"
+            />
+            <FormField
+              label={translate('coreFinance.accounts.payoff.rateBasisPoints')}
+              value={payoffRate}
+              onChangeText={setPayoffRate}
+              keyboardType="number-pad"
+            />
+            <FormField
+              label={translate('coreFinance.accounts.payoff.payment')}
+              value={payoffPayment}
+              onChangeText={setPayoffPayment}
+              variant="amount"
+            />
+            <ActionButton
+              label={translate('coreFinance.accounts.payoff.calculate')}
+              variant="secondary"
+              onPress={() => void calculatePayoff()}
+            />
+            {payoffResult ? <StyledText>{payoffResult}</StyledText> : null}
+          </View>
+        ) : null}
+        <View
+          testID="account-detail-activity-header"
+          style={[
+            styles.sectionHeader,
+            styles.physicalLtr,
+            { flexDirection: isRtl ? 'row-reverse' : 'row' }
+          ]}
+        >
+          <StyledText
+            style={[
+              styles.sectionTitle,
+              { fontFamily: editorialFontFamilyForLocale(locale, 700) }
+            ]}
+          >
+            {translate('coreFinance.home.details')}
+          </StyledText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={translate('coreFinance.home.viewAll')}
+            onPress={() => router.push(`/(tabs)/transactions?accountId=${id}`)}
+            style={styles.viewAll}
+          >
+            <StyledText
+              style={[
+                styles.sectionLink,
+                {
+                  color: theme.colors.content.link,
+                  fontFamily: editorialFontFamilyForLocale(locale, 700)
+                }
+              ]}
+            >
+              {translate('coreFinance.home.viewAll')}
+            </StyledText>
+          </Pressable>
+        </View>
+        <View
+          testID="account-detail-activity-card"
+          style={[
+            styles.activityCard,
+            {
+              backgroundColor: colorTokens.surface.white,
+              borderColor: colorTokens.raw.E2E7E3
+            }
+          ]}
+        >
+          {activity.isLoading ? (
+            <StateView
+              state="loading"
+              title={translate('coreFinance.state.loading')}
+            />
+          ) : activity.isError ? (
+            <StateView
+              state="error"
+              title={translate('coreFinance.state.error')}
+              actionLabel={translate('coreFinance.action.retry')}
+              onAction={() => void activity.refetch()}
+            />
+          ) : recentTransactions.length ? (
+            recentTransactions
+              .slice(0, 3)
+              .map((transaction, index, items) => (
+                <TransactionCard
+                  key={transaction.id}
+                  accountName={value.name}
+                  groupedPosition={
+                    items.length === 1
+                      ? 'only'
+                      : index === 0
+                        ? 'first'
+                        : index === items.length - 1
+                          ? 'last'
+                          : 'middle'
+                  }
+                  hidden={hidden}
+                  largeText={largeText}
+                  testIDPrefix="account"
+                  transaction={transaction}
+                />
+              ))
+          ) : (
+            <StateView
+              state="empty"
+              title={translate('coreFinance.accounts.noRecentActivity')}
+            />
           )}
-        </StyledText>
-      ) : null}
-      {value.type === 'credit_card' ? (
-        <View style={styles.stack}>
-          {value.statementDay !== null ? (
-            <TermRow
-              label={translate('coreFinance.accounts.setup.statementDay')}
-              value={String(value.statementDay)}
+        </View>
+        {actionError ? (
+          <StyledText variant="caption">{actionError}</StyledText>
+        ) : null}
+        {value.status !== 'closed' ? (
+          <View style={styles.actions}>
+            <ReferenceAction
+              label={translate('coreFinance.accounts.edit')}
+              kind="primary"
+              onPress={() => router.push(`/accounts/${id}/edit`)}
             />
-          ) : null}
-          {value.paymentDueDay !== null ? (
-            <TermRow
-              label={translate('coreFinance.accounts.setup.dueDay')}
-              value={String(value.paymentDueDay)}
-            />
-          ) : null}
-          {value.monthlyInterestRateBasisPoints !== null ? (
-            <TermRow
-              label={translate(
-                'coreFinance.accounts.setup.monthlyInterestBasisPoints'
-              )}
-              value={String(value.monthlyInterestRateBasisPoints)}
-            />
-          ) : null}
-          {value.minimumPaymentMinor !== null ? (
-            <TermRow
-              label={translate('coreFinance.accounts.setup.minimumPayment')}
-              value={
-                formatFinancialDisplayValue({
-                  minorUnits: value.minimumPaymentMinor,
-                  currencyCode: value.currencyCode,
-                  locale,
-                  sign: 'none',
-                  state: hidden ? 'hidden' : 'confirmed'
-                }).text
+            <ReferenceAction
+              label={translate('coreFinance.action.transfer')}
+              kind="secondary"
+              onPress={() =>
+                router.push(`/(tabs)/add?type=transfer&accountId=${id}`)
               }
             />
-          ) : null}
-          <StyledText variant="subtitle">
-            {translate('coreFinance.accounts.payoff.title')}
-          </StyledText>
-          <FormField
-            label={translate('coreFinance.accounts.payoff.balance')}
-            value={payoffBalance}
-            onChangeText={setPayoffBalance}
-            variant="amount"
-          />
-          <FormField
-            label={translate('coreFinance.accounts.payoff.rateBasisPoints')}
-            value={payoffRate}
-            onChangeText={setPayoffRate}
-            keyboardType="number-pad"
-          />
-          <FormField
-            label={translate('coreFinance.accounts.payoff.payment')}
-            value={payoffPayment}
-            onChangeText={setPayoffPayment}
-            variant="amount"
-          />
-          <ActionButton
-            label={translate('coreFinance.accounts.payoff.calculate')}
-            variant="secondary"
-            onPress={() => void calculatePayoff()}
-          />
-          {payoffResult ? <StyledText>{payoffResult}</StyledText> : null}
-        </View>
-      ) : null}
-      <View style={styles.stack}>
-        <StyledText variant="subtitle">
-          {translate('coreFinance.accounts.recentActivity')}
-        </StyledText>
-        {activity.isLoading ? (
-          <StateView
-            state="loading"
-            title={translate('coreFinance.state.loading')}
-          />
-        ) : activity.isError ? (
-          <StateView
-            state="error"
-            title={translate('coreFinance.state.error')}
-            actionLabel={translate('coreFinance.action.retry')}
-            onAction={() => void activity.refetch()}
-          />
-        ) : (activity.data?.items ?? []).length ? (
-          ((activity.data?.items ?? []) as Transaction[])
-            .slice(0, 3)
-            .map((transaction) => (
-              <TransactionCard
-                key={transaction.id}
-                accountName={value.name}
-                hidden={hidden}
-                largeText={largeText}
-                testIDPrefix="account"
-                transaction={transaction}
-              />
-            ))
-        ) : (
-          <StateView
-            state="empty"
-            title={translate('coreFinance.accounts.noRecentActivity')}
-          />
-        )}
+            <ReferenceAction
+              label={archiveLabel}
+              kind="tertiary"
+              loading={working}
+              onPress={runArchiveAction}
+            />
+          </View>
+        ) : null}
       </View>
-      {actionError ? (
-        <StyledText variant="caption">{actionError}</StyledText>
-      ) : null}
-      {value.status !== 'closed' ? (
-        <>
-          <ActionButton
-            label={translate('coreFinance.accounts.edit')}
-            variant="secondary"
-            onPress={() => router.push(`/accounts/${id}/edit`)}
-          />
-          <ActionButton
-            label={archiveLabel}
-            loading={working}
-            variant={value.status === 'archived' ? 'secondary' : 'destructive'}
-            onPress={runArchiveAction}
-          />
-          <ActionButton
-            label={translate('coreFinance.action.transfer')}
-            variant="secondary"
-            onPress={() =>
-              router.push(`/(tabs)/add?type=transfer&accountId=${id}`)
-            }
-          />
-        </>
-      ) : null}
     </ScrollView>
+  );
+}
+
+function ReferenceAction({
+  kind,
+  label,
+  loading = false,
+  onPress
+}: {
+  kind: 'primary' | 'secondary' | 'tertiary';
+  label: string;
+  loading?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const locale = usePreferenceStore((state) => state.locale);
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ busy: loading, disabled: loading }}
+      disabled={loading}
+      onPress={onPress}
+      style={[
+        styles.action,
+        kind === 'primary' && {
+          backgroundColor: colorTokens.raw['1C3934']
+        },
+        kind === 'secondary' && {
+          backgroundColor: colorTokens.surface.white,
+          borderColor: colorTokens.raw.E2E7E3,
+          borderWidth: 1
+        },
+        kind === 'tertiary' && styles.tertiaryAction
+      ]}
+    >
+      {kind === 'primary' ? (
+        <DesignIcon
+          name="check"
+          label={label}
+          color={colorTokens.surface.white}
+          size="sm"
+          decorative
+        />
+      ) : null}
+      <StyledText
+        style={[
+          styles.actionText,
+          {
+            color:
+              kind === 'primary'
+                ? colorTokens.surface.white
+                : kind === 'tertiary'
+                  ? theme.colors.status.danger
+                  : colorTokens.raw['1C3934'],
+            fontFamily: editorialFontFamilyForLocale(locale, 700)
+          }
+        ]}
+      >
+        {label}
+      </StyledText>
+    </Pressable>
   );
 }
 
@@ -333,5 +518,71 @@ function TermRow({ label, value }: { label: string; value: string }) {
   );
 }
 const styles = StyleSheet.create({
-  stack: { gap: 12, padding: 16 }
+  content: { paddingBottom: 34, paddingHorizontal: 18, paddingTop: 16 },
+  hero: {
+    backgroundColor: colorTokens.raw['1C3934'],
+    borderRadius: 16,
+    marginBottom: 14,
+    minHeight: 129,
+    overflow: 'hidden',
+    padding: 20,
+    shadowColor: colorTokens.raw['102723'],
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14
+  },
+  heroOrbit: {
+    borderColor: 'rgba(226, 206, 183, 0.3)',
+    borderRadius: 80,
+    borderWidth: 1,
+    bottom: -82,
+    height: 160,
+    position: 'absolute',
+    right: -56,
+    width: 160
+  },
+  heroLabel: { color: colorTokens.raw.CFE0DA, fontSize: 12, lineHeight: 17 },
+  heroAmount: {
+    color: colorTokens.surface.white,
+    fontSize: 31,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    letterSpacing: -0.775,
+    lineHeight: 35,
+    marginTop: 6,
+    writingDirection: 'ltr'
+  },
+  heroNote: {
+    color: colorTokens.raw.E1ECE8,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8
+  },
+  creditCardPanel: { gap: spacing.md, marginBottom: 14 },
+  sectionHeader: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 9,
+    marginHorizontal: 2,
+    marginTop: 20
+  },
+  sectionTitle: { fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  sectionLink: { fontSize: 11, fontWeight: '700', lineHeight: 16 },
+  viewAll: { justifyContent: 'center', minHeight: 44 },
+  activityCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  actions: { gap: 8, marginTop: 15 },
+  action: {
+    alignItems: 'center',
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: 9,
+    justifyContent: 'center',
+    minHeight: 50
+  },
+  tertiaryAction: { backgroundColor: 'transparent' },
+  actionText: { fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    writingDirection: 'ltr'
+  }
 });

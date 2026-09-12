@@ -20,18 +20,17 @@ describe('MenuLink', () => {
     expect(ref.current).not.toBeNull();
   });
 
-  it('lets the inherited RTL direction mirror the row order in Arabic', () => {
+  it('aligns Arabic menu labels beside the right-side icon', () => {
     changeLocale('ar');
     usePreferenceStore.setState({ direction: 'rtl', locale: 'ar' });
     const screen = renderWithProviders(<MenuLink label="الوجهة" showChevron />);
 
-    expect(screen.getByTestId('foundation-direction-root')).toHaveStyle({
-      direction: 'rtl'
+    expect(screen.getByRole('link')).toHaveStyle({
+      direction: 'ltr',
+      flexDirection: 'row-reverse'
     });
-    expect(screen.getByRole('link')).toHaveStyle({ flexDirection: 'row' });
-    expect(screen.getByRole('link')).not.toHaveStyle({ direction: 'ltr' });
     expect(screen.getByTestId('menu-link-text')).toHaveStyle({
-      alignItems: 'flex-start'
+      alignItems: 'flex-end'
     });
   });
 });

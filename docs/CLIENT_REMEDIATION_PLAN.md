@@ -27,6 +27,14 @@
 > Phase 14 has nine active waves with Billing omitted. A future SPEC-BE-012 needs
 > a separate explicitly approved Post-MVP goal.
 
+> **Client item #1 reconciliation (2026-09-12):** The free-only account-deletion
+> lifecycle is implemented in BE-003, including recent-auth owner requests,
+> cancellation, Admin read/manage permissions, optimistic version checks,
+> cooling-off/retention-hold enforcement, and worker execution. Mobile privacy
+> requests and the Admin deletion list/detail/actions now use the strict live
+> BE-003 contracts and fail closed on malformed responses. Paid-subscription
+> cancellation remains intentionally deferred with SPEC-BE-012.
+
 ## Global Constraints
 
 - Analysis date: 2026-08-27, Asia/Riyadh.
@@ -982,7 +990,8 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 - [x] Keep production automatic tracking unavailable until Phase 2 corpus evidence passes.
 - [ ] Remove/redact/restrict the #50 screenshot outside the repository and record the distribution review.
 - [ ] Implement BE-002/003/004/005/006/007 changes through their approved Specs and tests; do not edit product tables from the client layer.
-- [ ] Implement deletion orchestration across BE-002/003/012 and wire existing Mobile/Admin views only after live contracts pass.
+- [x] Implement the free-only deletion lifecycle in BE-003 and wire strict Mobile/Admin live contracts for request, list, detail, and supported Admin actions.
+- [ ] Add paid-subscription cancellation only after SPEC-BE-012 receives a separately approved Post-MVP goal and real provider contracts.
 - [ ] Run Phase 1 acceptance: Mobile all 388 suites, Admin unit suite, backend unit/contract/database/RLS/migration tests, financial golden fixtures, Arabic/English smoke.
 
 ### Phase 2 execution
@@ -1015,7 +1024,7 @@ Contract tests must prove OpenAPI/DTO/client schema parity, owner/nonowner/Admin
 
 | Client ID | Verified  | Classification                                     | Phase | Workstream                 | Dependency                    | Status                            |
 | --------: | --------- | -------------------------------------------------- | ----: | -------------------------- | ----------------------------- | --------------------------------- |
-|         1 | Yes       | Missing live backend capability                    |     1 | Account lifecycle          | BE-002/003/012/014            | Open                              |
+|         1 | Yes       | Free-only deletion lifecycle and client cutover implemented |     1 | Account lifecycle | BE-003/014; paid cancellation BE-012 | Implemented locally; paid cancellation deferred |
 |         2 | Yes       | Partially fixed / localization config              |     1 | Gulf currency/localization | BE-002/004                    | Resolved locally (Mobile)         |
 |         3 | Yes       | Already fixed / regression required                |     1 | Financial truth            | BE-005/010                    | Resolved locally                  |
 |         4 | Yes       | Local parity resolved / mock-backed live gap       |     1 | Financial truth            | BE-005/009/010/014            | Resolved locally; partial live    |

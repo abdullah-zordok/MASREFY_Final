@@ -1,5 +1,9 @@
 # Tasks: R05 — Add Transaction and Voice Entry
 
+> **CLOSED / SUPERSEDED (2026-09-11):** Do not execute these tasks or treat them as active
+> dependencies. Add remains manual-only and Voice remains on Home. Unchecked tasks are cancelled,
+> not completed.
+
 **Input**: Design documents in `specs/016-r05-add-voice/`
 
 **Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/add-capture-presentation-contract.md`, `quickstart.md`

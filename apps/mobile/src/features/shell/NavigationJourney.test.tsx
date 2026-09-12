@@ -11,6 +11,7 @@ import MoreRoute from '@app/(tabs)/more';
 import AccountsRoute from '@app/accounts';
 import AssistantRoute from '@app/assistant';
 import AuthRequiredRoute from '@app/modals/auth-required';
+import { createClientDemoSession } from '@/domain/demo-session';
 import { translate, translateDynamic } from '@/localization/i18n';
 import { renderWithProviders } from '@/test-utils/render';
 import { useAppShellStore } from '@/state/app-shell';
@@ -225,6 +226,24 @@ describe('navigation journey', () => {
       fireEvent.press(link);
       expect(router.push).toHaveBeenLastCalledWith(route);
     }
+  });
+
+  it('keeps the client demo profile separate from subscriptions', () => {
+    useAppShellStore.setState({ session: createClientDemoSession(Date.now()) });
+    const more = renderWithProviders(<MoreRoute />);
+
+    expect(screen.getAllByText('client-demo').length).toBeGreaterThan(0);
+    expect(
+      screen.queryByLabelText(
+        `client-demo, ${translate('appShell.more.planBasic')}`
+      )
+    ).toBeNull();
+    expect(
+      screen.queryByText(translate('appShell.more.planBasic'))
+    ).toBeNull();
+
+    more.unmount();
+    useAppShellStore.setState({ session: null });
   });
 
   it('updates mounted More labels immediately when the locale changes', () => {

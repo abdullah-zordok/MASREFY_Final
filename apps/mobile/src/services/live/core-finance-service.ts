@@ -1127,6 +1127,7 @@ function transactionScopes(id: string): readonly string[] {
   return [
     'home.summary',
     'accounts.list',
+    'accounts.balances',
     'transactions.list',
     `transactions.detail.${id}`,
     'reports.live',

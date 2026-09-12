@@ -15,7 +15,13 @@ export const FONT_ASSETS = {
   'MasarifiLatin-500': require('../../assets/fonts/Roboto-Medium.ttf'),
   'MasarifiLatin-600': require('../../assets/fonts/Roboto-SemiBold.ttf'),
   'MasarifiLatin-700': require('../../assets/fonts/Roboto-Bold.ttf'),
-  'MasarifiLatin-900': require('../../assets/fonts/Roboto-Black.ttf')
+  'MasarifiLatin-900': require('../../assets/fonts/Roboto-Black.ttf'),
+  'MasarifiEditorialArabic-400': require('../../assets/fonts/IBMPlexSansArabic-Regular.ttf'),
+  'MasarifiEditorialArabic-600': require('../../assets/fonts/IBMPlexSansArabic-SemiBold.ttf'),
+  'MasarifiEditorialArabic-700': require('../../assets/fonts/IBMPlexSansArabic-Bold.ttf'),
+  'MasarifiEditorialLatin-400': require('../../assets/fonts/IBMPlexSans-Regular.ttf'),
+  'MasarifiEditorialLatin-600': require('../../assets/fonts/IBMPlexSans-SemiBold.ttf'),
+  'MasarifiEditorialLatin-700': require('../../assets/fonts/IBMPlexSans-Bold.ttf')
 } as const;
 
 export type SemanticFontWeight = 400 | 500 | 600 | 700 | 800 | 900;
@@ -35,12 +41,20 @@ export function fontFamilyForLocale(
   const family = locale === 'ar' ? 'MasarifiArabic' : 'MasarifiLatin';
   const semanticWeight =
     weight === 'regular' ? 400 : weight === 'bold' ? 700 : weight;
-  const supported = locale === 'ar' && semanticWeight === 900 ? 800 : semanticWeight;
+  const supported =
+    locale === 'ar' && semanticWeight === 900 ? 800 : semanticWeight;
   return `${family}-${supported}`;
 }
 
 export function financialFontFamily(weight: 400 | 500 | 600 | 700 | 900) {
   return `MasarifiLatin-${weight}`;
+}
+
+export function editorialFontFamilyForLocale(
+  locale: Locale,
+  weight: 400 | 600 | 700
+) {
+  return `MasarifiEditorial${locale === 'ar' ? 'Arabic' : 'Latin'}-${weight}`;
 }
 
 export function FontGate({ children }: { children: ReactNode }) {

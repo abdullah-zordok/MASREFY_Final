@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppState, Text } from 'react-native';
+import { Alert, AppState, Text } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -26,6 +26,14 @@ jest.mock('@/storage/local-data-reset', () => ({
     operationId
   }))
 }));
+jest.mock('@/features/settings/settings-queries', () => ({
+  usePrivacyRequest: jest.fn()
+}));
+
+const requestAccountDeletion = jest.fn();
+const { usePrivacyRequest } = jest.requireMock(
+  '@/features/settings/settings-queries'
+) as { usePrivacyRequest: jest.Mock };
 
 const hasHardware = jest.mocked(LocalAuthentication.hasHardwareAsync);
 const isEnrolled = jest.mocked(LocalAuthentication.isEnrolledAsync);
@@ -35,6 +43,10 @@ const supportedTypes = jest.mocked(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  usePrivacyRequest.mockReturnValue({
+    isPending: false,
+    mutate: requestAccountDeletion
+  });
   useAppShellStore.getState().reset();
 });
 
@@ -86,19 +98,34 @@ describe('security journey', () => {
     expect(useAppShellStore.getState().privacyLock).toBeNull();
   });
 
-  it('keeps existing controls and links to sessions and local deletion', () => {
+  it('confirms account deletion without navigating to privacy settings', async () => {
     hasHardware.mockResolvedValue(false);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     renderWithProviders(<SecuritySettingsRoute />);
+    await act(async () => {});
 
     expect(screen.getByText(translate('appShell.security.pin.create'))).toBeTruthy();
     expect(screen.getByText(translate('appShell.security.biometric.requiresPin'))).toBeTruthy();
     expect(screen.getByText(translate('appShell.security.hideBalances'))).toBeTruthy();
 
     fireEvent.press(screen.getByText(translate('appShell.security.sessions')));
-    fireEvent.press(screen.getByText(translate('appShell.security.localData')));
+    fireEvent.press(screen.getByText('حذف الحساب'));
 
     expect(router.push).toHaveBeenCalledWith('/security/sessions');
-    expect(router.push).toHaveBeenCalledWith('/profile/privacy');
+    expect(alert).toHaveBeenCalledWith(
+      'حذف الحساب',
+      'هل أنت متأكد من حذف الحساب؟',
+      expect.any(Array)
+    );
+
+    const actions = alert.mock.calls[0]?.[2] ?? [];
+    actions[1]?.onPress?.();
+    expect(requestAccountDeletion).toHaveBeenCalledWith({
+      kind: 'account_deletion',
+      operationId: expect.stringMatching(/^security-account-deletion-/)
+    });
+    expect(router.push).not.toHaveBeenCalledWith('/profile/privacy');
+    alert.mockRestore();
   });
 
   it('labels the biometric row with the enrolled kind and blocks it without a PIN', async () => {

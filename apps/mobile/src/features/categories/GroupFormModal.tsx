@@ -388,9 +388,9 @@ const styles = StyleSheet.create({
   navBtn: {
     alignItems: 'center',
     borderRadius: 999,
-    height: 36,
+    height: 48,
     justifyContent: 'center',
-    width: 36
+    width: 48
   },
   navSaveBtn: {
     elevation: 3,

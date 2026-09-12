@@ -332,6 +332,23 @@ export const deletionRequestDetailSchema = z.object({
   auditReferences: z.array(auditReferenceSchema).max(10),
 }).strict();
 
+export const deletionWorkflowRequestSchema = deletionRequestDetailSchema.omit({
+  id: true,
+  customer: true,
+  completedAt: true,
+  legalHold: true,
+  subscriptionStatus: true,
+  checklist: true,
+}).extend({
+  id: securityIdSchema.refine((id) => id.startsWith("DEL-") || z.uuid().safeParse(id).success),
+  customer: safeReferenceSchema.optional(),
+  coolingOffEndsAt: z.iso.datetime({ offset: true }).optional(),
+  completedAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  legalHold: z.boolean().nullable(),
+  subscriptionStatus: boundedText(120, 512).optional(),
+  checklist: z.array(deletionChecklistItemSchema).max(9),
+}).strict();
+
 export const deletionActionSchema = z.object({
   action: z.enum(["review", "schedule", "start", "complete", "block", "retry", "cancel"]),
   context: actionContextSchema,
@@ -415,6 +432,7 @@ export type AuditEventDetail = z.infer<typeof auditEventDetailSchema>;
 export type AuditEventSummary = z.infer<typeof auditEventSummarySchema>;
 export type ExportRequestDetail = z.infer<typeof exportRequestDetailSchema>;
 export type DeletionRequestDetail = z.infer<typeof deletionRequestDetailSchema>;
+export type DeletionWorkflowRequest = z.infer<typeof deletionWorkflowRequestSchema>;
 export type RetentionPolicyDetail = z.infer<typeof retentionPolicyDetailSchema>;
 export type ActionResult = z.infer<typeof actionResultSchema>;
 export type OperationsIncidentMutationResult = z.infer<typeof operationsIncidentMutationResultSchema>;

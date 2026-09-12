@@ -548,12 +548,12 @@ function NetWorthLine({
         <LinearGradient id="reportTrendFill" x1="0" y1="0" x2="0" y2="1">
           <Stop
             offset="0"
-            stopColor={theme.colors.status.sync}
+            stopColor={theme.colors.horizon.heroEnd}
             stopOpacity={0.2}
           />
           <Stop
             offset="1"
-            stopColor={theme.colors.status.sync}
+            stopColor={theme.colors.horizon.heroEnd}
             stopOpacity={0}
           />
         </LinearGradient>
@@ -562,7 +562,7 @@ function NetWorthLine({
       <Path
         d={linePath}
         fill="none"
-        stroke={theme.colors.status.sync}
+        stroke={theme.colors.horizon.heroEnd}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={3}
@@ -570,7 +570,7 @@ function NetWorthLine({
       <Circle
         cx={lastPoint.x}
         cy={lastPoint.y}
-        fill={theme.colors.status.sync}
+        fill={theme.colors.horizon.heroEnd}
         r={4.5}
         stroke={theme.colors.surface}
         strokeWidth={2}
@@ -661,7 +661,7 @@ function MiniBars({
             {
               backgroundColor:
                 index === 0
-                  ? theme.colors.status.sync
+                  ? theme.colors.horizon.heroEnd
                   : theme.colors.borders.subtle,
               height: 4 + (48 * value) / max
             }
@@ -970,6 +970,7 @@ function AssistantActions({
             key={action}
             label={translate(labelKey)}
             variant="secondary"
+            labelStyle={styles.assistantActionLabel}
             style={
               stacked ? styles.assistantActionStacked : styles.assistantAction
             }
@@ -1396,6 +1397,9 @@ const styles = StyleSheet.create({
   assistantAction: {
     flexBasis: '48%',
     flexGrow: 1
+  },
+  assistantActionLabel: {
+    textAlign: 'center'
   },
   assistantActionStacked: {
     width: '100%'

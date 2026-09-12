@@ -55,12 +55,14 @@ const scopes = {
   account: (id: string) => [
     'home.summary',
     'accounts.list',
+    'accounts.balances',
     `accounts.detail.${id}`,
     'transactions.list'
   ],
   transaction: (id: string) => [
     'home.summary',
     'accounts.list',
+    'accounts.balances',
     'transactions.list',
     `transactions.detail.${id}`
   ],

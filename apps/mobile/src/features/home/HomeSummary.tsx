@@ -60,7 +60,7 @@ export function HomeSummary({ accounts, categories, notice, selectedAccount = nu
     minorUnits: heroValueMinor,
     currencyCode: summary.currencyCode,
     locale,
-    sign: 'none',
+    sign: heroValueMinor !== undefined && heroValueMinor < 0 ? 'negative' : 'none',
     state: hidden
       ? 'hidden'
       : heroValueMinor === undefined
@@ -74,7 +74,7 @@ export function HomeSummary({ accounts, categories, notice, selectedAccount = nu
         minorUnits: accountComponent.convertedMinor,
         currencyCode: summary.currencyCode,
         locale,
-        sign: 'none',
+        sign: accountComponent.convertedMinor < 0 ? 'negative' : 'none',
         state: hidden
           ? 'hidden'
           : summary.isEstimated
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   orbitInner: { borderRadius: 96, height: 192, opacity: 0.12, right: -36, top: -16, width: 192 },
   balance: { alignItems: 'center', gap: spacing.sm, width: '100%' },
   balanceLabel: { fontSize: 15, lineHeight: 22, opacity: 0.78 },
-  balanceValue: { fontSize: 44, fontVariant: ['tabular-nums'], fontWeight: '800', letterSpacing: -1, lineHeight: 54, textAlign: 'center', writingDirection: 'ltr' },
+  balanceValue: { fontSize: 35.2, fontVariant: ['tabular-nums'], fontWeight: '800', letterSpacing: -1, lineHeight: 43.2, textAlign: 'center', writingDirection: 'ltr' },
   balanceSupport: { fontSize: 14, lineHeight: 20, opacity: 0.82, textAlign: 'center' },
   accountCard: { alignItems: 'center', borderRadius: radius.lg, borderWidth: borderWidth.default, ...layoutDirectionStyle('ltr'), gap: spacing.md, justifyContent: 'space-between', minHeight: 54, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, width: '100%', writingDirection: 'ltr' },
   accountCardText: { flex: 1, gap: 1, minWidth: 0 },

@@ -16,6 +16,7 @@ import {
 
 import { useTheme } from '@/state/theme-context';
 import { StyledText } from './StyledText';
+import { layoutDirectionStyle } from '@/design-system/direction';
 import { DesignIcon, type DesignIconName } from '@/design-system/icons';
 import { minTouchTarget, radius, spacing } from '@/design-system/tokens';
 import { usePreferenceStore } from '@/state/preferences';
@@ -60,12 +61,13 @@ export const MenuLink = forwardRef<View, MenuLinkProps>(function MenuLink(
       accessibilityLabel={a11y.accessibilityLabel ?? (subtitle ? `${label}, ${subtitle}` : label)}
       style={({ pressed }) => [
         styles.row,
+        styles.physicalLtr,
         {
           backgroundColor: hideBorder ? 'transparent' : theme.colors.surface,
           borderColor: hideBorder ? 'transparent' : theme.colors.border,
           borderWidth: hideBorder ? 0 : StyleSheet.hairlineWidth,
           borderRadius: hideBorder ? 0 : radius.control,
-          flexDirection: 'row',
+          flexDirection: isRtl ? 'row-reverse' : 'row',
           minHeight: Math.max(48, minTouchTarget)
         },
         pressed && { backgroundColor: theme.colors.surfaceMuted }
@@ -97,7 +99,7 @@ export const MenuLink = forwardRef<View, MenuLinkProps>(function MenuLink(
         testID="menu-link-text"
         style={[
           styles.textContainer,
-          { alignItems: 'flex-start' }
+          { alignItems: isRtl ? 'flex-end' : 'flex-start' }
         ]}
       >
         <StyledText
@@ -136,6 +138,10 @@ export const MenuLink = forwardRef<View, MenuLinkProps>(function MenuLink(
 });
 
 const styles = StyleSheet.create({
+  physicalLtr: {
+    ...layoutDirectionStyle('ltr'),
+    writingDirection: 'ltr'
+  },
   row: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,

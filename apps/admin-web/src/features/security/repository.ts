@@ -1,6 +1,8 @@
 import {
   apiClient,
+  liveCursor,
   mocksEnabled,
+  rememberLiveCursor,
   requestJson,
   unavailableClientOperation,
 } from "@/core/api/client";
@@ -16,6 +18,7 @@ import {
   deletionActionSchema,
   deletionRequestDetailSchema,
   deletionRequestsPageSchema,
+  deletionWorkflowRequestSchema,
   exportActionSchema,
   exportDownloadRequestSchema,
   exportDownloadResultSchema,
@@ -59,7 +62,7 @@ function encodeSecurityId(id: string, prefix: string): string {
   return encodeURIComponent(parsed.data);
 }
 
-function encodeIncidentId(id: string): string {
+function encodeUuid(id: string): string {
   if (!z.uuid().safeParse(id).success)
     throw new ApiError("validation_error", safeApiMessage("validation_error"), 400);
   return encodeURIComponent(id);
@@ -67,6 +70,94 @@ function encodeIncidentId(id: string): string {
 
 function query(input: ListQuery): string {
   return buildSecurityQuery(listQuerySchema.parse(input)).toString();
+}
+
+const liveDeletionSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(["requested", "verified", "cancelled", "processing", "completed", "failed"]),
+  requestedAt: z.iso.datetime({ offset: true }),
+  coolingOffEndsAt: z.iso.datetime({ offset: true }),
+  completedAt: z.iso.datetime({ offset: true }).nullable(),
+  version: z.number().int().positive(),
+}).strict();
+const liveDeletionPageSchema = z.object({
+  items: z.array(liveDeletionSchema).max(100),
+  nextCursor: z.string().min(1).max(512).nullable(),
+}).strict();
+type LiveDeletionStatus = z.infer<typeof liveDeletionSchema>["status"];
+const deletionStateByStatus: Record<LiveDeletionStatus, z.infer<typeof deletionWorkflowRequestSchema>["state"]> = {
+  requested: "Requested",
+  verified: "Scheduled",
+  cancelled: "Cancelled",
+  processing: "In Progress",
+  completed: "Completed",
+  failed: "Blocked",
+};
+const deletionActionsByStatus = {
+  requested: ["review", "cancel"],
+  verified: ["cancel"],
+  cancelled: [],
+  processing: ["block"],
+  completed: [],
+  failed: ["retry"],
+} as const;
+const deletionStatusByState: Readonly<Record<string, LiveDeletionStatus>> = {
+  Requested: "requested",
+  "Review Required": "requested",
+  Scheduled: "verified",
+  "In Progress": "processing",
+  Blocked: "failed",
+  Completed: "completed",
+  Cancelled: "cancelled",
+};
+const backendDeletionAction: Partial<
+  Record<
+    z.infer<typeof deletionActionSchema>["action"],
+    "verify" | "schedule" | "fail" | "retry" | "cancel"
+  >
+> = {
+  review: "verify",
+  schedule: "schedule",
+  block: "fail",
+  retry: "retry",
+  cancel: "cancel",
+} as const;
+
+function mapLiveDeletion(deletion: z.infer<typeof liveDeletionSchema>) {
+  return deletionWorkflowRequestSchema.parse({
+    id: deletion.id,
+    state: deletionStateByStatus[deletion.status],
+    requestedAt: deletion.requestedAt,
+    coolingOffEndsAt: deletion.coolingOffEndsAt,
+    completedAt: deletion.completedAt,
+    legalHold: null,
+    checklist: [],
+    revision: deletion.version,
+    allowedActions: deletionActionsByStatus[deletion.status],
+    auditReferences: [],
+  });
+}
+
+function liveDeletionParams(input: ListQuery): {
+  page: number;
+  pageSize: 25 | 50 | 100;
+  params: URLSearchParams;
+  scope: string;
+} {
+  const parsed = listQuerySchema.parse(input);
+  const page = parsed.page;
+  const pageSize = parsed.pageSize;
+  const scope = `security:deletions:${String(pageSize)}:${parsed.state ?? "all"}`;
+  const cursor = liveCursor(scope, page);
+  const params = new URLSearchParams({ limit: String(pageSize) });
+  if (cursor) params.set("cursor", cursor);
+  if (parsed.state) {
+    const status = deletionStatusByState[parsed.state];
+    if (!status)
+      throw new ApiError("validation_error", safeApiMessage("validation_error"), 400);
+    params.set("status", status);
+  }
+  return { page, pageSize, params, scope };
 }
 
 export const securityRepository = {
@@ -104,7 +195,7 @@ export const securityRepository = {
   async getSecurityIncident(id: string) {
     if (mocksEnabled())
       return apiClient.get(`${SECURITY_BASE_PATH}/security/incidents/${encodeSecurityId(id, "INC-")}`, incidentDetailSchema);
-    const incidentId = encodeIncidentId(id);
+    const incidentId = encodeUuid(id);
     let cursor: string | null = null;
     for (let page = 0; page < 100; page += 1) {
       const params = new URLSearchParams({ limit: "100" });
@@ -147,7 +238,7 @@ export const securityRepository = {
       return apiClient.post(`${SECURITY_BASE_PATH}/security/incidents/${encodeSecurityId(id, "INC-")}/actions`, request, actionResultSchema);
     const status = ({ contain: "investigating", monitor: "monitoring", resolve: "resolved" } as const)[request.action as "contain" | "monitor" | "resolve"];
     if (!status) return unavailableClientOperation();
-    return apiClient.patch(`${SECURITY_BASE_PATH}/incidents/${encodeIncidentId(id)}`, {
+    return apiClient.patch(`${SECURITY_BASE_PATH}/incidents/${encodeUuid(id)}`, {
       status,
       expectedVersion: request.context.expectedRevision,
       reason: request.context.reason,
@@ -177,17 +268,50 @@ export const securityRepository = {
     if (!mocksEnabled()) return unavailableClientOperation();
     return apiClient.post(`${SECURITY_BASE_PATH}/data-requests/exports/${encodeSecurityId(id, "EXP-")}/simulate-download`, exportDownloadRequestSchema.parse(input), exportDownloadResultSchema);
   },
-  listDeletionRequests(input: ListQuery) {
-    if (!mocksEnabled()) return unavailableClientOperation();
-    return apiClient.get(`${SECURITY_BASE_PATH}/data-requests/deletions?${query(input)}`, deletionRequestsPageSchema);
+  async listDeletionRequests(input: ListQuery) {
+    if (mocksEnabled())
+      return apiClient.get(`${SECURITY_BASE_PATH}/data-requests/deletions?${query(input)}`, deletionRequestsPageSchema);
+    const { page, pageSize, params, scope } = liveDeletionParams(input);
+    const response = await apiClient.get(`${SECURITY_BASE_PATH}/privacy/deletions?${params.toString()}`, liveDeletionPageSchema);
+    rememberLiveCursor(scope, page, response.nextCursor);
+    return {
+      items: response.items.map(mapLiveDeletion),
+      pagination: {
+        page,
+        pageSize,
+        totalItems: (page - 1) * pageSize + response.items.length + (response.nextCursor ? 1 : 0),
+        totalPages: page + (response.nextCursor ? 1 : 0),
+      },
+      region: { availability: response.items.length === 0 ? "empty" as const : "available" as const },
+    };
   },
-  getDeletionRequest(id: string) {
-    if (!mocksEnabled()) return unavailableClientOperation();
-    return apiClient.get(`${SECURITY_BASE_PATH}/data-requests/deletions/${encodeSecurityId(id, "DEL-")}`, deletionRequestDetailSchema);
+  async getDeletionRequest(id: string) {
+    if (mocksEnabled())
+      return apiClient.get(`${SECURITY_BASE_PATH}/data-requests/deletions/${encodeSecurityId(id, "DEL-")}`, deletionRequestDetailSchema);
+    const deletionId = decodeURIComponent(encodeUuid(id));
+    let cursor: string | null = null;
+    for (let page = 0; page < 100; page += 1) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const response = await apiClient.get(`${SECURITY_BASE_PATH}/privacy/deletions?${params.toString()}`, liveDeletionPageSchema);
+      const deletion = response.items.find((item) => item.id === deletionId);
+      if (deletion) return mapLiveDeletion(deletion);
+      cursor = response.nextCursor;
+      if (!cursor) break;
+    }
+    throw new ApiError("not_found", safeApiMessage("not_found"), 404);
   },
   actOnDeletionRequest(id: string, input: unknown) {
-    if (!mocksEnabled()) return unavailableClientOperation();
-    return apiClient.post(`${SECURITY_BASE_PATH}/data-requests/deletions/${encodeSecurityId(id, "DEL-")}/actions`, deletionActionSchema.parse(input), actionResultSchema);
+    const request = deletionActionSchema.parse(input);
+    if (mocksEnabled())
+      return apiClient.post(`${SECURITY_BASE_PATH}/data-requests/deletions/${encodeSecurityId(id, "DEL-")}/actions`, request, actionResultSchema);
+    const action = backendDeletionAction[request.action];
+    if (!action) return unavailableClientOperation();
+    return apiClient.post(`${SECURITY_BASE_PATH}/privacy/deletions/${encodeUuid(id)}/actions`, {
+      action,
+      reason: request.context.reason,
+      expectedVersion: request.context.expectedRevision,
+    }, liveDeletionSchema).then(mapLiveDeletion);
   },
   listRetentionPolicies(input: ListQuery) {
     if (!mocksEnabled()) return unavailableClientOperation();

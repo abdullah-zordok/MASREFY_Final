@@ -4,6 +4,7 @@ import {
   StyleSheet,
   type PressableProps,
   type StyleProp,
+  type TextStyle,
   type ViewStyle
 } from 'react-native';
 
@@ -23,6 +24,7 @@ export interface ActionButtonProps extends Omit<
   variant?: ActionButtonVariant;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
 }
 
 export function ActionButton({
@@ -31,6 +33,7 @@ export function ActionButton({
   loading = false,
   disabled,
   style,
+  labelStyle,
   ...props
 }: ActionButtonProps) {
   const theme = useTheme();
@@ -58,7 +61,11 @@ export function ActionButton({
       ]}
       {...props}
     >
-      <StyledText accessible={false} variant="subtitle" style={[styles.label, { color: colors.text }]}>
+      <StyledText
+        accessible={false}
+        variant="subtitle"
+        style={[styles.label, { color: colors.text }, labelStyle]}
+      >
         {localizedLabel}
       </StyledText>
     </Pressable>

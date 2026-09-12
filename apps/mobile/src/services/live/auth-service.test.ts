@@ -359,4 +359,154 @@ describe('live owner identity mappings', () => {
       undefined
     );
   });
+
+  test('submits live privacy requests and exposes only the mobile contract', async () => {
+    const request = jest.fn(async (path: string) => {
+      if (path === '/api/v1/me/privacy/exports')
+        return {
+          id: 'export-123',
+          status: 'verified',
+          scope: ['identity@1'],
+          requestedAt: '2026-09-12T10:00:00.000Z',
+          expiresAt: null,
+          version: 1
+        };
+      if (path === '/api/v1/me/deletion-requests')
+        return {
+          id: 'deletion-123',
+          status: 'processing',
+          requestedAt: '2026-09-12T11:00:00.000Z',
+          coolingOffEndsAt: '2026-09-13T11:00:00.000Z',
+          completedAt: null,
+          retainedCategories: [],
+          version: 1
+        };
+      throw new Error(`unexpected path ${path}`);
+    });
+    const service = createLiveIdentityService({ request });
+
+    await expect(
+      service.requestPrivacyAction('data_export', 'export-operation-123')
+    ).resolves.toEqual({
+      value: {
+        id: 'export-123',
+        operationId: 'export-operation-123',
+        kind: 'data_export',
+        status: 'accepted',
+        requestedAt: Date.parse('2026-09-12T10:00:00.000Z'),
+        updatedAt: Date.parse('2026-09-12T10:00:00.000Z'),
+        safeFailure: null
+      },
+      affectedScopes: ['settings.privacy-request.data_export']
+    });
+    await expect(
+      service.requestPrivacyAction('account_deletion', 'deletion-operation-123')
+    ).resolves.toEqual({
+      value: {
+        id: 'deletion-123',
+        operationId: 'deletion-operation-123',
+        kind: 'account_deletion',
+        status: 'pending',
+        requestedAt: Date.parse('2026-09-12T11:00:00.000Z'),
+        updatedAt: Date.parse('2026-09-12T11:00:00.000Z'),
+        safeFailure: null
+      },
+      affectedScopes: ['settings.privacy-request.account_deletion']
+    });
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/me/privacy/exports',
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'export-operation-123' },
+        body: {}
+      }
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/me/deletion-requests',
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'deletion-operation-123' },
+        body: { confirmation: 'DELETE_MY_ACCOUNT' }
+      }
+    );
+  });
+
+  test('rejects an unrecognized privacy status', async () => {
+    const service = createLiveIdentityService({
+      request: async () => ({
+        id: 'export-123',
+        status: 'unknown',
+        scope: ['identity@1'],
+        requestedAt: '2026-09-12T10:00:00.000Z',
+        expiresAt: null,
+        version: 1
+      })
+    });
+
+    await expect(
+      service.requestPrivacyAction('data_export', 'export-operation-123')
+    ).rejects.toMatchObject({ code: 'contract_mismatch' });
+  });
+
+  test.each([
+    ['data_export', 'requested', 'review', null],
+    ['data_export', 'verified', 'accepted', null],
+    ['data_export', 'processing', 'pending', null],
+    ['data_export', 'ready', 'accepted', null],
+    ['data_export', 'expired', 'failed', 'expired'],
+    ['data_export', 'failed', 'failed', 'representative_failure'],
+    ['account_deletion', 'requested', 'review', null],
+    ['account_deletion', 'verified', 'accepted', null],
+    ['account_deletion', 'processing', 'pending', null],
+    ['account_deletion', 'completed', 'accepted', null],
+    ['account_deletion', 'cancelled', 'cancelled', null],
+    ['account_deletion', 'failed', 'failed', 'representative_failure']
+  ] as const)(
+    'maps %s %s to the complete mobile privacy request',
+    async (kind, serverStatus, status, safeFailure) => {
+      const requestedAt = '2026-09-12T12:00:00.000Z';
+      const service = createLiveIdentityService({
+        request: async () =>
+          kind === 'data_export'
+            ? {
+                id: 'export-status-123',
+                status: serverStatus,
+                scope: ['identity@1'],
+                requestedAt,
+                expiresAt: null,
+                version: 1
+              }
+            : {
+                id: 'deletion-status-123',
+                status: serverStatus,
+                requestedAt,
+                coolingOffEndsAt: '2026-09-13T12:00:00.000Z',
+                completedAt: null,
+                retainedCategories: [],
+                version: 1
+              }
+      });
+      const operationId = `${kind}-${serverStatus}-123`;
+
+      await expect(
+        service.requestPrivacyAction(kind, operationId)
+      ).resolves.toEqual({
+        value: {
+          id:
+            kind === 'data_export'
+              ? 'export-status-123'
+              : 'deletion-status-123',
+          operationId,
+          kind,
+          status,
+          requestedAt: Date.parse(requestedAt),
+          updatedAt: Date.parse(requestedAt),
+          safeFailure
+        },
+        affectedScopes: [`settings.privacy-request.${kind}`]
+      });
+    }
+  );
 });

@@ -31,7 +31,7 @@ it('renders account identity, status, and a single selectable row action', () =>
   expect(screen.getByText(account.name)).toBeTruthy();
   expect(screen.getByText(/Default account|الحساب الافتراضي/)).toBeTruthy();
   expect(
-    screen.getByTestId('account-row-icon-accounts', {
+    screen.getByTestId('account-row-icon-account', {
       includeHiddenElements: true
     })
   ).toBeTruthy();
@@ -76,7 +76,24 @@ it('renders account balance with currency-owned precision', () => {
     />
   );
 
-  expect(screen.getByText('12.345')).toBeTruthy();
+  expect(screen.getByText('12.345 OMR')).toBeTruthy();
+});
+
+it('keeps the minus sign on a negative account balance', () => {
+  const account = fixtureAccounts[0];
+
+  renderWithProviders(
+    <AccountRow
+      presentation={projectAccount(account, {
+        accountId: account.id,
+        balanceMinor: -40_302_74,
+        currencyCode: account.currencyCode
+      })}
+    />
+  );
+
+  expect(screen.getByText('-40,302.74 SAR')).toBeTruthy();
+  expect(screen.getByLabelText(/-40,302\.74 SAR/)).toBeTruthy();
 });
 
 it('isolates Arabic account metadata and the balance column from RTL reordering', () => {

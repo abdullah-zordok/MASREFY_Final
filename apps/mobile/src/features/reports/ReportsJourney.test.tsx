@@ -55,10 +55,14 @@ test('2026-08-23 approved analytics screen exposes the reference hierarchy in Ar
     })
   ).toBeTruthy();
   expect(screen.getByText('اشرح هذا التقرير')).toBeTruthy();
-  expect(screen.getByText('لماذا زادت المصروفات؟')).toBeTruthy();
-  expect(screen.getByText('أين يمكنني التوفير؟')).toBeTruthy();
-  expect(screen.getByText('قارن هذه الفترة')).toBeTruthy();
-  expect(screen.getByText('أنشئ خطة ادخار')).toBeTruthy();
+  for (const suggestion of [
+    'لماذا زادت المصروفات؟',
+    'أين يمكنني التوفير؟',
+    'قارن هذه الفترة',
+    'أنشئ خطة ادخار'
+  ]) {
+    expect(screen.getByText(suggestion)).toHaveStyle({ textAlign: 'center' });
+  }
   for (const timeframe of ['1W', '1M', '3M', '1Y', 'All']) {
     expect(screen.getByRole('button', { name: timeframe })).toBeTruthy();
   }

@@ -42,6 +42,13 @@ it('shows hero emoji picker button and opens sheet on press', () => {
     translate('coreFinance.categories.chooseIcon')
   );
   expect(heroBtn).toBeTruthy();
+  expect(screen.getByLabelText(translate('coreFinance.cancel'))).toHaveStyle({
+    height: 48,
+    width: 48
+  });
+  expect(
+    screen.getByLabelText(translate('coreFinance.categories.save'))
+  ).toHaveStyle({ height: 48, width: 48 });
 });
 
 it('persists the selected income meaning and returns it after save', async () => {

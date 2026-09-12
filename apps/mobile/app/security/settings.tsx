@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { StyledText } from '@/components/StyledText';
@@ -16,6 +16,7 @@ import type { BiometricAvailability } from '@/services/contracts/app-shell-servi
 import { createBiometricService } from '@/services/platform/biometric-service';
 import { useAppShellStore } from '@/state/app-shell';
 import { usePreferenceStore } from '@/state/preferences';
+import { usePrivacyRequest } from '@/features/settings/settings-queries';
 
 export default function SecuritySettingsRoute() {
   const service = useMemo(createBiometricService, []);
@@ -28,6 +29,7 @@ export default function SecuritySettingsRoute() {
   const toggleHideBalances = usePreferenceStore(
     (state) => state.toggleHideBalances
   );
+  const deletionRequest = usePrivacyRequest();
 
   useEffect(() => {
     void service.getAvailability().then((result) => setAvailability(result));
@@ -36,6 +38,25 @@ export default function SecuritySettingsRoute() {
   async function updateLock(update: Partial<PrivacyLockPreference>) {
     if (!privacyLock) return;
     await setPrivacyLock({ ...privacyLock, ...update });
+  }
+
+  function confirmAccountDeletion() {
+    Alert.alert(
+      translate('appShell.security.deleteAccount'),
+      translate('appShell.security.deleteAccount.confirmation'),
+      [
+        { text: translate('coreFinance.cancel'), style: 'cancel' },
+        {
+          text: translate('settings.privacy.confirmRequest'),
+          style: 'destructive',
+          onPress: () =>
+            deletionRequest.mutate({
+              kind: 'account_deletion',
+              operationId: `security-account-deletion-${Date.now()}`
+            })
+        }
+      ]
+    );
   }
 
   const biometricKinds =
@@ -121,8 +142,9 @@ export default function SecuritySettingsRoute() {
       </GroupedList>
 
       <ActionButton
-        label={translate('appShell.security.localData')}
-        onPress={() => router.push('/profile/privacy')}
+        label={translate('appShell.security.deleteAccount')}
+        loading={deletionRequest.isPending}
+        onPress={confirmAccountDeletion}
         variant="destructive"
       />
     </ScrollView>

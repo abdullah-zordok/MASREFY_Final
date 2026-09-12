@@ -1,7 +1,7 @@
 import React from 'react';
 import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { DesignIcon } from '@/design-system/icons';
+import { DesignIcon, type DesignIconName } from '@/design-system/icons';
 import { layoutDirectionStyle } from '@/design-system/direction';
 import {
   colorTokens,
@@ -11,29 +11,49 @@ import {
 } from '@/design-system/tokens';
 import { translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
-import { financialFontFamily } from '@/design-system/typography';
+import { useTheme } from '@/state/theme-context';
+import {
+  editorialFontFamilyForLocale,
+  financialFontFamily
+} from '@/design-system/typography';
 import { formatMinorAmount } from '@/utils/format-financial-value';
 import type { AccountPresentation } from './account-presentation';
+
+const accountIcons: Record<
+  AccountPresentation['account']['type'],
+  DesignIconName
+> = {
+  bank: 'account',
+  debit_card: 'card',
+  credit_card: 'card',
+  wallet: 'wallet',
+  cash: 'salary',
+  savings: 'savings',
+  other: 'accounts'
+};
 
 export function AccountRow({
   presentation,
   selected = false,
   disabled = false,
   groupedPosition,
+  variant,
   onPress
 }: {
   presentation: AccountPresentation;
   selected?: boolean;
   disabled?: boolean;
   groupedPosition?: 'first' | 'middle' | 'last' | 'only';
+  variant?: 'account-list';
   onPress?: () => void;
 }) {
+  const theme = useTheme();
   const direction = usePreferenceStore((state) => state.direction);
+  const locale = usePreferenceStore((state) => state.locale);
   const isRtl = direction === 'rtl';
   const largeText = PixelRatio.getFontScale() >= 1.5;
 
-  const { account, balanceMinor, balanceState, identityLine, statusLabelKey } =
-    presentation;
+  const { account, balanceMinor, balanceState, statusLabelKey } = presentation;
 
   const status = statusLabelKey ? translate(statusLabelKey as never) : null;
   const isDefault =
@@ -45,30 +65,33 @@ export function AccountRow({
       : balanceState === 'unknown'
         ? translate('coreFinance.accounts.balanceUnknown')
         : translate('coreFinance.accounts.balanceAvailable');
-  // Format formatted balance number
-  const formattedBalance =
+  const groupedBalance =
     balanceState === 'hidden'
-      ? '••••••'
+      ? `•••• ${account.currencyCode}`
       : balanceState === 'unknown' || balanceMinor === null
-        ? '--.--'
-        : formatMinorAmount(
-            Math.abs(balanceMinor),
-            account.currencyCode,
-            'en'
-          ).slice(0, -(account.currencyCode.length + 1));
+        ? `--.-- ${account.currencyCode}`
+        : formatMinorAmount(balanceMinor, account.currencyCode, 'en');
 
-  // Account type localization
   const typeLabel = translate(
     `coreFinance.accountType.${account.type}` as never
   );
   const accountIdentifier = account.lastFour
-    ? `${account.currencyCode} ${account.lastFour}`
-    : account.currencyCode;
+    ? `•••• ${account.lastFour}`
+    : null;
+  const accountIcon = accountIcons[account.type];
+  const announcedBalance =
+    balanceState === 'confirmed' ? groupedBalance : balanceLabel;
 
   return (
     <Pressable
       testID="account-row"
-      accessibilityLabel={[account.name, identityLine, balanceLabel, status]
+      accessibilityLabel={[
+        account.name,
+        typeLabel,
+        accountIdentifier,
+        announcedBalance,
+        status
+      ]
         .filter(Boolean)
         .join(', ')}
       accessibilityRole={onPress ? 'button' : undefined}
@@ -79,15 +102,11 @@ export function AccountRow({
         styles.card,
         {
           backgroundColor: selected
-            ? colorTokens.teal['50']
-            : groupedPosition
-              ? colorTokens.surface.white
-              : colorTokens.sand['50'],
+            ? theme.colors.surfaces.brandSubtle
+            : theme.colors.surfaces.card,
           borderColor: selected
-            ? colorTokens.teal['700']
-            : groupedPosition
-              ? colorTokens.border.light
-              : colorTokens.sand['400'],
+            ? theme.colors.borders.selected
+            : theme.colors.borders.subtle,
           borderWidth: groupedPosition
             ? StyleSheet.hairlineWidth
             : selected
@@ -99,13 +118,14 @@ export function AccountRow({
         styles.physicalLtr,
         !groupedPosition && elevation.raised,
         groupedPosition && styles.grouped,
+        variant === 'account-list' && styles.accountListCard,
         groupedPosition === 'first' && styles.groupedFirst,
         groupedPosition === 'middle' && styles.groupedMiddle,
         groupedPosition === 'last' && styles.groupedLast,
         groupedPosition === 'only' && styles.groupedOnly,
         pressed &&
           !disabled && {
-            backgroundColor: colorTokens.sand['200']
+            backgroundColor: theme.colors.interactions.quietPressed
           }
       ]}
     >
@@ -116,13 +136,22 @@ export function AccountRow({
           { flexDirection: isRtl ? 'row-reverse' : 'row' }
         ]}
       >
-        {/* Icon badge */}
-        <View testID="account-row-icon-accounts" style={styles.iconBadge}>
+        <View
+          testID={`account-row-icon-${accountIcon}`}
+          style={[
+            styles.iconBadge,
+            groupedPosition && styles.groupedIconBadge,
+            {
+              backgroundColor: theme.colors.surfaces.brandSubtle,
+              borderColor: theme.colors.borders.subtle
+            }
+          ]}
+        >
           <DesignIcon
-            name="accounts"
+            name={accountIcon}
             size="sm"
             label={account.name}
-            color={colorTokens.teal['700']}
+            color={theme.colors.content.link}
             direction={direction}
             decorative
           />
@@ -140,7 +169,12 @@ export function AccountRow({
             numberOfLines={largeText ? undefined : 1}
             style={[
               styles.name,
+              groupedPosition && styles.groupedName,
               {
+                color: theme.colors.content.primary,
+                fontFamily: groupedPosition
+                  ? editorialFontFamilyForLocale(locale, 700)
+                  : undefined,
                 textAlign: isRtl ? 'right' : 'left',
                 writingDirection: direction
               }
@@ -153,28 +187,39 @@ export function AccountRow({
             numberOfLines={largeText ? undefined : 1}
             style={[
               styles.meta,
+              groupedPosition && styles.groupedMeta,
               {
+                color: theme.colors.content.secondary,
+                fontFamily: groupedPosition
+                  ? editorialFontFamilyForLocale(locale, 400)
+                  : undefined,
                 textAlign: isRtl ? 'right' : 'left',
                 writingDirection: direction
               }
             ]}
           >
             {typeLabel}
-            {' · '}
-            <Text
-              testID="account-row-meta-identifier"
-              style={styles.ltrText}
-            >
-              {accountIdentifier}
-            </Text>
+            {accountIdentifier ? (
+              <>
+                {' · '}
+                <Text
+                  testID="account-row-meta-identifier"
+                  style={styles.ltrText}
+                >
+                  {accountIdentifier}
+                </Text>
+              </>
+            ) : null}
+            {groupedPosition && status ? ` · ${status}` : ''}
           </Text>
 
           {/* Default account indicator */}
-          {isDefault ? (
+          {!groupedPosition && isDefault ? (
             <Text
               style={[
                 styles.defaultLabel,
                 {
+                  color: theme.colors.content.link,
                   textAlign: isRtl ? 'right' : 'left',
                   writingDirection: direction
                 }
@@ -182,11 +227,14 @@ export function AccountRow({
             >
               {translate('coreFinance.accounts.default')}
             </Text>
-          ) : status && statusLabelKey !== 'coreFinance.accounts.default' ? (
+          ) : !groupedPosition &&
+            status &&
+            statusLabelKey !== 'coreFinance.accounts.default' ? (
             <Text
               style={[
                 styles.statusLabel,
                 {
+                  color: theme.colors.status.info,
                   textAlign: isRtl ? 'right' : 'left',
                   writingDirection: direction
                 }
@@ -198,11 +246,22 @@ export function AccountRow({
         </View>
       </View>
 
+      {variant === 'account-list' ? (
+        <DesignIcon
+          name="chevronEnd"
+          label={account.name}
+          color={theme.colors.content.link}
+          direction={direction}
+          decorative
+        />
+      ) : null}
+
       {/* END: Balance & Currency Stack (Visually and vertically centered) */}
       <View
         testID="account-row-balance"
         style={[
           styles.balanceGroup,
+          groupedPosition && styles.groupedBalanceGroup,
           {
             alignItems: largeText
               ? isRtl
@@ -222,28 +281,20 @@ export function AccountRow({
           }
           style={[
             styles.balanceAmount,
+            groupedPosition && styles.groupedBalanceAmount,
             {
-              fontFamily: financialFontFamily(700),
+              fontFamily: groupedPosition
+                ? editorialFontFamilyForLocale(locale, 700)
+                : financialFontFamily(700),
               color:
                 balanceMinor !== null && balanceMinor < 0
-                  ? colorTokens.financial.expense
-                  : colorTokens.ink['900'],
+                  ? theme.colors.financial.expense
+                  : theme.colors.content.primary,
               textAlign: largeText ? (isRtl ? 'right' : 'left') : 'center'
             }
           ]}
         >
-          {formattedBalance}
-        </Text>
-
-        <Text
-          style={[
-            styles.currencyCode,
-            {
-              textAlign: largeText ? (isRtl ? 'right' : 'left') : 'center'
-            }
-          ]}
-        >
-          {account.currencyCode}
+          {groupedBalance}
         </Text>
       </View>
     </Pressable>
@@ -321,18 +372,36 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     lineHeight: 22
   },
-  currencyCode: {
-    color: colorTokens.ink['500'],
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16
+  grouped: {
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 66,
+    paddingHorizontal: 14,
+    paddingVertical: 13
   },
-  grouped: { borderWidth: StyleSheet.hairlineWidth },
+  groupedIconBadge: {
+    backgroundColor: colorTokens.raw.E3ECE9,
+    borderRadius: 12,
+    borderWidth: 0,
+    height: 38,
+    width: 38
+  },
+  groupedName: { fontSize: 14, lineHeight: 18 },
+  groupedMeta: {
+    color: colorTokens.raw['68716C'],
+    fontSize: 11,
+    lineHeight: 15
+  },
+  groupedBalanceGroup: { minWidth: 0 },
+  groupedBalanceAmount: {
+    color: colorTokens.raw['1C3934'],
+    fontSize: 13,
+    lineHeight: 18
+  },
   groupedFirst: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16
   },
   groupedMiddle: {
     borderBottomLeftRadius: 0,
@@ -342,11 +411,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 0
   },
   groupedLast: {
-    borderBottomLeftRadius: radius.lg,
-    borderBottomRightRadius: radius.lg,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     borderTopWidth: 0
   },
-  groupedOnly: { borderRadius: radius.lg }
+  groupedOnly: { borderRadius: 16 },
+  accountListCard: {
+    borderColor: colorTokens.raw.E2E7E3,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+    minHeight: 84,
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  }
 });

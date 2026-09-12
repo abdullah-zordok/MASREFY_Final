@@ -87,15 +87,54 @@ it('shows derived balance and account management actions', () => {
   ]);
   expect(screen.getAllByText(account.name).length).toBeGreaterThan(0);
   expect(
-    screen.getByText(translate('coreFinance.accounts.balanceAvailable'))
+    screen.getByText(translate('coreFinance.accounts.balanceCurrent'))
   ).toBeTruthy();
   expect(screen.getByText(translate('coreFinance.accounts.edit'))).toBeTruthy();
   expect(
-    screen.getByText(translate('coreFinance.accounts.automaticTrackingEnabled'))
-  ).toBeTruthy();
+    screen.getByTestId('account-detail-hero').props.accessibilityLabel
+  ).toContain(translate('coreFinance.accounts.automaticTrackingEnabled'));
   expect(
     screen.getByText(translate('coreFinance.action.transfer'))
   ).toBeTruthy();
+  expect(screen.getByTestId('account-detail-masthead-title')).toHaveTextContent(
+    account.name
+  );
+  expect(
+    screen.queryByLabelText(translate('appShell.navigation.back'))
+  ).toBeNull();
+  expect(screen.getByTestId('account-detail-masthead')).toHaveStyle({
+    paddingBottom: 8,
+    paddingTop: 8
+  });
+  expect(screen.getByTestId('account-detail-hero')).toHaveStyle({
+    borderRadius: 16,
+    marginBottom: 14,
+    minHeight: 129,
+    padding: 20
+  });
+  expect(screen.queryByTestId('account-detail-metadata')).toBeNull();
+  expect(screen.queryByTestId('account-row')).toBeNull();
+});
+
+it('keeps the minus sign on a negative account balance', () => {
+  const account = fixtureAccounts[0];
+  renderWithQueryData(<AccountDetailScreen id={account.id} />, [
+    [coreFinanceKeys.account(account.id), account],
+    [
+      coreFinanceKeys.accountBalances(true),
+      [
+        {
+          accountId: account.id,
+          balanceMinor: -12_345,
+          currencyCode: account.currencyCode
+        }
+      ]
+    ]
+  ]);
+
+  expect(screen.getByTestId('financial-pulse-statement')).toHaveTextContent(
+    '-123.45 SAR'
+  );
 });
 
 it('shows when automatic tracking is disabled for the account', () => {
@@ -105,10 +144,8 @@ it('shows when automatic tracking is disabled for the account', () => {
     [coreFinanceKeys.accountBalances(true), []]
   ]);
   expect(
-    screen.getByText(
-      translate('coreFinance.accounts.automaticTrackingDisabled')
-    )
-  ).toBeTruthy();
+    screen.getByTestId('account-detail-hero').props.accessibilityLabel
+  ).toContain(translate('coreFinance.accounts.automaticTrackingDisabled'));
 });
 
 it('keeps closed accounts read-only', () => {
@@ -190,6 +227,14 @@ it('reuses the RTL transaction card for recent account activity', () => {
     alignItems: 'flex-start',
     flexShrink: 0,
     maxWidth: '45%'
+  });
+  expect(screen.getByTestId('account-detail-activity-header')).toHaveStyle({
+    direction: 'ltr',
+    flexDirection: 'row-reverse'
+  });
+  expect(screen.getByTestId('account-detail-activity-card')).toHaveStyle({
+    borderRadius: 16,
+    overflow: 'hidden'
   });
 
   rendered.unmount();

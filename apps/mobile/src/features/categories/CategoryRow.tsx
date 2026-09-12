@@ -1,5 +1,5 @@
 import React from 'react';
-import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'react-native';
 
 import { layoutDirectionStyle } from '@/design-system/direction';
@@ -71,7 +71,6 @@ export function CategoryRow({
   const direction = usePreferenceStore((state) => state.direction);
   const locale = currentLocale();
   const isRtl = direction === 'rtl';
-  const largeText = PixelRatio.getFontScale() >= 1.5;
   const { category, label, parentLabel, statusLabelKey, originLabelKey } =
     presentation;
   const status = statusLabelKey ? translate(statusLabelKey as never) : null;
@@ -98,9 +97,12 @@ export function CategoryRow({
   const subtitle = subtitleParts.join('  ·  ');
 
   return (
-    <View
+    <Pressable
       testID="category-row"
       accessibilityLabel={[label, subtitle, status].filter(Boolean).join(', ')}
+      accessibilityRole={onPress ? 'button' : undefined}
+      disabled={!onPress}
+      onPress={onPress}
       style={[
         styles.card,
         styles.physicalLtr,
@@ -141,9 +143,7 @@ export function CategoryRow({
         </View>
 
         {/* ── Middle: Label & Subtitle (Tx count / parent) ── */}
-        <Pressable
-          onPress={onPress}
-          disabled={!onPress}
+        <View
           style={[
             styles.textBlock,
             { alignItems: isRtl ? 'flex-end' : 'flex-start' }
@@ -158,7 +158,6 @@ export function CategoryRow({
                 writingDirection: direction
               }
             ]}
-            numberOfLines={largeText ? undefined : 1}
           >
             {label}
           </Text>
@@ -172,7 +171,6 @@ export function CategoryRow({
                 writingDirection: direction
               }
             ]}
-            numberOfLines={largeText ? undefined : 1}
           >
             {subtitle}
             {category.isFavorite && !isGrouped ? `  ·  ${translate('coreFinance.categories.favoriteShort')}` : ''}
@@ -188,10 +186,9 @@ export function CategoryRow({
               {status}
             </Text>
           ) : null}
-        </Pressable>
+        </View>
 
-        {/* ── Trailing Actions: Folder (Move to Group) + Red Trash (Delete) ── */}
-        {!isGrouped && (onDelete || onMoveToGroup) ? (
+        {!isGrouped && (onMoveToGroup || onDelete) ? (
           <View
             style={[
               styles.trailingActions,
@@ -203,8 +200,11 @@ export function CategoryRow({
               <Pressable
                 key="action-btn-move-to-group"
                 accessibilityRole="button"
-                accessibilityLabel={translate('coreFinance.categories.moveToGroup')}
-                onPress={onMoveToGroup}
+                accessibilityLabel={`${translate('coreFinance.categories.moveToGroup')}: ${label}`}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onMoveToGroup();
+                }}
                 style={({ pressed }) => [
                   styles.actionBtn,
                   {
@@ -223,19 +223,20 @@ export function CategoryRow({
                 />
               </Pressable>
             ) : null}
-
-            {/* Delete button (Red Trash Can) */}
             {onDelete ? (
               <Pressable
-                key="action-btn-delete"
                 accessibilityRole="button"
-                accessibilityLabel={translate('coreFinance.categories.delete')}
-                onPress={onDelete}
+                accessibilityLabel={`${translate('coreFinance.categories.delete')}: ${label}`}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onDelete();
+                }}
                 style={({ pressed }) => [
                   styles.actionBtn,
                   {
-                    backgroundColor: pressed ? colorTokens.raw["FEE2E2"] : 'transparent',
-                    opacity: pressed ? 0.8 : 1
+                    backgroundColor: pressed
+                      ? colorTokens.raw["FEE2E2"]
+                      : 'transparent'
                   }
                 ]}
                 hitSlop={8}
@@ -243,7 +244,7 @@ export function CategoryRow({
                 <DesignIcon
                   name="trash"
                   label={translate('coreFinance.categories.delete')}
-                  color={colorTokens.raw["EF4444"]}
+                  color={colorTokens.raw["C04B45"]}
                   size="sm"
                   decorative
                 />
@@ -261,7 +262,7 @@ export function CategoryRow({
           </View>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -362,9 +363,9 @@ const styles = StyleSheet.create({
   actionBtn: {
     alignItems: 'center',
     borderRadius: 8,
-    height: 36,
+    height: 48,
     justifyContent: 'center',
-    width: 36
+    width: 48
   },
 
   // Chevron

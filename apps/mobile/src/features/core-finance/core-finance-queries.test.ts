@@ -36,6 +36,7 @@ it('creates stable isolated query keys', () => {
 it.each([
   ['home.summary', ['core-finance', 'home']],
   ['accounts.list', ['core-finance', 'accounts']],
+  ['accounts.balances', ['core-finance', 'account-balances']],
   ['accounts.detail.a1', ['core-finance', 'account', 'a1']],
   ['transactions.detail.t1', ['core-finance', 'transaction', 't1']],
   ['categories.list', ['core-finance', 'categories']],

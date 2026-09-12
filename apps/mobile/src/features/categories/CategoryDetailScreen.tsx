@@ -63,6 +63,15 @@ export function CategoryDetailScreen({ id }: { id: string }) {
       item.status === 'active' &&
       item.financialType === category.financialType
   );
+  const excludedMergeTargetIds = query.data
+    ?.filter(
+      (item: Category) =>
+        item.id === id ||
+        item.kind !== 'custom' ||
+        item.status !== 'active' ||
+        item.financialType !== category.financialType
+    )
+    .map((item: Category) => item.id);
   const categoryLabel = locale === 'ar' ? category.labelAr : category.labelEn;
   const parent = query.data?.find(
     (item: Category) => item.id === category.parentId
@@ -207,7 +216,7 @@ export function CategoryDetailScreen({ id }: { id: string }) {
             onPress={() =>
               openCategorySelection({
                 selectedId: targetId,
-                excludedIds: [id],
+                excludedIds: excludedMergeTargetIds ?? [id],
                 onSelect: (categoryId) => {
                   if (categoryId) setTargetId(categoryId);
                 }

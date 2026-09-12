@@ -14,15 +14,19 @@ import { translateDynamic } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { useTheme } from '@/state/theme-context';
 import { projectTransaction } from './transaction-presentation';
+import { editorialFontFamilyForLocale } from '@/design-system/typography';
+import { colorTokens } from '@/design-system/tokens';
 
 export function TransactionCard({
   accountName,
+  groupedPosition,
   hidden,
   largeText,
   testIDPrefix,
   transaction
 }: {
   accountName?: string;
+  groupedPosition?: 'first' | 'middle' | 'last' | 'only';
   hidden: boolean;
   largeText: boolean;
   testIDPrefix: 'account' | 'home';
@@ -59,13 +63,22 @@ export function TransactionCard({
       onPress={() => router.push(`/transactions/${transaction.id}/edit`)}
       style={({ pressed }) => [
         styles.card,
+        groupedPosition && styles.grouped,
         largeText
           ? styles.stacked
           : { flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' },
         {
-          backgroundColor: theme.colors.surfaces.card,
-          borderColor: theme.colors.horizon.sheetBorder
+          backgroundColor: groupedPosition
+            ? colorTokens.surface.white
+            : theme.colors.surfaces.card,
+          borderColor: groupedPosition
+            ? colorTokens.raw.E2E7E3
+            : theme.colors.horizon.sheetBorder
         },
+        groupedPosition === 'first' && styles.groupedFirst,
+        groupedPosition === 'middle' && styles.groupedMiddle,
+        groupedPosition === 'last' && styles.groupedLast,
+        groupedPosition === 'only' && styles.groupedOnly,
         pressed && { backgroundColor: theme.colors.interactions.quietPressed }
       ]}
     >
@@ -76,7 +89,11 @@ export function TransactionCard({
           { flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' }
         ]}
       >
-        <CategoryIcon label={categoryLabel} size="md" visualKey={visualKey} />
+        <CategoryIcon
+          label={categoryLabel}
+          size={groupedPosition ? 38 : 'md'}
+          visualKey={visualKey}
+        />
         <View
           testID={`${testIDPrefix}-transaction-text-${transaction.id}`}
           style={[
@@ -88,8 +105,12 @@ export function TransactionCard({
             numberOfLines={largeText ? undefined : 2}
             style={[
               styles.title,
+              groupedPosition && styles.groupedTitle,
               {
                 color: theme.colors.content.primary,
+                fontFamily: groupedPosition
+                  ? editorialFontFamilyForLocale(locale, 700)
+                  : undefined,
                 textAlign: direction === 'rtl' ? 'right' : 'left',
                 writingDirection: direction
               }
@@ -101,16 +122,22 @@ export function TransactionCard({
             numberOfLines={largeText ? undefined : 1}
             style={[
               styles.meta,
+              groupedPosition && styles.groupedMeta,
               {
                 color: theme.colors.content.secondary,
+                fontFamily: groupedPosition
+                  ? editorialFontFamilyForLocale(locale, 400)
+                  : undefined,
                 textAlign: direction === 'rtl' ? 'right' : 'left',
                 writingDirection: direction
               }
             ]}
           >
-            {categoryLabel}
+            {groupedPosition && accountName
+              ? `${categoryLabel} · ${accountName}`
+              : categoryLabel}
           </Text>
-          {accountName ? (
+          {accountName && !groupedPosition ? (
             <View style={styles.account}>
               <View
                 style={[
@@ -151,20 +178,22 @@ export function TransactionCard({
           masked={hidden}
           meaning={presentation.meaning}
           minorUnits={transaction.amountMinor}
-          size="home"
+          size={groupedPosition ? 'compact' : 'home'}
         />
-        <Text
-          style={[
-            styles.date,
-            {
-              color: theme.colors.content.muted,
-              textAlign: direction === 'rtl' ? 'left' : 'right',
-              writingDirection: direction
-            }
-          ]}
-        >
-          {presentation.dateLabel}
-        </Text>
+        {!groupedPosition ? (
+          <Text
+            style={[
+              styles.date,
+              {
+                color: theme.colors.content.muted,
+                textAlign: direction === 'rtl' ? 'left' : 'right',
+                writingDirection: direction
+              }
+            ]}
+          >
+            {presentation.dateLabel}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -183,11 +212,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     writingDirection: 'ltr'
   },
+  grouped: {
+    borderRadius: 0,
+    borderWidth: 0,
+    minHeight: 66,
+    paddingHorizontal: 14,
+    paddingVertical: 13
+  },
+  groupedFirst: { borderTopWidth: 0 },
+  groupedMiddle: { borderTopColor: colorTokens.raw.EDF0ED, borderTopWidth: 1 },
+  groupedLast: { borderTopColor: colorTokens.raw.EDF0ED, borderTopWidth: 1 },
+  groupedOnly: { borderTopWidth: 0 },
   stacked: { alignItems: 'stretch', flexDirection: 'column' },
   info: { alignItems: 'center', flex: 1, gap: spacing.md, minWidth: 0 },
   text: { flex: 1, gap: 2, minWidth: 0 },
   title: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
+  groupedTitle: { fontSize: 14, lineHeight: 18 },
   meta: { fontSize: 12, lineHeight: 17 },
+  groupedMeta: {
+    color: colorTokens.raw['68716C'],
+    fontSize: 11,
+    lineHeight: 15
+  },
   account: {
     alignItems: 'center',
     flexDirection: 'row',

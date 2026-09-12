@@ -9,6 +9,7 @@ import {
   TextInput,
   View
 } from 'react-native';
+import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { layoutDirectionStyle } from '@/design-system/direction';
@@ -51,7 +52,6 @@ export function CategoryListScreen() {
     useState<Category | null>(null);
   const [groupModalVisible, setGroupModalVisible] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const query = useCategories(true);
   const txQuery = useTransactions();
@@ -68,6 +68,8 @@ export function CategoryListScreen() {
     }
     return counts;
   }, [txQuery.data]);
+  const completeTxCounts =
+    txQuery.data?.nextCursor === null ? txCounts : undefined;
 
   const allCategories = useMemo(
     () => (query.data ?? []) as Category[],
@@ -84,7 +86,8 @@ export function CategoryListScreen() {
     const seen = new Set<string>();
     return allCategories
       .filter((item) => {
-        if (!item?.id || seen.has(item.id)) return false;
+        if (!item?.id || item.status !== 'active' || seen.has(item.id))
+          return false;
         seen.add(item.id);
         return true;
       })
@@ -103,37 +106,52 @@ export function CategoryListScreen() {
       );
   }, [allCategories, byId, resolvedLocale, search]);
 
-  // Delete category with confirmation
-  const handleDeleteCategory = (cat: Category, catLabel: string) => {
-    Alert.alert(
-      translate('coreFinance.categories.deleteCategory'),
-      translateDynamic('coreFinance.categories.deleteConfirm', {
-        name: catLabel
-      }),
-      [
-        { text: translate('coreFinance.cancel'), style: 'cancel' },
-        {
-          text: translate('coreFinance.categories.delete'),
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                const result = await coreFinanceService.setCategoryStatus(
-                  cat.id,
-                  'archived'
-                );
-                await invalidateCoreFinanceScopes(
-                  client,
-                  result.affectedScopes
-                );
-              } catch (e) {
-                console.error('Failed to delete category', e);
-              }
-            })();
+  const archiveCategory = async (
+    category: Category,
+    preview: { linkedTransactionCount: number; version: number }
+  ) => {
+    try {
+      const mutation = await coreFinanceService.setCategoryStatus(
+        category.id,
+        'archived',
+        preview
+      );
+      await invalidateCoreFinanceScopes(client, mutation.affectedScopes);
+    } catch {
+      Alert.alert(translate('coreFinance.state.error'));
+    }
+  };
+
+  const requestCategoryDeletion = async (category: Category) => {
+    try {
+      const preview = await coreFinanceService.getCategoryUsage(category.id);
+      const categoryLabel =
+        resolvedLocale === 'ar' ? category.labelAr : category.labelEn;
+      const hasLinkedTransactions = preview.linkedTransactionCount > 0;
+      Alert.alert(
+        translate('coreFinance.categories.deleteCategory'),
+        hasLinkedTransactions
+          ? translateDynamic('coreFinance.categories.archiveConfirmNamed', {
+              name: categoryLabel,
+              count: String(preview.linkedTransactionCount)
+            })
+          : translateDynamic('coreFinance.categories.deleteConfirm', {
+              name: categoryLabel
+            }),
+        [
+          { text: translate('coreFinance.cancel'), style: 'cancel' },
+          {
+            text: hasLinkedTransactions
+              ? translate('coreFinance.categories.archive')
+              : translate('coreFinance.categories.delete'),
+            style: 'destructive',
+            onPress: () => void archiveCategory(category, preview)
           }
-        }
-      ]
-    );
+        ]
+      );
+    } catch {
+      Alert.alert(translate('coreFinance.state.error'));
+    }
   };
 
   // Move category to group
@@ -151,8 +169,8 @@ export function CategoryListScreen() {
         isFavorite: target.isFavorite
       });
       await invalidateCoreFinanceScopes(client, result.affectedScopes);
-    } catch (e) {
-      console.error('Failed to update category group', e);
+    } catch {
+      Alert.alert(translate('coreFinance.state.error'));
     } finally {
       setTargetCategoryForGroup(null);
     }
@@ -173,8 +191,8 @@ export function CategoryListScreen() {
           isFavorite: target.isFavorite
         });
         await invalidateCoreFinanceScopes(client, result.affectedScopes);
-      } catch (e) {
-        console.error('Failed to assign category to newly created group', e);
+      } catch {
+        Alert.alert(translate('coreFinance.state.error'));
       } finally {
         setTargetCategoryForGroup(null);
       }
@@ -352,22 +370,37 @@ export function CategoryListScreen() {
           <CategoryRow
             presentation={item}
             rowIndex={index}
-            txCount={txCounts.get(item.category.id) ?? 0}
-            onPress={() => setEditingCategory(item.category)}
-            onDelete={() => handleDeleteCategory(item.category, item.label)}
-            onMoveToGroup={() => setTargetCategoryForGroup(item.category)}
+            txCount={
+              completeTxCounts
+                ? completeTxCounts.get(item.category.id) ?? 0
+                : undefined
+            }
+            onPress={() =>
+              router.push(`/categories/${item.category.id}?edit=1`)
+            }
+            onDelete={
+              item.category.kind === 'custom' &&
+              item.category.status === 'active'
+                ? () => void requestCategoryDeletion(item.category)
+                : undefined
+            }
+            onMoveToGroup={
+              item.category.kind === 'custom' &&
+              item.category.status === 'active'
+                ? () => setTargetCategoryForGroup(item.category)
+                : undefined
+            }
           />
         )}
       />
 
       {/* Add / Edit Category Modal */}
       <Modal
-        visible={categoryModalVisible || Boolean(editingCategory)}
+        visible={categoryModalVisible}
         transparent={false}
         animationType="slide"
         onRequestClose={() => {
           setCategoryModalVisible(false);
-          setEditingCategory(null);
         }}
       >
         <View
@@ -381,14 +414,11 @@ export function CategoryListScreen() {
           }}
         >
           <CategoryForm
-            category={editingCategory ?? undefined}
             onClose={() => {
               setCategoryModalVisible(false);
-              setEditingCategory(null);
             }}
             onSuccess={() => {
               setCategoryModalVisible(false);
-              setEditingCategory(null);
             }}
           />
         </View>
@@ -396,7 +426,7 @@ export function CategoryListScreen() {
 
       {/* Move To Group Bottom Sheet */}
       <MoveToGroupSheet
-        visible={Boolean(targetCategoryForGroup)}
+        visible={Boolean(targetCategoryForGroup) && !groupModalVisible}
         category={targetCategoryForGroup}
         groups={allCategories}
         onSelectGroup={(groupId) => void handleSelectGroup(groupId)}

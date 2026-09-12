@@ -1,8 +1,8 @@
 import React from 'react';
 import { PixelRatio } from 'react-native';
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 
-import { changeLocale } from '@/localization/i18n';
+import { changeLocale, translate } from '@/localization/i18n';
 import { fixtureCategories } from '@/test-utils/core-finance-fixtures';
 import { renderWithProviders } from '@/test-utils/render';
 import { CategoryRow } from './CategoryRow';
@@ -31,6 +31,45 @@ it('renders a category row with an accessible image for openmoji visuals', () =>
   expect(row).toBeTruthy();
   // Label must appear
   expect(screen.getByText('Food')).toBeTruthy();
+});
+
+it('shows the full category name at the default text size', () => {
+  jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(1);
+  const label = 'Everyday household expenses with a long category name';
+  renderWithProviders(
+    <CategoryRow
+      presentation={projectCategory(
+        { ...fixtureCategories[0], labelEn: label },
+        'en'
+      )}
+    />
+  );
+
+  expect(screen.getByText(label).props.numberOfLines).toBeUndefined();
+  jest.restoreAllMocks();
+});
+
+it('makes the full row and named management action accessible', () => {
+  changeLocale('en');
+  const onPress = jest.fn();
+  const onMoveToGroup = jest.fn();
+  renderWithProviders(
+    <CategoryRow
+      presentation={projectCategory(fixtureCategories[0], 'en')}
+      onMoveToGroup={onMoveToGroup}
+      onPress={onPress}
+    />
+  );
+
+  fireEvent.press(screen.getByTestId('category-row'));
+  expect(onPress).toHaveBeenCalledTimes(1);
+  const moveAction = screen.getByLabelText(
+    `${translate('coreFinance.categories.moveToGroup')}: Housing`
+  );
+  expect(moveAction).toHaveStyle({ height: 48, width: 48 });
+  fireEvent.press(moveAction, { stopPropagation: jest.fn() });
+  expect(onMoveToGroup).toHaveBeenCalledTimes(1);
+  expect(onPress).toHaveBeenCalledTimes(1);
 });
 
 it.each([

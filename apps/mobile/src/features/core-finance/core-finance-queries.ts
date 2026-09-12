@@ -142,6 +142,8 @@ export function scopeToKey(scope: string): readonly unknown[] {
   if (root === 'home') return ['core-finance', 'home'];
   if (root === 'accounts' && kind === 'detail' && id)
     return ['core-finance', 'account', id];
+  if (root === 'accounts' && kind === 'balances')
+    return ['core-finance', 'account-balances'];
   if (root === 'accounts') return ['core-finance', 'accounts'];
   if (root === 'transactions' && kind === 'detail' && id)
     return ['core-finance', 'transaction', id];
