@@ -9,6 +9,7 @@
 - UI states expose queued, processing, imported, review, duplicate, account-required, and safe error results using backend-returned IDs.
 - A clean Expo prebuild retained `android.permission.READ_SMS` and autolinked `com.masarifi.smsinbox.MasarifiSmsInboxModule`.
 - Verification: 19 focused Jest suites / 136 tests passed; TypeScript, ESLint, client-runtime, Expo config, autolinking, and `:app:compileDebugKotlin` exited successfully. ESLint reported existing warnings but zero errors.
+- The complete mobile suite ran 2,112 tests. A tracking demo regression found by that run was fixed and passes in isolation; the only repeatable remaining failure is outside this branch in `subscription-settings-service.test.ts`, where the current user-modified auth service returns `session_expired` instead of the test's expected `provider_unavailable`. Two load-sensitive tests that timed out or exceeded their budget in the full run passed immediately in the isolated rerun.
 - The generated Android tree before clean prebuild is recoverable at `C:\Users\DELL\AppData\Local\Temp\masarifi-android-backup-20260912-165603\android`.
 
 ## Physical-device result

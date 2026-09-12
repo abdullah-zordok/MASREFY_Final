@@ -20,11 +20,11 @@ import { TrackingDemoNotice } from './components/TrackingDemoNotice';
 export function ReviewQueue() {
   const query = useReviewItems();
   const duplicates = useDuplicateCandidates();
-  if (query.isLoading || duplicates.isLoading)
+  if (query.isLoading)
     return (
       <StateView state="loading" title={translate('tracking.state.loading')} />
     );
-  if (query.isError || duplicates.isError)
+  if (query.isError)
     return (
       <StateView
         state="error"
