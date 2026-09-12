@@ -429,7 +429,7 @@ let demoAutomaticTrackingRepository: AutomaticTrackingRepository | null = null;
 
 export function createProductionAutomaticTrackingService(
   locale: Locale = 'ar'
-) {
+): CapabilityProviderHandle<AutomaticTrackingService> {
   const demoMode = isDemoModeEnabled();
   const repository = new AutomaticTrackingRepository(
     demoMode
