@@ -180,10 +180,8 @@ export function createAutomaticTrackingCoordinator(
           prepared.accountRequiredCount ? 'account_required' : 'queued'
         );
       return await flush(ownerId, queued.pending, dependencies, update);
-    } catch (error) {
-      return update('error', {
-        errorCode: error instanceof Error ? error.message : 'unknown'
-      });
+    } catch {
+      return update('error', { errorCode: 'sync_failed' });
     }
   };
 

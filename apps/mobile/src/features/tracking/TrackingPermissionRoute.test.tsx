@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import PermissionRoute from './permission';
+import PermissionRoute from '../../../app/tracking/permission';
 import { permissionState } from '@/services/mocks/tracking-permission-service';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { translate } from '@/localization/i18n';
@@ -65,7 +65,9 @@ describe('tracking permission route', () => {
       await screen.findByLabelText(translate('appShell.permission.openSettings'))
     );
 
-    await waitFor(() => expect(mockPermissionService.openSettings).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mockPermissionService.openSettings).toHaveBeenCalledTimes(1)
+    );
     expect(mockPermissionService.requestAfterEducation).not.toHaveBeenCalled();
     expect(setMode).not.toHaveBeenCalled();
   });

@@ -21,12 +21,12 @@ export interface SmsImportQueueEntry {
 }
 
 export interface SmsRuleSnapshot {
-  keywords: Array<{ value: string; enabled: boolean }>;
-  senders: Array<{
+  keywords: { value: string; enabled: boolean }[];
+  senders: {
     normalizedSender: string;
     enabled: boolean;
     trusted: boolean;
-  }>;
+  }[];
 }
 
 export interface SmsImportQueueState {

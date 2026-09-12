@@ -24,17 +24,17 @@ const otpPattern =
   /\botp\b|one[\s-]?time|verification\s*code|رمز\s*(?:التحقق|الأمان)|كود\s*التحقق/iu;
 const marketingPattern =
   /\boffer\b|\bpromo\b|\bdiscount\b|عرض|خصم\s+\d+\s*%|اشتر/iu;
-const kindPatterns: Array<[
+const kindPatterns: [
   NonNullable<TrackingImportEvent['kind']>,
   RegExp
-]> = [
+][] = [
   ['refund', /\brefund(?:ed)?\b|استرداد|مسترد/iu],
   ['income', /\bsalary\b|\bcredited\b|\bdeposit(?:ed)?\b|\breceived\b|راتب|إيداع|ايداع|استلام/iu],
   ['transfer', /\btransfer(?:red)?\b|تحويل/iu],
   ['fee', /\bfees?\b|رسوم/iu],
   ['expense', /\bpaid\b|\bpurchase\b|\bspent\b|\bdebit(?:ed)?\b|\bcharged\b|شراء|دفع|خصم/iu]
 ];
-const currencies: Array<[string, string]> = [
+const currencies: [string, string][] = [
   ['SAR', 'SAR|ر\s*\.\s*س|ريال(?:\s+سعودي)?'],
   ['AED', 'AED|د\s*\.\s*إ|درهم(?:\s+إماراتي)?'],
   ['USD', 'USD|US\\$|دولار'],

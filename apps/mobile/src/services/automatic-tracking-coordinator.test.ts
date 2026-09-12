@@ -274,6 +274,18 @@ describe('automatic tracking coordinator', () => {
     expect(context.tracking.submitImport).not.toHaveBeenCalled();
   });
 
+  it('does not expose dependency error messages in sync state', async () => {
+    const context = setup();
+    context.tracking.getStatus.mockRejectedValue(
+      new Error('sensitive upstream response')
+    );
+
+    await expect(context.coordinator.sync()).resolves.toMatchObject({
+      status: 'error',
+      errorCode: 'sync_failed'
+    });
+  });
+
   it('coalesces concurrent start and resume synchronization', async () => {
     let release!: (value: []) => void;
     const pending = new Promise<[]>(resolve => { release = resolve; });
