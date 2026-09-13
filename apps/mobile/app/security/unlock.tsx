@@ -25,6 +25,7 @@ export default function UnlockRoute() {
       biometricService={createBiometricService()}
       expectedHash={pinCredential ?? ''}
       lockedUntil={privacyLock?.lockedUntil}
+      onForgotPin={() => router.push('/security/pin/forgot')}
       onInvalidPin={() => void recordFailedUnlock(Date.now())}
       onCredentialUpgrade={(hash) => configurePrivacyLock(hash)}
       onUnlock={async () => {

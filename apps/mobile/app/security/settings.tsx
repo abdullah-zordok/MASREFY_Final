@@ -95,6 +95,12 @@ export default function SecuritySettingsRoute() {
             )
           }
         />
+        {privacyLock ? (
+          <NavigationRow
+            label={translate('appShell.security.forgotPin')}
+            onPress={() => router.push('/security/pin/forgot')}
+          />
+        ) : null}
         <View style={styles.insetRow}>
           <SwitchRow
             disabled={!biometricReady}

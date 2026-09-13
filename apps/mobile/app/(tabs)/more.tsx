@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import { MenuLink } from '@/components/MenuLink';
 import { StyledText } from '@/components/StyledText';
+import { ActionButton } from '@/design-system/components/ActionButton';
 import { AppBar } from '@/design-system/components/navigation/AppNavigation';
 import {
   useAssistantAvailability,
@@ -16,6 +17,9 @@ import { useAppShellStore } from '@/state/app-shell';
 import { usePreferenceStore } from '@/state/preferences';
 import { useTheme } from '@/state/theme-context';
 import { colorTokens } from '@/design-system/tokens';
+import { isFixtureModeEnabled } from '@/config/demo-mode';
+import { authService } from '@/features/auth/auth-flow';
+import { signOutAppShellSession } from '@/features/auth/session-controller';
 
 export default function MoreRoute() {
   const theme = useTheme();
@@ -274,6 +278,27 @@ export default function MoreRoute() {
         </View>
       </View>
 
+      <View style={styles.actionsWrapper}>
+        <ActionButton
+          label={translate('appShell.auth.signOut')}
+          onPress={async () => {
+            await signOutAppShellSession(authService, 'local');
+            router.replace('/(public)/auth-pending');
+          }}
+          variant="destructive"
+        />
+        {isFixtureModeEnabled() ? (
+          <ActionButton
+            label={translate('appShell.security.mockSignOutAll')}
+            onPress={async () => {
+              await signOutAppShellSession(authService, 'all');
+              router.replace('/(public)/auth-pending');
+            }}
+            variant="secondary"
+          />
+        ) : null}
+      </View>
+
     </ScrollView>
   );
 }
@@ -347,5 +372,9 @@ const styles = StyleSheet.create({
   stateLabel: {
     fontSize: 12,
     marginHorizontal: spacing.sm
+  },
+  actionsWrapper: {
+    gap: spacing.sm,
+    marginTop: spacing.sm
   }
 });

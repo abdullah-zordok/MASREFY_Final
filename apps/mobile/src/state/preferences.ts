@@ -55,20 +55,22 @@ let localeRequestVersion = 0;
 let pendingDemoLocaleRequests = 0;
 let demoLocaleQueue: Promise<unknown> = Promise.resolve();
 let lastSynchronizedDemoLocale: Locale | null = null;
+let preferenceHydration: Promise<void> | null = null;
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   ...buildPreferences({}),
   hydrated: false,
 
   hydrate: async () => {
-    // Preferences are optional startup state; storage failure must not block routing.
-    const loaded = await loadPreferences().catch(() => buildPreferences({}));
-    const next = { ...loaded, theme: 'light' as const };
-    changeLocale(next.locale);
-    set({ ...next, hydrated: true });
-    if (loaded.theme !== 'light') {
-      await savePreferences(next);
+    if (preferenceHydration) {
+      await preferenceHydration;
+      return;
     }
+    if (get().hydrated) return;
+    preferenceHydration = hydratePreferences(set).finally(() => {
+      preferenceHydration = null;
+    });
+    await preferenceHydration;
   },
 
   completeFirstLaunchOnboarding: async () => {
@@ -201,4 +203,15 @@ function persist(state: PreferenceState): Promise<void> {
     analyticsEnabled: state.analyticsEnabled,
     monthStartDay: state.monthStartDay
   });
+}
+
+async function hydratePreferences(
+  set: (state: Partial<PreferenceState>) => void
+): Promise<void> {
+  // Preferences are optional startup state; storage failure must not block routing.
+  const loaded = await loadPreferences().catch(() => buildPreferences({}));
+  const next = { ...loaded, theme: 'light' as const };
+  changeLocale(next.locale);
+  set({ ...next, hydrated: true });
+  if (loaded.theme !== 'light') await savePreferences(next);
 }

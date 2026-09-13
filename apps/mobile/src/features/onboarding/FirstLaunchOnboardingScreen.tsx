@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -62,10 +62,25 @@ export function FirstLaunchOnboardingScreen({
   const theme = useTheme();
   const locale = usePreferenceStore((state) => state.locale);
   const setLocale = usePreferenceStore((state) => state.setLocale);
+  const [submitting, setSubmitting] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const direction = locale === 'ar' ? 'rtl' : 'ltr';
   const textAlign = locale === 'ar' ? 'right' : 'left';
   const cardRadius = Math.round(theme.radius.card * 1.06);
   const controlRadius = Math.round(theme.radius.control * 1.06);
+
+  async function startOnboarding() {
+    if (submitting) return;
+    setSubmitting(true);
+    setSaveFailed(false);
+    try {
+      await onStart();
+    } catch {
+      setSaveFailed(true);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <ScrollView
@@ -274,14 +289,25 @@ export function FirstLaunchOnboardingScreen({
         </StyledText>
       </View>
 
-      <ActionButton
-        label={translate('firstLaunch.cta')}
-        onPress={() => void onStart()}
-        style={{
-          borderRadius: controlRadius,
-          minHeight: theme.spacing.xxl + theme.spacing.xl
-        }}
-      />
+      <View style={styles.startActions}>
+        {saveFailed ? (
+          <StyledText
+            accessibilityRole="alert"
+            style={{ color: theme.colors.status.danger, textAlign }}
+          >
+            {translate('appShell.error.persistenceFailed')}
+          </StyledText>
+        ) : null}
+        <ActionButton
+          label={translate('firstLaunch.cta')}
+          loading={submitting}
+          onPress={() => void startOnboarding()}
+          style={{
+            borderRadius: controlRadius,
+            minHeight: theme.spacing.xxl + theme.spacing.xl
+          }}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -339,6 +365,9 @@ const styles = StyleSheet.create({
   savedStatus: {
     alignItems: 'center',
     flexDirection: 'row'
+  },
+  startActions: {
+    gap: 8
   },
   copy: {
     marginBottom: 24

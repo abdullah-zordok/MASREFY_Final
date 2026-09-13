@@ -88,7 +88,7 @@ describe('resolveEntryRoute', () => {
     ).toBe('/(tabs)/home');
   });
 
-  test('applies the privacy lock only after server profile setup completes', () => {
+  test('prioritizes the privacy lock while profile setup is unavailable', () => {
     expect(
       resolveEntryRoute({
         ...base,
@@ -101,7 +101,14 @@ describe('resolveEntryRoute', () => {
         profileSetupStatus: 'incomplete',
         privacyLock: { ...unlocked, appLockStatus: 'locked' }
       })
-    ).toBe('/(onboarding)/profile-setup');
+    ).toBe('/security/unlock');
+    expect(
+      resolveEntryRoute({
+        ...base,
+        profileSetupStatus: 'error',
+        privacyLock: { ...unlocked, appLockStatus: 'locked' }
+      })
+    ).toBe('/security/unlock');
   });
 
   test('returns safe pending destinations only for completed accounts', () => {

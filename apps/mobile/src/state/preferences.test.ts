@@ -187,6 +187,35 @@ it.each(['dark', 'system'] as const)(
   }
 );
 
+it('waits for an active hydration normalization write', async () => {
+  mockLoadPreferences.mockResolvedValue(buildPreferences({ theme: 'dark' }));
+  let finishSave!: () => void;
+  mockSavePreferences.mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      finishSave = resolve;
+    })
+  );
+
+  const firstHydration = usePreferenceStore.getState().hydrate();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(mockSavePreferences).toHaveBeenCalled();
+
+  let secondHydrationFinished = false;
+  const secondHydration = usePreferenceStore
+    .getState()
+    .hydrate()
+    .then(() => {
+      secondHydrationFinished = true;
+    });
+  await Promise.resolve();
+  expect(secondHydrationFinished).toBe(false);
+
+  finishSave();
+  await Promise.all([firstHydration, secondHydration]);
+  expect(secondHydrationFinished).toBe(true);
+});
+
 it('does not rewrite an already-light stored theme', async () => {
   mockLoadPreferences.mockResolvedValue(buildPreferences({ theme: 'light' }));
 

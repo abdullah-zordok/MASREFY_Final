@@ -26,6 +26,9 @@ export function resolveEntryRoute(input: EntryRouteInput): string {
       ? '/(public)/auth-pending'
       : '/welcome';
   }
+  if (input.privacyLock && input.privacyLock.appLockStatus !== 'unlocked') {
+    return '/security/unlock';
+  }
   if (
     input.profileSetupStatus === 'unknown' ||
     input.profileSetupStatus === 'loading'
@@ -36,9 +39,6 @@ export function resolveEntryRoute(input: EntryRouteInput): string {
     input.profileSetupStatus === 'error'
   )
     return '/(onboarding)/profile-setup';
-  if (input.privacyLock && input.privacyLock.appLockStatus !== 'unlocked') {
-    return '/security/unlock';
-  }
   return sanitizeReturnRoute(input.pendingDestination) ?? homeRoute;
 }
 

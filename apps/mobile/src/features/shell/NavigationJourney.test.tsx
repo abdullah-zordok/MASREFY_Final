@@ -15,6 +15,7 @@ import { translate, translateDynamic } from '@/localization/i18n';
 import { renderWithProviders } from '@/test-utils/render';
 import { useAppShellStore } from '@/state/app-shell';
 import { usePreferenceStore } from '@/state/preferences';
+import { authenticatedSession } from '@/test-utils/app-shell-fixtures';
 
 let mockSearchParams: { returnTo?: string } = {};
 
@@ -220,6 +221,22 @@ describe('navigation journey', () => {
       fireEvent.press(link);
       expect(router.push).toHaveBeenLastCalledWith(route);
     }
+  });
+
+  it('lets an authenticated user sign out from More', async () => {
+    useAppShellStore.setState({ session: authenticatedSession });
+    renderWithProviders(<MoreRoute />);
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', {
+          name: translate('appShell.auth.signOut')
+        })
+      );
+    });
+
+    expect(useAppShellStore.getState().session?.status).toBe('signed_out');
+    expect(router.replace).toHaveBeenCalledWith('/(public)/auth-pending');
   });
 
   it('keeps the client demo profile separate from subscriptions', () => {

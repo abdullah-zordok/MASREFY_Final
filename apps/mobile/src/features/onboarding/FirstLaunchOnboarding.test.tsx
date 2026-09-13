@@ -7,6 +7,7 @@ import { buildPreferences } from '@/domain/foundation';
 import { changeLocale } from '@/localization/i18n';
 import { useAppShellStore } from '@/state/app-shell';
 import { usePreferenceStore } from '@/state/preferences';
+import { savePreferences } from '@/storage/secure-preferences';
 import { renderWithProviders } from '@/test-utils/render';
 
 jest.mock('expo-router', () => ({
@@ -16,6 +17,8 @@ jest.mock('@/storage/secure-preferences', () => ({
   loadPreferences: jest.fn(),
   savePreferences: jest.fn().mockResolvedValue(undefined)
 }));
+
+const mockSavePreferences = jest.mocked(savePreferences);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -130,6 +133,28 @@ it('persists completion and opens the temporary Clerk destination', async () => 
   expect(usePreferenceStore.getState().firstLaunchOnboardingCompleted).toBe(
     true
   );
+  expect(router.replace).toHaveBeenCalledWith('/(public)/auth-pending');
+});
+
+it('shows a recoverable error when first-launch persistence fails', async () => {
+  mockSavePreferences
+    .mockRejectedValueOnce(new Error('storage unavailable'))
+    .mockResolvedValueOnce(undefined);
+  renderWithProviders(<WelcomeRoute />);
+
+  await act(async () => {
+    fireEvent.press(screen.getByRole('button', { name: 'ابدأ الحين' }));
+  });
+
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'تعذر الحفظ محليًا.'
+  );
+  expect(router.replace).not.toHaveBeenCalled();
+
+  await act(async () => {
+    fireEvent.press(screen.getByRole('button', { name: 'ابدأ الحين' }));
+  });
+
   expect(router.replace).toHaveBeenCalledWith('/(public)/auth-pending');
 });
 

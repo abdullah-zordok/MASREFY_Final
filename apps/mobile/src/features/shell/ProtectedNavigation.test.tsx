@@ -176,6 +176,19 @@ describe('protected navigation', () => {
     );
   });
 
+  it('keeps forgotten-PIN recovery reachable while the app is locked', () => {
+    mockPathname = '/security/pin/forgot';
+    useAppShellStore.setState({ privacyLock: lockedPrivacy });
+
+    render(<RootLayout />);
+
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockStack).toHaveBeenCalled();
+    expect(mockPrivacyGate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ locked: false })
+    );
+  });
+
   it('renders the current onboarding step without redirecting to itself', () => {
     mockPathname = '/android-sms-permission';
     useAppShellStore.setState({ onboarding: androidOnboarding });

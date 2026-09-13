@@ -5,10 +5,12 @@ import { router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 import SecuritySettingsRoute from '@app/security/settings';
+import UnlockRoute from '@app/security/unlock';
 import { translate } from '@/localization/i18n';
 import { createMockBiometricService } from '@/services/mocks/biometric-service';
 import { useAppShellStore } from '@/state/app-shell';
 import { renderWithProviders } from '@/test-utils/render';
+import { authenticatedSession, lockedPrivacy } from '@/test-utils/app-shell-fixtures';
 import { AppPrivacyGate } from './AppPrivacyGate';
 import { UnlockScreen } from './UnlockScreen';
 import { createPinCredential, resetLock } from './privacy-lock';
@@ -51,6 +53,20 @@ beforeEach(() => {
 });
 
 describe('security journey', () => {
+  it('offers forgotten-PIN recovery from the locked screen', () => {
+    useAppShellStore.setState({
+      hydrated: true,
+      session: authenticatedSession,
+      privacyLock: lockedPrivacy,
+      pinCredential: 'pin:123456'
+    });
+
+    renderWithProviders(<UnlockRoute />);
+
+    fireEvent.press(screen.getByLabelText(translate('appShell.security.forgotPin')));
+    expect(router.push).toHaveBeenCalledWith('/security/pin/forgot');
+  });
+
   it('covers PIN, biometrics, background mask, expiry precedence, reset, and sign-out', async () => {
     const credential = await createPinCredential('123456', '123456');
     expect(credential.hash).toMatch(/^pbkdf2-sha256:/);

@@ -65,7 +65,8 @@ export function ProtectedRouteGate({ children }: { children: ReactNode }) {
   if (legalRoute) return <>{children}</>;
 
   const isLockRecovery =
-    gate === '/security/unlock' && pathname === '/security/unlock';
+    gate === '/security/unlock' &&
+    (pathname === '/security/unlock' || pathname === '/security/pin/forgot');
   const isProfileSetupCurrencyPicker =
     gate === '/(onboarding)/profile-setup' && pathname === '/settings/currency';
   if (
