@@ -10,7 +10,6 @@ import ReportsRoute from '@app/(tabs)/reports';
 import MoreRoute from '@app/(tabs)/more';
 import AccountsRoute from '@app/accounts';
 import AssistantRoute from '@app/assistant';
-import AuthRequiredRoute from '@app/modals/auth-required';
 import { createClientDemoSession } from '@/domain/demo-session';
 import { translate, translateDynamic } from '@/localization/i18n';
 import { renderWithProviders } from '@/test-utils/render';
@@ -193,11 +192,6 @@ describe('navigation journey', () => {
     ).toBeOnTheScreen();
     assistant.unmount();
 
-    const authRequired = renderWithProviders(<AuthRequiredRoute />);
-    expect(
-      screen.getByText(translate('appShell.navigation.authRequired'))
-    ).toBeOnTheScreen();
-    authRequired.unmount();
   });
 
   it('makes More the directory for every relocated secondary destination', async () => {

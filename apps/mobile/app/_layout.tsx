@@ -49,8 +49,7 @@ export default function RootLayout() {
               locked={
                 appLockStatus !== undefined &&
                 appLockStatus !== 'unlocked' &&
-                pathname !== '/security/unlock' &&
-                pathname !== '/security/pin/forgot'
+                pathname !== '/security/unlock'
               }
               onLock={handleLock}
             >

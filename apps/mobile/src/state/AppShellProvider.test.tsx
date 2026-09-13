@@ -252,7 +252,8 @@ describe('AppShellProvider', () => {
         restoration: 'restored'
       },
       onboarding: null,
-      privacyLock: null
+      privacyLock: null,
+      profileSetupStatus: 'complete'
     });
 
     render(

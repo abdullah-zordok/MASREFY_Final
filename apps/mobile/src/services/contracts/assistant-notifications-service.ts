@@ -19,6 +19,8 @@ import type {
 } from '@/domain/notifications';
 import type {
   LocalDataDeletionResult,
+  ProfileSetupInput,
+  ProfileSetupSnapshot,
   PrivacyRequest,
   RepresentativeSession,
   SecurityEvent,
@@ -178,6 +180,8 @@ export interface SubscriptionService {
 export interface SettingsService {
   getProfile(): Promise<UserProfile>;
   saveProfile(input: UserProfileInput, expectedVersion: number, operationId: string): Promise<MutationResult<UserProfile>>;
+  getProfileSetup(): Promise<ProfileSetupSnapshot>;
+  saveProfileSetup(input: ProfileSetupInput, snapshot: ProfileSetupSnapshot, operationId: string): Promise<MutationResult<ProfileSetupSnapshot>>;
   listSessions(): Promise<RepresentativeSession[]>;
   revokeSession(sessionId: string, operationId: string): Promise<MutationResult<RepresentativeSession>>;
   revokeAllSessions(operationId: string): Promise<MutationResult<RepresentativeSession[]>>;

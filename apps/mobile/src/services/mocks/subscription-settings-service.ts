@@ -1,5 +1,7 @@
 import {
   privacyRequestSchema,
+  type ProfileSetupInput,
+  type ProfileSetupSnapshot,
   representativeSessionSchema,
   securityEventSchema,
   userProfileInputSchema,
@@ -504,6 +506,23 @@ export function createMockSettingsService({
       await ensureProfile();
       return profile;
     },
+    async getProfileSetup(): Promise<ProfileSetupSnapshot> {
+      await ensureProfile();
+      return completedProfileSetup(profile);
+    },
+    async saveProfileSetup(input: ProfileSetupInput) {
+      await ensureProfile();
+      const name = input.name.trim();
+      if (!name) throw new SettingsServiceError('validation');
+      profile = userProfileSchema.parse({
+        ...profile,
+        name,
+        currency: input.currency,
+        version: profile.version + 1
+      });
+      await profileStorage?.saveProfile(profile);
+      return result(completedProfileSetup(profile), ['settings.profile']);
+    },
     async saveProfile(
       input: UserProfileInput,
       expectedVersion: number,
@@ -640,6 +659,28 @@ function defaultProfile(): UserProfile {
     completion: ['identity', 'currency'],
     version: 1
   });
+}
+
+function completedProfileSetup(profile: UserProfile): ProfileSetupSnapshot {
+  return {
+    profile,
+    preferences: {
+      defaultCurrency: profile.currency,
+      language: 'ar',
+      theme: 'system',
+      calendar: 'gregorian',
+      weekStart: 6,
+      privacySettings: {},
+      version: 1
+    },
+    onboarding: {
+      step: 'complete',
+      completedSteps: ['welcome', 'complete'],
+      completedAt: new Date(0).toISOString(),
+      version: 1
+    },
+    complete: true
+  };
 }
 
 function fixturePrivacyRequest(

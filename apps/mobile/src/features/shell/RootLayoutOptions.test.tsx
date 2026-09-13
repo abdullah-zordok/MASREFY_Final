@@ -11,7 +11,7 @@ const mockStack = jest.fn((_props: unknown) => null);
 
 jest.mock('expo-router', () => ({
   Stack: (props: unknown) => mockStack(props),
-  usePathname: () => '/(public)/phone'
+  usePathname: () => '/(public)/legal'
 }));
 
 jest.mock('@/design-system/typography', () => ({

@@ -6,6 +6,10 @@ import type {
   PrivacyLockPreference,
   TrackingPreference
 } from '@/domain/app-shell';
+import type {
+  ProfileSetupSnapshot,
+  ProfileSetupStatus
+} from '@/domain/settings';
 import {
   applyOnboardingStep,
   type OnboardingStep,
@@ -38,7 +42,10 @@ interface AppShellState {
   pendingDestination: string | null;
   privacyLock: PrivacyLockPreference | null;
   profilePromptDismissed: boolean;
+  trackingHomeCardDismissed: boolean;
   pinCredential: string | null;
+  profileSetupStatus: ProfileSetupStatus;
+  profileSetupSnapshot: ProfileSetupSnapshot | null;
   hydrate: (now?: number) => Promise<void>;
   authenticate: (
     session: AuthenticationSession,
@@ -60,8 +67,13 @@ interface AppShellState {
   recordFailedUnlock: (now: number) => Promise<void>;
   lockNow: () => Promise<void>;
   resetPrivacyLock: () => Promise<void>;
+  setProfileSetup: (
+    status: ProfileSetupStatus,
+    snapshot?: ProfileSetupSnapshot | null
+  ) => void;
   dismissProfilePrompt: () => Promise<void>;
   reopenProfilePrompt: () => Promise<void>;
+  dismissTrackingHomeCard: () => Promise<void>;
   unlock: () => Promise<void>;
   reset: () => void;
 }
@@ -84,7 +96,10 @@ const initialState = {
   pendingDestination: null,
   privacyLock: null,
   profilePromptDismissed: false,
-  pinCredential: null
+  trackingHomeCardDismissed: false,
+  pinCredential: null,
+  profileSetupStatus: 'unknown' as ProfileSetupStatus,
+  profileSetupSnapshot: null as ProfileSetupSnapshot | null
 };
 
 export const useAppShellStore = create<AppShellState>((set, get) => ({
@@ -108,7 +123,8 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
         pendingDestination,
         privacyLock,
         pinCredential,
-        profilePromptDismissed
+        profilePromptDismissed,
+        trackingHomeCardDismissed
       ] = await Promise.all([
         storage.loadSession(),
         storage.loadOnboarding(),
@@ -116,6 +132,7 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
         storage.loadPrivacyLock(),
         storage.loadPinCredential(),
         storage.loadProfilePromptDismissed(),
+        storage.loadTrackingHomeCardDismissed(),
         demoMode
           ? synchronizeClientDemoLocale(locale, now).catch(() => false)
           : Promise.resolve(false)
@@ -141,7 +158,10 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
           pendingDestination: null,
           privacyLock: null,
           pinCredential,
-          profilePromptDismissed
+          profilePromptDismissed,
+          trackingHomeCardDismissed,
+          profileSetupStatus: 'complete',
+          profileSetupSnapshot: null
         });
         return;
       }
@@ -152,7 +172,10 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
         pendingDestination,
         privacyLock,
         pinCredential,
-        profilePromptDismissed
+        profilePromptDismissed,
+        trackingHomeCardDismissed,
+        profileSetupStatus: 'complete',
+        profileSetupSnapshot: null
       });
     } catch {
       set({ ...initialState, hydrated: true, session: signedOutSession });
@@ -176,14 +199,21 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
       if (!isCurrent()) return;
       await configureAppShellStorageOwner(session.userId!);
       if (!isCurrent()) return;
-      const [onboarding, pendingDestination, privacyLock, pinCredential, profilePromptDismissed] =
-        await Promise.all([
-          storage.loadOnboarding(),
-          storage.loadPendingDestination(),
-          storage.loadPrivacyLock(),
-          storage.loadPinCredential(),
-          storage.loadProfilePromptDismissed()
-        ]);
+      const [
+        onboarding,
+        pendingDestination,
+        privacyLock,
+        pinCredential,
+        profilePromptDismissed,
+        trackingHomeCardDismissed
+      ] = await Promise.all([
+        storage.loadOnboarding(),
+        storage.loadPendingDestination(),
+        storage.loadPrivacyLock(),
+        storage.loadPinCredential(),
+        storage.loadProfilePromptDismissed(),
+        storage.loadTrackingHomeCardDismissed()
+      ]);
       if (!isCurrent()) return;
       set({
         hydrated: true,
@@ -192,7 +222,8 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
         pendingDestination,
         privacyLock,
         pinCredential,
-        profilePromptDismissed
+        profilePromptDismissed,
+        trackingHomeCardDismissed
       });
       return;
     }
@@ -216,7 +247,10 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
       pendingDestination: null,
       privacyLock: null,
       profilePromptDismissed: false,
-      pinCredential: null
+      trackingHomeCardDismissed: false,
+      pinCredential: null,
+      profileSetupStatus: 'unknown',
+      profileSetupSnapshot: null
     });
     await Promise.all([
       storage.clearSession(),
@@ -305,6 +339,10 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
     set({ privacyLock: null, pinCredential: null });
   },
 
+  setProfileSetup: (profileSetupStatus, profileSetupSnapshot = null) => {
+    set({ profileSetupStatus, profileSetupSnapshot });
+  },
+
   dismissProfilePrompt: async () => {
     await storage.saveProfilePromptDismissed(true);
     set({ profilePromptDismissed: true });
@@ -313,6 +351,11 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
   reopenProfilePrompt: async () => {
     await storage.saveProfilePromptDismissed(false);
     set({ profilePromptDismissed: false });
+  },
+
+  dismissTrackingHomeCard: async () => {
+    await storage.saveTrackingHomeCardDismissed(true);
+    set({ trackingHomeCardDismissed: true });
   },
 
   unlock: async () => {

@@ -22,6 +22,7 @@ const STORAGE_KEY = 'masarifi.preferences';
 
 interface PersistedPreferences {
   locale: Locale;
+  firstLaunchOnboardingCompleted: boolean;
   theme: ThemePreference;
   hideBalances: boolean;
   baseCurrencyCode: string;
@@ -40,15 +41,21 @@ interface PersistedPreferences {
 
 const persistedPreferencesSchema = z.object({
   locale: z.enum(['ar', 'en']).optional(),
+  firstLaunchOnboardingCompleted: z.boolean().optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
   hideBalances: z.boolean().optional(),
-  baseCurrencyCode: z.string().regex(/^[A-Z]{3}$/).optional(),
+  baseCurrencyCode: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .optional(),
   timeZone: z.string().optional(),
   reducedMotion: z.boolean().optional(),
   firstDayOfWeek: z.enum(['sunday', 'monday', 'saturday']).optional(),
   defaultAccountId: z.string().nullable().optional(),
   transactionDefaultType: z.enum(['expense', 'income']).optional(),
-  dashboardSections: z.array(z.enum(['balance', 'transactions', 'budgets', 'goals', 'reports'])).optional(),
+  dashboardSections: z
+    .array(z.enum(['balance', 'transactions', 'budgets', 'goals', 'reports']))
+    .optional(),
   voiceEnabled: z.boolean().optional(),
   trackingPersonalization: z.boolean().optional(),
   assistantPersonalization: z.boolean().optional(),
@@ -69,6 +76,7 @@ export async function savePreferences(
 ): Promise<void> {
   const persisted: PersistedPreferences = {
     locale: preferences.locale,
+    firstLaunchOnboardingCompleted: preferences.firstLaunchOnboardingCompleted,
     theme: preferences.theme,
     hideBalances: preferences.hideBalances,
     baseCurrencyCode: preferences.baseCurrencyCode,

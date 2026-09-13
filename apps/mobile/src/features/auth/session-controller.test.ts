@@ -20,6 +20,11 @@ jest.mock('@/storage/local-data-reset', () => ({
     operationId
   }))
 }));
+jest.mock('@/services/mocks/subscription-settings-service', () => ({
+  settingsService: {
+    getProfileSetup: jest.fn(async () => ({ complete: true }))
+  }
+}));
 
 beforeEach(() => {
   process.env.EXPO_PUBLIC_DEMO_MODE = '1';
@@ -31,6 +36,44 @@ afterAll(() => {
 });
 
 describe('session-controller', () => {
+  it('loads server profile setup after restoring an authenticated session', async () => {
+    const auth = createMockAuthService({ now: () => 1_000 });
+    await auth.signInWithGoogle();
+    const snapshot = {
+      complete: false,
+      profile: { name: null },
+      preferences: {},
+      onboarding: {}
+    };
+
+    await restoreAppShellSession(auth, () => true, {
+      getProfileSetup: jest.fn(async () => snapshot)
+    } as never);
+
+    expect(useAppShellStore.getState()).toMatchObject({
+      profileSetupStatus: 'incomplete',
+      profileSetupSnapshot: snapshot,
+      session: { status: 'authenticated' }
+    });
+  });
+
+  it('keeps a valid session and exposes retry when the server check fails', async () => {
+    const auth = createMockAuthService({ now: () => 1_000 });
+    await auth.signInWithGoogle();
+
+    await restoreAppShellSession(auth, () => true, {
+      getProfileSetup: jest.fn(async () => {
+        throw new Error('offline');
+      })
+    } as never);
+
+    expect(useAppShellStore.getState()).toMatchObject({
+      profileSetupStatus: 'error',
+      profileSetupSnapshot: null,
+      session: { status: 'authenticated' }
+    });
+  });
+
   it('restores an authenticated mock session into the app shell store', async () => {
     const auth = createMockAuthService({ now: () => 1_000 });
     await auth.signInWithGoogle();

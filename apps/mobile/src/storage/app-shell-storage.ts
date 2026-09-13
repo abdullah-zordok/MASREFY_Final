@@ -28,7 +28,8 @@ const keys = {
   privacyLock: 'masarifi.appShell.privacyLock',
   previewPrivacyLock: 'masarifi.appShell.preview.privacyLock',
   pinCredential: 'masarifi.appShell.pinCredential',
-  profilePromptDismissed: 'masarifi.appShell.profilePromptDismissed'
+  profilePromptDismissed: 'masarifi.appShell.profilePromptDismissed',
+  trackingHomeCardDismissed: 'masarifi.appShell.trackingHomeCardDismissed'
 };
 
 const asyncUserDataKeys = [
@@ -36,7 +37,8 @@ const asyncUserDataKeys = [
   keys.keywords,
   keys.trackingPreference,
   keys.pendingDestination,
-  keys.profilePromptDismissed
+  keys.profilePromptDismissed,
+  keys.trackingHomeCardDismissed
 ] as const;
 const sensitiveUserDataKeys = [
   keys.session,
@@ -45,7 +47,9 @@ const sensitiveUserDataKeys = [
 ] as const;
 let activeOwnerHash: string | null = null;
 
-export async function configureAppShellStorageOwner(userId: string): Promise<void> {
+export async function configureAppShellStorageOwner(
+  userId: string
+): Promise<void> {
   const ownerHash = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     userId
@@ -77,16 +81,20 @@ export function createAppShellStorage(): CapabilityProviderHandle<AppShellStorag
     loadSession: () => readSensitive(keys.session, authSessionSchema),
     saveSession: (session) => writeSensitive(keys.session, session),
     clearSession: () => removeSensitive(keys.session),
-    loadOnboarding: () => readJson(ownerKey(keys.onboarding), onboardingProgressSchema),
-    saveOnboarding: (progress) => writeJson(ownerKey(keys.onboarding), progress),
+    loadOnboarding: () =>
+      readJson(ownerKey(keys.onboarding), onboardingProgressSchema),
+    saveOnboarding: (progress) =>
+      writeJson(ownerKey(keys.onboarding), progress),
     loadKeywords: async () =>
-      (await readJson(ownerKey(keys.keywords), z.array(keywordRuleSchema))) ?? defaultKeywordRules,
+      (await readJson(ownerKey(keys.keywords), z.array(keywordRuleSchema))) ??
+      defaultKeywordRules,
     saveKeywords: (rules) => writeJson(ownerKey(keys.keywords), rules),
     loadTrackingPreference: () =>
       readJson(ownerKey(keys.trackingPreference), trackingPreferenceSchema),
     saveTrackingPreference: (preference) =>
       writeJson(ownerKey(keys.trackingPreference), preference),
-    loadPendingDestination: () => AsyncStorage.getItem(ownerKey(keys.pendingDestination)),
+    loadPendingDestination: () =>
+      AsyncStorage.getItem(ownerKey(keys.pendingDestination)),
     savePendingDestination: (destination) =>
       destination
         ? AsyncStorage.setItem(ownerKey(keys.pendingDestination), destination)
@@ -95,13 +103,21 @@ export function createAppShellStorage(): CapabilityProviderHandle<AppShellStorag
       readSensitive(ownerKey(keys.privacyLock), privacyLockPreferenceSchema),
     savePrivacyLock: (lock) => writeSensitive(ownerKey(keys.privacyLock), lock),
     clearPrivacyLock: () => removeSensitive(ownerKey(keys.privacyLock)),
-    loadPinCredential: () => readSensitive(ownerKey(keys.pinCredential), z.string().min(1)),
-    savePinCredential: (hash) => writeSensitive(ownerKey(keys.pinCredential), hash),
+    loadPinCredential: () =>
+      readSensitive(ownerKey(keys.pinCredential), z.string().min(1)),
+    savePinCredential: (hash) =>
+      writeSensitive(ownerKey(keys.pinCredential), hash),
     clearPinCredential: () => removeSensitive(ownerKey(keys.pinCredential)),
     loadProfilePromptDismissed: async () =>
-      (await readJson(ownerKey(keys.profilePromptDismissed), z.boolean())) ?? false,
+      (await readJson(ownerKey(keys.profilePromptDismissed), z.boolean())) ??
+      false,
     saveProfilePromptDismissed: (dismissed) =>
-      writeJson(ownerKey(keys.profilePromptDismissed), dismissed)
+      writeJson(ownerKey(keys.profilePromptDismissed), dismissed),
+    loadTrackingHomeCardDismissed: async () =>
+      (await readJson(ownerKey(keys.trackingHomeCardDismissed), z.boolean())) ??
+      false,
+    saveTrackingHomeCardDismissed: (dismissed) =>
+      writeJson(ownerKey(keys.trackingHomeCardDismissed), dismissed)
   };
 }
 

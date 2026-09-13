@@ -33,7 +33,7 @@ it('offers All Accounts plus active accounts and hides archived ones', () => {
   expect(
     screen.getByText(translate('coreFinance.home.allAccounts'))
   ).toBeTruthy();
-  expect(screen.getByText('Wallet')).toBeTruthy();
+  expect(screen.getAllByText('Wallet')).toHaveLength(2);
   expect(screen.getByText('Daily account')).toBeTruthy();
   expect(screen.queryByText('Archived credit card')).toBeNull();
 });
@@ -76,7 +76,9 @@ it('picks a specific account into the shared store and dismisses', () => {
     seed
   );
 
-  fireEvent.press(screen.getByText('Wallet'));
+  fireEvent.press(
+    screen.getByLabelText('Wallet, Wallet, Balance unavailable')
+  );
 
   expect(useCoreFinanceViewState.getState().selectedAccountId).toBe(
     'account-wallet'
@@ -108,7 +110,7 @@ it('marks the current selection and allows manage accounts navigation and cancel
 
   const walletRow = screen
     .getAllByTestId('account-row')
-    .find((row) => within(row).queryByText('Wallet'))!;
+    .find((row) => within(row).queryAllByText('Wallet').length > 0)!;
   expect(walletRow).toHaveProp(
     'accessibilityState',
     expect.objectContaining({ selected: true })

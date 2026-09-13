@@ -37,6 +37,29 @@ describe('CurrencySelectionScreen', () => {
     });
   });
 
+  it('lays out Arabic content from right to left', () => {
+    changeLocale('ar');
+    usePreferenceStore.setState({ locale: 'ar', direction: 'rtl' });
+
+    renderWithProviders(<CurrencySelectionScreen />);
+
+    expect(screen.getByTestId('selection-title-section')).toHaveStyle({
+      alignItems: 'flex-start',
+      direction: 'rtl'
+    });
+    expect(screen.getByTestId('selection-title')).toHaveStyle({
+      textAlign: 'right',
+      writingDirection: 'rtl'
+    });
+    expect(screen.getByTestId('selection-subtitle')).toHaveStyle({
+      textAlign: 'right',
+      writingDirection: 'rtl'
+    });
+    expect(screen.getByTestId('currency-selection-row-SAR')).toHaveStyle({
+      direction: 'rtl'
+    });
+  });
+
   it('searches currencies by code, english name, and arabic name', () => {
     renderWithProviders(<CurrencySelectionScreen />);
 

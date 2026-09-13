@@ -98,7 +98,8 @@ describe('createAppShellStorage', () => {
       'masarifi.appShell.keywords',
       'masarifi.appShell.trackingPreference',
       'masarifi.appShell.pendingDestination',
-      'masarifi.appShell.profilePromptDismissed'
+      'masarifi.appShell.profilePromptDismissed',
+      'masarifi.appShell.trackingHomeCardDismissed'
     ]) {
       expect(asyncRemove).toHaveBeenCalledWith(key);
     }
@@ -124,8 +125,12 @@ describe('createAppShellStorage', () => {
       });
     }
 
-    expect(asyncRemove).toHaveBeenCalledWith('masarifi.appShell.preview.session');
-    expect(asyncRemove).toHaveBeenCalledWith('masarifi.appShell.preview.privacyLock');
+    expect(asyncRemove).toHaveBeenCalledWith(
+      'masarifi.appShell.preview.session'
+    );
+    expect(asyncRemove).toHaveBeenCalledWith(
+      'masarifi.appShell.preview.privacyLock'
+    );
     expect(asyncRemove).toHaveBeenCalledWith(
       'masarifi.appShell.preview.masarifi.appShell.pinCredential'
     );
@@ -156,7 +161,9 @@ describe('createAppShellStorage', () => {
     );
     expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.session');
     expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.privacyLock');
-    expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.pinCredential');
+    expect(secureDelete).toHaveBeenCalledWith(
+      'masarifi.appShell.pinCredential'
+    );
     expect(asyncSet).not.toHaveBeenCalledWith(
       'masarifi.appShell.session',
       expect.any(String)
@@ -170,6 +177,7 @@ describe('createAppShellStorage', () => {
     await storage.saveKeywords([keyword]);
     await storage.saveTrackingPreference(tracking);
     await storage.saveProfilePromptDismissed(true);
+    await storage.saveTrackingHomeCardDismissed(true);
     await storage.savePendingDestination('/(tabs)/home');
     await storage.savePendingDestination(null);
 
@@ -187,6 +195,10 @@ describe('createAppShellStorage', () => {
     );
     expect(asyncSet).toHaveBeenCalledWith(
       'masarifi.appShell.profilePromptDismissed',
+      JSON.stringify(true)
+    );
+    expect(asyncSet).toHaveBeenCalledWith(
+      'masarifi.appShell.trackingHomeCardDismissed',
       JSON.stringify(true)
     );
     expect(asyncSet).toHaveBeenCalledWith(
@@ -213,6 +225,25 @@ describe('createAppShellStorage', () => {
     expect(ownerBKey).toMatch(/^masarifi\.appShell\.pendingDestination\./);
   });
 
+  it('isolates the tracking-card dismissal between authenticated owners', async () => {
+    const storage = createAppShellStorage();
+    await configureAppShellStorageOwner('user_owner-a');
+    await storage.saveTrackingHomeCardDismissed(true);
+    const ownerAKey = asyncSet.mock.calls.at(-1)?.[0];
+
+    await configureAppShellStorageOwner('user_owner-b');
+    await storage.saveTrackingHomeCardDismissed(true);
+    const ownerBKey = asyncSet.mock.calls.at(-1)?.[0];
+
+    expect(ownerAKey).not.toBe(ownerBKey);
+    expect(ownerAKey).toMatch(
+      /^masarifi\.appShell\.trackingHomeCardDismissed\./
+    );
+    expect(ownerBKey).toMatch(
+      /^masarifi\.appShell\.trackingHomeCardDismissed\./
+    );
+  });
+
   it('moves a legacy PIN and privacy lock into the first verified owner namespace', async () => {
     secureGet.mockImplementation(async (key) => {
       if (key === 'masarifi.appShell.privacyLock') return JSON.stringify(lock);
@@ -232,7 +263,9 @@ describe('createAppShellStorage', () => {
       JSON.stringify('pin:123456')
     );
     expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.privacyLock');
-    expect(secureDelete).toHaveBeenCalledWith('masarifi.appShell.pinCredential');
+    expect(secureDelete).toHaveBeenCalledWith(
+      'masarifi.appShell.pinCredential'
+    );
   });
 
   it('returns null or empty defaults for missing and corrupt records', async () => {
@@ -247,6 +280,7 @@ describe('createAppShellStorage', () => {
     await expect(storage.loadPrivacyLock()).resolves.toBeNull();
     await expect(storage.loadPinCredential()).resolves.toBeNull();
     await expect(storage.loadProfilePromptDismissed()).resolves.toBe(false);
+    await expect(storage.loadTrackingHomeCardDismissed()).resolves.toBe(false);
   });
 
   it('uses explicit AsyncStorage preview fallback on web', async () => {

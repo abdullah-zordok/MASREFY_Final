@@ -2,7 +2,9 @@ import React, { type ReactNode, useEffect, useRef } from 'react';
 import { Redirect, router, usePathname } from 'expo-router';
 
 import { resolveProtectedAccessGate } from './resolve-entry-route';
+import { sanitizeReturnRoute } from './navigation-context';
 import { useAppShellStore } from '@/state/app-shell';
+import { usePreferenceStore } from '@/state/preferences';
 import { createNotificationResponseController } from '@/features/notifications/notification-response-controller';
 import { notificationService } from '@/services/engagement-service';
 import { phoneNotificationService } from '@/services/platform/phone-notification-service';
@@ -16,45 +18,62 @@ export function ProtectedRouteGate({ children }: { children: ReactNode }) {
     (state) => state.pendingDestination
   );
   const privacyLock = useAppShellStore((state) => state.privacyLock);
+  const profileSetupStatus = useAppShellStore(
+    (state) => state.profileSetupStatus
+  );
+  const firstLaunchOnboardingCompleted = usePreferenceStore(
+    (state) => state.firstLaunchOnboardingCompleted
+  );
   const setPendingDestination = useAppShellStore(
     (state) => state.setPendingDestination
   );
   const gate = resolveProtectedAccessGate({
     hydrated,
+    firstLaunchOnboardingCompleted,
+    profileSetupStatus,
     session,
     onboarding,
     pendingDestination,
     privacyLock
   });
   const destination = pathnameDestination(pathname);
-  const unprotected = isUnprotectedRoute(pathname);
+  const returnDestination = sanitizeReturnRoute(destination);
+  const legalRoute = pathname === '/legal';
 
   useEffect(() => {
-    if (unprotected) return;
+    if (legalRoute) return;
     if (
       gate &&
-      destination &&
-      gate !== destination &&
-      pendingDestination !== destination
+      returnDestination &&
+      gate !== returnDestination &&
+      pendingDestination !== returnDestination
     ) {
-      void setPendingDestination(destination);
+      void setPendingDestination(returnDestination);
       return;
     }
-    if (!gate && destination === pendingDestination) {
+    if (!gate && returnDestination === pendingDestination) {
       void setPendingDestination(null);
     }
-  }, [destination, gate, pendingDestination, setPendingDestination, unprotected]);
+  }, [
+    gate,
+    pendingDestination,
+    returnDestination,
+    setPendingDestination,
+    legalRoute
+  ]);
 
-  if (
-    unprotected &&
-    (pathname !== '/security/unlock' || gate === '/(public)/language')
-  )
-    return <>{children}</>;
+  if (legalRoute) return <>{children}</>;
 
   const isLockRecovery =
-    gate === '/security/unlock' &&
-    (pathname === '/security/unlock' || pathname === '/security/pin/forgot');
-  if (gate && gate !== destination && !isLockRecovery) {
+    gate === '/security/unlock' && pathname === '/security/unlock';
+  const isProfileSetupCurrencyPicker =
+    gate === '/(onboarding)/profile-setup' && pathname === '/settings/currency';
+  if (
+    gate &&
+    gate !== destination &&
+    !isLockRecovery &&
+    !isProfileSetupCurrencyPicker
+  ) {
     return <Redirect href={gate} />;
   }
   if (!gate && pathname === '/security/unlock') {
@@ -94,7 +113,9 @@ export function NotificationResponseRuntime() {
         const waitForVerifiedUnlock = new Promise<boolean>((resolve) => {
           unlocks.add(resolve);
         });
-        void state.setPendingDestination('/notifications').catch(() => undefined);
+        void state
+          .setPendingDestination('/notifications')
+          .catch(() => undefined);
         router.push('/security/unlock');
         return waitForVerifiedUnlock;
       }
@@ -108,25 +129,6 @@ export function NotificationResponseRuntime() {
 
   return null;
 }
-
-export function isUnprotectedRoute(pathname: string): boolean {
-  return unprotectedRoutes.has(pathname);
-}
-
-const unprotectedRoutes = new Set([
-  '/',
-  '/index',
-  '/language',
-  '/welcome',
-  '/sign-in',
-  '/sign-up',
-  '/phone',
-  '/otp',
-  '/google',
-  '/legal',
-  '/security/unlock',
-  '/security/pin/forgot'
-]);
 
 function isCurrentAuthenticatedSession({
   hydrated,
@@ -151,6 +153,7 @@ function resolvePendingUnlocks(
 function pathnameDestination(pathname: string): string | null {
   const routes: Record<string, string> = {
     '/home': '/(tabs)/home',
+    '/auth-pending': '/(public)/auth-pending',
     '/transactions': '/(tabs)/transactions',
     '/add': '/(tabs)/add',
     '/reports': '/(tabs)/reports',
@@ -167,7 +170,8 @@ function pathnameDestination(pathname: string): string | null {
     '/tracking-demo': '/(onboarding)/tracking-demo',
     '/ios-capture-options': '/(onboarding)/ios-capture-options',
     '/ios-automation': '/(onboarding)/ios-automation',
-    '/complete': '/(onboarding)/complete'
+    '/complete': '/(onboarding)/complete',
+    '/profile-setup': '/(onboarding)/profile-setup'
   };
   return routes[pathname] ?? pathname;
 }

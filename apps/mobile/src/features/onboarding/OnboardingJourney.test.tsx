@@ -91,6 +91,8 @@ describe('onboarding journey', () => {
     expect(
       resolveEntryRoute({
         hydrated: true,
+        firstLaunchOnboardingCompleted: true,
+        profileSetupStatus: 'complete',
         session: authenticatedSession,
         privacyLock: null,
         onboarding: { ...skipped, status: 'completed', currentStep: null },

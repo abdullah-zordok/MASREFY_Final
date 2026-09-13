@@ -25,6 +25,7 @@ import { synchronizeClientDemoLocale } from '@/services/mocks/client-demo-locale
 interface PreferenceState extends UserPreferences {
   hydrated: boolean;
   hydrate: () => Promise<void>;
+  completeFirstLaunchOnboarding: () => Promise<void>;
   setLocale: (locale: Locale) => Promise<boolean>;
   setTheme: (theme: ThemePreference) => void;
   toggleHideBalances: () => void;
@@ -68,6 +69,12 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     if (loaded.theme !== 'light') {
       await savePreferences(next);
     }
+  },
+
+  completeFirstLaunchOnboarding: async () => {
+    const next = { ...get(), firstLaunchOnboardingCompleted: true };
+    await persist(next);
+    set(next);
   },
 
   setLocale: async (locale) => {
@@ -178,6 +185,7 @@ function persist(state: PreferenceState): Promise<void> {
   return savePreferences({
     locale: state.locale,
     direction: state.direction,
+    firstLaunchOnboardingCompleted: state.firstLaunchOnboardingCompleted,
     theme: state.theme,
     hideBalances: state.hideBalances,
     baseCurrencyCode: state.baseCurrencyCode,

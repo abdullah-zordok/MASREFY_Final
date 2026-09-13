@@ -208,7 +208,7 @@ it('keeps an existing cross-currency destination available while editing', async
   fireEvent.press(await screen.findByLabelText(`${destination}, Travel`));
 
   expect(screen.getAllByText('Travel')).toHaveLength(2);
-  expect(screen.getByText('Wallet')).toBeTruthy();
+  expect(screen.getAllByText('Wallet')).toHaveLength(2);
 });
 
 it('clears an incompatible destination when the source account changes', async () => {

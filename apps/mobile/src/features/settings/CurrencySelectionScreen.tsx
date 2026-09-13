@@ -5,9 +5,17 @@ import { router } from 'expo-router';
 import { layoutDirectionStyle } from '@/design-system/direction';
 import { CurrencyFlagIcon } from '@/design-system/components/currency/CurrencyFlagIcon';
 import { SelectionScreen } from '@/design-system/components/selection/SelectionScreen';
-import type { SelectionItem, SelectionItemRenderProps } from '@/design-system/components/selection/selection-types';
+import type {
+  SelectionItem,
+  SelectionItemRenderProps
+} from '@/design-system/components/selection/selection-types';
 import { DesignIcon } from '@/design-system/icons';
-import { colorTokens, elevation, radius, spacing } from '@/design-system/tokens';
+import {
+  colorTokens,
+  elevation,
+  radius,
+  spacing
+} from '@/design-system/tokens';
 import {
   type CurrencyItem,
   getCurrencySymbol,
@@ -27,8 +35,12 @@ export function CurrencySelectionScreen({
   onBack?: () => void;
 }) {
   const locale = currentLocale();
-  const globalBaseCurrency = usePreferenceStore((state) => state.baseCurrencyCode);
-  const setBaseCurrency = usePreferenceStore((state) => state.setBaseCurrencyCode);
+  const globalBaseCurrency = usePreferenceStore(
+    (state) => state.baseCurrencyCode
+  );
+  const setBaseCurrency = usePreferenceStore(
+    (state) => state.setBaseCurrencyCode
+  );
 
   const activeCurrency = selectedCurrencyCode ?? globalBaseCurrency;
 
@@ -79,7 +91,7 @@ export function CurrencySelectionScreen({
         onPress={onPress}
         style={({ pressed }) => [
           styles.row,
-          styles.physicalLtr,
+          layoutDirectionStyle(direction),
           {
             backgroundColor: isSelected
               ? theme.colors.surfaces.brandSubtle
@@ -90,7 +102,7 @@ export function CurrencySelectionScreen({
               ? colorTokens.teal[300]
               : theme.colors.borders.subtle,
             borderWidth: 1,
-            flexDirection: isRtl ? 'row-reverse' : 'row'
+            flexDirection: 'row'
           }
         ]}
       >
@@ -98,9 +110,9 @@ export function CurrencySelectionScreen({
         <View
           style={[
             styles.identitySection,
-            styles.physicalLtr,
+            layoutDirectionStyle(direction),
             {
-              flexDirection: isRtl ? 'row-reverse' : 'row',
+              flexDirection: 'row',
               alignItems: 'center'
             }
           ]}
@@ -148,9 +160,9 @@ export function CurrencySelectionScreen({
         <View
           style={[
             styles.trailingSection,
-            styles.physicalLtr,
+            layoutDirectionStyle(direction),
             {
-              flexDirection: isRtl ? 'row-reverse' : 'row',
+              flexDirection: 'row',
               alignItems: 'center'
             }
           ]}
@@ -175,7 +187,7 @@ export function CurrencySelectionScreen({
               <DesignIcon
                 name="check"
                 label="Selected"
-                color={colorTokens.raw["FFFFFF"]}
+                color={colorTokens.raw['FFFFFF']}
                 size="xs"
                 decorative
               />
@@ -195,7 +207,9 @@ export function CurrencySelectionScreen({
       onSelect={handleSelect}
       onBack={onBack}
       searchable
-      searchPlaceholder={translate('settings.application.currencySearchPlaceholder')}
+      searchPlaceholder={translate(
+        'settings.application.currencySearchPlaceholder'
+      )}
       searchFilter={(item, query) => {
         const currency = item.metadata?.currency as CurrencyItem | undefined;
         if (!currency) return true;
@@ -208,11 +222,6 @@ export function CurrencySelectionScreen({
 }
 
 const styles = StyleSheet.create({
-  physicalLtr: {
-    ...layoutDirectionStyle('ltr'),
-    display: 'flex',
-    writingDirection: 'ltr'
-  },
   row: {
     ...elevation.raised,
     alignItems: 'center',

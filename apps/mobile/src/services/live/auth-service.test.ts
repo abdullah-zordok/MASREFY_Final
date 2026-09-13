@@ -510,3 +510,169 @@ describe('live owner identity mappings', () => {
     }
   );
 });
+
+describe('live profile setup', () => {
+  const profile = {
+    id: liveSession.userId,
+    displayName: null,
+    primaryEmailMasked: 'a***@example.test',
+    phoneMasked: null,
+    locale: 'ar' as const,
+    timezone: 'Asia/Riyadh',
+    status: 'active' as const,
+    version: 2
+  };
+  const preferences = {
+    defaultCurrency: 'XXX',
+    language: 'ar' as const,
+    theme: 'system' as const,
+    calendar: 'gregorian' as const,
+    weekStart: 6,
+    privacySettings: {},
+    version: 3
+  };
+  const onboarding = {
+    step: 'welcome' as const,
+    completedSteps: [] as string[],
+    completedAt: null,
+    version: 4
+  };
+
+  test('derives account completion from remote welcome and defaults unsupported currency to SAR', async () => {
+    const request = jest.fn(async (path: string) => {
+      if (path === '/api/v1/me') return profile;
+      if (path === '/api/v1/me/preferences') return preferences;
+      if (path === '/api/v1/me/onboarding') return onboarding;
+      throw new Error(`unexpected path ${path}`);
+    });
+    const service = createLiveIdentityService({ request });
+
+    await expect(service.getProfileSetup()).resolves.toMatchObject({
+      complete: false,
+      profile: { name: null, currency: 'SAR', version: 2 },
+      preferences: { defaultCurrency: 'XXX', version: 3 },
+      onboarding: { step: 'welcome', completedSteps: [], version: 4 }
+    });
+  });
+
+  test('saves name and currency before marking welcome complete', async () => {
+    const calls: { path: string; options: Record<string, unknown> }[] = [];
+    const request = jest.fn(
+      async (path: string, options: Record<string, unknown> = {}) => {
+        if (!options.method) {
+          if (path === '/api/v1/me') return profile;
+          if (path === '/api/v1/me/preferences')
+            return { ...preferences, defaultCurrency: 'SAR' };
+          if (path === '/api/v1/me/onboarding') return onboarding;
+        }
+        calls.push({ path, options });
+        if (path === '/api/v1/me')
+          return { ...profile, displayName: 'Adel Mohamed', version: 3 };
+        if (path === '/api/v1/me/preferences')
+          return { ...preferences, defaultCurrency: 'AED', version: 4 };
+        if (path === '/api/v1/me/onboarding')
+          return {
+            step: 'tracking_intro',
+            completedSteps: ['welcome'],
+            completedAt: null,
+            version: 5
+          };
+        throw new Error(`unexpected path ${path}`);
+      }
+    );
+    const service = createLiveIdentityService({ request });
+    const snapshot = await service.getProfileSetup();
+
+    await expect(
+      service.saveProfileSetup(
+        { name: '  Adel Mohamed  ', currency: 'AED' },
+        snapshot,
+        'profile-setup-123'
+      )
+    ).resolves.toMatchObject({
+      value: {
+        complete: true,
+        profile: { name: 'Adel Mohamed', currency: 'AED', version: 3 },
+        preferences: { defaultCurrency: 'AED', version: 4 },
+        onboarding: {
+          step: 'tracking_intro',
+          completedSteps: ['welcome'],
+          version: 5
+        }
+      }
+    });
+    expect(calls.map(({ path }) => path)).toEqual([
+      '/api/v1/me',
+      '/api/v1/me/preferences',
+      '/api/v1/me/onboarding'
+    ]);
+    expect(calls[0]?.options).toMatchObject({
+      method: 'PATCH',
+      headers: { 'Idempotency-Key': 'profile-setup-123-profile' },
+      body: { displayName: 'Adel Mohamed', expectedVersion: 2 }
+    });
+    expect(calls[1]?.options).toMatchObject({
+      method: 'PUT',
+      headers: { 'Idempotency-Key': 'profile-setup-123-preferences' },
+      body: {
+        defaultCurrency: 'AED',
+        language: 'ar',
+        theme: 'system',
+        calendar: 'gregorian',
+        weekStart: 6,
+        privacySettings: {},
+        expectedVersion: 3
+      }
+    });
+    expect(calls[2]?.options).toMatchObject({
+      method: 'PUT',
+      headers: { 'Idempotency-Key': 'profile-setup-123-onboarding' },
+      body: {
+        step: 'tracking_intro',
+        completedSteps: ['welcome'],
+        complete: false,
+        expectedVersion: 4
+      }
+    });
+  });
+
+  test('preserves profile completion when later tracking onboarding is saved', async () => {
+    const request = jest.fn(async (_path: string, options?: { body?: unknown }) => {
+      if (!options)
+        return {
+          step: 'tracking_intro',
+          completedSteps: ['welcome'],
+          completedAt: null,
+          version: 8
+        };
+      return {
+        step: 'permission_education',
+        completedSteps: ['welcome', 'tracking_intro'],
+        completedAt: null,
+        version: 9
+      };
+    });
+    const service = createLiveIdentityService({ request });
+    await service.loadProgress();
+    await service.saveProgress({
+      platformPath: 'android',
+      status: 'in_progress',
+      completedSteps: ['tracking_intro'],
+      skippedSteps: [],
+      currentStep: 'permission_education',
+      permissionEducationSeen: true,
+      trackingPreference: null,
+      updatedAt: 10
+    });
+
+    expect(request).toHaveBeenLastCalledWith(
+      '/api/v1/me/onboarding',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          completedSteps: ['welcome', 'tracking_intro'],
+          expectedVersion: 8
+        })
+      })
+    );
+  });
+});
