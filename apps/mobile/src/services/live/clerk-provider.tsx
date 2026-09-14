@@ -25,6 +25,7 @@ import type {
 } from '@/services/contracts/app-shell-service';
 import { registerLiveClerkBridge, type LiveClerkBridge } from './auth-service';
 import { classifyPhoneVerificationError } from './clerk-errors';
+import { resolveClerkDisplayName } from './clerk-name';
 
 type PendingPhoneAttempt = {
   countryCode: string;
@@ -50,6 +51,14 @@ const LiveClerkSessionContext = createContext<string | null | undefined>(
 
 export const useLiveClerkSessionKey = () =>
   useContext(LiveClerkSessionContext);
+
+export function getLiveClerkDisplayName(): string | null {
+  try {
+    return resolveClerkDisplayName(getClerkInstance().user);
+  } catch {
+    return null;
+  }
+}
 
 export function MobileIdentityProvider({ children }: { children: ReactNode }) {
   const runtime = resolveClientRuntime();

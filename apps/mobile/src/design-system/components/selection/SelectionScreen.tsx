@@ -44,7 +44,10 @@ export function SelectionScreen<T = string>({
   const [internalQuery, setInternalQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const query = externalQuery !== undefined ? externalQuery : internalQuery;
-  const setQuery = externalOnSearchChange !== undefined ? externalOnSearchChange : setInternalQuery;
+  const setQuery =
+    externalOnSearchChange !== undefined
+      ? externalOnSearchChange
+      : setInternalQuery;
 
   const handleBack = () => {
     if (onBack) {
@@ -70,14 +73,16 @@ export function SelectionScreen<T = string>({
   }, [items, query, searchable, searchFilter]);
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.surfaces.page }]}>
+    <View
+      style={[styles.root, { backgroundColor: theme.colors.surfaces.page }]}
+    >
       {/* Top Header Navigation Bar */}
       <View
         testID="selection-header"
         style={[
           styles.headerBar,
-          styles.physicalLtr,
-          { flexDirection: isRtl ? 'row-reverse' : 'row' }
+          layoutDirectionStyle(direction),
+          { flexDirection: 'row' }
         ]}
       >
         <Pressable
@@ -108,14 +113,22 @@ export function SelectionScreen<T = string>({
         showsVerticalScrollIndicator={false}
       >
         {/* Title & Subtitle Header */}
-        <View style={styles.titleSection}>
+        <View
+          testID="selection-title-section"
+          style={[
+            styles.titleSection,
+            layoutDirectionStyle(direction),
+            { alignItems: 'flex-start' }
+          ]}
+        >
           <Text
             testID="selection-title"
             style={[
               styles.title,
               {
                 color: theme.colors.content.primary,
-                textAlign: 'center'
+                textAlign: isRtl ? 'right' : 'left',
+                writingDirection: direction
               }
             ]}
           >
@@ -128,7 +141,8 @@ export function SelectionScreen<T = string>({
                 styles.subtitle,
                 {
                   color: theme.colors.content.secondary,
-                  textAlign: 'center'
+                  textAlign: isRtl ? 'right' : 'left',
+                  writingDirection: direction
                 }
               ]}
             >
@@ -142,20 +156,24 @@ export function SelectionScreen<T = string>({
           <View
             style={[
               styles.searchBar,
-              styles.physicalLtr,
+              layoutDirectionStyle(direction),
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: isSearchFocused
                   ? colorTokens.teal[600]
                   : theme.colors.borders.subtle,
-                flexDirection: isRtl ? 'row-reverse' : 'row'
+                flexDirection: 'row'
               }
             ]}
           >
             <DesignIcon
               name="search"
               label="Search"
-              color={isSearchFocused ? colorTokens.teal[600] : theme.colors.content.muted}
+              color={
+                isSearchFocused
+                  ? colorTokens.teal[600]
+                  : theme.colors.content.muted
+              }
               size="sm"
               decorative
             />
@@ -165,7 +183,9 @@ export function SelectionScreen<T = string>({
               onChangeText={setQuery}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
-              placeholder={searchPlaceholder ?? translate('common.searchPlaceholder')}
+              placeholder={
+                searchPlaceholder ?? translate('common.searchPlaceholder')
+              }
               placeholderTextColor={theme.colors.content.muted}
               style={[
                 styles.searchInput,
@@ -223,11 +243,6 @@ export function SelectionScreen<T = string>({
 }
 
 const styles = StyleSheet.create({
-  physicalLtr: {
-    ...layoutDirectionStyle('ltr'),
-    display: 'flex',
-    writingDirection: 'ltr'
-  },
   root: {
     flex: 1
   },
@@ -252,7 +267,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl
   },
   titleSection: {
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
@@ -277,7 +291,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     height: 48,
     paddingHorizontal: spacing.md,
-    shadowColor: colorTokens.raw["103F37"],
+    shadowColor: colorTokens.raw['103F37'],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 6,

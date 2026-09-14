@@ -48,6 +48,7 @@ export function completeSelectionSession<T = string>(
   if (!session) return false;
   sessions.delete(sessionId);
   session.onSelect(selectedValue);
+  if (session.targetRoute) router.back();
   return true;
 }
 

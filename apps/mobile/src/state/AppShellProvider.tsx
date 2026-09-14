@@ -5,6 +5,7 @@ import { AppState, Linking, type AppStateStatus } from 'react-native';
 import { parseDeepLinkDestination } from '@/features/shell/deep-link-controller';
 import { resolveEntryRoute } from '@/features/shell/resolve-entry-route';
 import { useAppShellStore } from '@/state/app-shell';
+import { usePreferenceStore } from '@/state/preferences';
 import { resolveClientMode } from '@/config/client-runtime';
 import { authService } from '@/features/auth/auth-flow';
 import { restoreAppShellSession } from '@/features/auth/session-controller';
@@ -83,11 +84,14 @@ export function AppShellProvider({
       if (!destination) return;
       await setPendingDestination(destination);
       if (!navigate) return;
-      const { hydrated, session, onboarding, privacyLock } =
+      const { hydrated, session, onboarding, privacyLock, profileSetupStatus } =
         useAppShellStore.getState();
+      const { firstLaunchOnboardingCompleted } = usePreferenceStore.getState();
       router.replace(
         resolveEntryRoute({
           hydrated,
+          firstLaunchOnboardingCompleted,
+          profileSetupStatus,
           session,
           onboarding,
           pendingDestination: destination,

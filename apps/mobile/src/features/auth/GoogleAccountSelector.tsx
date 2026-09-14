@@ -24,7 +24,9 @@ export function GoogleAccountSelector({
 }: GoogleAccountSelectorProps) {
   const [pending, setPending] = useState(false);
   const [messageKey, setMessageKey] = useState<MessageKey | null>(null);
-  const [conflict, setConflict] = useState<Extract<AuthResult, { status: 'conflict' }> | null>(null);
+  const [conflict, setConflict] = useState<
+    Extract<AuthResult, { status: 'conflict' }> | null
+  >(null);
 
   async function submit() {
     if (pending) return;

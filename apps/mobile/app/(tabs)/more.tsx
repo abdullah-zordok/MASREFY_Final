@@ -278,13 +278,12 @@ export default function MoreRoute() {
         </View>
       </View>
 
-      {/* Sign Out Actions */}
       <View style={styles.actionsWrapper}>
         <ActionButton
           label={translate('appShell.auth.signOut')}
           onPress={async () => {
             await signOutAppShellSession(authService, 'local');
-            router.replace('/(public)/language');
+            router.replace('/(public)/auth-pending');
           }}
           variant="destructive"
         />
@@ -293,12 +292,13 @@ export default function MoreRoute() {
             label={translate('appShell.security.mockSignOutAll')}
             onPress={async () => {
               await signOutAppShellSession(authService, 'all');
-              router.replace('/(public)/language');
+              router.replace('/(public)/auth-pending');
             }}
             variant="secondary"
           />
         ) : null}
       </View>
+
     </ScrollView>
   );
 }

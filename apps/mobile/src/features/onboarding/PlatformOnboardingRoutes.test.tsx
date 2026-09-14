@@ -27,7 +27,7 @@ jest.mock('expo-router', () => ({
 beforeEach(() => useAppShellStore.getState().reset());
 
 describe('platform onboarding routes', () => {
-  it('fails closed when an expired session opens onboarding directly', () => {
+  it('allows onboarding to open without a current session', () => {
     useAppShellStore.setState({
       hydrated: true,
       session: {
@@ -42,9 +42,7 @@ describe('platform onboarding routes', () => {
 
     renderWithProviders(<OnboardingLayout />);
 
-    expect(mockRedirect.mock.calls[0]?.[0]).toMatchObject({
-      href: '/(public)/language'
-    });
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it('shows Android tracking as unavailable and continues without requesting SMS access', async () => {

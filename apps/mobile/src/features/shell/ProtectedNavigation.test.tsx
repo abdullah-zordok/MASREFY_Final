@@ -10,6 +10,7 @@ import {
   signedOutSession
 } from '@/test-utils/app-shell-fixtures';
 import { useAppShellStore } from '@/state/app-shell';
+import { usePreferenceStore } from '@/state/preferences';
 
 const mockRouterPush = jest.fn();
 const mockStack = jest.fn(() => null);
@@ -37,11 +38,15 @@ jest.mock('@/design-system/typography', () => ({
 }));
 
 jest.mock('@/state/FoundationProviders', () => ({
-  FoundationProviders: ({ children }: { children: React.ReactNode }) => <>{children}</>
+  FoundationProviders: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
 }));
 
 jest.mock('@/state/AppShellProvider', () => ({
-  AppShellProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+  AppShellProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
 }));
 
 jest.mock('@/features/security/AppPrivacyGate', () => ({
@@ -73,42 +78,92 @@ describe('protected navigation', () => {
     useAppShellStore.setState({
       hydrated: true,
       session: authenticatedSession,
+      profileSetupStatus: 'complete',
       onboarding: null,
       privacyLock: null,
       unlock: jest.fn(async () => undefined),
       setPendingDestination: jest.fn(async () => undefined)
     });
+    usePreferenceStore.setState({
+      firstLaunchOnboardingCompleted: true,
+      hydrated: true
+    });
     mockRegisterCategories.mockResolvedValue(undefined);
     mockGetLastResponse.mockResolvedValue(null);
     mockSubscribeToResponses.mockReturnValue(jest.fn());
-    mockResolveTarget.mockResolvedValue({ status: 'exact', target: { kind: 'transaction', transactionId: 'tx-1' } });
-    mockRevalidateAction.mockResolvedValue({ status: 'available', target: { kind: 'transaction', transactionId: 'tx-1' }, action: 'view' });
-    mockExecuteAction.mockResolvedValue({ value: { id: 'notification-1', target: { kind: 'transaction', transactionId: 'tx-1' } }, affectedScopes: [] });
+    mockResolveTarget.mockResolvedValue({
+      status: 'exact',
+      target: { kind: 'transaction', transactionId: 'tx-1' }
+    });
+    mockRevalidateAction.mockResolvedValue({
+      status: 'available',
+      target: { kind: 'transaction', transactionId: 'tx-1' },
+      action: 'view'
+    });
+    mockExecuteAction.mockResolvedValue({
+      value: {
+        id: 'notification-1',
+        target: { kind: 'transaction', transactionId: 'tx-1' }
+      },
+      affectedScopes: []
+    });
   });
 
-  it('protects the root stack while leaving explicit public routes reachable', async () => {
+  it('routes a signed-out protected root to the Clerk placeholder', () => {
     useAppShellStore.setState({ session: signedOutSession, privacyLock: null });
 
-    const protectedRender = render(<RootLayout />);
-    await waitFor(() =>
-      expect(mockRedirect).toHaveBeenCalledWith({ href: '/(public)/language' })
-    );
-
-    protectedRender.unmount();
-    mockPathname = '/sign-in';
     render(<RootLayout />);
-    expect(mockStack).toHaveBeenCalled();
+
+    expect(mockRedirect).toHaveBeenCalledWith({
+      href: '/(public)/auth-pending'
+    });
   });
 
-  it('requires a valid session for onboarding routes', async () => {
+  it('redirects protected routes to first-launch onboarding when incomplete', () => {
+    usePreferenceStore.setState({ firstLaunchOnboardingCompleted: false });
+    useAppShellStore.setState({ session: signedOutSession });
+
+    render(<RootLayout />);
+
+    expect(mockRedirect).toHaveBeenCalledWith({ href: '/welcome' });
+  });
+
+  it('keeps tracking onboarding behind authentication', () => {
     mockPathname = '/tracking-intro';
     useAppShellStore.setState({ session: signedOutSession });
 
     render(<RootLayout />);
 
-    await waitFor(() =>
-      expect(mockRedirect).toHaveBeenCalledWith({ href: '/(public)/language' })
-    );
+    expect(mockRedirect).toHaveBeenCalledWith({
+      href: '/(public)/auth-pending'
+    });
+  });
+
+  it('renders the selected Clerk placeholder without redirecting to itself', () => {
+    mockPathname = '/auth-pending';
+    useAppShellStore.setState({ session: signedOutSession });
+
+    render(<RootLayout />);
+
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockStack).toHaveBeenCalled();
+  });
+
+  it('moves from the Clerk placeholder to profile setup without saving it as a return route', () => {
+    mockPathname = '/auth-pending';
+    useAppShellStore.setState({
+      profileSetupStatus: 'incomplete',
+      setPendingDestination: jest.fn(async (pendingDestination) => {
+        useAppShellStore.setState({ pendingDestination });
+      })
+    });
+
+    render(<RootLayout />);
+
+    expect(mockRedirect).toHaveBeenCalledWith({
+      href: '/(onboarding)/profile-setup'
+    });
+    expect(useAppShellStore.getState().pendingDestination).toBeNull();
   });
 
   it('redirects a stale unlock route home when no lock is active', async () => {
@@ -121,14 +176,17 @@ describe('protected navigation', () => {
     );
   });
 
-  it('keeps the unlock route reachable while authentication is unavailable', () => {
-    mockPathname = '/security/unlock';
-    useAppShellStore.setState({ session: signedOutSession });
+  it('keeps forgotten-PIN recovery reachable while the app is locked', () => {
+    mockPathname = '/security/pin/forgot';
+    useAppShellStore.setState({ privacyLock: lockedPrivacy });
 
     render(<RootLayout />);
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(mockStack).toHaveBeenCalled();
+    expect(mockPrivacyGate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ locked: false })
+    );
   });
 
   it('renders the current onboarding step without redirecting to itself', () => {
@@ -141,21 +199,35 @@ describe('protected navigation', () => {
     expect(mockStack).toHaveBeenCalled();
   });
 
-  it('retains the exact safe nested destination through authentication', async () => {
-    const setPendingDestination = jest.fn(async () => undefined);
+  it('keeps protected destinations behind authentication', () => {
     mockPathname = '/accounts/account-1/edit';
-    useAppShellStore.setState({
-      session: signedOutSession,
-      setPendingDestination
-    });
+    useAppShellStore.setState({ session: signedOutSession });
 
     render(<RootLayout />);
 
-    await waitFor(() =>
-      expect(setPendingDestination).toHaveBeenCalledWith(
-        '/accounts/account-1/edit'
-      )
-    );
+    expect(mockRedirect).toHaveBeenCalledWith({
+      href: '/(public)/auth-pending'
+    });
+  });
+
+  it('renders profile setup only when the server marks it incomplete', () => {
+    mockPathname = '/profile-setup';
+    useAppShellStore.setState({ profileSetupStatus: 'incomplete' });
+
+    render(<RootLayout />);
+
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockStack).toHaveBeenCalled();
+  });
+
+  it('keeps the profile currency picker reachable while profile setup is incomplete', () => {
+    mockPathname = '/settings/currency';
+    useAppShellStore.setState({ profileSetupStatus: 'incomplete' });
+
+    render(<RootLayout />);
+
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockStack).toHaveBeenCalled();
   });
 
   it('passes the persisted lock state to the app privacy mask', () => {
@@ -173,6 +245,8 @@ describe('protected navigation', () => {
   it('resolves signed-out, locked, onboarding, valid, invalid, and unavailable targets', () => {
     const base = {
       hydrated: true,
+      firstLaunchOnboardingCompleted: true,
+      profileSetupStatus: 'complete' as const,
       session: authenticatedSession,
       privacyLock: null,
       onboarding: null
@@ -180,7 +254,7 @@ describe('protected navigation', () => {
 
     expect(
       resolveDeepLinkEntry('masarifi://reports', { ...base, session: null })
-    ).toBe('/(public)/language');
+    ).toBe('/(public)/auth-pending');
     expect(
       resolveDeepLinkEntry('masarifi://reports', {
         ...base,
@@ -192,7 +266,7 @@ describe('protected navigation', () => {
         ...base,
         onboarding: androidOnboarding
       })
-    ).toBe('/(onboarding)/android-sms-permission');
+    ).toBe('/(tabs)/reports');
     expect(resolveDeepLinkEntry('masarifi://reports', base)).toBe(
       '/(tabs)/reports'
     );
@@ -204,10 +278,20 @@ describe('protected navigation', () => {
   });
 
   it('registers notification categories once, handles cold and live responses, and cleans up', async () => {
-    let live: ((response: { notificationId: string; action: 'view' | 'edit' | 'undo' }) => void) | null = null;
+    let live:
+      | ((response: {
+          notificationId: string;
+          action: 'view' | 'edit' | 'undo';
+        }) => void)
+      | null = null;
     const remove = jest.fn();
-    mockRegisterCategories.mockRejectedValueOnce(new Error('permission denied'));
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'cold', action: 'view' });
+    mockRegisterCategories.mockRejectedValueOnce(
+      new Error('permission denied')
+    );
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'cold',
+      action: 'view'
+    });
     mockSubscribeToResponses.mockImplementationOnce((listener) => {
       live = listener;
       return remove;
@@ -215,14 +299,18 @@ describe('protected navigation', () => {
 
     const rendered = render(<RootLayout />);
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/transactions/tx-1'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/transactions/tx-1')
+    );
     expect(mockRegisterCategories).toHaveBeenCalledTimes(1);
     expect(mockStack).toHaveBeenCalled();
 
     await act(async () => {
       live?.({ notificationId: 'live', action: 'edit' });
     });
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/transactions/tx-1/edit'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/transactions/tx-1/edit')
+    );
 
     rendered.rerender(<RootLayout />);
     expect(mockRegisterCategories).toHaveBeenCalledTimes(1);
@@ -231,7 +319,10 @@ describe('protected navigation', () => {
   });
 
   it('continues protected undo responses only when the app is already unlocked', async () => {
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'undoable', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'undoable',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -240,12 +331,21 @@ describe('protected navigation', () => {
 
     render(<RootLayout />);
 
-    await waitFor(() => expect(mockExecuteAction).toHaveBeenCalledWith('undoable', 'undo', 'notification-response-undoable-undo'));
+    await waitFor(() =>
+      expect(mockExecuteAction).toHaveBeenCalledWith(
+        'undoable',
+        'undo',
+        'notification-response-undoable-undo'
+      )
+    );
   });
 
   it('does not execute protected responses while signed out without a privacy lock', async () => {
     useAppShellStore.setState({ session: signedOutSession, privacyLock: null });
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'signed-out-undo', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'signed-out-undo',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -254,13 +354,18 @@ describe('protected navigation', () => {
 
     render(<RootLayout />);
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/notifications'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/notifications')
+    );
     expect(mockExecuteAction).not.toHaveBeenCalled();
   });
 
   it('does not execute protected responses after session expiry', async () => {
     useAppShellStore.setState({ session: expiredSession, privacyLock: null });
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'expired-session-undo', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'expired-session-undo',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -269,7 +374,9 @@ describe('protected navigation', () => {
 
     render(<RootLayout />);
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/notifications'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/notifications')
+    );
     expect(mockExecuteAction).not.toHaveBeenCalled();
   });
 
@@ -304,7 +411,10 @@ describe('protected navigation', () => {
       unlock,
       setPendingDestination
     });
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'locked-undo', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'locked-undo',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -313,15 +423,25 @@ describe('protected navigation', () => {
 
     render(<RootLayout />);
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock')
+    );
     expect(setPendingDestination).toHaveBeenCalledWith('/notifications');
     expect(unlock).not.toHaveBeenCalled();
     expect(mockExecuteAction).not.toHaveBeenCalled();
 
     await act(async () => {
-      useAppShellStore.setState({ privacyLock: { ...lockedPrivacy, appLockStatus: 'unlocked' } });
+      useAppShellStore.setState({
+        privacyLock: { ...lockedPrivacy, appLockStatus: 'unlocked' }
+      });
     });
-    await waitFor(() => expect(mockExecuteAction).toHaveBeenCalledWith('locked-undo', 'undo', 'notification-response-locked-undo-undo'));
+    await waitFor(() =>
+      expect(mockExecuteAction).toHaveBeenCalledWith(
+        'locked-undo',
+        'undo',
+        'notification-response-locked-undo-undo'
+      )
+    );
   });
 
   it('does not treat reset or sign-out lock removal as verified unlock', async () => {
@@ -329,7 +449,10 @@ describe('protected navigation', () => {
       privacyLock: { ...lockedPrivacy, appLockStatus: 'locked' },
       setPendingDestination: jest.fn(async () => undefined)
     });
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'reset-undo', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'reset-undo',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -338,16 +461,22 @@ describe('protected navigation', () => {
 
     render(<RootLayout />);
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock')
+    );
     await act(async () => {
       useAppShellStore.setState({ privacyLock: null });
     });
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/notifications'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/notifications')
+    );
     expect(mockExecuteAction).not.toHaveBeenCalled();
   });
 
   it('resumes multiple distinct locked responses after one verified unlock', async () => {
-    let live: ((response: { notificationId: string; action: 'undo' }) => void) | null = null;
+    let live:
+      ((response: { notificationId: string; action: 'undo' }) => void) | null =
+      null;
     useAppShellStore.setState({
       privacyLock: { ...lockedPrivacy, appLockStatus: 'locked' },
       setPendingDestination: jest.fn(async () => undefined)
@@ -368,27 +497,47 @@ describe('protected navigation', () => {
       live?.({ notificationId: 'locked-b', action: 'undo' });
     });
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock')
+    );
     expect(mockExecuteAction).not.toHaveBeenCalled();
 
     await act(async () => {
-      useAppShellStore.setState({ privacyLock: { ...lockedPrivacy, appLockStatus: 'unlocked' } });
+      useAppShellStore.setState({
+        privacyLock: { ...lockedPrivacy, appLockStatus: 'unlocked' }
+      });
     });
 
-    await waitFor(() => expect(mockExecuteAction).toHaveBeenCalledWith('locked-a', 'undo', 'notification-response-locked-a-undo'));
-    expect(mockExecuteAction).toHaveBeenCalledWith('locked-b', 'undo', 'notification-response-locked-b-undo');
+    await waitFor(() =>
+      expect(mockExecuteAction).toHaveBeenCalledWith(
+        'locked-a',
+        'undo',
+        'notification-response-locked-a-undo'
+      )
+    );
+    expect(mockExecuteAction).toHaveBeenCalledWith(
+      'locked-b',
+      'undo',
+      'notification-response-locked-b-undo'
+    );
   });
 
   it('registers unlock waiters before the pending-destination write completes', async () => {
     let releasePendingDestination: (() => void) | null = null;
     const setPendingDestination = jest.fn(
-      () => new Promise<void>((resolve) => { releasePendingDestination = resolve; })
+      () =>
+        new Promise<void>((resolve) => {
+          releasePendingDestination = resolve;
+        })
     );
     useAppShellStore.setState({
       privacyLock: { ...lockedPrivacy, appLockStatus: 'locked' },
       setPendingDestination
     });
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'slow-write', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'slow-write',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -397,14 +546,24 @@ describe('protected navigation', () => {
 
     render(<RootLayout />);
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock')
+    );
     expect(mockExecuteAction).not.toHaveBeenCalled();
 
     await act(async () => {
-      useAppShellStore.setState({ privacyLock: { ...lockedPrivacy, appLockStatus: 'unlocked' } });
+      useAppShellStore.setState({
+        privacyLock: { ...lockedPrivacy, appLockStatus: 'unlocked' }
+      });
     });
 
-    await waitFor(() => expect(mockExecuteAction).toHaveBeenCalledWith('slow-write', 'undo', 'notification-response-slow-write-undo'));
+    await waitFor(() =>
+      expect(mockExecuteAction).toHaveBeenCalledWith(
+        'slow-write',
+        'undo',
+        'notification-response-slow-write-undo'
+      )
+    );
     await act(async () => {
       releasePendingDestination?.();
     });
@@ -415,7 +574,10 @@ describe('protected navigation', () => {
       privacyLock: { ...lockedPrivacy, appLockStatus: 'locked' },
       setPendingDestination: jest.fn(async () => undefined)
     });
-    mockGetLastResponse.mockResolvedValueOnce({ notificationId: 'expires-while-waiting', action: 'undo' });
+    mockGetLastResponse.mockResolvedValueOnce({
+      notificationId: 'expires-while-waiting',
+      action: 'undo'
+    });
     mockRevalidateAction.mockResolvedValue({
       status: 'available',
       target: { kind: 'transaction', transactionId: 'tx-1' },
@@ -423,7 +585,9 @@ describe('protected navigation', () => {
     });
 
     render(<RootLayout />);
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/security/unlock')
+    );
 
     await act(async () => {
       useAppShellStore.setState({
@@ -432,7 +596,9 @@ describe('protected navigation', () => {
       });
     });
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/notifications'));
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/notifications')
+    );
     expect(mockExecuteAction).not.toHaveBeenCalled();
   });
 });

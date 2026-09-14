@@ -5,8 +5,13 @@ import {
   type AuthenticationSession,
   type OnboardingProgress
 } from '@/domain/app-shell';
+import { supportedCurrencies } from '@/domain/currencies';
 import type {
+  OwnerOnboardingProgress,
+  OwnerPreferences,
   PrivacyRequest,
+  ProfileSetupInput,
+  ProfileSetupSnapshot,
   RepresentativeSession,
   UserProfile,
   UserProfileInput
@@ -242,6 +247,7 @@ export function createLiveIdentityService({
   saveLocalOnboarding?: (progress: OnboardingProgress) => Promise<void>;
 } = {}): CapabilityProviderHandle<SettingsService & OnboardingService> {
   let onboardingVersion = 1;
+  let profileSetupComplete = false;
   const sessions = new Map<string, RepresentativeSession>();
 
   async function getProfile(): Promise<UserProfile> {
@@ -264,12 +270,37 @@ export function createLiveIdentityService({
     return merged;
   }
 
+  async function getProfileSetup(): Promise<ProfileSetupSnapshot> {
+    const [remote, preferences, onboarding, local] = await Promise.all([
+      parsedRequest(request, '/api/v1/me', profileSchema),
+      parsedRequest(request, '/api/v1/me/preferences', preferencesSchema),
+      parsedRequest(request, '/api/v1/me/onboarding', onboardingSchema),
+      loadLocalProfile()
+    ]);
+    onboardingVersion = onboarding.version;
+    profileSetupComplete = onboarding.completedSteps.includes('welcome');
+    const profile = mergeProfile(
+      remote,
+      preferences,
+      local,
+      supportedCurrency(preferences.defaultCurrency)
+    );
+    await saveLocalProfile(profile);
+    return {
+      profile,
+      preferences: preferences as OwnerPreferences,
+      onboarding: onboarding as OwnerOnboardingProgress,
+      complete: profileSetupComplete
+    };
+  }
+
   async function loadProgress(): Promise<OnboardingProgress | null> {
     const [remote, local] = await Promise.all([
       parsedRequest(request, '/api/v1/me/onboarding', onboardingSchema),
       loadLocalOnboarding()
     ]);
     onboardingVersion = remote.version;
+    profileSetupComplete = remote.completedSteps.includes('welcome');
     const completedSteps = remote.completedSteps.filter(isClientOnboardingStep);
     const currentStep = isClientOnboardingStep(remote.step)
       ? remote.step
@@ -310,6 +341,7 @@ export function createLiveIdentityService({
       availability: 'available'
     },
     getProfile,
+    getProfileSetup,
     async saveProfile(
       input: UserProfileInput,
       expectedVersion: number,
@@ -332,6 +364,95 @@ export function createLiveIdentityService({
       };
       await saveLocalProfile(next);
       return mutation(next, ['settings.profile']);
+    },
+    async saveProfileSetup(
+      input: ProfileSetupInput,
+      snapshot: ProfileSetupSnapshot,
+      operationId: string
+    ) {
+      const name = input.name.trim();
+      const currency = supportedCurrency(input.currency);
+      if (!name) throw new HttpError('validation_error', 400);
+      if (currency !== input.currency)
+        throw new HttpError('validation_error', 400);
+      const remoteProfile = await parsedRequest(
+        request,
+        '/api/v1/me',
+        profileSchema,
+        {
+          method: 'PATCH',
+          headers: { 'Idempotency-Key': `${operationId}-profile` },
+          body: {
+            displayName: name,
+            expectedVersion: snapshot.profile.version
+          }
+        }
+      );
+      const remotePreferences = await parsedRequest(
+        request,
+        '/api/v1/me/preferences',
+        preferencesSchema,
+        {
+          method: 'PUT',
+          headers: { 'Idempotency-Key': `${operationId}-preferences` },
+          body: {
+            defaultCurrency: currency,
+            language: snapshot.preferences.language,
+            theme: snapshot.preferences.theme,
+            calendar: snapshot.preferences.calendar,
+            weekStart: snapshot.preferences.weekStart,
+            privacySettings: snapshot.preferences.privacySettings,
+            expectedVersion: snapshot.preferences.version
+          }
+        }
+      );
+      const step =
+        snapshot.onboarding.step === 'welcome'
+          ? 'tracking_intro'
+          : snapshot.onboarding.step;
+      const completedSteps = [
+        'welcome',
+        ...snapshot.onboarding.completedSteps.filter(
+          (completed) => completed !== 'welcome'
+        )
+      ];
+      const remoteOnboarding = await parsedRequest(
+        request,
+        '/api/v1/me/onboarding',
+        onboardingSchema,
+        {
+          method: 'PUT',
+          headers: { 'Idempotency-Key': `${operationId}-onboarding` },
+          body: {
+            step,
+            completedSteps,
+            complete: step === 'complete',
+            expectedVersion: snapshot.onboarding.version
+          }
+        }
+      );
+      onboardingVersion = remoteOnboarding.version;
+      profileSetupComplete = remoteOnboarding.completedSteps.includes('welcome');
+      const profile = {
+        ...snapshot.profile,
+        name: remoteProfile.displayName,
+        phone: remoteProfile.phoneMasked,
+        googleAccount: remoteProfile.primaryEmailMasked,
+        email: remoteProfile.primaryEmailMasked,
+        currency: remotePreferences.defaultCurrency,
+        timeZone: remoteProfile.timezone,
+        version: remoteProfile.version
+      };
+      await saveLocalProfile(profile);
+      return mutation(
+        {
+          profile,
+          preferences: remotePreferences as OwnerPreferences,
+          onboarding: remoteOnboarding as OwnerOnboardingProgress,
+          complete: profileSetupComplete
+        },
+        ['settings.profile']
+      );
     },
     listSessions,
     async revokeSession(sessionId: string, operationId: string) {
@@ -402,7 +523,9 @@ export function createLiveIdentityService({
           headers: { 'Idempotency-Key': `onboarding-${onboardingVersion}` },
           body: {
             step: progress.currentStep ?? 'complete',
-            completedSteps: progress.completedSteps,
+            completedSteps: profileSetupComplete
+              ? ['welcome', ...progress.completedSteps]
+              : progress.completedSteps,
             complete: progress.status === 'completed',
             expectedVersion: onboardingVersion
           }
@@ -525,6 +648,28 @@ function isClientOnboardingStep(
   value: string
 ): value is (typeof onboardingSteps)[number] {
   return (onboardingSteps as readonly string[]).includes(value);
+}
+
+function supportedCurrency(value: string): string {
+  return supportedCurrencies.some(({ code }) => code === value) ? value : 'SAR';
+}
+
+function mergeProfile(
+  remote: z.infer<typeof profileSchema>,
+  preferences: z.infer<typeof preferencesSchema>,
+  local: UserProfile | null,
+  currency = preferences.defaultCurrency
+): UserProfile {
+  return {
+    ...(local ?? emptyProfile()),
+    name: remote.displayName,
+    phone: remote.phoneMasked,
+    googleAccount: remote.primaryEmailMasked,
+    email: remote.primaryEmailMasked,
+    currency,
+    timeZone: remote.timezone,
+    version: remote.version
+  };
 }
 
 function emptyProfile(): UserProfile {

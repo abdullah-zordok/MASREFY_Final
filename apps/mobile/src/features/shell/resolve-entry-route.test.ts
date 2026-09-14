@@ -4,13 +4,12 @@ import {
 } from './resolve-entry-route';
 import type {
   AuthenticationSession,
-  OnboardingProgress,
   PrivacyLockPreference
 } from '@/domain/app-shell';
 
 const authenticatedSession: AuthenticationSession = {
   status: 'authenticated',
-  userId: 'mock-user',
+  userId: 'user-live-1',
   method: 'phone',
   issuedAt: 10,
   expiresAt: 20,
@@ -26,179 +25,114 @@ const unlocked: PrivacyLockPreference = {
   appLockStatus: 'unlocked'
 };
 
-const onboardingComplete: OnboardingProgress = {
-  platformPath: 'android',
-  status: 'completed',
-  completedSteps: ['complete'],
-  skippedSteps: [],
-  currentStep: null,
-  permissionEducationSeen: true,
-  trackingPreference: null,
-  updatedAt: 10
+const base = {
+  hydrated: true,
+  firstLaunchOnboardingCompleted: true,
+  now: 15,
+  session: authenticatedSession,
+  profileSetupStatus: 'complete' as const,
+  privacyLock: unlocked,
+  onboarding: null,
+  pendingDestination: null
 };
 
 describe('resolveEntryRoute', () => {
-  it('waits on hydration before every other gate', () => {
-    expect(
-      resolveEntryRoute({
-        hydrated: false,
-        now: 15,
-        session: authenticatedSession,
-        privacyLock: { ...unlocked, appLockStatus: 'locked' },
-        onboarding: { ...onboardingComplete, status: 'in_progress' },
-        pendingDestination: '/reports'
-      })
-    ).toBe('/index');
+  test('waits for hydration before evaluating any account state', () => {
+    expect(resolveEntryRoute({ ...base, hydrated: false })).toBe('/index');
   });
 
-  it('prioritizes account authentication over unlock and onboarding', () => {
+  test('shows the welcome screen to a signed-out fresh installation', () => {
     expect(
       resolveEntryRoute({
-        hydrated: true,
-        now: 15,
+        ...base,
         session: null,
-        privacyLock: { ...unlocked, appLockStatus: 'locked' },
-        onboarding: { ...onboardingComplete, status: 'in_progress' },
-        pendingDestination: '/reports'
+        firstLaunchOnboardingCompleted: false
       })
-    ).toBe('/(public)/language');
+    ).toBe('/welcome');
   });
 
-  it('prioritizes local unlock before incomplete onboarding', () => {
-    expect(
-      resolveEntryRoute({
-        hydrated: true,
-        now: 15,
-        session: authenticatedSession,
-        privacyLock: { ...unlocked, appLockStatus: 'locked' },
-        onboarding: { ...onboardingComplete, status: 'in_progress' },
-        pendingDestination: '/reports'
-      })
-    ).toBe('/security/unlock');
-    expect(
-      resolveEntryRoute({
-        hydrated: true,
-        now: 15,
-        session: authenticatedSession,
-        privacyLock: { ...unlocked, appLockStatus: 'temporarily_locked' },
-        onboarding: onboardingComplete,
-        pendingDestination: '/reports'
-      })
-    ).toBe('/security/unlock');
-  });
-
-  it('opens the earliest incomplete onboarding route before protected targets', () => {
-    expect(
-      resolveEntryRoute({
-        hydrated: true,
-        now: 15,
-        session: authenticatedSession,
-        privacyLock: unlocked,
-        onboarding: {
-          ...onboardingComplete,
-          status: 'in_progress',
-          currentStep: 'permission_education'
-        },
-        pendingDestination: '/reports'
-      })
-    ).toBe('/(onboarding)/android-sms-permission');
-  });
-
-  it('returns valid requested destinations and falls back to Home for invalid links', () => {
-    const base = {
-      hydrated: true,
-      now: 15,
-      session: authenticatedSession,
-      privacyLock: unlocked,
-      onboarding: onboardingComplete
-    };
-
-    expect(resolveEntryRoute({ ...base, pendingDestination: '/reports' })).toBe(
-      '/reports'
+  test('shows the Clerk placeholder after the local welcome is seen', () => {
+    expect(resolveEntryRoute({ ...base, session: null })).toBe(
+      '/(public)/auth-pending'
     );
+  });
+
+  test('treats an expired session as signed out', () => {
+    expect(resolveEntryRoute({ ...base, now: 21 })).toBe(
+      '/(public)/auth-pending'
+    );
+  });
+
+  test.each(['unknown', 'loading'] as const)(
+    'keeps authenticated %s profile setup on the loading route',
+    (profileSetupStatus) => {
+      expect(resolveEntryRoute({ ...base, profileSetupStatus })).toBe('/index');
+    }
+  );
+
+  test.each(['incomplete', 'error'] as const)(
+    'routes authenticated %s profile setup to the recoverable form',
+    (profileSetupStatus) => {
+      expect(resolveEntryRoute({ ...base, profileSetupStatus })).toBe(
+        '/(onboarding)/profile-setup'
+      );
+    }
+  );
+
+  test('lets a completed account bypass local first-launch state after reinstall', () => {
+    expect(
+      resolveEntryRoute({
+        ...base,
+        firstLaunchOnboardingCompleted: false
+      })
+    ).toBe('/(tabs)/home');
+  });
+
+  test('prioritizes the privacy lock while profile setup is unavailable', () => {
+    expect(
+      resolveEntryRoute({
+        ...base,
+        privacyLock: { ...unlocked, appLockStatus: 'locked' }
+      })
+    ).toBe('/security/unlock');
+    expect(
+      resolveEntryRoute({
+        ...base,
+        profileSetupStatus: 'incomplete',
+        privacyLock: { ...unlocked, appLockStatus: 'locked' }
+      })
+    ).toBe('/security/unlock');
+    expect(
+      resolveEntryRoute({
+        ...base,
+        profileSetupStatus: 'error',
+        privacyLock: { ...unlocked, appLockStatus: 'locked' }
+      })
+    ).toBe('/security/unlock');
+  });
+
+  test('returns safe pending destinations only for completed accounts', () => {
+    expect(
+      resolveEntryRoute({ ...base, pendingDestination: '/reports' })
+    ).toBe('/reports');
     expect(
       resolveEntryRoute({
         ...base,
         pendingDestination: '/(public)/otp?code=123456'
       })
     ).toBe('/(tabs)/home');
+  });
+
+  test('returns only blocking gates for protected layouts', () => {
+    expect(resolveProtectedAccessGate(base)).toBeNull();
     expect(
-      resolveEntryRoute({
+      resolveProtectedAccessGate({
         ...base,
-        pendingDestination: '/assistant/conversation-1/actions/preview-1'
+        profileSetupStatus: 'incomplete'
       })
-    ).toBe('/assistant/conversation-1/actions/preview-1');
-    expect(resolveEntryRoute({ ...base, pendingDestination: '/support/tickets/ticket-1' })).toBe(
-      '/support/tickets/ticket-1'
-    );
+    ).toBe('/(onboarding)/profile-setup');
     expect(
-      resolveEntryRoute({ ...base, pendingDestination: 'https://example.com/assistant' })
-    ).toBe('/(tabs)/home');
-  });
-
-  it('keeps protected destinations behind unlock, then returns the safe destination', () => {
-    const base = {
-      hydrated: true,
-      now: 15,
-      session: authenticatedSession,
-      onboarding: onboardingComplete,
-      pendingDestination: '/notifications'
-    };
-
-    expect(
-      resolveEntryRoute({ ...base, privacyLock: { ...unlocked, appLockStatus: 'locked' } })
-    ).toBe('/security/unlock');
-    expect(resolveEntryRoute({ ...base, privacyLock: unlocked })).toBe('/notifications');
-    expect(
-      resolveEntryRoute({ ...base, privacyLock: unlocked, pendingDestination: '/assistant/otp-123' })
-    ).toBe('/(tabs)/home');
-  });
-
-  it('rejects an authenticated session after its expiry time', () => {
-    expect(
-      resolveEntryRoute({
-        hydrated: true,
-        now: 21,
-        session: authenticatedSession,
-        privacyLock: unlocked,
-        onboarding: onboardingComplete,
-        pendingDestination: '/reports'
-      })
-    ).toBe('/(public)/language');
-  });
-
-  it('returns only blocking gates for already-protected layouts', () => {
-    const ready = {
-      hydrated: true,
-      now: 15,
-      session: authenticatedSession,
-      privacyLock: unlocked,
-      onboarding: onboardingComplete,
-      pendingDestination: null
-    };
-
-    expect(resolveProtectedAccessGate(ready)).toBeNull();
-    expect(resolveProtectedAccessGate({ ...ready, session: null })).toBe(
-      '/(public)/language'
-    );
-    expect(
-      resolveProtectedAccessGate({
-        ...ready,
-        privacyLock: { ...unlocked, appLockStatus: 'locked' }
-      })
-    ).toBe('/security/unlock');
-  });
-
-  it('redirects protected refreshes to the registered root while hydration is pending', () => {
-    expect(
-      resolveProtectedAccessGate({
-        hydrated: false,
-        now: 15,
-        session: authenticatedSession,
-        privacyLock: unlocked,
-        onboarding: onboardingComplete,
-        pendingDestination: null
-      })
+      resolveProtectedAccessGate({ ...base, hydrated: false })
     ).toBe('/');
   });
 });

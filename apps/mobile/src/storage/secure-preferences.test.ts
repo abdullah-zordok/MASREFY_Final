@@ -2,7 +2,10 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-import { clearPersistedPreferences, loadPreferences } from './secure-preferences';
+import {
+  clearPersistedPreferences,
+  loadPreferences
+} from './secure-preferences';
 import { buildPreferences } from '@/domain/foundation';
 
 jest.mock('expo-secure-store', () => ({
@@ -59,15 +62,17 @@ describe('loadPreferences', () => {
   ])('falls back to complete defaults for %s', async (_case, stored) => {
     getItemAsync.mockResolvedValue(stored);
 
-    await expect(loadPreferences()).resolves.toEqual(buildPreferences({
-      locale: 'ar',
-      direction: 'rtl',
-      theme: 'light',
-      hideBalances: false,
-      baseCurrencyCode: 'SAR',
-      timeZone: 'Asia/Riyadh',
-      reducedMotion: false
-    }));
+    await expect(loadPreferences()).resolves.toEqual(
+      buildPreferences({
+        locale: 'ar',
+        direction: 'rtl',
+        theme: 'light',
+        hideBalances: false,
+        baseCurrencyCode: 'SAR',
+        timeZone: 'Asia/Riyadh',
+        reducedMotion: false
+      })
+    );
   });
 
   it('loads a complete valid preference record', async () => {
@@ -77,6 +82,7 @@ describe('loadPreferences', () => {
         theme: 'dark',
         hideBalances: true,
         baseCurrencyCode: 'USD',
+        firstLaunchOnboardingCompleted: true,
         reducedMotion: true
       })
     );
@@ -87,7 +93,16 @@ describe('loadPreferences', () => {
       theme: 'dark',
       hideBalances: true,
       baseCurrencyCode: 'USD',
+      firstLaunchOnboardingCompleted: true,
       reducedMotion: true
+    });
+  });
+
+  it('defaults first-launch onboarding to incomplete', async () => {
+    getItemAsync.mockResolvedValue(null);
+
+    await expect(loadPreferences()).resolves.toMatchObject({
+      firstLaunchOnboardingCompleted: false
     });
   });
 

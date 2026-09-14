@@ -19,13 +19,23 @@ import { usePreferenceStore } from '@/state/preferences';
 export default function AppEntry() {
   const shellHydrated = useAppShellStore((state) => state.hydrated);
   const preferencesHydrated = usePreferenceStore((state) => state.hydrated);
+  const firstLaunchOnboardingCompleted = usePreferenceStore(
+    (state) => state.firstLaunchOnboardingCompleted
+  );
   const session = useAppShellStore((state) => state.session);
   const onboarding = useAppShellStore((state) => state.onboarding);
-  const pendingDestination = useAppShellStore((state) => state.pendingDestination);
+  const pendingDestination = useAppShellStore(
+    (state) => state.pendingDestination
+  );
   const privacyLock = useAppShellStore((state) => state.privacyLock);
+  const profileSetupStatus = useAppShellStore(
+    (state) => state.profileSetupStatus
+  );
 
   const destination = resolveEntryRoute({
     hydrated: shellHydrated && preferencesHydrated,
+    firstLaunchOnboardingCompleted,
+    profileSetupStatus,
     session,
     onboarding,
     pendingDestination,
@@ -36,5 +46,7 @@ export default function AppEntry() {
     return <Redirect href={destination} />;
   }
 
-  return <StateView state="loading" title={translate('appShell.state.loading')} />;
+  return (
+    <StateView state="loading" title={translate('appShell.state.loading')} />
+  );
 }

@@ -21,6 +21,7 @@ export interface FormFieldProps extends TextInputProps {
   variant?: FormFieldVariant;
   helperText?: string;
   errorText?: string;
+  labelPlacement?: 'above' | 'accessibility-only';
 }
 
 export function FormField({
@@ -28,6 +29,7 @@ export function FormField({
   variant = 'text',
   helperText,
   errorText,
+  labelPlacement = 'above',
   keyboardType: requestedKeyboardType,
   style,
   ...props
@@ -37,7 +39,9 @@ export function FormField({
   const localizedLabel = translateDynamic(label);
   const localizedHelper = helperText ? translateDynamic(helperText) : undefined;
   const localizedError = errorText ? translateDynamic(errorText) : undefined;
-  const keyboardType = requestedKeyboardType ?? (variant === 'amount'
+  const keyboardType =
+    requestedKeyboardType ??
+    (variant === 'amount'
       ? 'decimal-pad'
       : variant === 'phone' || variant === 'otp'
         ? 'number-pad'
@@ -52,12 +56,24 @@ export function FormField({
     keyboardType === 'number-pad' ||
     keyboardType === 'numeric' ||
     keyboardType === 'phone-pad';
+  const directionalText = {
+    textAlign: 'auto' as const,
+    writingDirection: direction
+  };
 
   return (
     <View style={styles.stack}>
-      <Text style={[styles.label, { color: theme.colors.textPrimary }]}>
-        {localizedLabel}
-      </Text>
+      {labelPlacement === 'above' ? (
+        <Text
+          style={[
+            styles.label,
+            directionalText,
+            { color: theme.colors.textPrimary }
+          ]}
+        >
+          {localizedLabel}
+        </Text>
+      ) : null}
       <TextInput
         accessibilityLabel={localizedLabel}
         keyboardType={keyboardType}
@@ -78,12 +94,14 @@ export function FormField({
         {...props}
       />
       {localizedHelper ? (
-        <Text style={{ color: theme.colors.textSecondary }}>{localizedHelper}</Text>
+        <Text style={[directionalText, { color: theme.colors.textSecondary }]}>
+          {localizedHelper}
+        </Text>
       ) : null}
       {localizedError ? (
         <Text
           accessibilityRole="alert"
-          style={{ color: theme.colors.status.danger }}
+          style={[directionalText, { color: theme.colors.status.danger }]}
         >
           {localizedError}
         </Text>

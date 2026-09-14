@@ -155,4 +155,6 @@ export interface AppShellStorage {
   clearPinCredential(): Promise<void>;
   loadProfilePromptDismissed(): Promise<boolean>;
   saveProfilePromptDismissed(dismissed: boolean): Promise<void>;
+  loadTrackingHomeCardDismissed(): Promise<boolean>;
+  saveTrackingHomeCardDismissed(dismissed: boolean): Promise<void>;
 }

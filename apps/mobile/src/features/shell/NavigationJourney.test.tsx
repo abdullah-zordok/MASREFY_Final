@@ -10,12 +10,12 @@ import ReportsRoute from '@app/(tabs)/reports';
 import MoreRoute from '@app/(tabs)/more';
 import AccountsRoute from '@app/accounts';
 import AssistantRoute from '@app/assistant';
-import AuthRequiredRoute from '@app/modals/auth-required';
 import { createClientDemoSession } from '@/domain/demo-session';
 import { translate, translateDynamic } from '@/localization/i18n';
 import { renderWithProviders } from '@/test-utils/render';
 import { useAppShellStore } from '@/state/app-shell';
 import { usePreferenceStore } from '@/state/preferences';
+import { authenticatedSession } from '@/test-utils/app-shell-fixtures';
 
 let mockSearchParams: { returnTo?: string } = {};
 
@@ -193,11 +193,6 @@ describe('navigation journey', () => {
     ).toBeOnTheScreen();
     assistant.unmount();
 
-    const authRequired = renderWithProviders(<AuthRequiredRoute />);
-    expect(
-      screen.getByText(translate('appShell.navigation.authRequired'))
-    ).toBeOnTheScreen();
-    authRequired.unmount();
   });
 
   it('makes More the directory for every relocated secondary destination', async () => {
@@ -226,6 +221,22 @@ describe('navigation journey', () => {
       fireEvent.press(link);
       expect(router.push).toHaveBeenLastCalledWith(route);
     }
+  });
+
+  it('lets an authenticated user sign out from More', async () => {
+    useAppShellStore.setState({ session: authenticatedSession });
+    renderWithProviders(<MoreRoute />);
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', {
+          name: translate('appShell.auth.signOut')
+        })
+      );
+    });
+
+    expect(useAppShellStore.getState().session?.status).toBe('signed_out');
+    expect(router.replace).toHaveBeenCalledWith('/(public)/auth-pending');
   });
 
   it('keeps the client demo profile separate from subscriptions', () => {

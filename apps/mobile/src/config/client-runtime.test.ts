@@ -7,6 +7,10 @@ const liveEnvironment = {
 };
 
 describe('Mobile client runtime policy', () => {
+  it('starts unconfigured development builds in demo mode', () => {
+    expect(resolveClientRuntime({}, 'development').mode).toBe('demo');
+  });
+
   it.each(['live', 'demo', 'test'] as const)('accepts the explicit %s mode outside production', (mode) => {
     expect(
       resolveClientRuntime(

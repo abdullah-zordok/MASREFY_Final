@@ -112,7 +112,7 @@ describe('SettingsService lifecycle', () => {
     });
     await expect(
       settingsService.requestPrivacyAction('data_export', 'production-export')
-    ).rejects.toMatchObject({ code: 'provider_unavailable' });
+    ).rejects.toMatchObject({ code: 'session_expired' });
   });
 
   it('selects fixture settings for explicit demo mode', async () => {

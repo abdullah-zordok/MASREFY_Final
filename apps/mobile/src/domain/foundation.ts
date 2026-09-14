@@ -203,6 +203,7 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 export interface UserPreferences {
   locale: Locale;
   direction: LayoutDirection;
+  firstLaunchOnboardingCompleted: boolean;
   theme: ThemePreference;
   hideBalances: boolean;
   baseCurrencyCode: string;
@@ -211,7 +212,9 @@ export interface UserPreferences {
   firstDayOfWeek: 'sunday' | 'monday' | 'saturday';
   defaultAccountId: string | null;
   transactionDefaultType: 'expense' | 'income';
-  dashboardSections: ('balance' | 'transactions' | 'budgets' | 'goals' | 'reports')[];
+  dashboardSections: (
+    'balance' | 'transactions' | 'budgets' | 'goals' | 'reports'
+  )[];
   voiceEnabled: boolean;
   trackingPersonalization: boolean;
   assistantPersonalization: boolean;
@@ -225,6 +228,7 @@ export function buildPreferences(
   const defaults: UserPreferences = {
     locale: 'ar',
     direction: 'rtl',
+    firstLaunchOnboardingCompleted: false,
     theme: 'light',
     hideBalances: false,
     baseCurrencyCode: 'SAR',
@@ -233,7 +237,13 @@ export function buildPreferences(
     firstDayOfWeek: 'sunday',
     defaultAccountId: null,
     transactionDefaultType: 'expense',
-    dashboardSections: ['balance', 'transactions', 'budgets', 'goals', 'reports'],
+    dashboardSections: [
+      'balance',
+      'transactions',
+      'budgets',
+      'goals',
+      'reports'
+    ],
     voiceEnabled: true,
     trackingPersonalization: true,
     assistantPersonalization: true,

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import type { AuthenticationSession } from '@/domain/app-shell';
+import type { ProfileSetupSnapshot } from '@/domain/settings';
 import {
   createOnboardingProgress,
   routeForOnboardingProgress
@@ -8,7 +9,10 @@ import {
 import type { PlatformPathInput } from '@/features/onboarding/platform-path';
 import { resolvePlatformPath } from '@/features/onboarding/platform-path';
 import type { AuthService } from '@/services/contracts/app-shell-service';
+import type { SettingsService } from '@/services/contracts/assistant-notifications-service';
+import { settingsService } from '@/services/mocks/subscription-settings-service';
 import { useAppShellStore } from '@/state/app-shell';
+import { usePreferenceStore } from '@/state/preferences';
 
 interface CompleteSessionOptions {
   platform?: PlatformPathInput;
@@ -17,12 +21,35 @@ interface CompleteSessionOptions {
 
 export async function restoreAppShellSession(
   authService: AuthService,
-  isCurrent: () => boolean = () => true
+  isCurrent: () => boolean = () => true,
+  identityService: Pick<SettingsService, 'getProfileSetup'> = settingsService
 ): Promise<void> {
   const session = await authService.restoreSession();
   if (!isCurrent()) return;
   if (session.status === 'authenticated') {
     await useAppShellStore.getState().authenticate(session, isCurrent);
+    if (!isCurrent()) return;
+    useAppShellStore.getState().setProfileSetup('loading');
+    let snapshot: ProfileSetupSnapshot;
+    try {
+      snapshot = await identityService.getProfileSetup();
+    } catch {
+      if (isCurrent()) useAppShellStore.getState().setProfileSetup('error');
+      return;
+    }
+    if (!isCurrent()) return;
+    const preferences = usePreferenceStore.getState();
+    // Optional local persistence must not invalidate the server profile.
+    await preferences.hydrate().catch(() => undefined);
+    if (!isCurrent()) return;
+    if (snapshot.profile?.currency) {
+      usePreferenceStore
+        .getState()
+        .setBaseCurrencyCode(snapshot.profile.currency);
+    }
+    useAppShellStore
+      .getState()
+      .setProfileSetup(snapshot.complete ? 'complete' : 'incomplete', snapshot);
     return;
   }
   if (isCurrent()) await useAppShellStore.getState().signOut();
