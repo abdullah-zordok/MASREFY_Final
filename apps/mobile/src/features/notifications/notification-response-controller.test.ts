@@ -56,6 +56,22 @@ function phoneService(lastResponse: PhoneNotificationResponse | null = null) {
 }
 
 describe('notification response controller', () => {
+  it('routes a local auth reminder without calling the backend', async () => {
+    const service = targetService();
+    const navigate = jest.fn();
+    const controller = createNotificationResponseController({
+      notificationService: service,
+      phoneService: phoneService().phone,
+      navigate,
+      unlock: async () => true
+    });
+
+    await controller.handle({ localDestination: 'auth', action: 'view' });
+
+    expect(navigate).toHaveBeenCalledWith('/(public)/welcome');
+    expect(service.resolveTarget).not.toHaveBeenCalled();
+  });
+
   it('opens the credit card from a due reminder', async () => {
     const target = { kind: 'account' as const, accountId: 'card-1' };
     const navigate = jest.fn();
@@ -83,6 +99,28 @@ describe('notification response controller', () => {
     await controller.handle({ notificationId: 'notification-1', action: 'view' });
 
     expect(navigate).toHaveBeenCalledWith('/transactions/transaction-1');
+  });
+
+  it.each([
+    [{ kind: 'home' }, '/(tabs)/home'],
+    [{ kind: 'tracking' }, '/tracking'],
+  ])('opens the existing reminder destination', async (target, route) => {
+    const navigate = jest.fn();
+    const controller = createNotificationResponseController({
+      notificationService: targetService({
+        resolveTarget: jest.fn(async () => ({ status: 'exact', target })) as never,
+        revalidateAction: jest.fn(async (_id, action) => ({
+          status: 'available', target, action,
+        })) as never,
+      }),
+      phoneService: phoneService().phone,
+      navigate,
+      unlock: async () => true,
+    });
+
+    await controller.handle({ notificationId: 'reminder-1', action: 'view' });
+
+    expect(navigate).toHaveBeenCalledWith(route);
   });
 
   it('uses a trusted fallback target and returns unavailable targets to notifications', async () => {

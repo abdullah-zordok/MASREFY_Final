@@ -1,4 +1,4 @@
-import { createLiveAssistantApiService } from './assistant-api-service';
+import { assistantPollDelay, createLiveAssistantApiService } from './assistant-api-service';
 
 const id = (suffix: number) =>
   `99100000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
@@ -76,6 +76,40 @@ function messages(actionPreview: unknown = null) {
 
 const conversations = { items: [conversation], nextCursor: null };
 
+it('backs off assistant polling without exceeding two seconds', () => {
+  expect([0, 5, 10, 20, 40].map(assistantPollDelay)).toEqual([
+    250,
+    500,
+    1000,
+    2000,
+    2000
+  ]);
+});
+
+it('sends canonical quick-question intent without a broad client-selected context scope', async () => {
+  const request = jest
+    .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    .mockResolvedValueOnce(json(conversation, 201))
+    .mockResolvedValueOnce(json({ id: id(2), status: 'completed' }, 202))
+    .mockResolvedValueOnce(json(messages()));
+  const service = createLiveAssistantApiService({
+    baseUrl: 'https://api.test',
+    token: async () => 'owner',
+    request
+  });
+
+  await service.createConversation(
+    { question: 'Spend?', intent: 'spending_summary' },
+    'quick-question-operation'
+  );
+
+  expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
+    content: 'Spend?',
+    intent: 'spending_summary',
+    responseMode: 'async'
+  });
+});
+
 it('uses authoritative owner availability and shared rolling-quota values', async () => {
   const request = jest
     .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
@@ -104,6 +138,22 @@ it('uses authoritative owner availability and shared rolling-quota values', asyn
   expect(request.mock.calls[0]?.[0]).toBe(
     'https://api.test/api/v1/assistant/availability'
   );
+});
+
+it('maps authoritative proactive insights without inventing financial values', async () => {
+  const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValueOnce(json({
+    items: [{
+      id: id(10), signal_key: `budget:${id(11)}:85`, kind: 'budget_threshold',
+      payload: { budgetName: 'Restaurants', currency: 'SAR', budgetMinor: '100000', spentMinor: '85000', remainingMinor: '15000', utilizationBps: 8500 },
+      source_version: 12, status: 'active', expires_at: '2026-09-17T00:00:00.000Z', created_at: at
+    }]
+  }));
+  const service = createLiveAssistantApiService({ baseUrl: 'https://api.test', token: async () => 'owner', request });
+
+  await expect(service.listInsights()).resolves.toEqual([expect.objectContaining({
+    id: id(10), budgetName: 'Restaurants', budgetMinor: 100000, spentMinor: 85000,
+    remainingMinor: 15000, utilizationBps: 8500
+  })]);
 });
 
 it('retrieves a response on a cold service and preserves exact evidence versions', async () => {
@@ -247,7 +297,7 @@ it('re-reads the authoritative preview after confirmation instead of incrementin
   );
 });
 
-it('fails explicitly on unknown owner states and unsupported action kinds', async () => {
+it('fails explicitly on unknown owner states and maps supported transaction updates', async () => {
   const unknownConversation = jest
     .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
     .mockResolvedValueOnce(
@@ -283,5 +333,30 @@ it('fails explicitly on unknown owner states and unsupported action kinds', asyn
       token: async () => 'owner',
       request: unsupportedPreview
     }).getActionPreview(id(5))
-  ).rejects.toMatchObject({ code: 'assistant_disabled' });
+  ).resolves.toMatchObject({
+    kind: 'update_transaction',
+    affectedDestination: { kind: 'transactions' }
+  });
+});
+
+it.each([
+  ['transaction.create', { amountMinor: '1250', currency: 'SAR' }, 'create_transaction'],
+  ['transaction.update', { transactionId: id(8), expectedVersion: 1, reason: 'Update' }, 'update_transaction'],
+  ['budget.update', { budgetId: id(8), expectedVersion: 1, patch: { totalMinor: '100000' } }, 'update_budget'],
+  ['savings_goal.create', { name: 'Buffer', targetMinor: '50000', currencyCode: 'SAR' }, 'create_goal'],
+  ['obligation.payment.record', { obligationId: id(8), transactionId: id(9), expectedVersion: 1 }, 'record_obligation_payment'],
+  ['tracking.review.resolve', { reviewId: id(8), decision: 'accept', expectedVersion: 1, edit: {} }, 'resolve_tracking_review']
+] as const)('maps backend action %s safely', async (actionType, payload, kind) => {
+  const request = jest
+    .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    .mockResolvedValueOnce(json(conversations))
+    .mockResolvedValueOnce(json(messages({ ...preview(), actionType, payload })));
+
+  await expect(
+    createLiveAssistantApiService({
+      baseUrl: 'https://api.test',
+      token: async () => 'owner',
+      request
+    }).getActionPreview(id(5))
+  ).resolves.toMatchObject({ kind });
 });

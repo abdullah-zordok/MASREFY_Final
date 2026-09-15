@@ -45,6 +45,10 @@ export function createNotificationResponseController({
     notificationService['executeAction'](id, action, operationId);
 
   async function runResponse(response: PhoneNotificationResponse) {
+    if ('localDestination' in response) {
+      navigate('/(public)/welcome');
+      return;
+    }
     const targetResolution = await notificationService.resolveTarget(response.notificationId);
     if (targetResolution.status === 'unavailable' || !targetResolution.target) {
       navigate('/notifications');
@@ -103,7 +107,9 @@ export function createNotificationResponseController({
   }
 
   async function handle(response: PhoneNotificationResponse) {
-    const key = `${response.notificationId}:${response.action}`;
+    const key = 'localDestination' in response
+      ? `local:${response.localDestination}`
+      : `${response.notificationId}:${response.action}`;
     const replay = handledResponses.get(key);
     if (replay) return replay;
     const result = runResponse(response).catch(() => {
@@ -157,6 +163,8 @@ async function protectedNotificationAction(options: ProtectedActionOptions) {
 }
 
 function routeForTarget(target: NotificationTarget, action: Exclude<NotificationActionKind, 'undo'>): string | null {
+  if (target.kind === 'home') return '/(tabs)/home';
+  if (target.kind === 'tracking') return '/tracking';
   if (target.kind === 'account') return path('/accounts', target.accountId, action === 'edit');
   if (target.kind === 'transaction') return path('/transactions', target.transactionId, action === 'edit');
   if (target.kind === 'review') return path('/tracking/review', target.reviewId);

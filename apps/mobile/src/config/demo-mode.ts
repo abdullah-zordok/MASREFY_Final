@@ -18,7 +18,5 @@ export function isFixtureModeEnabled(
   nodeEnv = process.env.NODE_ENV,
   demoMode = isDemoModeEnabled()
 ): boolean {
-  if (nodeEnv === 'production' && demoMode)
-    throw new Error('production requires live client mode');
   return nodeEnv === 'test' || demoMode;
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PixelRatio } from 'react-native';
+import { AppState, PixelRatio, type AppStateStatus } from 'react-native';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
@@ -320,6 +320,12 @@ it('starts voice recording inline without navigating away from Home', async () =
   try {
     fireEvent.press(screen.getByTestId('home-quick-action-voice'));
 
+    await waitFor(() =>
+      expect(voiceRecorderService.requestPermission).toHaveBeenCalledTimes(1)
+    );
+    expect(voiceRecorderService.start).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('home-quick-action-voice'));
+
     expect(
       await screen.findByTestId('home-inline-voice-recording')
     ).toBeTruthy();
@@ -334,6 +340,32 @@ it('starts voice recording inline without navigating away from Home', async () =
     view.unmount();
     jest.useRealTimers();
   }
+});
+
+it('starts recording on the first tap after a granted-permission foreground resume', async () => {
+  const appStateListeners = new Set<(state: AppStateStatus) => void>();
+  let resolvePermission!: (permission: 'granted') => void;
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    appStateListeners.add(listener);
+    return { remove: () => appStateListeners.delete(listener) } as never;
+  });
+  jest.mocked(voiceRecorderService.getPermission).mockImplementation(
+    () => new Promise((resolve) => { resolvePermission = resolve; })
+  );
+  jest.mocked(voiceRecorderService.start).mockResolvedValue({
+    id: 'recording-after-resume',
+    startedAt: Date.now()
+  });
+  renderWithProviders(<HomeScreen summary={summary} />);
+
+  act(() => appStateListeners.forEach((listener) => listener('background')));
+  act(() => appStateListeners.forEach((listener) => listener('active')));
+  fireEvent.press(screen.getByTestId('home-quick-action-voice'));
+  await act(async () => resolvePermission('granted'));
+
+  expect(await screen.findByTestId('home-inline-voice-recording')).toBeTruthy();
+  expect(voiceRecorderService.start).toHaveBeenCalledTimes(1);
+  expect(voiceRecorderService.requestPermission).not.toHaveBeenCalled();
 });
 
 it('keeps a denied microphone permission recoverable on Home', async () => {
@@ -473,8 +505,16 @@ it('shows unclear audio after the empty default result without creating a transa
   }
 });
 
-it('clears unclear audio and returns Voice to ready when Record Again is pressed', async () => {
-  changeLocale('en');
+it.each([
+  ['en', 'Record Again'],
+  ['ar', 'إعادة التسجيل']
+] as const)('clears unclear audio and starts recording from the %s action', async (locale, label) => {
+  changeLocale(locale);
+  jest.mocked(voiceRecorderService.getPermission).mockResolvedValue('granted');
+  jest.mocked(voiceRecorderService.start).mockResolvedValue({
+    id: 'recording-after-unclear-audio',
+    startedAt: Date.now()
+  });
   useVoiceCaptureStore.getState().patch({
     permission: 'granted',
     state: 'failed',
@@ -484,11 +524,13 @@ it('clears unclear audio and returns Voice to ready when Record Again is pressed
   });
   renderWithProviders(<HomeScreen summary={summary} />);
 
-  fireEvent.press(screen.getByLabelText('Record Again'));
+  fireEvent.press(screen.getByLabelText(label));
 
   await waitFor(() =>
     expect(useVoiceCaptureStore.getState()).toMatchObject({
-      state: 'ready',
+      state: 'recording',
+      recordingId: 'recording-after-unclear-audio',
+      audioReference: null,
       durationMs: 0,
       transcript: null,
       group: null,
@@ -496,11 +538,16 @@ it('clears unclear audio and returns Voice to ready when Record Again is pressed
     })
   );
   expect(screen.queryByTestId('home-voice-unclear-overlay')).toBeNull();
+  expect(screen.getByTestId('home-inline-voice-recording')).toBeTruthy();
+  expect(voiceRecorderService.start).toHaveBeenCalledTimes(1);
   expect(router.push).not.toHaveBeenCalledWith('/(tabs)/voice');
 });
 
-it('dismisses unclear audio and stays on Home when Cancel is pressed', async () => {
-  changeLocale('en');
+it.each([
+  ['en', 'Cancel'],
+  ['ar', 'إلغاء']
+] as const)('dismisses unclear audio and stays on Home from the %s action', async (locale, label) => {
+  changeLocale(locale);
   useVoiceCaptureStore.getState().patch({
     permission: 'granted',
     state: 'failed',
@@ -508,7 +555,7 @@ it('dismisses unclear audio and stays on Home when Cancel is pressed', async () 
   });
   renderWithProviders(<HomeScreen summary={summary} />);
 
-  fireEvent.press(screen.getByLabelText('Cancel'));
+  fireEvent.press(screen.getByLabelText(label));
 
   await waitFor(() =>
     expect(useVoiceCaptureStore.getState().state).toBe('idle')

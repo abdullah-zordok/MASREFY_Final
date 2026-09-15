@@ -13,6 +13,7 @@ import { translateDynamic } from '@/localization/i18n';
 import { buildAssistantSupportContext } from '@/features/support/support-context';
 import type { AssistantResponse } from '@/domain/assistant';
 import { colorTokens } from '@/design-system/tokens';
+import type { AssistantQuestionIntent } from '@/services/contracts/assistant-notifications-service';
 
 type AssistantQueries = typeof import('./assistant-queries');
 
@@ -24,6 +25,7 @@ export function AssistantHomeScreen({
   const queries = require('./assistant-queries') as AssistantQueries;
   const consent = queries.useAssistantConsent();
   const conversations = queries.useAssistantConversations({ pageSize: 20 });
+  const insights = queries.useAssistantInsights();
   const setConsent = queries.useSetAssistantConsent();
   const createConversation = queries.useCreateAssistantConversation();
 
@@ -42,10 +44,11 @@ export function AssistantHomeScreen({
   const conversationTotal =
     conversations.data?.pages?.[0]?.total ?? legacyConversations?.total ?? 0;
 
-  const handleAskFirstQuestion = (question: string) => {
+  const handleAskFirstQuestion = (question: string, intent?: AssistantQuestionIntent) => {
     createConversation.mutate(
       {
         question,
+        intent,
         operationId: `assistant-create-${Date.now()}`
       },
       {
@@ -100,6 +103,7 @@ export function AssistantHomeScreen({
         onAskQuestion={handleAskFirstQuestion}
         consent={consent.data}
         onEnableConsent={handleEnableConsent}
+        insight={insights.data?.[0]}
         conversations={conversationItems}
         onSelectConversation={(id) => {
           setActiveConversationId(id);

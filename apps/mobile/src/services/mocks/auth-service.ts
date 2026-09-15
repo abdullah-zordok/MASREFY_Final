@@ -116,6 +116,8 @@ export function createMockAuthService(options: MockAuthOptions = {}): Capability
       );
     },
 
+    async touchActivity(): Promise<void> {},
+
     async signOut(): Promise<void> {
       session = null;
     }

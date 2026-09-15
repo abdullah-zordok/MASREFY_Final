@@ -3,11 +3,12 @@ import {
   assertSafeAiInput,
   parseAssistantOutput,
   parseVoiceProposal,
+  redactAiContext,
   redactAiText,
 } from '../../../src/ai/ai.schemas';
 import { buildAiEvent } from '../../../src/ai/ai.events';
 import { AiNoStoreInterceptor } from '../../../src/ai/ai-no-store.interceptor';
-import { evaluatePromptCorpus } from '../../../src/ai/ai.worker';
+import { assistantProviderPayload, encodeAssistantProviderPayload, evaluatePromptCorpus } from '../../../src/ai/ai.worker';
 import { of } from 'rxjs';
 
 const voice = {
@@ -57,6 +58,11 @@ describe('Phase 09 AI trust boundaries', () => {
     expect(redactAiText('mail a@b.com card 4111 1111 1111 1111')).toBe(
       'mail [redacted-email] card [redacted-number]',
     );
+    expect(
+      redactAiText(
+        'IBAN SA0380000000608010167519 phone +966 55 123 4567 id 99000000-0000-4000-8000-000000000001',
+      ),
+    ).toBe('IBAN [redacted-iban] phone [redacted-phone] id [redacted-id]');
   });
 
   it('allows only the nine safe event names and rejects forbidden payload keys recursively', () => {
@@ -127,5 +133,51 @@ describe('Phase 09 AI trust boundaries', () => {
     });
     expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
     expect(result).toBeDefined();
+  });
+
+  it('builds bounded provider context without owner identifiers or unrelated data', () => {
+    const payload = assistantProviderPayload({
+      content: 'ليه صرفي زاد؟',
+      intent: 'period_comparison',
+      contextPayload: { currentExpenseMinor: 235000, currency: 'SAR' },
+      historyPayload: Array.from({ length: 8 }, (_, index) => ({
+        role: index % 2 ? 'assistant' : 'user',
+        content: `turn-${index.toString()}`,
+      })),
+      userId: 'raw-owner-id',
+      aliases: [],
+    });
+
+    expect(payload).toEqual({
+      intent: 'period_comparison',
+      question: 'ليه صرفي زاد؟',
+      financialTruth: { currentExpenseMinor: 235000, currency: 'SAR' },
+      conversation: [
+        { role: 'user', content: 'turn-4' },
+        { role: 'assistant', content: 'turn-5' },
+        { role: 'user', content: 'turn-6' },
+        { role: 'assistant', content: 'turn-7' },
+      ],
+      references: [],
+    });
+    expect(JSON.stringify(payload)).not.toContain('raw-owner-id');
+  });
+
+  it('removes raw identifiers and redacts free text inside provider financial context', () => {
+    expect(
+      redactAiContext({
+        categoryId: '99000000-0000-4000-8000-000000000001',
+        category: { label: 'mail a@b.com', expenseMinor: 12500 },
+      }),
+    ).toEqual({ category: { label: 'mail [redacted-email]', expenseMinor: 12500 } });
+  });
+
+  it('rejects oversized provider context instead of truncating JSON', () => {
+    expect(() =>
+      encodeAssistantProviderPayload(
+        { content: 'why?', intent: 'financial_advice', contextPayload: { note: 'x'.repeat(100) }, historyPayload: [], aliases: [] },
+        32,
+      ),
+    ).toThrow('AI_CONTEXT_LIMIT');
   });
 });

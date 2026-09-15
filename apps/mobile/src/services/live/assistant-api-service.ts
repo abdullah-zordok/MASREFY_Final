@@ -5,10 +5,11 @@ import type {
   AssistantConversation,
   AssistantResponse
 } from '@/domain/assistant';
-import { createImmutableSnapshot } from '@/domain/assistant';
+import { assistantActionPreviewSchema, createImmutableSnapshot } from '@/domain/assistant';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
 import {
   assistantServiceCapability,
+  type AssistantFinancialInsight,
   type AssistantService
 } from '@/services/contracts/assistant-notifications-service';
 
@@ -96,6 +97,23 @@ const messageSchema = z
     createdAt: dateTime
   })
   .strict();
+const insightSchema = z.object({
+  id: z.string().uuid(),
+  signal_key: z.string(),
+  kind: z.literal('budget_threshold'),
+  payload: z.object({
+    budgetName: z.string(),
+    currency: z.string().regex(/^[A-Z]{3}$/u),
+    budgetMinor: z.string().regex(/^-?\d+$/u),
+    spentMinor: z.string().regex(/^-?\d+$/u),
+    remainingMinor: z.string().regex(/^-?\d+$/u),
+    utilizationBps: z.number().int().nonnegative()
+  }).strict(),
+  source_version: z.number().int().nonnegative(),
+  status: z.literal('active'),
+  expires_at: dateTime,
+  created_at: dateTime
+}).strict();
 const consentSchema = z
   .object({
     policyVersion: z.string(),
@@ -171,11 +189,7 @@ function mapPreview(
   const row = parse(previewSchema, value);
   if (row.messageId !== responseId)
     throw new AssistantApiError('representative_failure');
-  if (row.actionType !== 'savings_goal.create')
-    throw new AssistantApiError('assistant_disabled');
-  const currency = row.payload.currencyCode ?? row.payload.currency;
-  if (typeof currency !== 'string' || !/^[A-Z]{3}$/u.test(currency))
-    throw new AssistantApiError('representative_failure');
+  const action = mapAction(row.actionType, row.payload, row.id);
   const states: Record<typeof row.status, AssistantActionPreview['status']> = {
     draft: 'draft',
     validated: 'ready',
@@ -192,15 +206,10 @@ function mapPreview(
     (!row.confirmationOperationId || !row.executedResourceId)
   )
     throw new AssistantApiError('representative_failure');
-  return {
+  return assistantActionPreviewSchema.parse({
     id: row.id,
     responseId,
-    kind: 'create_goal',
-    input: {
-      amountMinor: amount(row.payload.targetMinor ?? row.payload.amountMinor),
-      currency
-    },
-    affectedDestination: { kind: 'goal', goalId: row.id },
+    ...action,
     sourceVersions: evidence.map(({ alias: id, version }) => ({ id, version })),
     status,
     operationId: row.confirmationOperationId,
@@ -208,7 +217,60 @@ function mapPreview(
     resultReference: row.executedResourceId,
     safeFailure: null,
     version: row.version
-  };
+  });
+}
+
+function mapAction(
+  actionType: string,
+  payload: Record<string, unknown>,
+  previewId: string
+) {
+  if (actionType === 'savings_goal.create')
+    return {
+      kind: 'create_goal',
+      input: moneyInput(payload.targetMinor ?? payload.amountMinor, payload.currencyCode ?? payload.currency),
+      affectedDestination: { kind: 'goal', goalId: previewId }
+    };
+  if (actionType === 'transaction.create')
+    return {
+      kind: 'create_transaction',
+      input: moneyInput(payload.amountMinor, payload.currency),
+      affectedDestination: { kind: 'transactions' }
+    };
+  if (actionType === 'transaction.update')
+    return { kind: 'update_transaction', input: {}, affectedDestination: { kind: 'transactions' } };
+  if (actionType === 'budget.update')
+    return {
+      kind: 'update_budget',
+      input: {},
+      affectedDestination: { kind: 'budget', budgetId: requiredId(payload.budgetId) }
+    };
+  if (actionType === 'obligation.payment.record')
+    return {
+      kind: 'record_obligation_payment',
+      input: {},
+      affectedDestination: { kind: 'obligation', obligationId: requiredId(payload.obligationId) }
+    };
+  if (actionType === 'tracking.review.resolve')
+    return { kind: 'resolve_tracking_review', input: {}, affectedDestination: { kind: 'transactions' } };
+  throw new AssistantApiError('assistant_disabled');
+}
+
+function moneyInput(amountMinor: unknown, currency: unknown) {
+  if (typeof currency !== 'string' || !/^[A-Z]{3}$/u.test(currency))
+    throw new AssistantApiError('representative_failure');
+  return { amountMinor: amount(amountMinor), currency };
+}
+
+function requiredId(value: unknown): string {
+  const result = z.string().uuid().safeParse(value);
+  if (!result.success)
+    throw new AssistantApiError('representative_failure');
+  return result.data;
+}
+
+export function assistantPollDelay(attempt: number): number {
+  return Math.min(250 * 2 ** Math.floor(attempt / 5), 2000);
 }
 
 export function createLiveAssistantApiService(
@@ -399,7 +461,8 @@ export function createLiveAssistantApiService(
   const ask = async (
     conversationId: string,
     question: string,
-    operationId: string
+    operationId: string,
+    intent?: import('../contracts/assistant-notifications-service').AssistantQuestionIntent
   ): Promise<AssistantResponse> => {
     const accepted = parse(
       z.object({ id: z.string().uuid(), status: z.string() }).strict(),
@@ -408,19 +471,13 @@ export function createLiveAssistantApiService(
         `/api/v1/assistant/conversations/${encodeURIComponent(conversationId)}/messages`,
         {
           content: question,
-          contextScope: [
-            'accounts_summary',
-            'recent_transactions',
-            'budgets',
-            'obligations',
-            'tracking_reviews'
-          ],
+          ...(intent ? { intent } : {}),
           responseMode: 'async'
         },
         operationId
       )
     );
-    for (let attempt = 0; attempt < 650; attempt += 1) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       const rows = await listAllMessages(conversationId);
       const answer = rows.find(
         (row) =>
@@ -433,7 +490,7 @@ export function createLiveAssistantApiService(
             : 'assistant_disabled'
         );
       if (answer?.status === 'completed') return mapResponse(answer, rows);
-      await sleep(100);
+      await sleep(assistantPollDelay(attempt));
     }
     throw new AssistantApiError('offline');
   };
@@ -472,6 +529,24 @@ export function createLiveAssistantApiService(
         used: row.used,
         resetsAt: row.resetsAt
       };
+    },
+    async listInsights(): Promise<AssistantFinancialInsight[]> {
+      const result = parse(
+        z.object({ items: z.array(insightSchema) }).strict(),
+        await send('GET', '/api/v1/assistant/insights')
+      );
+      return result.items.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        budgetName: row.payload.budgetName,
+        currency: row.payload.currency,
+        budgetMinor: amount(row.payload.budgetMinor),
+        spentMinor: amount(row.payload.spentMinor),
+        remainingMinor: amount(row.payload.remainingMinor),
+        utilizationBps: row.payload.utilizationBps,
+        createdAt: epoch(row.created_at),
+        expiresAt: epoch(row.expires_at)
+      }));
     },
     async setConsent(enabled, expectedVersion, operationId) {
       const row = await send(
@@ -519,7 +594,8 @@ export function createLiveAssistantApiService(
       const first = await ask(
         item.id,
         input.question,
-        `${operationId}-message`
+        `${operationId}-message`,
+        input.intent
       );
       return mutation({ ...item, lastResponseId: first.id }, [
         'assistant.conversations',
@@ -549,8 +625,8 @@ export function createLiveAssistantApiService(
     async getResponse(id) {
       return (await findCold('response', id)) as AssistantResponse;
     },
-    async ask(conversationId, question, operationId) {
-      return mutation(await ask(conversationId, question, operationId), [
+    async ask(conversationId, question, operationId, intent) {
+      return mutation(await ask(conversationId, question, operationId, intent), [
         `assistant.conversation.${conversationId}`,
         'assistant.availability',
         'assistant.context'

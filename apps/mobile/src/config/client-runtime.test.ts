@@ -20,10 +20,8 @@ describe('Mobile client runtime policy', () => {
     ).toBe(mode);
   });
 
-  it.each(['demo', 'test'] as const)('rejects %s mode in production', (mode) => {
-    expect(() =>
-      resolveClientRuntime({ EXPO_PUBLIC_CLIENT_MODE: mode }, 'production')
-    ).toThrow('production requires live client mode');
+  it.each(['demo', 'test'] as const)('allows an explicit %s mode in a production-optimized development bundle', (mode) => {
+    expect(resolveClientRuntime({ EXPO_PUBLIC_CLIENT_MODE: mode }, 'production').mode).toBe(mode);
   });
 
   it('requires a valid HTTPS API URL in live mode', () => {

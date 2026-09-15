@@ -26,6 +26,7 @@ describe('assistant action command bridge', () => {
     planning as never,
     tracking as never,
     {} as never,
+    {} as never,
   );
 
   beforeEach(() => {

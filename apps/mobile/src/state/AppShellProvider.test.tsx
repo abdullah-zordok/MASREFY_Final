@@ -13,13 +13,18 @@ const mockRestoreAppShellSession = jest.fn(
 const mockSynchronizeLiveCoreFinance = jest.fn(async () => undefined);
 const mockRefreshPlatformOperations = jest.fn(async () => undefined);
 const mockSyncAutomaticTracking = jest.fn(async () => undefined);
+const mockCompletePreSignupAuthentication = jest.fn(async () => undefined);
+const mockTouchActivity = jest.fn(async () => undefined);
+const mockEnsureLivePushDeviceRegistration = jest.fn(async () => 'granted');
 let mockLiveClerkSessionKey: string | null | undefined;
 
 jest.mock('@/features/auth/session-controller', () => ({
   restoreAppShellSession: (...args: unknown[]) =>
     mockRestoreAppShellSession(...args)
 }));
-jest.mock('@/features/auth/auth-flow', () => ({ authService: {} }));
+jest.mock('@/features/auth/auth-flow', () => ({
+  authService: { touchActivity: () => mockTouchActivity() }
+}));
 jest.mock('@/services/live/clerk-provider', () => ({
   useLiveClerkSessionKey: () => mockLiveClerkSessionKey
 }));
@@ -31,6 +36,14 @@ jest.mock('@/services/platform-operations-service', () => ({
 }));
 jest.mock('@/services/automatic-tracking-coordinator', () => ({
   syncAutomaticTracking: () => mockSyncAutomaticTracking()
+}));
+jest.mock('@/services/pre-signup-reminder-service', () => ({
+  preSignupReminderService: {
+    completeAuthentication: () => mockCompletePreSignupAuthentication()
+  }
+}));
+jest.mock('@/services/live/engagement-service', () => ({
+  ensureLivePushDeviceRegistration: () => mockEnsureLivePushDeviceRegistration()
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -111,6 +124,9 @@ describe('AppShellProvider', () => {
     expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(1);
     expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
     expect(mockSyncAutomaticTracking).toHaveBeenCalledTimes(1);
+    expect(mockCompletePreSignupAuthentication).toHaveBeenCalledTimes(1);
+    expect(mockTouchActivity).toHaveBeenCalledTimes(1);
+    expect(mockEnsureLivePushDeviceRegistration).toHaveBeenCalledTimes(1);
     expect(hydrate).not.toHaveBeenCalled();
     hydrate.mockRestore();
   });
@@ -205,11 +221,15 @@ describe('AppShellProvider', () => {
     });
     mockSynchronizeLiveCoreFinance.mockClear();
     mockSyncAutomaticTracking.mockClear();
+    mockTouchActivity.mockClear();
+    mockEnsureLivePushDeviceRegistration.mockClear();
     const emitAppState = listener as ((state: string) => void) | null;
     emitAppState?.('active');
 
     expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
     expect(mockSyncAutomaticTracking).toHaveBeenCalledTimes(1);
+    expect(mockTouchActivity).toHaveBeenCalledTimes(1);
+    expect(mockEnsureLivePushDeviceRegistration).not.toHaveBeenCalled();
   });
 
   it('retains only a safe initial deep-link destination across authentication gates', async () => {

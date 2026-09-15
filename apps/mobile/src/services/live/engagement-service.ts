@@ -112,6 +112,44 @@ type PreferenceStore = Pick<
   'getNotificationPreferences' | 'saveNotificationPreferences'
 >;
 
+type PushRegistrationPhone = Pick<
+  PhoneNotificationService,
+  'getPermission' | 'registerCategories'
+>;
+
+async function registerPermittedPushDevice(
+  api: ReturnType<typeof createEngagementApi>,
+  phone: PushRegistrationPhone,
+  pushRegistration: () => Promise<PushDeviceRegistration | null>,
+) {
+  await phone.registerCategories();
+  const registration = await pushRegistration();
+  if (!registration) return 'unavailable' as const;
+  const tokenDigest = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    registration.pushToken,
+  );
+  const key = `notification-device:${registration.deviceFingerprint}:${tokenDigest}`;
+  deviceRegistrationResultApiSchema.parse(await api.registerDevice(registration, key));
+  return 'granted' as const;
+}
+
+export async function ensureLivePushDeviceRegistration(
+  options: Parameters<typeof createEngagementApi>[0] & {
+    phone?: PushRegistrationPhone;
+    pushRegistration?: () => Promise<PushDeviceRegistration | null>;
+  } = {},
+) {
+  const {
+    phone = phoneNotificationService,
+    pushRegistration = getPushDeviceRegistration,
+    ...apiOptions
+  } = options;
+  const permission = await phone.getPermission();
+  if (permission !== 'granted') return permission;
+  return registerPermittedPushDevice(createEngagementApi(apiOptions), phone, pushRegistration);
+}
+
 const isoDateSchema = z.string().datetime({ offset: true });
 const nullableIsoDateSchema = isoDateSchema.nullable();
 const scalarSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
@@ -268,6 +306,31 @@ function dateValue(value: unknown): number {
 }
 
 function notificationCategory(type: string): NotificationCategory {
+  if (type === 'reminder.app_inactive.3d' || type === 'reminder.app_inactive.7d')
+    return 'app_inactivity';
+  if (type === 'reminder.financial_inactive.7d') return 'financial_activity';
+  if (
+    type.startsWith('transaction.') ||
+    type.startsWith('transfer.') ||
+    type.startsWith('balance.')
+  )
+    return 'transaction';
+  if (type.startsWith('planning.salary_')) return 'salary';
+  if (type.startsWith('planning.obligation_')) return 'obligation';
+  if (type.startsWith('planning.savings_')) return 'savings';
+  if (type.startsWith('tracking.')) return 'financial_activity';
+  if (
+    type.startsWith('voice.') ||
+    type.startsWith('assistant.') ||
+    type.startsWith('ai.')
+  )
+    return 'assistant';
+  if (
+    type.startsWith('ledger.') ||
+    type.startsWith('unsupported.') ||
+    type.startsWith('export.')
+  )
+    return 'system';
   const parts = type.split('.');
   const direct = notificationCategorySchema.safeParse(parts[0]);
   if (direct.success) return direct.data;
@@ -284,7 +347,9 @@ function notificationTarget(item: z.infer<typeof notificationApiSchema>): Notifi
   const kind = item.dataSafe.targetKind;
   const id = item.dataSafe.targetId;
   if (kind === undefined) return null;
-  if (typeof kind !== 'string' || (id !== undefined && typeof id !== 'string'))
+  if (typeof kind !== 'string') throw new EngagementApiError('unavailable');
+  if (kind === 'home' || kind === 'tracking') return { kind };
+  if (id !== undefined && typeof id !== 'string')
     throw new EngagementApiError('unavailable');
   if (kind === 'settings') return { kind: 'settings', key: 'notifications' };
   if (!id) return null;
@@ -469,16 +534,7 @@ export function createLiveNotificationService(
     async requestPermissionAfterEducation() {
       const permission = await phone.requestPermission();
       if (permission !== 'granted') return permission;
-      await phone.registerCategories();
-      const registration = await pushRegistration();
-      if (!registration) return 'unavailable';
-      const tokenDigest = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        registration.pushToken,
-      );
-      const key = `notification-device:${registration.deviceFingerprint}:${tokenDigest}`;
-      deviceRegistrationResultApiSchema.parse(await api.registerDevice(registration, key));
-      return 'granted';
+      return registerPermittedPushDevice(api, phone, pushRegistration);
     },
     async resolveTarget(id) {
       const target = (await this.get(id)).target;

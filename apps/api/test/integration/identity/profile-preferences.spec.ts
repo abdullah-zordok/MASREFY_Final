@@ -75,6 +75,46 @@ describeLiveDatabase('profile and preferences repository', () => {
     ).resolves.toBeNull();
   });
 
+  it('throttles profile activity writes to once per 15 minutes', async () => {
+    await asRole('masarifi_worker', (client) =>
+      client.query(
+        `update public.profiles set last_seen_at = now() - interval '16 minutes' where id = $1`,
+        [owner.userId],
+      ),
+    );
+
+    await repository.getProfile(owner);
+    const first = await asRole('masarifi_worker', async (client) =>
+      (await client.query<{ last_seen_at: Date }>(
+        'select last_seen_at from public.profiles where id = $1',
+        [owner.userId],
+      )).rows[0]?.last_seen_at,
+    );
+    await repository.getProfile(owner);
+    const second = await asRole('masarifi_worker', async (client) =>
+      (await client.query<{ last_seen_at: Date }>(
+        'select last_seen_at from public.profiles where id = $1',
+        [owner.userId],
+      )).rows[0]?.last_seen_at,
+    );
+    expect(second?.getTime()).toBe(first?.getTime());
+
+    await asRole('masarifi_worker', (client) =>
+      client.query(
+        `update public.profiles set last_seen_at = now() - interval '16 minutes' where id = $1`,
+        [owner.userId],
+      ),
+    );
+    await repository.getProfile(owner);
+    const refreshed = await asRole('masarifi_worker', async (client) =>
+      (await client.query<{ last_seen_at: Date }>(
+        'select last_seen_at from public.profiles where id = $1',
+        [owner.userId],
+      )).rows[0]?.last_seen_at,
+    );
+    expect(refreshed?.getTime()).toBeGreaterThan(first?.getTime() ?? 0);
+  });
+
   it('fully replaces preferences and allows only one concurrent winner', async () => {
     const before = await repository.getPreferences(owner);
     const input = {

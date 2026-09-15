@@ -5,6 +5,7 @@ import { validateClientBuildEnvironment } from './check-client-runtime.mjs';
 
 const live = {
   NODE_ENV: 'production',
+  EAS_BUILD_PROFILE: 'production',
   EXPO_PUBLIC_CLIENT_MODE: 'live',
   EXPO_PUBLIC_API_URL: 'https://api.masarifi.test',
   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_live_bWFzYXJpZmkudGVzdCQ'
@@ -22,5 +23,23 @@ test('rejects demo mode and every secret-shaped public variable', () => {
   assert.throws(
     () => validateClientBuildEnvironment({ ...live, EXPO_PUBLIC_PROVIDER_SECRET: 'leak' }),
     /forbidden public secret/
+  );
+});
+
+test('allows demo mode only for the development build profile', () => {
+  assert.doesNotThrow(() =>
+    validateClientBuildEnvironment({
+      NODE_ENV: 'production',
+      EAS_BUILD_PROFILE: 'development',
+      EXPO_PUBLIC_CLIENT_MODE: 'demo'
+    })
+  );
+  assert.throws(
+    () =>
+      validateClientBuildEnvironment({
+        ...live,
+        EXPO_PUBLIC_CLIENT_MODE: 'demo'
+      }),
+    /live client mode/
   );
 });

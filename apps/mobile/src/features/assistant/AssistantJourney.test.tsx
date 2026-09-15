@@ -9,6 +9,7 @@ const { AssistantHomeScreen, AssistantConversationScreen } = require('./Assistan
 const { createMockAssistantService } = require('@/services/mocks/assistant-service') as { createMockAssistantService(input?: Record<string, unknown>): any };
 const mockAssistantQueries = {
   useAssistantConsent: jest.fn(),
+  useAssistantInsights: jest.fn(),
   useSetAssistantConsent: jest.fn(),
   useCreateAssistantConversation: jest.fn(),
   useAssistantConversations: jest.fn(),
@@ -26,6 +27,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   changeLocale('en');
   mockAssistantQueries.useAssistantConsent.mockReturnValue({ data: { status: 'enabled', version: 1 }, isLoading: false, isError: false });
+  mockAssistantQueries.useAssistantInsights.mockReturnValue({ data: [] });
   mockAssistantQueries.useSetAssistantConsent.mockReturnValue({ mutate: jest.fn() });
   mockAssistantQueries.useCreateAssistantConversation.mockReturnValue({ mutate: jest.fn(), error: null });
   mockAssistantQueries.useAssistantConversations.mockReturnValue({

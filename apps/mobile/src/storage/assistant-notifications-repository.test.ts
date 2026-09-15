@@ -168,6 +168,32 @@ beforeEach(() => {
   mockDatabase = new StatefulSqliteFake();
 });
 
+test('fills reminder categories when loading an older preference document', async () => {
+  mockDatabase.seed('notification_preferences', [{
+    id: 'singleton',
+    payload: JSON.stringify({
+      ...createNotificationPreferences(1),
+      categoryEnabled: {
+        transaction: true,
+        income: true,
+        obligation: true,
+        budget: true,
+        salary: true,
+        savings: true,
+        report: true,
+        assistant: true,
+        security: true,
+        system: true,
+      },
+    }),
+  }]);
+
+  await expect(new AssistantNotificationsRepository().getNotificationPreferences())
+    .resolves.toMatchObject({
+      categoryEnabled: { app_inactivity: true, financial_activity: true },
+    });
+});
+
 test('persists notification pages in stable occurred-at and id order', async () => {
   const repository = new AssistantNotificationsRepository();
   await repository.saveNotification(notification('n-old', 'event-old', 'system', 1));

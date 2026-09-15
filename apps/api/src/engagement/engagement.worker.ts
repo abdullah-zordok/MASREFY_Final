@@ -8,6 +8,7 @@ import { PushTokenCrypto } from '../identity/push-token.crypto';
 import { PlatformConfigService } from '../platform/config/platform-config.service';
 import { createTlsMailTransport } from '../reports/reports.smtp';
 import { ENGAGEMENT_SOURCE_EVENTS } from './engagement.events';
+import { reminderSource } from './engagement.reminders';
 import { EngagementObservability } from './engagement.observability';
 import {
   EngagementRepository,
@@ -35,7 +36,8 @@ export type EngagementJob =
   | 'notification.expire'
   | 'notification.campaign.expand'
   | 'support-attachment.scan'
-  | 'support-attachment.cleanup';
+  | 'support-attachment.cleanup'
+  | 'notification.reminders.evaluate';
 
 const ENGAGEMENT_JOBS: readonly EngagementJob[] = [
   'source.consume',
@@ -82,6 +84,7 @@ export class EngagementWorker implements OnModuleDestroy {
   }
 
   runJob(job: string): Promise<number> {
+    if (job === 'notification.reminders.evaluate') return this.evaluateReminders();
     if (!(ENGAGEMENT_JOBS as readonly string[]).includes(job))
       return Promise.reject(new Error('ENGAGEMENT_JOB_UNKNOWN'));
     if (job === 'source.consume') return this.consumeSources();
@@ -90,6 +93,14 @@ export class EngagementWorker implements OnModuleDestroy {
     if (job === 'notification.campaign.expand') return this.expandCampaigns();
     if (job === 'support-attachment.scan') return this.scanAttachments();
     return this.cleanupAttachments();
+  }
+
+  private async evaluateReminders(): Promise<number> {
+    const candidates = await this.repository.listReminderCandidates(
+      this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),
+    );
+    for (const candidate of candidates) await this.ingest(reminderSource(candidate));
+    return candidates.length;
   }
 
   async runOnce(): Promise<void> {
@@ -105,7 +116,7 @@ export class EngagementWorker implements OnModuleDestroy {
   private async consumeSources(): Promise<number> {
     const startedAt = performance.now();
     const sources = await this.repository.claimSourceEvents(
-      [...ENGAGEMENT_SOURCE_EVENTS],
+      [...ENGAGEMENT_SOURCE_EVENTS].filter((type) => type !== 'balance.changed'),
       this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),
     );
     let succeeded = 0;
@@ -299,6 +310,20 @@ export class EngagementWorker implements OnModuleDestroy {
 
   private async deliver(claim: NotificationDeliveryClaim): Promise<void> {
     const startedAt = performance.now();
+    if (
+      claim.channel === 'push' &&
+      claim.event_id &&
+      claim.event_type?.startsWith('reminder.') &&
+      !(await this.repository.reminderDeliveryEligible(claim.event_id, claim.user_id))
+    ) {
+      await this.repository.finishNotificationDelivery(
+        claim.id,
+        claim.claim_token,
+        'suppressed',
+        'REMINDER_STALE',
+      );
+      return;
+    }
     const provider = normalizedProvider(claim);
     let result: ProviderResult;
     if (this.circuitOpen(provider)) result = { status: 'retryable', code: 'PROVIDER_CIRCUIT_OPEN' };
@@ -404,7 +429,7 @@ export class EngagementWorker implements OnModuleDestroy {
   private input(claim: NotificationDeliveryClaim, token: string) {
     return {
       token,
-      eventId: claim.event_id ?? claim.id,
+      notificationId: claim.event_id ?? claim.id,
       title: claim.title,
       body: claim.body_safe,
       route: typeof claim.data.route === 'string' ? claim.data.route : 'notification_detail',

@@ -41,8 +41,15 @@ export interface VoiceAnalyzerService {
   transcribe(
     audioReference: string,
     scenario: VoiceScenario,
-    durationMs?: number
+    durationMs?: number,
+    locale?: 'ar' | 'en'
   ): Promise<VoiceTranscript>;
+  recoverPending?(): Promise<{
+    transcript: VoiceTranscript;
+    recordedAt: number;
+    timezoneOffsetMinutes: number;
+  } | null>;
+  discardPending?(): Promise<void>;
   analyze(input: {
     transcript: VoiceTranscript;
     scenario: VoiceScenario;

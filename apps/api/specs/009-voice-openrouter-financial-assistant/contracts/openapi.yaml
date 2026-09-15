@@ -218,6 +218,23 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AssistantAvailability' }
+  /api/v1/assistant/insights:
+    get:
+      tags: [Assistant]
+      operationId: listAssistantInsights
+      responses:
+        '200':
+          description: Active financial insights derived from backend truth
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { type: object }
   /api/v1/assistant/conversations:
     get:
       tags: [Assistant]

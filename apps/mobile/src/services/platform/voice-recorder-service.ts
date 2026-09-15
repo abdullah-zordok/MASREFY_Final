@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { AudioRecorder } from 'expo-audio';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
 
 import {
@@ -37,10 +37,12 @@ export function createVoiceRecorderService(): VoiceRecorderService {
   let sequence = 0;
   return {
     async getPermission() {
+      if (Platform.OS === 'web') return 'unavailable';
       const { getRecordingPermissionsAsync } = audioModule();
       return permissionState(await getRecordingPermissionsAsync());
     },
     async requestPermission() {
+      if (Platform.OS === 'web') return 'unavailable';
       const { requestRecordingPermissionsAsync } = audioModule();
       return permissionState(await requestRecordingPermissionsAsync());
     },
@@ -52,8 +54,20 @@ export function createVoiceRecorderService(): VoiceRecorderService {
     ): Promise<VoiceRecording> {
       if (maxDurationMs !== VOICE_MAX_DURATION_MS || recordings.size)
         throw new VoiceCaptureError('recording_interrupted');
-      const { AudioModule, RecordingPresets, setAudioModeAsync } =
+      const {
+        AudioModule,
+        RecordingPresets,
+        getRecordingPermissionsAsync,
+        setAudioModeAsync
+      } =
         audioModule();
+      const permission = permissionState(await getRecordingPermissionsAsync());
+      if (permission !== 'granted')
+        throw new VoiceCaptureError(
+          permission === 'permanently_denied'
+            ? 'permission_permanent'
+            : 'permission_denied'
+        );
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,

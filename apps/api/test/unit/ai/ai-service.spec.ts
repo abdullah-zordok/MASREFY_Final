@@ -27,6 +27,7 @@ describe('AiService financial action bridge', () => {
     ledger as never,
     {} as never,
     {} as never,
+    {} as never,
     { getRequired: jest.fn(() => false) } as never,
   );
 

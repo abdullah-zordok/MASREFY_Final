@@ -1,27 +1,30 @@
 import React from 'react';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 
 import { createNotificationPreferences } from '@/domain/notifications';
 import { renderWithProviders } from '@/test-utils/render';
-import { phoneNotificationService } from '@/services/platform/phone-notification-service';
 import { changeLocale } from '@/localization/i18n';
 
 import { NotificationPreferencesScreen } from './NotificationPreferencesScreen';
 
 const mockPreferences = jest.fn();
 const mockSave = { mutate: jest.fn(), isPending: false };
-const mockRefresh = { mutate: jest.fn(), isPending: false };
 const mockRequest = { mutate: jest.fn(), isPending: false };
+const mockOpenSettings = { mutate: jest.fn(), isPending: false };
+const mockPermissionRefetch = jest.fn();
+let mockPermission = 'denied';
 
 jest.mock('./notification-preferences-queries', () => ({
   useNotificationPreferences: () => mockPreferences(),
   useSaveNotificationPreferences: () => mockSave,
-  useRefreshNotificationPermission: () => mockRefresh,
-  useRequestNotificationPermission: () => mockRequest
-}));
-
-jest.mock('@/services/platform/phone-notification-service', () => ({
-  phoneNotificationService: { openSystemSettings: jest.fn() }
+  useRequestNotificationPermission: () => mockRequest,
+  useOpenNotificationSettings: () => mockOpenSettings,
+  useNotificationPermission: () => ({
+    data: mockPermission,
+    isLoading: false,
+    isError: false,
+    refetch: mockPermissionRefetch
+  })
 }));
 
 const preferences = {
@@ -35,6 +38,7 @@ const preferences = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPermission = 'denied';
   changeLocale('en');
   mockPreferences.mockReturnValue({ data: preferences, isLoading: false, isError: false, refetch: jest.fn() });
 });
@@ -44,16 +48,18 @@ it('renders every preference section and preserves edited input after save error
   renderWithProviders(<NotificationPreferencesScreen />);
 
   [
-    'Category transaction',
-    'Category income',
-    'Category obligation',
-    'Category budget',
-    'Category salary',
-    'Category savings',
-    'Category report',
-    'Category assistant',
-    'Category security',
-    'Category system',
+    'Automatic transaction alerts',
+    'Income alerts',
+    'Obligations',
+    'Budgets',
+    'Salary',
+    'Savings goals',
+    'Reports',
+    'Assistant',
+    'Security',
+    'System updates',
+    'App inactivity reminders',
+    'Financial activity reminders',
     'Quiet Sunday',
     'Quiet Monday',
     'Quiet Tuesday',
@@ -61,30 +67,21 @@ it('renders every preference section and preserves edited input after save error
     'Quiet Thursday',
     'Quiet Friday',
     'Quiet Saturday',
-    'Weekly Sunday',
-    'Weekly Monday',
-    'Weekly Tuesday',
-    'Weekly Wednesday',
-    'Weekly Thursday',
-    'Weekly Friday',
-    'Weekly Saturday',
     'Phone notifications',
-    'Hide amounts on lock screen',
-    'Quiet hours',
-    'Daily summary',
-    'Weekly summary'
+    'Quiet hours'
   ].forEach((label) => expect(screen.getAllByText(label).length).toBeGreaterThan(0));
+
+  expect(screen.queryByText('Hide amounts on lock screen')).toBeNull();
+  expect(screen.queryByText('Daily summary')).toBeNull();
+  expect(screen.queryByText('Weekly summary')).toBeNull();
 
   expect(screen.getByDisplayValue('22:00')).toBeTruthy();
   expect(screen.getByDisplayValue('07:00')).toBeTruthy();
   expect(screen.getByDisplayValue('Asia/Riyadh')).toBeTruthy();
-  expect(screen.getByDisplayValue('09:30')).toBeTruthy();
-  expect(screen.getByDisplayValue('10:00')).toBeTruthy();
 
   fireEvent.changeText(screen.getByLabelText('Quiet timezone'), 'Asia/Dubai');
-  fireEvent.press(screen.getByLabelText('Category budget'));
+  fireEvent.press(screen.getByLabelText('Budgets'));
   fireEvent.press(screen.getByText('Quiet Friday'));
-  fireEvent.press(screen.getByText('Weekly Friday'));
   fireEvent.press(screen.getByLabelText('Save notification preferences'));
 
   expect(mockSave.mutate).toHaveBeenCalledWith(
@@ -99,33 +96,74 @@ it('renders every preference section and preserves edited input after save error
           weekdays: expect.not.arrayContaining([5])
         }),
         dailySummary: expect.objectContaining({ enabled: true, time: '09:30' }),
-        weeklySummary: expect.objectContaining({ weekday: 5, time: '10:00' })
+        weeklySummary: expect.objectContaining({ weekday: 1, time: '10:00' })
       })
     }),
     expect.any(Object)
   );
   expect(await screen.findByText('Could not save preferences')).toBeTruthy();
   expect(screen.getByDisplayValue('Asia/Dubai')).toBeTruthy();
-  expect(screen.getByLabelText(/Weekly Friday selected/).props.accessibilityState.selected).toBe(true);
 });
 
-it('keeps permission recovery explicit and never auto-requests permission', async () => {
+it('saves reminder preferences separately from transaction alerts', () => {
   renderWithProviders(<NotificationPreferencesScreen />);
 
-  expect(screen.getByText('Permission denied')).toBeTruthy();
-  expect(mockRequest.mutate).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByLabelText('Review permission request'));
-  expect(screen.getByText('Masarifi will ask the device for notification permission next.')).toBeTruthy();
-  fireEvent.press(screen.getByText(/Cancel|إلغاء/));
-  expect(mockRequest.mutate).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByLabelText('Review permission request'));
-  fireEvent.press(screen.getByLabelText('Request permission'));
-  fireEvent.press(screen.getByLabelText('Refresh permission'));
-  fireEvent.press(screen.getByLabelText('Open notification settings'));
+  fireEvent.press(screen.getByLabelText('App inactivity reminders'));
+  fireEvent.press(screen.getByLabelText('Save notification preferences'));
 
-  expect(mockRequest.mutate).toHaveBeenCalledTimes(1);
-  expect(mockRefresh.mutate).toHaveBeenCalledTimes(1);
-  await waitFor(() => expect(phoneNotificationService.openSystemSettings).toHaveBeenCalledTimes(1));
+  expect(mockSave.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      input: expect.objectContaining({
+        categoryEnabled: expect.objectContaining({
+          app_inactivity: false,
+          transaction: true,
+        }),
+      }),
+    }),
+    expect.any(Object),
+  );
+});
+
+it.each(['not_requested', 'denied'])(
+  'hides permission details and requests the OS permission directly when permission is %s',
+  (permissionState) => {
+    mockPermission = permissionState;
+    renderWithProviders(<NotificationPreferencesScreen />);
+
+    expect(screen.queryByText(/Current permission/i)).toBeNull();
+    expect(screen.queryByText(/Permission not requested/i)).toBeNull();
+    expect(screen.queryByText('Request notification permission')).toBeNull();
+    expect(screen.queryByText('Request permission')).toBeNull();
+    expect(screen.getByLabelText('Phone notifications').props.accessibilityState.checked).toBe(false);
+    fireEvent.press(screen.getByLabelText('Phone notifications'));
+
+    expect(mockRequest.mutate).toHaveBeenCalledTimes(1);
+    expect(mockOpenSettings.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['permanently_denied', 'unavailable'])(
+  'opens settings from the phone row when permission is %s',
+  (permissionState) => {
+    mockPermission = permissionState;
+    renderWithProviders(<NotificationPreferencesScreen />);
+
+    fireEvent.press(screen.getByLabelText('Phone notifications'));
+
+    expect(mockOpenSettings.mutate).toHaveBeenCalledTimes(1);
+    expect(mockRequest.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it('reflects granted permission and opens OS settings when the user tries to disable it', () => {
+  mockPermission = 'granted';
+  renderWithProviders(<NotificationPreferencesScreen />);
+
+  expect(screen.getByLabelText('Phone notifications').props.accessibilityState.checked).toBe(true);
+  fireEvent.press(screen.getByLabelText('Phone notifications'));
+
+  expect(mockOpenSettings.mutate).toHaveBeenCalledTimes(1);
+  expect(mockRequest.mutate).not.toHaveBeenCalled();
 });
 
 it('shows loading and offline recovery states', () => {

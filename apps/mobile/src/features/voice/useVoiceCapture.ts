@@ -8,6 +8,7 @@ import {
   selectedProposals,
   type VoiceErrorCode,
   type VoiceProposalGroup,
+  type VoicePermissionState,
   type VoiceSessionState,
   type VoiceTranscript,
   type VoiceTransactionProposal
@@ -20,6 +21,8 @@ import { voiceAnalyzerService } from '@/services/voice-analyzer-service';
 import { voiceCategoryService } from '@/services/mocks/voice-category-service';
 import { voiceRecorderService } from '@/services/platform/voice-recorder-service';
 import { useVoiceCaptureStore } from '@/state/voice-capture';
+import { usePreferenceStore } from '@/state/preferences';
+import { useAppShellStore } from '@/state/app-shell';
 
 function safeError(error: unknown): VoiceErrorCode {
   if (error instanceof VoiceCaptureError) return error.code as VoiceErrorCode;
@@ -50,9 +53,12 @@ export function useVoiceCapture({
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const startInFlight = useRef(false);
   const stopInFlight = useRef(false);
+  const reRecordInFlight = useRef(false);
   const saveInFlight = useRef(false);
   const emittedNotifications = useRef(new Set<string>());
   const pendingNotifications = useRef(new Map<string, Promise<void>>());
+  const recoveryAttempted = useRef(false);
+  const permissionSyncInFlight = useRef<Promise<VoicePermissionState | undefined> | null>(null);
 
   const clearTimer = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
@@ -62,27 +68,45 @@ export function useVoiceCapture({
   const fail = useCallback(
     (error: unknown) => {
       clearTimer();
-      useVoiceCaptureStore.getState().transition('failed', safeError(error));
+      const errorCode = safeError(error);
+      useVoiceCaptureStore.getState().transition('failed', errorCode);
+      if (errorCode === 'session_expired')
+        void useAppShellStore.getState().expireSession();
     },
     [clearTimer]
   );
 
-  const syncPermission = useCallback(async () => {
-    try {
-      const permission = await voiceRecorderService.getPermission();
-      const current = useVoiceCaptureStore.getState();
-      if (canRefreshPermissionState(current.state, current.errorCode)) {
-        current.patch({
-          permission,
-          state: permission === 'granted' ? 'ready' : 'permission_required'
-        });
-      } else current.patch({ permission });
-    } catch (error) {
-      const current = useVoiceCaptureStore.getState();
-      if (canRefreshPermissionState(current.state, current.errorCode))
-        fail(error);
-    }
+  const syncPermission = useCallback(() => {
+    if (permissionSyncInFlight.current) return permissionSyncInFlight.current;
+    const pending = (async () => {
+      try {
+        const permission = await voiceRecorderService.getPermission();
+        const current = useVoiceCaptureStore.getState();
+        if (canRefreshPermissionState(current.state, current.errorCode)) {
+          current.patch({
+            permission,
+            state: permission === 'granted' ? 'ready' : 'permission_required'
+          });
+        } else current.patch({ permission });
+        return permission;
+      } catch (error) {
+        const current = useVoiceCaptureStore.getState();
+        if (canRefreshPermissionState(current.state, current.errorCode))
+          fail(error);
+        return undefined;
+      }
+    })();
+    permissionSyncInFlight.current = pending;
+    void pending.finally(() => {
+      if (permissionSyncInFlight.current === pending)
+        permissionSyncInFlight.current = null;
+    });
+    return pending;
   }, [fail]);
+
+  const waitForPermissionSync = () =>
+    permissionSyncInFlight.current ??
+    Promise.resolve(useVoiceCaptureStore.getState().permission);
 
   useEffect(() => {
     if (permissionSync === 'on-mount') void syncPermission();
@@ -238,6 +262,32 @@ export function useVoiceCapture({
     }
   };
 
+  useEffect(() => {
+    if (
+      recoveryAttempted.current ||
+      session.state !== 'ready' ||
+      !voiceAnalyzerService.recoverPending
+    )
+      return;
+    recoveryAttempted.current = true;
+    void voiceAnalyzerService
+      .recoverPending()
+      .then(async (pending) => {
+        if (!pending || !mounted.current) return;
+        useVoiceCaptureStore.getState().patch({
+          startedAt: pending.recordedAt,
+          timezoneOffsetMinutes: pending.timezoneOffsetMinutes,
+          transcript: pending.transcript,
+          state: 'transcribing',
+          errorCode: null
+        });
+        await analyzeTranscript(pending.transcript);
+      })
+      .catch(fail);
+    // Recovery is intentionally one-shot for this mounted authenticated session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fail, session.state]);
+
   const stop = async (recordingId = session.recordingId) => {
     if (!recordingId || stopInFlight.current) return;
     stopInFlight.current = true;
@@ -254,7 +304,8 @@ export function useVoiceCapture({
       const transcript = await voiceAnalyzerService.transcribe(
         audioReference,
         session.scenario,
-        useVoiceCaptureStore.getState().durationMs
+        useVoiceCaptureStore.getState().durationMs,
+        usePreferenceStore.getState().locale
       );
       session.setTranscript(transcript);
       await analyzeTranscript(transcript);
@@ -281,13 +332,18 @@ export function useVoiceCapture({
     async (errorCode?: VoiceErrorCode) => {
       clearTimer();
       const current = useVoiceCaptureStore.getState();
-      if (current.recordingId)
-        await voiceRecorderService.cancel(current.recordingId);
-      if (current.audioReference)
-        await voiceRecorderService.remove(current.audioReference);
+      const cleanup = [
+        current.recordingId
+          ? voiceRecorderService.cancel(current.recordingId)
+          : Promise.resolve(),
+        current.audioReference
+          ? voiceRecorderService.remove(current.audioReference)
+          : Promise.resolve()
+      ];
       current.patch({ recordingId: null, audioReference: null, durationMs: 0 });
       if (errorCode) current.transition('failed', errorCode);
       else current.transition('ready');
+      await Promise.allSettled(cleanup);
     },
     [clearTimer]
   );
@@ -298,10 +354,10 @@ export function useVoiceCapture({
       if (
         state === 'active' &&
         current.permission !== 'granted' &&
-        ['permission_required', 'failed'].includes(current.state)
+        canRefreshPermissionState(current.state, current.errorCode)
       ) {
         void syncPermission();
-      } else if (state !== 'active' && current.state === 'recording') {
+      } else if (state === 'background' && current.state === 'recording') {
         void cancelRecording('recording_interrupted');
       }
     });
@@ -432,27 +488,47 @@ export function useVoiceCapture({
   };
 
   const reRecord = async () => {
-    await cancelRecording();
-    session.patch({
-      transcript: null,
-      group: null,
-      state: 'ready',
-      errorCode: null
-    });
+    if (reRecordInFlight.current) return;
+    reRecordInFlight.current = true;
+    try {
+      const cleanup = cancelRecording();
+      session.patch({
+        transcript: null,
+        group: null,
+        state: 'ready',
+        errorCode: null
+      });
+      await Promise.allSettled([
+        cleanup,
+        voiceAnalyzerService.discardPending?.() ?? Promise.resolve()
+      ]);
+      const permission = await syncPermission();
+      if (permission === 'granted') await start();
+      else await requestPermission();
+    } finally {
+      reRecordInFlight.current = false;
+    }
   };
 
   const cancel = async () => {
     clearTimer();
     const current = useVoiceCaptureStore.getState();
-    if (current.recordingId)
-      await voiceRecorderService.cancel(current.recordingId);
-    if (current.audioReference)
-      await voiceRecorderService.remove(current.audioReference);
+    const cleanup = [
+      current.recordingId
+        ? voiceRecorderService.cancel(current.recordingId)
+        : Promise.resolve(),
+      current.audioReference
+        ? voiceRecorderService.remove(current.audioReference)
+        : Promise.resolve(),
+      voiceAnalyzerService.discardPending?.() ?? Promise.resolve()
+    ];
     current.reset();
+    await Promise.allSettled(cleanup);
   };
 
   return {
     session,
+    waitForPermissionSync,
     requestPermission,
     openSettings: voiceRecorderService.openSettings,
     start,

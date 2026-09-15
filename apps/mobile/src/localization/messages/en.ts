@@ -215,6 +215,11 @@ const en = {
   'firstLaunch.supporting':
     'Bank SMS, Apple Pay, mada, and STC Pay are saved for you.',
   'firstLaunch.cta': 'Start now',
+  'firstLaunch.notifications.title': 'Stay on track with Masarifi',
+  'firstLaunch.notifications.message':
+    'Allow two reminders to finish setting up your account if you leave before signing in.',
+  'firstLaunch.notifications.allow': 'Allow notifications',
+  'firstLaunch.notifications.notNow': 'Not now',
   'firstLaunch.savedAutomatically': 'Auto-saved',
   'firstLaunch.merchant.bankSms': 'Tamimi Markets',
   'firstLaunch.merchant.applePay': 'Careem',
@@ -903,11 +908,20 @@ const en = {
     'Let Masarifi detect supported transactions automatically.',
   'tracking.home.enableAction': 'Enable automatic tracking',
   'tracking.home.dismissAction': 'Dismiss automatic tracking suggestion',
+  'notifications.home.enableTitle': 'Turn on notifications',
+  'notifications.home.enableBody':
+    'Get transaction alerts and reminders from Masarifi.',
+  'notifications.home.enableAction': 'Enable notifications',
+  'notifications.home.dismissAction': 'Dismiss notification suggestion',
+  'notifications.home.enableFailed':
+    'Notifications could not be enabled. Try again.',
   'tracking.header.title': 'Automatic Message Tracking',
   'tracking.status.label': 'Status',
   'tracking.status.enabled': 'Enabled',
   'tracking.status.disabled': 'Disabled',
   'tracking.status.unavailable': 'Unavailable',
+  'tracking.source.bankNotifications': 'Bank notifications',
+  'tracking.source.financialSms': 'Financial SMS',
   'tracking.status.demo': 'Demo tracking — not production data',
   'tracking.permission.warning':
     'Message permissions not granted. Tap to enable.',
@@ -1120,6 +1134,16 @@ const en = {
     'Voice analysis is not available right now. Enter the transaction manually.',
   'voice.error.analysis_failed':
     'The recording could not be analyzed. Try again or edit it manually.',
+  'voice.error.provider_unavailable':
+    'Voice analysis is not configured or is temporarily unavailable.',
+  'voice.error.quota_exhausted':
+    'Voice analysis has reached its current usage limit. Try again later.',
+  'voice.error.processing_timed_out':
+    'Voice analysis took too long. Try again or enter the transaction manually.',
+  'voice.error.session_expired':
+    'Your session expired. Sign in again to continue.',
+  'voice.error.unsupported_intent':
+    'This voice request needs manual review and was not converted into a transaction.',
   'voice.error.offline':
     'Voice analysis is unavailable offline. Manual entry is still available.',
   'voice.error.invalid_proposal':
@@ -1601,6 +1625,21 @@ const en = {
   'notifications.preferences.hideLock': 'Hide amounts on lock screen',
   'notifications.preferences.categories': 'Categories',
   'notifications.preferences.categoryPrefix': 'Category',
+  'notifications.preferences.category.transaction':
+    'Automatic transaction alerts',
+  'notifications.preferences.category.income': 'Income alerts',
+  'notifications.preferences.category.obligation': 'Obligations',
+  'notifications.preferences.category.budget': 'Budgets',
+  'notifications.preferences.category.salary': 'Salary',
+  'notifications.preferences.category.savings': 'Savings goals',
+  'notifications.preferences.category.report': 'Reports',
+  'notifications.preferences.category.assistant': 'Assistant',
+  'notifications.preferences.category.security': 'Security',
+  'notifications.preferences.category.system': 'System updates',
+  'notifications.preferences.category.app_inactivity':
+    'App inactivity reminders',
+  'notifications.preferences.category.financial_activity':
+    'Financial activity reminders',
   'notifications.preferences.quietHours': 'Quiet hours',
   'notifications.preferences.quietStart': 'Quiet start',
   'notifications.preferences.quietEnd': 'Quiet end',
@@ -1667,7 +1706,7 @@ const en = {
   'assistant.suggestions.spending': 'How much did I spend this month?',
   'assistant.suggestions.restaurants': 'How much spent on dining this month?',
   'assistant.suggestions.highest': 'What are my biggest expenses?',
-  'assistant.suggestions.weekly': 'My weekly expense summary',
+  'assistant.suggestions.weekly': 'My recent confirmed transactions',
   'assistant.suggestions.budget': 'Did I exceed my budget?',
   'assistant.capabilities.reports': 'Custom financial reports',
   'assistant.capabilities.analytics': 'Smart spending analysis',

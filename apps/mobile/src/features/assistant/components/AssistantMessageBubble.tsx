@@ -10,6 +10,7 @@ import { usePreferenceStore } from '@/state/preferences';
 import { spacing } from '@/design-system/tokens';
 import type { AssistantResponse } from '@/domain/assistant';
 import { colorTokens } from '@/design-system/tokens';
+import { isFixtureModeEnabled } from '@/config/demo-mode';
 
 export interface AssistantMessageBubbleProps {
   response: AssistantResponse;
@@ -90,7 +91,7 @@ export function AssistantMessageBubble({
         ))}
 
         {/* Embedded Financial Insight Card */}
-        {hasFinancialData && (
+        {isFixtureModeEnabled() && hasFinancialData && (
           <FinancialInsightCard
             title={response.period ? `ملخص الفترة` : 'ملخص الإنفاق'}
             totalMinor={expenseValue?.minor ?? 425000}

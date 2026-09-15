@@ -25,7 +25,6 @@ import { translate, translateDynamic } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { useTheme } from '@/state/theme-context';
-import { useVoiceCaptureStore } from '@/state/voice-capture';
 import { formatFinancialDisplayValue } from '@/utils/format-financial-value';
 import { AccountScopeSheet } from '@/features/accounts/AccountScopeSheet';
 
@@ -100,8 +99,16 @@ export function HomeSummary({ accounts, categories, notice, selectedAccount = nu
     if (voiceStartPending.current) return;
     voiceStartPending.current = true;
     try {
-      if (voice.session.permission !== 'granted') await voice.requestPermission();
-      if (useVoiceCaptureStore.getState().permission === 'granted') await voice.start();
+      if (voice.session.permission !== 'granted') {
+        const restoredPermission = await voice.waitForPermissionSync();
+        if (restoredPermission === 'granted') {
+          await voice.start();
+          return;
+        }
+        await voice.requestPermission();
+        return;
+      }
+      await voice.start();
     } finally {
       voiceStartPending.current = false;
     }

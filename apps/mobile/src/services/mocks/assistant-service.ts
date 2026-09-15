@@ -135,6 +135,9 @@ export function createMockAssistantService({
         remainingQuestions: remaining
       };
     },
+    async listInsights() {
+      return [];
+    },
     async setConsent(enabled: boolean, expectedVersion: number, operationId: string) {
       const replay = operations.get(operationId) as MutationResult<AssistantConsent> | undefined;
       if (replay) return replay;

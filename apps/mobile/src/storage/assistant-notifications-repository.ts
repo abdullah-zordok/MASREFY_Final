@@ -116,7 +116,21 @@ export class AssistantNotificationsRepository {
   }
 
   async getNotificationPreferences(): Promise<NotificationPreferences> {
-    return requirePayload(await openDatabase(), 'notification_preferences', 'singleton', notificationPreferencesSchema);
+    const row = await (await openDatabase()).getFirstAsync<PayloadRow>(
+      'SELECT payload FROM notification_preferences WHERE id = ?',
+      'singleton'
+    );
+    if (!row) throw new Error('not_found');
+    const value = JSON.parse(row.payload) as Record<string, unknown>;
+    const categories = value.categoryEnabled;
+    return notificationPreferencesSchema.parse({
+      ...value,
+      categoryEnabled: {
+        app_inactivity: true,
+        financial_activity: true,
+        ...(categories && typeof categories === 'object' ? categories : {})
+      }
+    });
   }
 
   async saveNotificationPreferences(input: NotificationPreferences, expectedVersion: number | null): Promise<NotificationPreferences> {

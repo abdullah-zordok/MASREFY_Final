@@ -15,7 +15,7 @@ import type { MailTransport } from '../../../src/reports/reports.smtp';
 
 const input = {
   token: 'ExponentPushToken[test]',
-  eventId: '10000000-0000-4000-8000-000000000001',
+  notificationId: '10000000-0000-4000-8000-000000000001',
   title: 'Safe title',
   body: 'Safe body',
   route: 'notification_detail',
@@ -27,7 +27,7 @@ describe('notification providers', () => {
       to: input.token,
       title: 'Safe title',
       body: 'Safe body',
-      data: { eventId: input.eventId, route: 'notification_detail' },
+      data: { notificationId: input.notificationId, route: 'notification_detail' },
     });
   });
 
@@ -66,11 +66,11 @@ describe('notification providers', () => {
     const result = await new ApnsPushProvider(transport, 'team-key', 'com.masarifi.app').send(
       input,
     );
-    expect(result).toEqual({ status: 'accepted', providerRef: input.eventId });
+    expect(result).toEqual({ status: 'accepted', providerRef: input.notificationId });
     expect(request?.headers['apns-topic']).toBe('com.masarifi.app');
     expect(request?.body).toEqual({
       aps: { alert: { title: input.title, body: input.body } },
-      eventId: input.eventId,
+      notificationId: input.notificationId,
       route: input.route,
     });
     expect(JSON.stringify(request?.body)).not.toContain('team-key');
@@ -85,14 +85,14 @@ describe('notification providers', () => {
       },
     };
     const result = await new NotificationEmailProvider(transport, 'notice@masarifi.app').send(
-      input.eventId,
+      input.notificationId,
       'user@example.com',
       'Hello',
       'Safe body',
     );
     expect(result).toEqual({
       status: 'accepted',
-      providerRef: `<notification-${input.eventId}@masarifi.app>`,
+      providerRef: `<notification-${input.notificationId}@masarifi.app>`,
     });
     expect(mail).toMatchObject({ attachments: undefined });
   });

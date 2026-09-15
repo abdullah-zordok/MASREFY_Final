@@ -206,6 +206,11 @@ const ar: MessageCatalog = {
   'firstLaunch.supporting':
     'رسائل البنوك، \u2068Apple Pay\u2069، \u2068mada\u2069، \u2068STC Pay\u2069\nكلها محفوظة تلقائيًا.',
   'firstLaunch.cta': 'ابدأ الحين',
+  'firstLaunch.notifications.title': 'خلّك على المسار مع مصاريفي',
+  'firstLaunch.notifications.message':
+    'اسمح بتذكيرين لإكمال إعداد حسابك إذا خرجت قبل تسجيل الدخول.',
+  'firstLaunch.notifications.allow': 'السماح بالإشعارات',
+  'firstLaunch.notifications.notNow': 'ليس الآن',
   'firstLaunch.savedAutomatically': 'تسجيل تلقائيًا',
   'firstLaunch.merchant.bankSms': 'أسواق التميمي',
   'firstLaunch.merchant.applePay': 'كريم',
@@ -886,11 +891,19 @@ const ar: MessageCatalog = {
     'خلّ مصاريفي يلتقط عملياتك تلقائيًا من الرسائل المدعومة.',
   'tracking.home.enableAction': 'تفعيل التتبع التلقائي',
   'tracking.home.dismissAction': 'إخفاء اقتراح التتبع التلقائي',
+  'notifications.home.enableTitle': 'فعّل الإشعارات',
+  'notifications.home.enableBody':
+    'استلم إشعارات العمليات والتذكيرات من مصاريفي.',
+  'notifications.home.enableAction': 'تفعيل الإشعارات',
+  'notifications.home.dismissAction': 'إخفاء اقتراح الإشعارات',
+  'notifications.home.enableFailed': 'تعذر تفعيل الإشعارات. حاول مرة أخرى.',
   'tracking.header.title': 'التتبع التلقائي للرسائل',
   'tracking.status.label': 'الحالة',
   'tracking.status.enabled': 'مفعّل',
   'tracking.status.disabled': 'معطّل',
   'tracking.status.unavailable': 'غير متاح',
+  'tracking.source.bankNotifications': 'إشعارات البنوك',
+  'tracking.source.financialSms': 'الرسائل المالية',
   'tracking.status.demo': 'تتبّع تجريبي — ليست بيانات إنتاج',
   'tracking.permission.warning': 'لم يتم منح أذونات الرسائل. اضغط للتفعيل.',
   'tracking.permission.unavailableMessage':
@@ -1100,6 +1113,16 @@ const ar: MessageCatalog = {
     'تحليل التسجيل الصوتي غير متاح حالياً. أدخل المعاملة يدوياً.',
   'voice.error.analysis_failed':
     'تعذر تحليل التسجيل. حاول مجددًا أو أدخل المعاملة يدويًا.',
+  'voice.error.provider_unavailable':
+    'التحليل الصوتي غير مهيأ أو غير متاح مؤقتًا.',
+  'voice.error.quota_exhausted':
+    'وصل التحليل الصوتي إلى حد الاستخدام الحالي. حاول لاحقًا.',
+  'voice.error.processing_timed_out':
+    'استغرق التحليل الصوتي وقتًا طويلًا. حاول مجددًا أو أدخل المعاملة يدويًا.',
+  'voice.error.session_expired':
+    'انتهت جلستك. سجّل الدخول مجددًا للمتابعة.',
+  'voice.error.unsupported_intent':
+    'يتطلب هذا الطلب الصوتي مراجعة يدوية ولم يتم تحويله إلى معاملة.',
   'voice.error.offline':
     'التحليل الصوتي غير متاح دون اتصال. الإدخال اليدوي ما زال متاحًا.',
   'voice.error.invalid_proposal': 'راجع القيم المحددة قبل الحفظ.',
@@ -1545,6 +1568,21 @@ const ar: MessageCatalog = {
   'notifications.preferences.hideLock': 'إخفاء المبالغ على شاشة القفل',
   'notifications.preferences.categories': 'الفئات',
   'notifications.preferences.categoryPrefix': 'الفئة',
+  'notifications.preferences.category.transaction':
+    'إشعارات العمليات التلقائية',
+  'notifications.preferences.category.income': 'إشعارات الدخل',
+  'notifications.preferences.category.obligation': 'الالتزامات',
+  'notifications.preferences.category.budget': 'الميزانيات',
+  'notifications.preferences.category.salary': 'الراتب',
+  'notifications.preferences.category.savings': 'أهداف الادخار',
+  'notifications.preferences.category.report': 'التقارير',
+  'notifications.preferences.category.assistant': 'المساعد',
+  'notifications.preferences.category.security': 'الأمان',
+  'notifications.preferences.category.system': 'تحديثات النظام',
+  'notifications.preferences.category.app_inactivity':
+    'تذكيرات عدم فتح التطبيق',
+  'notifications.preferences.category.financial_activity':
+    'تذكيرات النشاط المالي',
   'notifications.preferences.quietHours': 'ساعات الهدوء',
   'notifications.preferences.quietStart': 'بداية الهدوء',
   'notifications.preferences.quietEnd': 'نهاية الهدوء',
@@ -1608,7 +1646,7 @@ const ar: MessageCatalog = {
   'assistant.suggestions.spending': 'كم أنفقت هذا الشهر؟',
   'assistant.suggestions.restaurants': 'أنفقت على المطاعم هذا الشهر؟',
   'assistant.suggestions.highest': 'ما هي أكبر مصروفاتي؟',
-  'assistant.suggestions.weekly': 'ملخص مصروفاتي الأسبوعية',
+  'assistant.suggestions.weekly': 'آخر معاملاتي المؤكدة',
   'assistant.suggestions.budget': 'هل تجاوزت ميزانيتي؟',
   'assistant.capabilities.reports': 'تقارير مخصصة لأموالك',
   'assistant.capabilities.analytics': 'تحليل إنفاقك بذكاء',

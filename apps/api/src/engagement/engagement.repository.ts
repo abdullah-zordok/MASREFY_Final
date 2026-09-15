@@ -5,6 +5,7 @@ import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
 import { hashIdempotencyKey, hashNormalizedCommand } from '../ledger/idempotency';
 import { PoolService } from '../platform/database/pool.service';
 import { PlatformConfigService } from '../platform/config/platform-config.service';
+import type { ReminderCandidate } from './engagement.reminders';
 
 export interface EngagementCommand {
   operation: string;
@@ -38,6 +39,7 @@ export interface NotificationDeliveryClaim extends QueryResultRow {
   provider: string;
   attempt_count: number;
   event_id: string | null;
+  event_type: string | null;
   title: string;
   body_safe: string;
   data: Record<string, unknown>;
@@ -65,6 +67,8 @@ export interface SourceNotificationClaim extends QueryResultRow {
   time_zone: string;
   occurred_at: string;
   expires_at: string | null;
+  target_kind?: 'home' | 'tracking';
+  cycle_baseline?: string;
 }
 
 export interface SourceTemplate extends QueryResultRow {
@@ -253,6 +257,61 @@ export class EngagementRepository {
     });
   }
 
+  async listReminderCandidates(limit: number): Promise<ReminderCandidate[]> {
+    return this.worker(async (client) => {
+      const result = await client.query<{
+        kind: 'app' | 'financial';
+        user_id: string;
+        locale: 'ar' | 'en';
+        time_zone: string;
+        baseline_at: string;
+        evaluated_at: string;
+        inactive_days: number;
+      }>(
+        `with evaluated as (select clock_timestamp() now_at), candidates as (
+           select 'app'::text kind,p.id user_id,p.locale,p.timezone time_zone,
+             p.last_seen_at::text baseline_at,e.now_at::text evaluated_at,
+             floor(extract(epoch from (e.now_at-p.last_seen_at))/86400)::integer inactive_days,
+             case when p.last_seen_at<=e.now_at-interval '7 days'
+               then 'reminder.app_inactive.7d' else 'reminder.app_inactive.3d' end event_type
+           from public.profiles p cross join evaluated e
+           where p.status='active' and p.last_seen_at<=e.now_at-interval '3 days'
+           union all
+           select 'financial'::text,p.id,p.locale,p.timezone,financial.baseline_at::text,e.now_at::text,
+             floor(extract(epoch from (e.now_at-financial.baseline_at))/86400)::integer,
+             'reminder.financial_inactive.7d'
+           from public.profiles p cross join evaluated e
+           join public.tracking_preferences tracking on tracking.user_id=p.id and tracking.enabled
+           cross join lateral (select coalesce(max(t.created_at),p.created_at) baseline_at
+             from public.transactions t where t.user_id=p.id and t.deleted_at is null) financial
+           where p.status='active' and p.last_seen_at>=e.now_at-interval '3 days'
+             and financial.baseline_at<=e.now_at-interval '7 days'
+         )
+         select kind,user_id,locale,time_zone,baseline_at,evaluated_at,inactive_days
+         from candidates c
+         where exists(select 1 from public.push_tokens token
+           where token.user_id=c.user_id and token.revoked_at is null)
+           and exists(select 1 from public.notification_preferences pref
+             where pref.user_id=c.user_id and pref.channel='push'
+               and pref.event_type=c.event_type and pref.enabled)
+           and not exists(select 1 from public.notification_events event
+             where event.user_id=c.user_id and event.type=c.event_type
+               and event.data->>'cycleBaseline'=c.baseline_at)
+         order by baseline_at,user_id limit $1`,
+        [limit],
+      );
+      return result.rows.map((row) => ({
+        kind: row.kind,
+        userId: row.user_id,
+        locale: row.locale,
+        timeZone: row.time_zone,
+        baselineAt: row.baseline_at,
+        evaluatedAt: row.evaluated_at,
+        inactiveDays: row.inactive_days,
+      }));
+    });
+  }
+
   async loadSourceTemplates(source: SourceNotificationClaim): Promise<SourceTemplate[]> {
     return this.worker(async (client) => {
       const result = await client.query<SourceTemplate>(
@@ -283,14 +342,15 @@ export class EngagementRepository {
              jsonb_build_object('key','view','expiresAt',null),jsonb_build_object('key','edit','expiresAt',null),
              jsonb_build_object('key','undo','expiresAt',least(coalesce($6,$7::timestamptz+interval '15 minutes'),$7::timestamptz+interval '15 minutes'))
            ) else jsonb_build_array(jsonb_build_object('key','view','expiresAt',null)) end,
-           'targetKind',case
+           'targetKind',coalesce($9,case
              when $3 like 'transaction.%' or $3 like 'transfer.%' then 'transaction'
              when $3 like 'planning.obligation_%' then 'obligation'
              when $3='account.credit_card_payment_due' then 'account'
              when $3 like 'planning.savings_%' then 'goal'
              when $3 like 'tracking.review.%' then 'review'
-             else 'settings' end,
-           'targetId',coalesce($8,'notifications')
+             else 'settings' end),
+           'targetId',case when $9 is null then coalesce($8,'notifications') end,
+           'cycleBaseline',$10
          ),$6,$7)
          on conflict(source_event_id) do nothing returning id`,
         [
@@ -302,6 +362,8 @@ export class EngagementRepository {
           source.expires_at,
           source.occurred_at,
           source.source_id,
+          source.target_kind ?? null,
+          source.cycle_baseline ?? null,
         ],
       );
       const eventId = inserted.rows[0]?.id;
@@ -333,7 +395,7 @@ export class EngagementRepository {
   ): Promise<NotificationDeliveryClaim[]> {
     return this.worker(async (client) => {
       const claims = await client.query<NotificationDeliveryClaim>(
-        `select d.id,d.claim_token,d.user_id,d.channel,d.provider,d.attempt_count,d.event_id,
+        `select d.id,d.claim_token,d.user_id,d.channel,d.provider,d.attempt_count,d.event_id,e.type event_type,
           coalesce(d.rendered_title,e.title,t.subject,'Masarifi') title,coalesce(d.rendered_body,e.body_safe,t.body) body_safe,
           coalesce(d.rendered_data,e.data,jsonb_build_object('route','notification_detail')) data,
           p.token_ciphertext,p.device_id token_device_id,p.provider token_provider
@@ -346,6 +408,39 @@ export class EngagementRepository {
         [workerId, limit],
       );
       return claims.rows;
+    });
+  }
+
+  async reminderDeliveryEligible(eventId: string, userId: string): Promise<boolean> {
+    return this.worker(async (client) => {
+      const result = await client.query<{ eligible: boolean }>(
+        `select coalesce(bool_and(
+           p.status='active'
+           and baseline.value is not null
+           and exists(select 1 from public.notification_preferences pref
+             where pref.user_id=e.user_id and pref.channel='push'
+               and pref.event_type=e.type and pref.enabled)
+           and case
+             when e.type like 'reminder.app_inactive.%'
+               then p.last_seen_at<=baseline.value
+             when e.type='reminder.financial_inactive.7d'
+               then exists(select 1 from public.tracking_preferences tracking
+                 where tracking.user_id=e.user_id and tracking.enabled)
+                 and not exists(select 1 from public.transactions t
+                   where t.user_id=e.user_id and t.deleted_at is null
+                     and t.created_at>baseline.value)
+             else false
+           end
+         ),false) eligible
+         from public.notification_events e
+         join public.profiles p on p.id=e.user_id
+         cross join lateral (select case
+           when e.data->>'cycleBaseline' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+             then (e.data->>'cycleBaseline')::timestamptz end value) baseline
+         where e.id=$1 and e.user_id=$2 and e.type like 'reminder.%'`,
+        [eventId, userId],
+      );
+      return result.rows[0]?.eligible ?? false;
     });
   }
 

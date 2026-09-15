@@ -86,6 +86,14 @@ policy are available; otherwise record that single external gate as pending.
 Release builds without provider configuration must show an explicit unavailable
 state and must never fall back to fixtures.
 
+For the later Staging activation, configure the Mobile build with
+`EXPO_PUBLIC_CLIENT_MODE=live`, the public HTTPS `EXPO_PUBLIC_API_URL`, and the
+Staging Clerk publishable key only. Configure the worker secret store with
+`OPENROUTER_API_KEY`, set `MASARIFI_AI_PROVIDER_ENABLED=true`, and enable the
+reviewed voice route after the ZDR/no-training and budget checks above. Transfer,
+multiple-operation, obligation, and unclear voice intents must remain explicit
+unsupported outcomes until a lossless owner contract is implemented.
+
 Escalate cross-owner disclosure, credential/content logging, direct AI financial
 mutation, bypassed consent/MFA/version checks, non-equivalent fallback, hard-budget
 bypass, duplicate financial effects, unreconciled usage, or unexplained audit and

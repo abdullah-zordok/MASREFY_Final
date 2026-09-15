@@ -11,6 +11,7 @@ import {
   parseAssistantOutput,
   parseAssistantWorkerOutput,
   parseVoiceWorkerOutput,
+  redactAiContext,
   redactAiText,
   type AssistantOutput,
   type VoiceProposalOutput,
@@ -289,6 +290,38 @@ export function evaluatePromptCorpus(template: string, cases: unknown[]): void {
   }
 }
 
+export function assistantProviderPayload(input: Record<string, unknown>) {
+  const references = aliasReferences(input.aliases).map(({ alias, kind, version, data }) => ({
+    alias,
+    kind,
+    version,
+    data: redactAiContext(data),
+  }));
+  const history = Array.isArray(input.historyPayload) ? input.historyPayload.slice(-4) : [];
+  return {
+    intent: String(input.intent),
+    question: redactAiText(assertSafeAiInput(String(input.content))),
+    financialTruth: redactAiContext(object(input.contextPayload)),
+    conversation: history.map((turn) => {
+      const value = object(turn);
+      return {
+        role: value.role === 'assistant' ? 'assistant' : 'user',
+        content: redactAiText(assertSafeAiInput(String(value.content))),
+      };
+    }),
+    references,
+  };
+}
+
+export function encodeAssistantProviderPayload(
+  input: Record<string, unknown>,
+  maximumBytes: number,
+): string {
+  const encoded = JSON.stringify(assistantProviderPayload(input));
+  if (new TextEncoder().encode(encoded).length > maximumBytes) throw new Error('AI_CONTEXT_LIMIT');
+  return encoded;
+}
+
 @Injectable()
 export class AiWorker implements OnModuleDestroy {
   private timer: NodeJS.Timeout | undefined;
@@ -347,7 +380,12 @@ export class AiWorker implements OnModuleDestroy {
   }
 
   async runJob(
-    job: AiWorkClaim['kind'] | 'ai.usage_rollup' | 'voice-media.purge' | 'ai.reconcile',
+    job:
+      | AiWorkClaim['kind']
+      | 'ai.usage_rollup'
+      | 'voice-media.purge'
+      | 'ai.reconcile'
+      | 'financial-insights.generate',
   ): Promise<number> {
     const limit = this.config.getRequired('MASARIFI_AI_JOB_BATCH_SIZE');
     if (['voice.transcribe_extract', 'assistant.respond', 'ai.evaluate_route'].includes(job))
@@ -361,6 +399,7 @@ export class AiWorker implements OnModuleDestroy {
       return 1;
     }
     if (job === 'voice-media.purge') return this.purge();
+    if (job === 'financial-insights.generate') return this.repository.refreshInsights(limit);
     await this.repository.reconcile(limit);
     return 1;
   }
@@ -437,7 +476,8 @@ export class AiWorker implements OnModuleDestroy {
           text: JSON.stringify({
             locale: String(input.locale),
             references: descriptors,
-            instruction: 'Use only the supplied aliases for accountId and categoryId.',
+            instruction:
+              'Use only supplied aliases. Return unsupported for transfers, multiple operations, obligations, or unclear intent; never downgrade them to one transaction.',
           }),
         },
         {
@@ -450,8 +490,7 @@ export class AiWorker implements OnModuleDestroy {
       requestId: String(input.operationId),
       signal: this.abortController?.signal,
     });
-    const output = completion.value,
-      proposal = resolveVoiceProposal(output.proposal, references);
+    const output = completion.value;
     assertConfiguredOutput(route, output.transcript, 'transcript');
     await this.repository.recordUsage(
       claim.user_id,
@@ -459,6 +498,9 @@ export class AiWorker implements OnModuleDestroy {
       completion,
       String(input.operationId),
     );
+    if (output.outcome === 'unsupported')
+      throw new Error(`VOICE_INTENT_UNSUPPORTED_${output.unsupportedReason.toUpperCase()}`);
+    const proposal = resolveVoiceProposal(output.proposal, references);
     await this.repository.saveVoiceResult(claim.id, claim.claim_token, {
       provider: completion.provider,
       model: completion.model,
@@ -482,22 +524,16 @@ export class AiWorker implements OnModuleDestroy {
     const references = aliasReferences(input.aliases);
     const completion = await this.gateway.complete({
       route,
-      userContent: JSON.stringify({
-        question: redactAiText(assertSafeAiInput(String(input.content), inputLimit(route))),
-        evidence,
-        references: references.map(({ alias, kind, version, data }) => ({
-          alias,
-          kind,
-          version,
-          data,
-        })),
-      }),
+      userContent: encodeAssistantProviderPayload(input, inputLimit(route)),
       schema: ASSISTANT_OUTPUT_SCHEMA,
       parse: parseAssistantWorkerOutput,
       requestId: String(input.operationId),
       signal: this.abortController?.signal,
     });
-    const allowed = new Set(evidence.map((item) => String(object(item).alias)));
+    const allowed = new Set([
+      ...evidence.map((item) => String(object(item).alias)),
+      ...references.map(({ alias }) => alias),
+    ]);
     if (
       completion.value.evidenceIds.some((id) => !allowed.has(id)) ||
       completion.value.actionPreview?.evidenceIds.some((id) => !allowed.has(id))

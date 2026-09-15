@@ -162,6 +162,12 @@ export class AiController {
     return this.ai.getAssistantAvailability(principal(request));
   }
 
+  @Get('assistant/insights')
+  @ApiOperation({ operationId: 'listAssistantInsights' })
+  listInsights(@Req() request: AiRequest) {
+    return this.ai.listInsights(principal(request));
+  }
+
   @Get('assistant/conversations')
   @ApiOperation({ operationId: 'listAssistantConversations' })
   listConversations(@Req() request: AiRequest, @Query() query: unknown) {

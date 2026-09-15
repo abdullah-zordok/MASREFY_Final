@@ -13,8 +13,11 @@ import {
   fixtureTranscript
 } from '@/services/mocks/voice-fixtures';
 import { useVoiceCaptureStore } from '@/state/voice-capture';
+import { usePreferenceStore } from '@/state/preferences';
+import { useAppShellStore } from '@/state/app-shell';
 import { voiceRecorderService } from '@/services/platform/voice-recorder-service';
 import type { NotificationSourceEvent } from '@/services/contracts/assistant-notifications-service';
+import { VoiceCaptureError } from '@/services/contracts/voice-capture-service';
 import {
   assessment,
   type VoiceProposalGroup,
@@ -34,6 +37,8 @@ afterEach(() => {
   jest.restoreAllMocks();
   mockCreateFromSource.mockReset();
   useVoiceCaptureStore.getState().reset();
+  useAppShellStore.getState().reset();
+  usePreferenceStore.setState({ locale: 'ar', direction: 'rtl' });
 });
 
 it('moves deterministic capture output into transcript then review without saving', async () => {
@@ -206,6 +211,23 @@ it('starts the recorder only once when the voice action is tapped rapidly', asyn
   unmount();
 });
 
+it('keeps denied permission safe without starting or automatically looping requests', async () => {
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('denied');
+  const request = jest.spyOn(voiceRecorderService, 'requestPermission').mockResolvedValue('denied');
+  const start = jest.spyOn(voiceRecorderService, 'start');
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('permission_required'));
+
+  await act(async () => result.current.requestPermission());
+
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(start).not.toHaveBeenCalled();
+  expect(useVoiceCaptureStore.getState()).toMatchObject({
+    state: 'failed', errorCode: 'permission_denied'
+  });
+  unmount();
+});
+
 it('stops the recorder only once when the stop control is tapped rapidly', async () => {
   let resolveStop!: (value: string) => void;
   jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
@@ -275,6 +297,148 @@ it('retains a failed cleanup reference for retry without stranding stop state', 
   await act(async () => result.current.cancel());
   expect(remove).toHaveBeenCalledTimes(2);
   expect(useVoiceCaptureStore.getState().audioReference).toBeNull();
+  unmount();
+});
+
+it('dismisses a failed capture even when temporary audio cleanup fails', async () => {
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
+  jest
+    .spyOn(voiceRecorderService, 'remove')
+    .mockRejectedValue(new Error('delete failed'));
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('ready'));
+  act(() => {
+    useVoiceCaptureStore.getState().patch({
+      audioReference: 'private://voice-delete-failed',
+      errorCode: 'no_speech',
+      state: 'failed'
+    });
+  });
+
+  await act(async () => result.current.cancel());
+
+  expect(useVoiceCaptureStore.getState()).toMatchObject({
+    state: 'idle',
+    audioReference: null,
+    transcript: null,
+    group: null,
+    errorCode: null
+  });
+  unmount();
+});
+
+it('clears a failed capture and immediately starts a fresh recording', async () => {
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
+  const cancel = jest.spyOn(voiceRecorderService, 'cancel').mockResolvedValue();
+  const remove = jest.spyOn(voiceRecorderService, 'remove').mockResolvedValue();
+  const start = jest.spyOn(voiceRecorderService, 'start').mockResolvedValue({
+    id: 'recording-fresh',
+    startedAt: Date.now()
+  });
+  const stop = jest.spyOn(voiceRecorderService, 'stop').mockResolvedValue(
+    'private://voice-fresh'
+  );
+  let resolveTranscript!: (value: ReturnType<typeof fixtureTranscript>) => void;
+  const transcribe = jest.spyOn(voiceAnalyzerService, 'transcribe').mockImplementation(
+    () => new Promise((resolve) => { resolveTranscript = resolve; })
+  );
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('ready'));
+  act(() => {
+    useVoiceCaptureStore.getState().patch({
+      recordingId: 'recording-previous',
+      audioReference: 'private://voice-previous',
+      durationMs: 3_000,
+      transcript: fixtureTranscript('no_speech'),
+      errorCode: 'no_speech',
+      state: 'failed'
+    });
+  });
+
+  await act(async () => result.current.reRecord());
+
+  expect(useVoiceCaptureStore.getState()).toMatchObject({
+    state: 'recording',
+    recordingId: 'recording-fresh',
+    audioReference: null,
+    durationMs: 0,
+    transcript: null,
+    group: null,
+    errorCode: null
+  });
+  expect(cancel).toHaveBeenCalledWith('recording-previous');
+  expect(remove).toHaveBeenCalledWith('private://voice-previous');
+  expect(start).toHaveBeenCalledTimes(1);
+
+  let processing!: Promise<void>;
+  act(() => { processing = result.current.stop(); });
+  await waitFor(() => expect(result.current.session.state).toBe('transcribing'));
+  expect(stop).toHaveBeenCalledWith('recording-fresh');
+  expect(transcribe).toHaveBeenCalledWith(
+    'private://voice-fresh', 'empty', expect.any(Number), 'ar'
+  );
+  expect(transcribe).not.toHaveBeenCalledWith(
+    'private://voice-previous', expect.anything(), expect.anything(), expect.anything()
+  );
+  resolveTranscript(fixtureTranscript('no_speech'));
+  await act(async () => processing);
+  unmount();
+});
+
+it('does not start re-recording when microphone permission is denied', async () => {
+  jest.spyOn(voiceRecorderService, 'getPermission')
+    .mockResolvedValueOnce('granted')
+    .mockResolvedValueOnce('denied');
+  jest.spyOn(voiceRecorderService, 'requestPermission').mockResolvedValue('denied');
+  const start = jest.spyOn(voiceRecorderService, 'start').mockResolvedValue({
+    id: 'must-not-start', startedAt: Date.now()
+  });
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('ready'));
+  act(() => useVoiceCaptureStore.getState().patch({
+    permission: 'granted', state: 'failed', errorCode: 'no_speech'
+  }));
+
+  await act(async () => result.current.reRecord());
+
+  expect(start).not.toHaveBeenCalled();
+  expect(useVoiceCaptureStore.getState()).toMatchObject({
+    permission: 'denied', state: 'failed', errorCode: 'permission_denied'
+  });
+  unmount();
+});
+
+it('starts only one recorder when Re-record is tapped twice during cleanup', async () => {
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
+  let releaseCleanup!: () => void;
+  const remove = jest.spyOn(voiceRecorderService, 'remove').mockImplementation(
+    () => new Promise((resolve) => { releaseCleanup = resolve; })
+  );
+  const start = jest.spyOn(voiceRecorderService, 'start').mockResolvedValue({
+    id: 'recording-single', startedAt: Date.now()
+  });
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('ready'));
+  act(() => useVoiceCaptureStore.getState().patch({
+    permission: 'granted', audioReference: 'private://voice-previous',
+    state: 'failed', errorCode: 'no_speech'
+  }));
+
+  let first!: Promise<void>;
+  let second!: Promise<void>;
+  act(() => {
+    first = result.current.reRecord();
+    second = result.current.reRecord();
+  });
+  expect(start).not.toHaveBeenCalled();
+  releaseCleanup();
+  await act(async () => Promise.all([first, second]));
+
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(remove).toHaveBeenCalledTimes(1);
+  expect(useVoiceCaptureStore.getState()).toMatchObject({
+    state: 'recording', recordingId: 'recording-single'
+  });
   unmount();
 });
 
@@ -356,6 +520,34 @@ it('cancels recording and reports interruption when the app backgrounds', async 
   unmount();
 });
 
+it('keeps recording through a transient inactive state after permission closes', async () => {
+  let onAppStateChange: ((state: AppStateStatus) => void) | undefined;
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    onAppStateChange = listener;
+    return { remove: jest.fn() } as never;
+  });
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
+  const cancel = jest.spyOn(voiceRecorderService, 'cancel').mockResolvedValue();
+  const { unmount } = renderVoiceHook();
+  await waitFor(() =>
+    expect(useVoiceCaptureStore.getState().state).toBe('ready')
+  );
+  act(() => {
+    useVoiceCaptureStore.getState().patch({
+      recordingId: 'recording-permission-transition',
+      state: 'recording'
+    });
+    onAppStateChange?.('inactive');
+  });
+
+  expect(cancel).not.toHaveBeenCalled();
+  expect(useVoiceCaptureStore.getState()).toMatchObject({
+    recordingId: 'recording-permission-transition',
+    state: 'recording'
+  });
+  unmount();
+});
+
 it.each([
   ['clear_en', 'expense', 8_000],
   ['income', 'income', 700_000]
@@ -392,10 +584,15 @@ it.each([
       recordingId: 'recording-1',
       startedAt: recordedAt,
       timezoneOffsetMinutes: 0,
+      scenario,
       state: 'recording'
     });
   });
   await act(async () => result.current.stop());
+
+  expect(voiceAnalyzerService.transcribe).toHaveBeenCalledWith(
+    'private://voice-audio', scenario, 0, 'ar'
+  );
 
   expect(useVoiceCaptureStore.getState()).toMatchObject({
     state: 'proposal_review',
@@ -404,6 +601,52 @@ it.each([
     }
   });
   expect(finance).not.toHaveBeenCalled();
+  unmount();
+});
+
+it('sends the English app locale independently of the fixture scenario', async () => {
+  usePreferenceStore.setState({ locale: 'en', direction: 'ltr' });
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
+  jest.spyOn(voiceRecorderService, 'stop').mockResolvedValue('private://voice-en');
+  jest.spyOn(voiceRecorderService, 'remove').mockResolvedValue();
+  const transcribe = jest.spyOn(voiceAnalyzerService, 'transcribe').mockRejectedValue(
+    new Error('stop after locale assertion')
+  );
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('ready'));
+  act(() => useVoiceCaptureStore.getState().patch({
+    recordingId: 'recording-en', startedAt: Date.now(), timezoneOffsetMinutes: 0,
+    state: 'recording', scenario: 'clear_ar'
+  }));
+  await act(async () => result.current.stop());
+
+  expect(transcribe).toHaveBeenCalledWith('private://voice-en', 'clear_ar', 0, 'en');
+  unmount();
+});
+
+it('expires the app session when Voice authentication expires', async () => {
+  useAppShellStore.setState({
+    session: {
+      status: 'authenticated', userId: 'user-live', method: 'google',
+      issuedAt: 1, expiresAt: Date.now() + 60_000, restoration: 'restored'
+    }
+  });
+  jest.spyOn(voiceRecorderService, 'getPermission').mockResolvedValue('granted');
+  jest.spyOn(voiceRecorderService, 'stop').mockResolvedValue('private://voice-expired');
+  jest.spyOn(voiceRecorderService, 'remove').mockResolvedValue();
+  jest.spyOn(voiceAnalyzerService, 'transcribe').mockRejectedValue(
+    new VoiceCaptureError('session_expired')
+  );
+  const { result, unmount } = renderVoiceHook();
+  await waitFor(() => expect(result.current.session.state).toBe('ready'));
+  act(() => useVoiceCaptureStore.getState().patch({
+    recordingId: 'recording-expired', startedAt: Date.now(),
+    timezoneOffsetMinutes: 0, state: 'recording'
+  }));
+  await act(async () => result.current.stop());
+
+  await waitFor(() => expect(useAppShellStore.getState().session?.status).toBe('expired'));
+  expect(useVoiceCaptureStore.getState().errorCode).toBe('session_expired');
   unmount();
 });
 

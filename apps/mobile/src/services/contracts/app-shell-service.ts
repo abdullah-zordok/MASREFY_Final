@@ -102,6 +102,7 @@ export interface AuthService {
   signInWithGoogle(): Promise<AuthResult>;
   reverifyConflict(input: ReverificationInput): Promise<AuthResult>;
   restoreSession(): Promise<AuthenticationSession>;
+  touchActivity(): Promise<void>;
   signOut(scope: 'local' | 'all'): Promise<void>;
 }
 

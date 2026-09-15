@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppState, Text } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
@@ -73,5 +73,30 @@ describe('SensitiveVisibilityProvider', () => {
     expect(view.getByTestId('privacy-shield')).toBeTruthy();
     act(() => listener?.('active'));
     expect(view.getByText('private question text')).toBeTruthy();
+  });
+
+  it('keeps protected content mounted while the privacy shield is visible', () => {
+    let listener: ((state: string) => void) | undefined;
+    let unmounts = 0;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_, next) => {
+      listener = next as (state: string) => void;
+      return { remove: jest.fn() };
+    });
+    function ProtectedContent() {
+      useEffect(() => () => {
+        unmounts += 1;
+      }, []);
+      return <Text>mounted private content</Text>;
+    }
+    const view = render(
+      <SensitiveVisibilityProvider><ProtectedContent /></SensitiveVisibilityProvider>
+    );
+
+    act(() => listener?.('background'));
+
+    expect(unmounts).toBe(0);
+    expect(view.getByTestId('privacy-shield')).toBeTruthy();
+    act(() => listener?.('active'));
+    expect(view.getByText('mounted private content')).toBeTruthy();
   });
 });

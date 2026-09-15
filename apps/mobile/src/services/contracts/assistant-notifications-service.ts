@@ -117,6 +117,16 @@ export type PhonePresentationResult = {
 export type PhoneNotificationResponse = {
   notificationId: string;
   action: NotificationActionKind;
+} | {
+  localDestination: 'auth';
+  action: 'view';
+};
+
+export type LocalNotificationSchedule = {
+  title: string;
+  body: string;
+  destination: 'auth';
+  scheduledAt: Date;
 };
 
 export interface NotificationService {
@@ -140,6 +150,11 @@ export interface PhoneNotificationService {
   requestPermission(): Promise<NotificationPermissionState>;
   registerCategories(): Promise<void>;
   presentLocal(input: PhoneNotificationPresentation): Promise<PhonePresentationResult>;
+  scheduleLocal(input: LocalNotificationSchedule): Promise<{
+    status: 'scheduled' | 'failed';
+    identifier: string | null;
+  }>;
+  cancelScheduled(identifier: string): Promise<void>;
   getLastResponse(): Promise<PhoneNotificationResponse | null>;
   subscribeToResponses(listener: (response: PhoneNotificationResponse) => void): () => void;
   openSystemSettings(): Promise<void>;
@@ -151,15 +166,40 @@ export interface AssistantConversationQuery {
   status?: AssistantConversation['status'];
 }
 
+export type AssistantQuestionIntent =
+  | 'spending_summary'
+  | 'income_summary'
+  | 'category_breakdown'
+  | 'budget_status'
+  | 'savings_status'
+  | 'obligations_status'
+  | 'upcoming_obligations'
+  | 'salary_status'
+  | 'recent_transactions';
+
+export type AssistantFinancialInsight = {
+  id: string;
+  kind: 'budget_threshold';
+  budgetName: string;
+  currency: string;
+  budgetMinor: number;
+  spentMinor: number;
+  remainingMinor: number;
+  utilizationBps: number;
+  createdAt: number;
+  expiresAt: number;
+};
+
 export interface AssistantService {
   getConsent(): Promise<AssistantConsent>;
   getAvailability(): Promise<{ status: 'available' | 'disabled' | 'limit_reached'; remainingQuestions: number }>;
+  listInsights(): Promise<AssistantFinancialInsight[]>;
   setConsent(enabled: boolean, expectedVersion: number, operationId: string): Promise<MutationResult<AssistantConsent>>;
   listConversations(input: AssistantConversationQuery): Promise<Page<AssistantConversation>>;
-  createConversation(input: { question: string }, operationId: string): Promise<MutationResult<AssistantConversation>>;
+  createConversation(input: { question: string; intent?: AssistantQuestionIntent }, operationId: string): Promise<MutationResult<AssistantConversation>>;
   getConversation(id: string, cursor?: string): Promise<{ conversation: AssistantConversation; responses: Page<AssistantResponse> }>;
   getResponse(id: string): Promise<AssistantResponse>;
-  ask(conversationId: string, question: string, operationId: string): Promise<MutationResult<AssistantResponse>>;
+  ask(conversationId: string, question: string, operationId: string, intent?: AssistantQuestionIntent): Promise<MutationResult<AssistantResponse>>;
   renameConversation(id: string, title: string, expectedVersion: number, operationId: string): Promise<MutationResult<AssistantConversation>>;
   deleteConversation(id: string, expectedVersion: number, operationId: string): Promise<MutationResult<{ id: string }>>;
   setResponseFeedback(responseId: string, feedback: AssistantResponseFeedback, operationId: string): Promise<MutationResult<AssistantResponse>>;
