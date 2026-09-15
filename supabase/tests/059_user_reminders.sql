@@ -6,8 +6,8 @@ grant usage on schema extensions to masarifi_migration;
 grant execute on all functions in schema extensions to masarifi_migration;
 set local role masarifi_migration;
 
-select has_index('public', 'profiles', 'profiles_active_last_seen_idx');
-select has_index('public', 'transactions', 'transactions_owner_created_active_idx');
+select has_index('public', 'profiles', 'profiles_active_last_seen_idx', 'profile inactivity lookup index exists');
+select has_index('public', 'transactions', 'transactions_owner_created_active_idx', 'transaction inactivity lookup index exists');
 select is(
   (
     select count(*)::integer

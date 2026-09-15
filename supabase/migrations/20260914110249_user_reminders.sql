@@ -8,6 +8,16 @@ create index profiles_active_last_seen_idx
 create index transactions_owner_created_active_idx
   on public.transactions(user_id,created_at desc) where deleted_at is null;
 
+alter table public.notification_events
+  drop constraint notification_events_type_check,
+  add constraint notification_events_type_check
+    check(type ~ '^[a-z][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)+$' and char_length(type)<=96);
+
+alter table public.notification_preferences
+  drop constraint notification_preferences_event_type_check,
+  add constraint notification_preferences_event_type_check
+    check(event_type ~ '^[a-z][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)+$' and char_length(event_type)<=96);
+
 insert into public.notification_templates(
   key,locale,channel,template_version,subject,body,status,published_at,created_by,system_seed
 )
