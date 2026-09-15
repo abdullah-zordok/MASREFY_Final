@@ -1,8 +1,10 @@
 # Masarifi User Reminder System Design
 
+> **Scope update:** The later onboarding decision keeps first launch free of notification prompts. Scenario A is retained below as historical design context but is not part of the shipped implementation; registered-user reminders remain in scope.
+
 ## Goal
 
-Implement three reminder scenarios through Masarifi's existing Mobile notification abstraction and backend engagement pipeline:
+Design three reminder scenarios through Masarifi's existing Mobile notification abstraction and backend engagement pipeline:
 
 1. Two device-local reminders for a user who starts onboarding but does not authenticate.
 2. Push reminders at approximately three and seven days of registered-user app inactivity.

@@ -1,5 +1,7 @@
 # Masarifi User Reminder System Implementation Plan
 
+> **Scope update:** The later onboarding decision supersedes Tasks 1-3 and the pre-signup portions of Task 10. The shipped implementation intentionally has no first-launch notification prompt or unauthenticated local schedules.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add pre-signup local reminders plus registered app-inactivity and financial-inactivity push reminders through Masarifi's existing notification infrastructure.

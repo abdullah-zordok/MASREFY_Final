@@ -13,7 +13,6 @@ import { useLiveClerkSessionKey } from '@/services/live/clerk-provider';
 import { synchronizeLiveCoreFinance } from '@/services/live/core-finance-service';
 import { refreshPlatformOperations } from '@/services/platform-operations-service';
 import { syncAutomaticTracking } from '@/services/automatic-tracking-coordinator';
-import { preSignupReminderService } from '@/services/pre-signup-reminder-service';
 import { ensureLivePushDeviceRegistration } from '@/services/live/engagement-service';
 
 interface AppShellProviderProps {
@@ -67,7 +66,6 @@ export function AppShellProvider({
       )
       .then(async () => {
         if (current && liveClerkSessionKey) {
-          await preSignupReminderService.completeAuthentication();
           void authService.touchActivity().catch(() => undefined);
           if (registeredPushSession.current !== liveClerkSessionKey) {
             registeredPushSession.current = liveClerkSessionKey;

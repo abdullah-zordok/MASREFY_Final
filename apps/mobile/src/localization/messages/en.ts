@@ -215,11 +215,6 @@ const en = {
   'firstLaunch.supporting':
     'Bank SMS, Apple Pay, mada, and STC Pay are saved for you.',
   'firstLaunch.cta': 'Start now',
-  'firstLaunch.notifications.title': 'Stay on track with Masarifi',
-  'firstLaunch.notifications.message':
-    'Allow two reminders to finish setting up your account if you leave before signing in.',
-  'firstLaunch.notifications.allow': 'Allow notifications',
-  'firstLaunch.notifications.notNow': 'Not now',
   'firstLaunch.savedAutomatically': 'Auto-saved',
   'firstLaunch.merchant.bankSms': 'Tamimi Markets',
   'firstLaunch.merchant.applePay': 'Careem',
@@ -908,20 +903,11 @@ const en = {
     'Let Masarifi detect supported transactions automatically.',
   'tracking.home.enableAction': 'Enable automatic tracking',
   'tracking.home.dismissAction': 'Dismiss automatic tracking suggestion',
-  'notifications.home.enableTitle': 'Turn on notifications',
-  'notifications.home.enableBody':
-    'Get transaction alerts and reminders from Masarifi.',
-  'notifications.home.enableAction': 'Enable notifications',
-  'notifications.home.dismissAction': 'Dismiss notification suggestion',
-  'notifications.home.enableFailed':
-    'Notifications could not be enabled. Try again.',
   'tracking.header.title': 'Automatic Message Tracking',
   'tracking.status.label': 'Status',
   'tracking.status.enabled': 'Enabled',
   'tracking.status.disabled': 'Disabled',
   'tracking.status.unavailable': 'Unavailable',
-  'tracking.source.bankNotifications': 'Bank notifications',
-  'tracking.source.financialSms': 'Financial SMS',
   'tracking.status.demo': 'Demo tracking — not production data',
   'tracking.permission.warning':
     'Message permissions not granted. Tap to enable.',

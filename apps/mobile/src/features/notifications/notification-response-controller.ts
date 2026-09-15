@@ -45,10 +45,6 @@ export function createNotificationResponseController({
     notificationService['executeAction'](id, action, operationId);
 
   async function runResponse(response: PhoneNotificationResponse) {
-    if ('localDestination' in response) {
-      navigate('/(public)/welcome');
-      return;
-    }
     const targetResolution = await notificationService.resolveTarget(response.notificationId);
     if (targetResolution.status === 'unavailable' || !targetResolution.target) {
       navigate('/notifications');
@@ -107,9 +103,7 @@ export function createNotificationResponseController({
   }
 
   async function handle(response: PhoneNotificationResponse) {
-    const key = 'localDestination' in response
-      ? `local:${response.localDestination}`
-      : `${response.notificationId}:${response.action}`;
+    const key = `${response.notificationId}:${response.action}`;
     const replay = handledResponses.get(key);
     if (replay) return replay;
     const result = runResponse(response).catch(() => {

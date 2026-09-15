@@ -56,22 +56,6 @@ function phoneService(lastResponse: PhoneNotificationResponse | null = null) {
 }
 
 describe('notification response controller', () => {
-  it('routes a local auth reminder without calling the backend', async () => {
-    const service = targetService();
-    const navigate = jest.fn();
-    const controller = createNotificationResponseController({
-      notificationService: service,
-      phoneService: phoneService().phone,
-      navigate,
-      unlock: async () => true
-    });
-
-    await controller.handle({ localDestination: 'auth', action: 'view' });
-
-    expect(navigate).toHaveBeenCalledWith('/(public)/welcome');
-    expect(service.resolveTarget).not.toHaveBeenCalled();
-  });
-
   it('opens the credit card from a due reminder', async () => {
     const target = { kind: 'account' as const, accountId: 'card-1' };
     const navigate = jest.fn();

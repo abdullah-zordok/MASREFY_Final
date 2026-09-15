@@ -70,6 +70,7 @@ jest.mock('@/services/mocks/assistant-notifications-service', () => ({
 jest.mock('@/features/assistant/assistant-queries', () => ({
   useAssistantConsent: jest.fn(),
   useAssistantAvailability: jest.fn(),
+  useAssistantInsights: jest.fn(),
   useSetAssistantConsent: jest.fn(),
   useCreateAssistantConversation: jest.fn(),
   useAssistantConversations: jest.fn(),
@@ -110,6 +111,7 @@ describe('navigation journey', () => {
       error: null,
       isError: false
     });
+    mockAssistantQueries.useAssistantInsights.mockReturnValue({ data: [] });
     mockAssistantQueries.useSetAssistantConsent.mockReturnValue({
       mutate: jest.fn()
     });

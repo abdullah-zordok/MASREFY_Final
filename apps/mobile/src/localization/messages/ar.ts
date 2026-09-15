@@ -206,11 +206,6 @@ const ar: MessageCatalog = {
   'firstLaunch.supporting':
     'رسائل البنوك، \u2068Apple Pay\u2069، \u2068mada\u2069، \u2068STC Pay\u2069\nكلها محفوظة تلقائيًا.',
   'firstLaunch.cta': 'ابدأ الحين',
-  'firstLaunch.notifications.title': 'خلّك على المسار مع مصاريفي',
-  'firstLaunch.notifications.message':
-    'اسمح بتذكيرين لإكمال إعداد حسابك إذا خرجت قبل تسجيل الدخول.',
-  'firstLaunch.notifications.allow': 'السماح بالإشعارات',
-  'firstLaunch.notifications.notNow': 'ليس الآن',
   'firstLaunch.savedAutomatically': 'تسجيل تلقائيًا',
   'firstLaunch.merchant.bankSms': 'أسواق التميمي',
   'firstLaunch.merchant.applePay': 'كريم',
@@ -891,19 +886,11 @@ const ar: MessageCatalog = {
     'خلّ مصاريفي يلتقط عملياتك تلقائيًا من الرسائل المدعومة.',
   'tracking.home.enableAction': 'تفعيل التتبع التلقائي',
   'tracking.home.dismissAction': 'إخفاء اقتراح التتبع التلقائي',
-  'notifications.home.enableTitle': 'فعّل الإشعارات',
-  'notifications.home.enableBody':
-    'استلم إشعارات العمليات والتذكيرات من مصاريفي.',
-  'notifications.home.enableAction': 'تفعيل الإشعارات',
-  'notifications.home.dismissAction': 'إخفاء اقتراح الإشعارات',
-  'notifications.home.enableFailed': 'تعذر تفعيل الإشعارات. حاول مرة أخرى.',
   'tracking.header.title': 'التتبع التلقائي للرسائل',
   'tracking.status.label': 'الحالة',
   'tracking.status.enabled': 'مفعّل',
   'tracking.status.disabled': 'معطّل',
   'tracking.status.unavailable': 'غير متاح',
-  'tracking.source.bankNotifications': 'إشعارات البنوك',
-  'tracking.source.financialSms': 'الرسائل المالية',
   'tracking.status.demo': 'تتبّع تجريبي — ليست بيانات إنتاج',
   'tracking.permission.warning': 'لم يتم منح أذونات الرسائل. اضغط للتفعيل.',
   'tracking.permission.unavailableMessage':

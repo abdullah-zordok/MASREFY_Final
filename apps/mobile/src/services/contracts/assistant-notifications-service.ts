@@ -117,16 +117,6 @@ export type PhonePresentationResult = {
 export type PhoneNotificationResponse = {
   notificationId: string;
   action: NotificationActionKind;
-} | {
-  localDestination: 'auth';
-  action: 'view';
-};
-
-export type LocalNotificationSchedule = {
-  title: string;
-  body: string;
-  destination: 'auth';
-  scheduledAt: Date;
 };
 
 export interface NotificationService {
@@ -150,11 +140,6 @@ export interface PhoneNotificationService {
   requestPermission(): Promise<NotificationPermissionState>;
   registerCategories(): Promise<void>;
   presentLocal(input: PhoneNotificationPresentation): Promise<PhonePresentationResult>;
-  scheduleLocal(input: LocalNotificationSchedule): Promise<{
-    status: 'scheduled' | 'failed';
-    identifier: string | null;
-  }>;
-  cancelScheduled(identifier: string): Promise<void>;
   getLastResponse(): Promise<PhoneNotificationResponse | null>;
   subscribeToResponses(listener: (response: PhoneNotificationResponse) => void): () => void;
   openSystemSettings(): Promise<void>;

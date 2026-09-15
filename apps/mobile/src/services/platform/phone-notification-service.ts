@@ -6,7 +6,6 @@ import { randomUUID } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
 import type {
-  LocalNotificationSchedule,
   PhoneNotificationResponse,
   PhoneNotificationService
 } from '@/services/contracts/assistant-notifications-service';
@@ -147,34 +146,6 @@ export function createPhoneNotificationService(): PhoneNotificationService {
         return { status: 'failed', identifier: null };
       }
     },
-    async scheduleLocal(input: LocalNotificationSchedule) {
-      if (Platform.OS === 'web' || !ExpoNotifications?.scheduleNotificationAsync)
-        return { status: 'failed', identifier: null };
-      try {
-        const identifier = await ExpoNotifications.scheduleNotificationAsync({
-          content: {
-            title: input.title,
-            body: input.body,
-            data: { localDestination: input.destination },
-          },
-          trigger: {
-            type: ExpoNotifications.SchedulableTriggerInputTypes.DATE,
-            date: input.scheduledAt,
-          },
-        });
-        return { status: 'scheduled', identifier };
-      } catch {
-        return { status: 'failed', identifier: null };
-      }
-    },
-    async cancelScheduled(identifier) {
-      if (Platform.OS === 'web' || !ExpoNotifications?.cancelScheduledNotificationAsync) return;
-      try {
-        await ExpoNotifications.cancelScheduledNotificationAsync(identifier);
-      } catch {
-        // Platform unsupported or schedule already gone.
-      }
-    },
     async getLastResponse() {
       if (
         Platform.OS === 'web' ||
@@ -252,10 +223,6 @@ function responseFromExpo(response: unknown): PhoneNotificationResponse | null {
     value.notification?.request?.content?.data?.notificationId;
   const action = mapAction(value.actionIdentifier);
   if (!action) return null;
-  const localDestination =
-    value.notification?.request?.content?.data?.localDestination;
-  if (localDestination === 'auth' && action === 'view')
-    return { localDestination, action };
   if (typeof notificationId !== 'string') return null;
   return {
     notificationId,

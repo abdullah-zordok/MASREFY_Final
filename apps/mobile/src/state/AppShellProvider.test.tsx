@@ -13,7 +13,6 @@ const mockRestoreAppShellSession = jest.fn(
 const mockSynchronizeLiveCoreFinance = jest.fn(async () => undefined);
 const mockRefreshPlatformOperations = jest.fn(async () => undefined);
 const mockSyncAutomaticTracking = jest.fn(async () => undefined);
-const mockCompletePreSignupAuthentication = jest.fn(async () => undefined);
 const mockTouchActivity = jest.fn(async () => undefined);
 const mockEnsureLivePushDeviceRegistration = jest.fn(async () => 'granted');
 let mockLiveClerkSessionKey: string | null | undefined;
@@ -36,11 +35,6 @@ jest.mock('@/services/platform-operations-service', () => ({
 }));
 jest.mock('@/services/automatic-tracking-coordinator', () => ({
   syncAutomaticTracking: () => mockSyncAutomaticTracking()
-}));
-jest.mock('@/services/pre-signup-reminder-service', () => ({
-  preSignupReminderService: {
-    completeAuthentication: () => mockCompletePreSignupAuthentication()
-  }
 }));
 jest.mock('@/services/live/engagement-service', () => ({
   ensureLivePushDeviceRegistration: () => mockEnsureLivePushDeviceRegistration()
@@ -124,7 +118,6 @@ describe('AppShellProvider', () => {
     expect(mockRestoreAppShellSession).toHaveBeenCalledTimes(1);
     expect(mockSynchronizeLiveCoreFinance).toHaveBeenCalledTimes(1);
     expect(mockSyncAutomaticTracking).toHaveBeenCalledTimes(1);
-    expect(mockCompletePreSignupAuthentication).toHaveBeenCalledTimes(1);
     expect(mockTouchActivity).toHaveBeenCalledTimes(1);
     expect(mockEnsureLivePushDeviceRegistration).toHaveBeenCalledTimes(1);
     expect(hydrate).not.toHaveBeenCalled();

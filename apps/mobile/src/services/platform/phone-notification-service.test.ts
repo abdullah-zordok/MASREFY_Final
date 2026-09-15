@@ -22,13 +22,11 @@ jest.mock('expo-secure-store', () => ({
 jest.mock('expo-notifications', () => ({
   __esModule: true,
   AndroidImportance: { DEFAULT: 'default' },
-  SchedulableTriggerInputTypes: { DATE: 'date' },
   DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
   addNotificationResponseReceivedListener: jest.fn(),
   getLastNotificationResponseAsync: jest.fn(),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
-  cancelScheduledNotificationAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
@@ -43,13 +41,11 @@ jest.mock('expo-linking', () => ({
 
 const mockNotifications = jest.requireMock('expo-notifications') as {
   AndroidImportance: { DEFAULT: string };
-  SchedulableTriggerInputTypes: { DATE: string };
   DEFAULT_ACTION_IDENTIFIER: string;
   addNotificationResponseReceivedListener: jest.Mock;
   getLastNotificationResponseAsync: jest.Mock;
   getPermissionsAsync: jest.Mock;
   requestPermissionsAsync: jest.Mock;
-  cancelScheduledNotificationAsync: jest.Mock;
   scheduleNotificationAsync: jest.Mock;
   setNotificationHandler: jest.Mock;
   setNotificationChannelAsync: jest.Mock;
@@ -198,49 +194,6 @@ describe('phone notification platform service', () => {
     );
     expect(remove).toHaveBeenCalledTimes(1);
     expect(mockLinking.openSettings).toHaveBeenCalledTimes(1);
-  });
-
-  it('schedules and cancels a local authentication reminder', async () => {
-    mockNotifications.scheduleNotificationAsync.mockResolvedValueOnce('pre-signup-1');
-    const service = createPhoneNotificationService();
-    const scheduledAt = new Date('2026-09-15T12:00:00.000Z');
-
-    await expect(
-      service.scheduleLocal({
-        title: 'Finish setting up Masarifi 👋',
-        body: 'Create your account and let Masarifi organize your spending automatically.',
-        destination: 'auth',
-        scheduledAt,
-      }),
-    ).resolves.toEqual({ status: 'scheduled', identifier: 'pre-signup-1' });
-    await service.cancelScheduled('pre-signup-1');
-
-    expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith({
-      content: {
-        title: 'Finish setting up Masarifi 👋',
-        body: 'Create your account and let Masarifi organize your spending automatically.',
-        data: { localDestination: 'auth' },
-      },
-      trigger: {
-        type: mockNotifications.SchedulableTriggerInputTypes.DATE,
-        date: scheduledAt,
-      },
-    });
-    expect(mockNotifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
-      'pre-signup-1',
-    );
-  });
-
-  it('maps a local authentication reminder tap without a backend notification id', async () => {
-    mockNotifications.getLastNotificationResponseAsync.mockResolvedValueOnce({
-      actionIdentifier: mockNotifications.DEFAULT_ACTION_IDENTIFIER,
-      notification: { request: { content: { data: { localDestination: 'auth' } } } },
-    });
-
-    await expect(createPhoneNotificationService().getLastResponse()).resolves.toEqual({
-      localDestination: 'auth',
-      action: 'view',
-    });
   });
 
   it('returns a persistent installation fingerprint with the Expo push token', async () => {
