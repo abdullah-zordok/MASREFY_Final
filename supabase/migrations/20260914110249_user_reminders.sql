@@ -1,3 +1,5 @@
+grant masarifi_migration to current_user with set true, inherit false;
+
 set local role masarifi_migration;
 
 create index profiles_active_last_seen_idx
