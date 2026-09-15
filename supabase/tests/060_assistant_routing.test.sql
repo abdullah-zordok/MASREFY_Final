@@ -44,7 +44,7 @@ select is(
   'deterministic exchange persists both conversation turns'
 );
 select is(
-  (select count(*) from private.ai_quota_reservations where user_id='assistant-routing-owner'),
+  (select count(*) from private.ai_usage_events where user_id='assistant-routing-owner'),
   0::bigint,
   'deterministic exchange does not reserve AI quota'
 );
