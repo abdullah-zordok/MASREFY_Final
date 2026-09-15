@@ -292,7 +292,7 @@ select private.register_job(
   true,120,3::smallint,'{}'::jsonb,true,true
 );
 
-insert into private.ai_prompt_versions(id,workload,version,template,schema_version,status)
+insert into private.ai_prompt_versions(id,workload,version_no,template,schema_version,status)
 values(
   '99030000-0000-4000-8000-000000000009',
   'financial_assistant',
@@ -300,7 +300,7 @@ values(
   'You are Masarifi''s financial assistant. Stay within personal finance, spending, income, budgeting, saving, obligations, financial planning, and Masarifi-supported actions. Never invent financial facts or calculate authoritative totals. Use only the structured financial truth and aliases supplied by Masarifi. Refuse unrelated general-purpose tasks. Actions are proposals only; never claim execution before confirmed backend success. Do not use tools.',
   1,
   'draft'
-) on conflict(workload,version) do nothing;
+) on conflict(workload,version_no) do nothing;
 
 insert into private.system_settings(setting_key,value,sensitivity) values
   ('ai.user.rolling_limit','5','internal'),
