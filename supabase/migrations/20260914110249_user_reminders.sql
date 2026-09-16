@@ -19,19 +19,19 @@ alter table public.notification_preferences
     check(event_type ~ '^[a-z][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)+$' and char_length(event_type)<=96);
 
 create function private.list_reminder_candidates(p_limit integer)
-returns table(kind text,user_id text,locale text,time_zone text,baseline_at timestamptz,evaluated_at timestamptz,inactive_days integer)
+returns table(kind text,user_id text,locale text,time_zone text,baseline_at text,evaluated_at text,inactive_days integer)
 language plpgsql security definer set search_path='' as $$
 begin
   if p_limit not between 1 and 1000 then raise exception using errcode='22023',message='REMINDER_LIMIT_INVALID'; end if;
   return query
     with evaluated as (select clock_timestamp() now_at), candidates as (
-      select 'app'::text kind,p.id user_id,p.locale,p.timezone time_zone,p.last_seen_at baseline_at,e.now_at evaluated_at,
+      select 'app'::text kind,p.id user_id,p.locale,p.timezone time_zone,p.last_seen_at::text baseline_at,e.now_at::text evaluated_at,
         floor(extract(epoch from (e.now_at-p.last_seen_at))/86400)::integer inactive_days,
         case when p.last_seen_at<=e.now_at-interval '7 days' then 'reminder.app_inactive.7d' else 'reminder.app_inactive.3d' end event_type
       from public.profiles p cross join evaluated e
       where p.status='active' and p.last_seen_at<=e.now_at-interval '3 days'
       union all
-      select 'financial'::text,p.id,p.locale,p.timezone,financial.baseline_at,e.now_at,
+      select 'financial'::text,p.id,p.locale,p.timezone,financial.baseline_at::text,e.now_at::text,
         floor(extract(epoch from (e.now_at-financial.baseline_at))/86400)::integer,
         'reminder.financial_inactive.7d' event_type
       from public.profiles p cross join evaluated e
@@ -47,7 +47,7 @@ begin
       and exists(select 1 from public.notification_preferences pref
         where pref.user_id=c.user_id and pref.channel='push' and pref.event_type=c.event_type and pref.enabled)
       and not exists(select 1 from public.notification_events event
-        where event.user_id=c.user_id and event.type=c.event_type and event.data->>'cycleBaseline'=c.baseline_at::text)
+        where event.user_id=c.user_id and event.type=c.event_type and event.data->>'cycleBaseline'=c.baseline_at)
     order by c.baseline_at,c.user_id limit p_limit;
 end $$;
 alter function private.list_reminder_candidates(integer) owner to masarifi_migration;
