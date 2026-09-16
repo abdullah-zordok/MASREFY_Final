@@ -268,36 +268,7 @@ export class EngagementRepository {
         evaluated_at: string;
         inactive_days: number;
       }>(
-        `with evaluated as (select clock_timestamp() now_at), candidates as (
-           select 'app'::text kind,p.id user_id,p.locale,p.timezone time_zone,
-             p.last_seen_at::text baseline_at,e.now_at::text evaluated_at,
-             floor(extract(epoch from (e.now_at-p.last_seen_at))/86400)::integer inactive_days,
-             case when p.last_seen_at<=e.now_at-interval '7 days'
-               then 'reminder.app_inactive.7d' else 'reminder.app_inactive.3d' end event_type
-           from public.profiles p cross join evaluated e
-           where p.status='active' and p.last_seen_at<=e.now_at-interval '3 days'
-           union all
-           select 'financial'::text,p.id,p.locale,p.timezone,financial.baseline_at::text,e.now_at::text,
-             floor(extract(epoch from (e.now_at-financial.baseline_at))/86400)::integer,
-             'reminder.financial_inactive.7d'
-           from public.profiles p cross join evaluated e
-           join public.tracking_preferences tracking on tracking.user_id=p.id and tracking.enabled
-           cross join lateral (select coalesce(max(t.created_at),p.created_at) baseline_at
-             from public.transactions t where t.user_id=p.id and t.deleted_at is null) financial
-           where p.status='active' and p.last_seen_at>=e.now_at-interval '3 days'
-             and financial.baseline_at<=e.now_at-interval '7 days'
-         )
-         select kind,user_id,locale,time_zone,baseline_at,evaluated_at,inactive_days
-         from candidates c
-         where exists(select 1 from public.push_tokens token
-           where token.user_id=c.user_id and token.revoked_at is null)
-           and exists(select 1 from public.notification_preferences pref
-             where pref.user_id=c.user_id and pref.channel='push'
-               and pref.event_type=c.event_type and pref.enabled)
-           and not exists(select 1 from public.notification_events event
-             where event.user_id=c.user_id and event.type=c.event_type
-               and event.data->>'cycleBaseline'=c.baseline_at)
-         order by baseline_at,user_id limit $1`,
+        'select * from private.list_reminder_candidates($1)',
         [limit],
       );
       return result.rows.map((row) => ({
@@ -414,30 +385,7 @@ export class EngagementRepository {
   async reminderDeliveryEligible(eventId: string, userId: string): Promise<boolean> {
     return this.worker(async (client) => {
       const result = await client.query<{ eligible: boolean }>(
-        `select coalesce(bool_and(
-           p.status='active'
-           and baseline.value is not null
-           and exists(select 1 from public.notification_preferences pref
-             where pref.user_id=e.user_id and pref.channel='push'
-               and pref.event_type=e.type and pref.enabled)
-           and case
-             when e.type like 'reminder.app_inactive.%'
-               then p.last_seen_at<=baseline.value
-             when e.type='reminder.financial_inactive.7d'
-               then exists(select 1 from public.tracking_preferences tracking
-                 where tracking.user_id=e.user_id and tracking.enabled)
-                 and not exists(select 1 from public.transactions t
-                   where t.user_id=e.user_id and t.deleted_at is null
-                     and t.created_at>baseline.value)
-             else false
-           end
-         ),false) eligible
-         from public.notification_events e
-         join public.profiles p on p.id=e.user_id
-         cross join lateral (select case
-           when e.data->>'cycleBaseline' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
-             then (e.data->>'cycleBaseline')::timestamptz end value) baseline
-         where e.id=$1 and e.user_id=$2 and e.type like 'reminder.%'`,
+        'select private.reminder_delivery_eligible($1::uuid,$2) eligible',
         [eventId, userId],
       );
       return result.rows[0]?.eligible ?? false;

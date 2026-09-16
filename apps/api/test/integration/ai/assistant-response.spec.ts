@@ -65,7 +65,7 @@ describeLiveDatabase('assistant consent and response lifecycle', () => {
     const queued = await repository.enqueueMessage(
       principal,
       String(conversation.id),
-      { content: 'How is my budget?', intent: 'budget_status', contextScope: ['budgets'], responseMode: 'async' },
+      { content: 'How is my budget?', intent: 'budget_status', evidence: [{ alias: 'BUDGETS-1', data: { count: 0 } }], responseMode: 'async' },
       'assistant-message-key-0001',
     );
     const request = Reflect.get(queued, 'resource') as Record<string, unknown>;
