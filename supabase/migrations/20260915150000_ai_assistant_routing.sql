@@ -69,6 +69,7 @@ begin
 end $$;
 alter function private.enqueue_assistant_message_v2(text,uuid,text,text,jsonb,jsonb,jsonb,text,uuid) owner to masarifi_migration;
 revoke all on function private.enqueue_assistant_message_v2(text,uuid,text,text,jsonb,jsonb,jsonb,text,uuid) from public;
+grant execute on function private.enqueue_assistant_message_v2(text,uuid,text,text,jsonb,jsonb,jsonb,text,uuid) to masarifi_api;
 
 create function private.save_deterministic_assistant_message(
   p_user_id text,
@@ -126,6 +127,7 @@ begin
 end $$;
 alter function private.save_deterministic_assistant_message(text,uuid,text,text,text,jsonb,jsonb,text,uuid) owner to masarifi_migration;
 revoke all on function private.save_deterministic_assistant_message(text,uuid,text,text,text,jsonb,jsonb,text,uuid) from public;
+grant execute on function private.save_deterministic_assistant_message(text,uuid,text,text,text,jsonb,jsonb,text,uuid) to masarifi_api;
 
 create function private.get_assistant_work_input_v2(p_id uuid,p_claim_token uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
@@ -205,6 +207,7 @@ begin
 end $$;
 alter function private.get_assistant_work_input_v2(uuid,uuid) owner to masarifi_migration;
 revoke all on function private.get_assistant_work_input_v2(uuid,uuid) from public;
+grant execute on function private.get_assistant_work_input_v2(uuid,uuid) to masarifi_worker;
 
 create table public.financial_insights (
   id uuid primary key default extensions.gen_random_uuid(),
@@ -268,6 +271,7 @@ begin
 end $$;
 alter function private.refresh_financial_insights(integer) owner to masarifi_migration;
 revoke all on function private.refresh_financial_insights(integer) from public;
+grant execute on function private.refresh_financial_insights(integer) to masarifi_worker;
 
 create function private.list_financial_insights(p_user_id text,p_limit integer)
 returns table(value jsonb) language plpgsql stable security definer set search_path='' as $$
@@ -285,22 +289,13 @@ begin
 end $$;
 alter function private.list_financial_insights(text,integer) owner to masarifi_migration;
 revoke all on function private.list_financial_insights(text,integer) from public;
+grant execute on function private.list_financial_insights(text,integer) to masarifi_api;
 
 select private.register_job(
   'financial-insights.generate',9::smallint,'financial-insights.generate',
   '{"kind":"interval","everySeconds":900,"timezone":"UTC"}'::jsonb,
   true,120,3::smallint,'{}'::jsonb,true,true
 );
-
-insert into private.ai_prompt_versions(id,workload,version_no,template,schema_version,status)
-values(
-  '99030000-0000-4000-8000-000000000009',
-  'financial_assistant',
-  2,
-  'You are Masarifi''s financial assistant. Stay within personal finance, spending, income, budgeting, saving, obligations, financial planning, and Masarifi-supported actions. Never invent financial facts or calculate authoritative totals. Use only the structured financial truth and aliases supplied by Masarifi. Refuse unrelated general-purpose tasks. Actions are proposals only; never claim execution before confirmed backend success. Do not use tools.',
-  1,
-  'draft'
-) on conflict(workload,version_no) do nothing;
 
 insert into private.system_settings(setting_key,value,sensitivity) values
   ('ai.user.rolling_limit','5','internal'),

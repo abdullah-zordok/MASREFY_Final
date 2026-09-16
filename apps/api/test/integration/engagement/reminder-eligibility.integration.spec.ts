@@ -9,11 +9,11 @@ describeLiveDatabase('reminder eligibility', () => {
   let repository: EngagementRepository;
   const users = ['reminder-active', 'reminder-app-3d', 'reminder-app-7d', 'reminder-financial'];
 
-  async function worker<T>(action: (client: PoolClient) => Promise<T>): Promise<T> {
+  async function migration<T>(action: (client: PoolClient) => Promise<T>): Promise<T> {
     return pool.withClient(async (client) => {
       await client.query('begin');
       try {
-        await client.query('set local role masarifi_worker');
+        await client.query('set local role masarifi_migration');
         const result = await action(client);
         await client.query('commit');
         return result;
@@ -27,7 +27,7 @@ describeLiveDatabase('reminder eligibility', () => {
   beforeAll(async () => {
     pool = createLivePool();
     repository = new EngagementRepository(pool, {} as never);
-    await worker(async (client) => {
+    await migration(async (client) => {
       await client.query(
         `insert into public.profiles(id,locale,status,last_seen_at,created_at) values
           ('reminder-active','en','active',clock_timestamp()-interval '1 day',clock_timestamp()-interval '10 days'),
@@ -56,7 +56,7 @@ describeLiveDatabase('reminder eligibility', () => {
   });
 
   afterAll(async () => {
-    await worker(async (client) => {
+    await migration(async (client) => {
       await client.query('delete from public.notification_events where user_id=any($1)', [users]);
       await client.query('delete from public.push_tokens where user_id=any($1)', [users]);
       await client.query('delete from public.user_devices where user_id=any($1)', [users]);
@@ -85,7 +85,7 @@ describeLiveDatabase('reminder eligibility', () => {
       (item) => item.userId === 'reminder-app-3d',
     );
     if (!first) throw new Error('REMINDER_FIXTURE_MISSING');
-    await worker((client) => client.query(
+    await migration((client) => client.query(
       `insert into public.notification_events(user_id,type,title,body_safe,data)
        values($1,'reminder.app_inactive.3d','Reminder','Open Masarifi.',jsonb_build_object('cycleBaseline',$2::text))`,
       [first.userId, first.baselineAt],
@@ -94,7 +94,7 @@ describeLiveDatabase('reminder eligibility', () => {
       (item) => item.userId === first.userId,
     )).toBe(false);
 
-    await worker((client) => client.query(
+    await migration((client) => client.query(
       `update public.profiles set last_seen_at=clock_timestamp()-interval '4 days' where id=$1`,
       [first.userId],
     ));
