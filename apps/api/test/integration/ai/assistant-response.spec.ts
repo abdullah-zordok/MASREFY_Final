@@ -65,7 +65,7 @@ describeLiveDatabase('assistant consent and response lifecycle', () => {
     const queued = await repository.enqueueMessage(
       principal,
       String(conversation.id),
-      { content: 'How is my budget?', contextScope: ['budgets'], responseMode: 'async' },
+      { content: 'How is my budget?', intent: 'budget_status', contextScope: ['budgets'], responseMode: 'async' },
       'assistant-message-key-0001',
     );
     const request = Reflect.get(queued, 'resource') as Record<string, unknown>;
@@ -96,7 +96,7 @@ describeLiveDatabase('assistant consent and response lifecycle', () => {
     await repository.enqueueMessage(
       principal,
       String(conversation.id),
-      { content: 'Try again', contextScope: ['budgets'], responseMode: 'stream' },
+      { content: 'Try again', intent: 'budget_status', contextScope: ['budgets'], responseMode: 'stream' },
       'assistant-message-key-0002',
     );
     const revoked = await repository.setConsent(

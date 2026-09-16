@@ -18,6 +18,10 @@ alter table public.notification_preferences
   add constraint notification_preferences_event_type_check
     check(event_type ~ '^[a-z][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)+$' and char_length(event_type)<=96);
 
+grant select on public.tracking_preferences to masarifi_worker;
+create policy tracking_preferences_worker_select on public.tracking_preferences
+  for select to masarifi_worker using(true);
+
 insert into public.notification_templates(
   key,locale,channel,template_version,subject,body,status,published_at,created_by,system_seed
 )

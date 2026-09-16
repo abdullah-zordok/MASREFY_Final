@@ -8,6 +8,10 @@ set local role masarifi_migration;
 
 select has_index('public', 'profiles', 'profiles_active_last_seen_idx', 'profile inactivity lookup index exists');
 select has_index('public', 'transactions', 'transactions_owner_created_active_idx', 'transaction inactivity lookup index exists');
+select ok(
+  has_table_privilege('masarifi_worker', 'public.tracking_preferences', 'SELECT'),
+  'reminder worker may read financial tracking consent'
+);
 select is(
   (
     select count(*)::integer
