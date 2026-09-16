@@ -2,9 +2,11 @@ import { z } from 'zod';
 
 export const safeFailureSchema = z.enum(['validation', 'permission', 'unavailable', 'offline', 'conflict', 'expired', 'limit_reached', 'cancelled', 'representative_failure', 'review_required']);
 export type SafeFailureCategory = z.infer<typeof safeFailureSchema>;
-export const notificationCategorySchema = z.enum(['transaction', 'income', 'obligation', 'budget', 'salary', 'savings', 'report', 'assistant', 'security', 'system']);
+export const notificationCategorySchema = z.enum(['transaction', 'income', 'obligation', 'budget', 'salary', 'savings', 'report', 'assistant', 'security', 'system', 'app_inactivity', 'financial_activity']);
 export type NotificationCategory = z.infer<typeof notificationCategorySchema>;
 export const notificationTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('home') }),
+  z.object({ kind: z.literal('tracking') }),
   z.object({ kind: z.literal('account'), accountId: z.string().min(1) }),
   z.object({ kind: z.literal('transaction'), transactionId: z.string().min(1) }), z.object({ kind: z.literal('review'), reviewId: z.string().min(1) }), z.object({ kind: z.literal('obligation'), obligationId: z.string().min(1) }), z.object({ kind: z.literal('budget'), budgetId: z.string().min(1) }), z.object({ kind: z.literal('salary'), cycleKey: z.string().min(1) }), z.object({ kind: z.literal('goal'), goalId: z.string().min(1) }), z.object({ kind: z.literal('report'), periodKind: z.string().min(1), anchorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }), z.object({ kind: z.literal('assistant'), conversationId: z.string().min(1), responseId: z.string().min(1) }), z.object({ kind: z.literal('security'), securityEventId: z.string().min(1) }), z.object({ kind: z.literal('settings'), key: z.enum(['security', 'notifications', 'privacy']) })
 ]);

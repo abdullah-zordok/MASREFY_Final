@@ -2,7 +2,7 @@ import type { MailTransport } from '../reports/reports.smtp';
 
 export interface PushInput {
   token: string;
-  eventId: string;
+  notificationId: string;
   title: string;
   body: string;
   route: string;
@@ -25,7 +25,7 @@ export type HttpTransport = (request: {
 
 export function safePushPayload(input: PushInput) {
   if (
-    !/^[0-9a-f-]{36}$/i.test(input.eventId) ||
+    !/^[0-9a-f-]{36}$/i.test(input.notificationId) ||
     !/^[a-z][a-z0-9_]{1,63}$/.test(input.route) ||
     input.title.length > 120 ||
     input.body.length > 240 ||
@@ -36,7 +36,7 @@ export function safePushPayload(input: PushInput) {
     to: input.token,
     title: input.title,
     body: input.body,
-    data: { eventId: input.eventId, route: input.route },
+    data: { notificationId: input.notificationId, route: input.route },
   };
 }
 
@@ -128,13 +128,13 @@ export class ApnsPushProvider implements NotificationProvider {
       url: `https://api.push.apple.com/3/device/${encodeURIComponent(input.token)}`,
       headers: {
         authorization: `bearer ${this.bearerToken}`,
-        'apns-id': input.eventId,
+        'apns-id': input.notificationId,
         'apns-topic': this.topic,
         'content-type': 'application/json',
       },
       body: {
         aps: { alert: { title: payload.title, body: payload.body } },
-        eventId: payload.data.eventId,
+        notificationId: payload.data.notificationId,
         route: payload.data.route,
       },
       timeoutMs: 5_000,
@@ -144,7 +144,7 @@ export class ApnsPushProvider implements NotificationProvider {
     if (response.status === 400 || response.status === 410)
       return { status: 'terminal', code: 'TOKEN_INVALID' };
     return response.status >= 200 && response.status < 300
-      ? { status: 'accepted', providerRef: input.eventId }
+      ? { status: 'accepted', providerRef: input.notificationId }
       : { status: 'ambiguous', code: 'PROVIDER_RESPONSE_INVALID' };
   }
 }

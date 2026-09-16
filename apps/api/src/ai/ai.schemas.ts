@@ -51,20 +51,29 @@ export interface AssistantOutput {
   };
 }
 
-export interface VoiceWorkerOutput {
+interface VoiceWorkerOutputBase {
   schemaVersion: 1;
   transcript: string;
   language: 'ar' | 'en';
   confidence: number;
-  proposal: VoiceProposalOutput;
 }
+
+export type VoiceWorkerOutput = VoiceWorkerOutputBase &
+  (
+    | { outcome: 'supported'; proposal: VoiceProposalOutput }
+    | {
+        outcome: 'unsupported';
+        unsupportedReason: 'transfer' | 'multiple' | 'obligation' | 'unclear';
+      }
+  );
 
 export const VOICE_OUTPUT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['schemaVersion', 'transcript', 'language', 'confidence', 'proposal'],
+  required: ['schemaVersion', 'outcome', 'transcript', 'language', 'confidence'],
   properties: {
     schemaVersion: { const: 1 },
+    outcome: { enum: ['supported', 'unsupported'] },
     transcript: { type: 'string', maxLength: 8192 },
     language: { enum: ['ar', 'en'] },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
@@ -90,7 +99,15 @@ export const VOICE_OUTPUT_SCHEMA = {
         confidence: { type: 'number', minimum: 0, maximum: 1 },
       },
     },
+    unsupportedReason: { enum: ['transfer', 'multiple', 'obligation', 'unclear'] },
   },
+  oneOf: [
+    { required: ['proposal'], properties: { outcome: { const: 'supported' } } },
+    {
+      required: ['unsupportedReason'],
+      properties: { outcome: { const: 'unsupported' } },
+    },
+  ],
 } as const;
 
 const ID_SCHEMA = {
@@ -367,9 +384,12 @@ export function parseVoiceProposal(input: unknown): VoiceProposalOutput {
 
 export function parseVoiceWorkerOutput(input: unknown): VoiceWorkerOutput {
   const value = object(input);
-  exactKeys(value, ['schemaVersion', 'transcript', 'language', 'confidence', 'proposal']);
+  const commonKeys = ['schemaVersion', 'outcome', 'transcript', 'language', 'confidence'];
+  const outcomeKey = value.outcome === 'supported' ? 'proposal' : 'unsupportedReason';
+  exactKeys(value, [...commonKeys, outcomeKey]);
   if (
     value.schemaVersion !== 1 ||
+    !['supported', 'unsupported'].includes(String(value.outcome)) ||
     typeof value.transcript !== 'string' ||
     new TextEncoder().encode(value.transcript).length > 8192 ||
     !['ar', 'en'].includes(String(value.language)) ||
@@ -379,6 +399,11 @@ export function parseVoiceWorkerOutput(input: unknown): VoiceWorkerOutput {
     value.confidence > 1
   )
     invalid();
+  if (value.outcome === 'unsupported') {
+    if (!['transfer', 'multiple', 'obligation', 'unclear'].includes(String(value.unsupportedReason)))
+      invalid();
+    return value as unknown as VoiceWorkerOutput;
+  }
   return { ...value, proposal: parseVoiceProposalValue(value.proposal, true) } as VoiceWorkerOutput;
 }
 
@@ -698,8 +723,22 @@ export function assertSafeAiInput(value: string, maximumBytes = 8_192): string {
 
 export function redactAiText(value: string): string {
   return value
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu, '[redacted-id]')
+    .replace(/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,30}\b/gu, '[redacted-iban]')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, '[redacted-email]')
+    .replace(/\+\d(?:[ -]?\d){7,14}/gu, '[redacted-phone]')
     .replace(/(?:\d[ -]?){13,19}/gu, '[redacted-number]');
+}
+
+export function redactAiContext(value: unknown): unknown {
+  if (typeof value === 'string') return redactAiText(value);
+  if (Array.isArray(value)) return value.map(redactAiContext);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !/(?:^|_)?id$/iu.test(key))
+      .map(([key, child]) => [key, redactAiContext(child)]),
+  );
 }
 
 export function hasForbiddenKey(value: unknown): boolean {

@@ -7,6 +7,7 @@ import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
 import { hashIdempotencyKey, hashNormalizedCommand } from '../ledger/idempotency';
 import { PoolService } from '../platform/database/pool.service';
 import type { EffectiveAiRoute } from './ai.gateway';
+import type { AssistantTurn } from './ai-routing';
 
 interface JsonRow extends QueryResultRow {
   result: Record<string, unknown>;
@@ -349,17 +350,74 @@ export class AiRepository {
         if (!quota.allowed) quotaError(quota);
         return this.json(
           client,
-          'select private.enqueue_assistant_message($1,$2::uuid,$3,$4::text[],$5,$6::uuid) result',
+          'select private.enqueue_assistant_message_v2($1,$2::uuid,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9::uuid) result',
           [
             principal.userId,
             conversationId,
             input.content,
-            input.contextScope,
+            input.intent,
+            JSON.stringify(input.context ?? {}),
+            JSON.stringify(input.evidence ?? []),
+            JSON.stringify(input.history ?? []),
             input.responseMode,
             operationId,
           ],
         );
       },
+    );
+  }
+
+  saveDeterministicMessage(
+    principal: ClerkPrincipal,
+    conversationId: string,
+    input: Record<string, unknown>,
+    key: string,
+  ) {
+    return this.idempotent(
+      principal,
+      `ai.assistant-message.create.${conversationId}`,
+      key,
+      input,
+      202,
+      (client, operationId) =>
+        this.json(
+          client,
+          'select private.save_deterministic_assistant_message($1,$2::uuid,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9::uuid) result',
+          [
+            principal.userId,
+            conversationId,
+            input.content,
+            input.intent,
+            input.answer,
+            JSON.stringify(input.context ?? {}),
+            JSON.stringify(input.evidence ?? []),
+            input.responseMode,
+            operationId,
+          ],
+        ),
+    );
+  }
+
+  recentConversationTurns(
+    principal: ClerkPrincipal,
+    conversationId: string,
+    limit: number,
+  ): Promise<AssistantTurn[]> {
+    return this.ownerValues(
+      principal,
+      `select jsonb_build_object('role',role,'content',content_redacted,'intent',intent) value
+       from public.assistant_messages
+       where conversation_id=$1 and user_id=$2 and work_status='completed'
+       order by created_at desc,id desc limit least($3,private.ai_history_turn_limit())`,
+      [conversationId, principal.userId, limit],
+    ).then((rows) => rows.reverse() as unknown as AssistantTurn[]);
+  }
+
+  listInsights(principal: ClerkPrincipal, limit: number) {
+    return this.ownerValues(
+      principal,
+      'select value from private.list_financial_insights($1,$2)',
+      [principal.userId, limit],
     );
   }
 
@@ -613,11 +671,16 @@ export class AiRepository {
   }
 
   workInput(kind: string, id: string, token: string) {
-    return this.workerJson('select private.get_ai_work_input($1,$2::uuid,$3::uuid) result', [
-      kind,
-      id,
-      token,
-    ]);
+    return kind === 'assistant.respond'
+      ? this.workerJson(
+          'select private.get_assistant_work_input_v2($1::uuid,$2::uuid) result',
+          [id, token],
+        )
+      : this.workerJson('select private.get_ai_work_input($1,$2::uuid,$3::uuid) result', [
+          kind,
+          id,
+          token,
+        ]);
   }
 
   saveVoiceResult(
@@ -764,6 +827,17 @@ export class AiRepository {
   }
   rollup(limit: number) {
     return this.workerJson('select private.rollup_ai_usage($1) result', [limit]);
+  }
+
+  refreshInsights(limit: number): Promise<number> {
+    return this.worker(async (client) =>
+      (
+        await client.query<{ result: number }>(
+          'select private.refresh_financial_insights($1) result',
+          [limit],
+        )
+      ).rows[0]?.result ?? 0,
+    );
   }
   claimPurges(workerId: string, limit: number, leaseSeconds: number) {
     return this.worker(

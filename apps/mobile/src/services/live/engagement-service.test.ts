@@ -3,6 +3,7 @@ import type { SupportDraft } from '@/domain/support';
 import {
   createLiveNotificationService,
   createLiveSupportService,
+  ensureLivePushDeviceRegistration,
 } from './engagement-service';
 
 const id = (suffix: number) => `11000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
@@ -103,6 +104,60 @@ it('decodes notification enums/actions strictly and uses each action expiry', as
   ]);
   await expect(service.list({})).rejects.toBeDefined();
   await expect(service.list({})).rejects.toBeDefined();
+});
+
+it('maps transfer.created to the transaction category and target', async () => {
+  const transferId = id(91);
+  const request = jest.fn().mockResolvedValue(
+    response({
+      items: [
+        notification(4, {
+          type: 'transfer.created',
+          dataSafe: { targetKind: 'transaction', targetId: transferId },
+        }),
+      ],
+      nextCursor: null,
+      hasMore: false,
+      unreadCount: 1,
+    }),
+  ) as unknown as jest.MockedFunction<typeof fetch>;
+  const service = createLiveNotificationService({
+    baseUrl: 'https://api.example.test',
+    token: async () => 'token',
+    request,
+  });
+
+  await expect(service.list({})).resolves.toMatchObject({
+    items: [
+      {
+        category: 'transaction',
+        eventType: 'transfer.created',
+        target: { kind: 'transaction', transactionId: transferId },
+      },
+    ],
+  });
+});
+
+it.each([
+  ['reminder.app_inactive.3d', 'app_inactivity', 'home'],
+  ['reminder.app_inactive.7d', 'app_inactivity', 'home'],
+  ['reminder.financial_inactive.7d', 'financial_activity', 'tracking'],
+] as const)('maps %s to %s and its existing destination', async (type, category, targetKind) => {
+  const request = jest.fn().mockResolvedValue(response({
+    items: [notification(5, { type, dataSafe: { targetKind, targetId: null } })],
+    nextCursor: null,
+    hasMore: false,
+    unreadCount: 1,
+  })) as unknown as jest.MockedFunction<typeof fetch>;
+  const service = createLiveNotificationService({
+    baseUrl: 'https://api.example.test',
+    token: async () => 'token',
+    request,
+  });
+
+  await expect(service.list({})).resolves.toMatchObject({
+    items: [{ category, target: { kind: targetKind } }],
+  });
 });
 
 it('traverses every unread notification page before marking all read', async () => {
@@ -214,6 +269,68 @@ it('round-trips the full preference matrix while retaining device-only settings'
   expect(preferences.saveNotificationPreferences).toHaveBeenCalled();
 });
 
+it('loads every seeded backend event type without rejecting the preference matrix', async () => {
+  const eventTypes = [
+    'transaction.created',
+    'transfer.created',
+    'transaction.refunded',
+    'transaction.reversed',
+    'transaction.revised',
+    'transaction.deleted',
+    'transaction.restored',
+    'balance.changed',
+    'ledger.reconciliation_failed',
+    'planning.salary_receipt_expected',
+    'planning.salary_receipt_received',
+    'planning.obligation_overdue',
+    'planning.obligation_completed',
+    'planning.savings_goal_completed',
+    'tracking.review.requested.v1',
+    'tracking.duplicate.detected.v1',
+    'unsupported.format.recorded.v1',
+    'voice.proposal_ready.v1',
+    'assistant.response_ready.v1',
+    'ai.budget_threshold.v1',
+    'report.ready',
+    'report.delivery_failed',
+    'export.ready'
+  ];
+  const request = jest.fn().mockResolvedValue(
+    response({
+      items: eventTypes.map((eventType, index) => ({
+        channel: 'push',
+        eventType,
+        enabled: true,
+        quietHours: {
+          enabled: false,
+          start: '22:00',
+          end: '07:00',
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          timeZone: 'Asia/Riyadh'
+        },
+        version: index + 1
+      })),
+      version: 23
+    })
+  ) as unknown as jest.MockedFunction<typeof fetch>;
+  const service = createLiveNotificationService({
+    baseUrl: 'https://api.example.test',
+    token: async () => 'token',
+    request,
+    preferences: {
+      getNotificationPreferences: jest
+        .fn()
+        .mockResolvedValue(createNotificationPreferences(1)),
+      saveNotificationPreferences: jest.fn()
+    }
+  } as never);
+
+  await expect(service.getPreferences()).resolves.toMatchObject({
+    version: 23,
+    phoneEnabled: true
+  });
+});
+
 it('does not erase device-only preferences when local storage fails', async () => {
   const storageFailure = new Error('database_locked');
   const service = createLiveNotificationService({
@@ -273,6 +390,53 @@ it('connects permission education to native registration and the owner device en
       body: JSON.stringify(registration),
     }),
   );
+});
+
+it('registers an already-permitted push device without requesting permission', async () => {
+  const phone = {
+    getPermission: jest.fn().mockResolvedValue('granted'),
+    registerCategories: jest.fn().mockResolvedValue(undefined),
+  };
+  const registration = {
+    deviceFingerprint: '11000000-0000-4000-8000-000000000099',
+    platform: 'android' as const,
+    appVersion: '0.0.1',
+    pushToken: 'ExponentPushToken[existing-permission]',
+    pushProvider: 'expo' as const,
+  };
+  const request = jest.fn().mockResolvedValue(
+    response({ deviceId: id(99), registeredAt: at, version: 1 }),
+  ) as unknown as jest.MockedFunction<typeof fetch>;
+
+  await expect(ensureLivePushDeviceRegistration({
+    baseUrl: 'https://api.example.test',
+    token: async () => 'token',
+    request,
+    phone,
+    pushRegistration: async () => registration,
+  })).resolves.toBe('granted');
+
+  expect(phone.getPermission).toHaveBeenCalledTimes(1);
+  expect(request).toHaveBeenCalledTimes(1);
+});
+
+it('does not register a push device when permission is denied', async () => {
+  const request = jest.fn();
+  const pushRegistration = jest.fn();
+
+  await expect(ensureLivePushDeviceRegistration({
+    baseUrl: 'https://api.example.test',
+    token: async () => 'token',
+    request: request as never,
+    phone: {
+      getPermission: jest.fn().mockResolvedValue('denied'),
+      registerCategories: jest.fn(),
+    },
+    pushRegistration,
+  })).resolves.toBe('denied');
+
+  expect(pushRegistration).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
 });
 
 it('preserves exact ticket status and attachment metadata and rejects unknown status', async () => {

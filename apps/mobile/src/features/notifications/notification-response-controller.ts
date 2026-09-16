@@ -157,6 +157,8 @@ async function protectedNotificationAction(options: ProtectedActionOptions) {
 }
 
 function routeForTarget(target: NotificationTarget, action: Exclude<NotificationActionKind, 'undo'>): string | null {
+  if (target.kind === 'home') return '/(tabs)/home';
+  if (target.kind === 'tracking') return '/tracking';
   if (target.kind === 'account') return path('/accounts', target.accountId, action === 'edit');
   if (target.kind === 'transaction') return path('/transactions', target.transactionId, action === 'edit');
   if (target.kind === 'review') return path('/tracking/review', target.reviewId);

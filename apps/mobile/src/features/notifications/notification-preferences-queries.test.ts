@@ -4,9 +4,12 @@ import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react
 
 import { createNotificationPreferences } from '@/domain/notifications';
 import { assistantNotificationsService } from '@/services/mocks/assistant-notifications-service';
+import { phoneNotificationService } from '@/services/platform/phone-notification-service';
 
 import {
   notificationPreferenceKeys,
+  useNotificationPermission,
+  useOpenNotificationSettings,
   useNotificationPreferences,
   useRefreshNotificationPermission,
   useRequestNotificationPermission,
@@ -80,6 +83,29 @@ it('refreshes and requests real permission state through explicit mutations', as
   expect(refreshPermission).toHaveBeenCalledTimes(1);
   expect(requestPermission).toHaveBeenCalledTimes(1);
   expect(client.getQueryState(notificationPreferenceKeys.preferences())?.isInvalidated).toBe(true);
+});
+
+it('reads OS permission and refreshes it after permission actions', async () => {
+  const { wrapper } = queryHarness();
+  const getPermission = jest
+    .spyOn(phoneNotificationService, 'getPermission')
+    .mockResolvedValueOnce('denied')
+    .mockResolvedValue('granted');
+  const openSystemSettings = jest
+    .spyOn(phoneNotificationService, 'openSystemSettings')
+    .mockResolvedValue();
+
+  const permission = renderHook(() => useNotificationPermission(), { wrapper });
+  await waitFor(() => expect(permission.result.current.data).toBe('denied'));
+
+  const settings = renderHook(() => useOpenNotificationSettings(), { wrapper });
+  await act(async () => {
+    await settings.result.current.mutateAsync();
+  });
+
+  await waitFor(() => expect(permission.result.current.data).toBe('granted'));
+  expect(openSystemSettings).toHaveBeenCalledTimes(1);
+  expect(getPermission).toHaveBeenCalledTimes(2);
 });
 
 it('preserves cached preferences after a save conflict', async () => {

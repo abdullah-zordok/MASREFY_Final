@@ -1,6 +1,7 @@
 import { HttpException } from '@nestjs/common';
 
 import { assertSafeAiInput, hasForbiddenKey } from './ai.schemas';
+import { ASSISTANT_INTENTS, type AssistantIntent } from './ai-routing';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const CONTENT_TYPES = new Set([
@@ -184,23 +185,21 @@ export function conversationUpdate(input: unknown) {
 
 export function assistantMessage(input: unknown) {
   const value = record(input);
-  exact(value, ['content', 'contextScope', 'responseMode']);
+  exact(value, ['content', 'intent', 'contextScope', 'responseMode']);
   const content = assertSafeAiInput(text(value.content, ''));
-  if (
-    !Array.isArray(value.contextScope) ||
-    value.contextScope.length < 1 ||
-    value.contextScope.length > 5
-  )
-    bad();
-  const contextScope = value.contextScope.map((scope) => text(scope));
-  if (
-    new Set(contextScope).size !== contextScope.length ||
-    contextScope.some((scope) => !SCOPES.has(scope))
-  )
-    bad();
+  const contextScope = value.contextScope === undefined ? [] : value.contextScope;
+  if (!Array.isArray(contextScope) || contextScope.length > 5) bad();
+  const normalizedScope = contextScope.map((scope) => text(scope));
+  if (new Set(normalizedScope).size !== normalizedScope.length || normalizedScope.some((scope) => !SCOPES.has(scope))) bad();
+  const intent = value.intent === undefined ? undefined : text(value.intent);
+  if (intent !== undefined && !ASSISTANT_INTENTS.includes(intent as AssistantIntent)) bad();
   if (typeof value.responseMode !== 'string' || !['async', 'stream'].includes(value.responseMode))
     bad();
-  return { content, contextScope, responseMode: value.responseMode as 'async' | 'stream' };
+  return {
+    content,
+    intent: intent as AssistantIntent | undefined,
+    responseMode: value.responseMode as 'async' | 'stream',
+  };
 }
 
 export function feedback(input: unknown) {

@@ -8,6 +8,15 @@ insert into public.profiles(id,status,locale,timezone)
 select 'engagement_perf_'||g,'active',case when g%2=0 then 'ar' else 'en' end,'Asia/Riyadh'
 from generate_series(1,1000) g on conflict do nothing;
 
+update public.profiles
+set last_seen_at=clock_timestamp()-interval '8 days'
+where id like 'engagement_perf_%';
+
+insert into public.transactions(user_id,kind,amount_minor,currency_code,title,occurred_at,created_at)
+select 'engagement_perf_'||g,'expense',100,'SAR','Performance transaction',
+  clock_timestamp()-interval '8 days',clock_timestamp()-interval '8 days'
+from generate_series(1,1000) g;
+
 insert into public.notification_events(user_id,type,title,body_safe,created_at)
 select 'engagement_perf_1','report.ready','Masarifi','A safe update is available.',clock_timestamp()-(g||' seconds')::interval
 from generate_series(1,10000) g;
@@ -36,6 +45,29 @@ analyze public.notification_events;
 analyze public.support_tickets;
 analyze public.content_items;
 analyze public.content_translations;
+analyze public.profiles;
+analyze public.transactions;
+
+set local enable_seqscan=off;
+
+do $$ declare plan json; begin
+  execute $query$explain (format json) select id,last_seen_at from public.profiles
+    where status='active' and last_seen_at<clock_timestamp()-interval '3 days'
+    order by last_seen_at,id limit 500$query$ into plan;
+  if plan::text not like '%profiles_active_last_seen_idx%' then
+    raise exception 'reminder profile query skipped its partial index: %',plan;
+  end if;
+end $$;
+
+do $$ declare plan json; begin
+  execute $query$explain (format json) select max(created_at) from public.transactions
+    where user_id='engagement_perf_1' and deleted_at is null$query$ into plan;
+  if plan::text not like '%transactions_owner_created_active_idx%' then
+    raise exception 'reminder transaction query skipped its partial index: %',plan;
+  end if;
+end $$;
+
+set local enable_seqscan=on;
 
 do $$ declare plan json; begin
   execute $query$explain (analyze,buffers,format json) select id,type,title,body_safe,read_at,version,created_at from public.notification_events where user_id='engagement_perf_1' and read_at is null order by created_at desc,id desc limit 101$query$ into plan;

@@ -6,7 +6,10 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLIENT_MODE": "demo"
+      }
     },
     "preview": {
       "distribution": "internal"

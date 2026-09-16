@@ -18,6 +18,7 @@ const unavailable: CapabilityProviderHandle<AssistantService> = {
   },
   getConsent: unavailableCall,
   getAvailability: unavailableCall,
+  listInsights: unavailableCall,
   setConsent: unavailableCall,
   listConversations: unavailableCall,
   createConversation: unavailableCall,

@@ -23,6 +23,9 @@ export const ENGAGEMENT_SOURCE_EVENTS = new Set<string>([
   'report.ready',
   'report.delivery_failed',
   'export.ready',
+  'reminder.app_inactive.3d',
+  'reminder.app_inactive.7d',
+  'reminder.financial_inactive.7d',
 ]);
 
 export const ENGAGEMENT_JOB_NAMES = new Set([
@@ -31,6 +34,7 @@ export const ENGAGEMENT_JOB_NAMES = new Set([
   'notification.campaign.expand',
   'notification.expire',
   'support-attachment.scan',
+  'notification.reminders.evaluate',
 ] as const);
 
 export const ENGAGEMENT_EVENT_NAMES = new Set([

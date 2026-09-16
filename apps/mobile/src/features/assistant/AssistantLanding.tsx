@@ -12,15 +12,20 @@ import { AssistantConsentCard } from './components/AssistantConsentCard';
 import { AssistantSuggestedQuestions } from './components/AssistantSuggestedQuestions';
 import { AssistantPrivacyFooter } from './components/AssistantPrivacyFooter';
 import { StyledText } from '@/components/StyledText';
-import { translate } from '@/localization/i18n';
+import { currentLocale, translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import type { AssistantConsent } from '@/domain/assistant';
+import type { AssistantQuestionIntent } from '@/services/contracts/assistant-notifications-service';
+import type { AssistantFinancialInsight } from '@/services/contracts/assistant-notifications-service';
+import { SurfaceCard } from '@/design-system/components/SurfaceCard';
+import { formatMinorAmount } from '@/utils/format-financial-value';
 
 export interface AssistantLandingProps {
-  onAskQuestion: (question: string) => void;
+  onAskQuestion: (question: string, intent?: AssistantQuestionIntent) => void;
   consent?: AssistantConsent | null;
   onEnableConsent: () => void;
+  insight?: AssistantFinancialInsight;
   conversations?: readonly { id: string; title: string }[];
   onSelectConversation?: (id: string) => void;
   loading?: boolean;
@@ -32,6 +37,7 @@ export function AssistantLanding({
   onAskQuestion,
   consent,
   onEnableConsent,
+  insight,
   loading = false,
   error = null,
   onBack
@@ -89,6 +95,15 @@ export function AssistantLanding({
             onSelectQuestion={onAskQuestion}
             disabled={loading}
           />
+
+          {insight ? (
+            <SurfaceCard testID="assistant-proactive-insight" style={styles.insightCard}>
+              <StyledText variant="title">{insight.budgetName}</StyledText>
+              <StyledText>
+                {formatMinorAmount(insight.spentMinor, insight.currency, currentLocale()).replace('\u00a0', ' ')}
+              </StyledText>
+            </SurfaceCard>
+          ) : null}
         </View>
 
         {/* Bottom closing zone (anchored naturally to available height) */}
@@ -132,5 +147,10 @@ const styles = StyleSheet.create({
     color: colorTokens.status.danger,
     fontSize: 13,
     textAlign: 'center'
+  },
+  insightCard: {
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    padding: spacing.md
   }
 });

@@ -27,6 +27,8 @@ import { recordAiResult } from './ai.observability';
 import { AiRepository } from './ai.repository';
 import { redactAiText } from './ai.schemas';
 import { AiStorage } from './ai.storage';
+import { AssistantFinancialTools } from './ai-financial-tools';
+import { routeAssistantMessage, selectConversationHistory } from './ai-routing';
 
 const CONSENT_POLICY = 'assistant-privacy-v1';
 const STREAM_TIMEOUT_MS = 65_000;
@@ -114,6 +116,7 @@ export class AiService {
     private readonly ledger: LedgerService,
     private readonly planning: PlanningService,
     private readonly tracking: TrackingService,
+    private readonly financialTools: AssistantFinancialTools,
     private readonly config: PlatformConfigService,
   ) {}
 
@@ -274,6 +277,9 @@ export class AiService {
   getAssistantAvailability(principal: ClerkPrincipal) {
     return this.repository.getAssistantAvailability(principal, CONSENT_POLICY);
   }
+  listInsights(principal: ClerkPrincipal) {
+    return this.repository.listInsights(principal, 10).then((items) => ({ items }));
+  }
   getConversation(principal: ClerkPrincipal, id: string) {
     return this.repository.getConversation(principal, uuid(id));
   }
@@ -312,22 +318,83 @@ export class AiService {
     body: unknown,
     key: unknown,
   ) {
-    await this.available('financial_assistant');
     const input = assistantMessage(body);
+    const conversationIdValue = uuid(conversationId);
+    let route = routeAssistantMessage({ content: input.content, intentHint: input.intent });
+    let history: Array<{ role: 'user' | 'assistant'; content: string; intent: string | null }> = [];
+    if (route.execution === 'provider' && route.intent !== 'general_finance') {
+      history = selectConversationHistory(
+        await this.repository.recentConversationTurns(principal, conversationIdValue, 4),
+      );
+      route = routeAssistantMessage({
+        content: input.content,
+        intentHint: input.intent,
+        recentTurns: history,
+      });
+    }
+    const redactedContent = redactAiText(input.content);
+    const keyValue = idempotencyKey(key);
+    if (route.intent === 'unrelated' || route.intent === 'unsupported') {
+      return this.accepted(
+        await this.repository.saveDeterministicMessage(
+          principal,
+          conversationIdValue,
+          {
+            content: redactedContent,
+            intent: route.intent,
+            answer: this.redirect(input.content, route.intent),
+            context: {},
+            evidence: [],
+            responseMode: input.responseMode,
+          },
+          keyValue,
+        ),
+      );
+    }
+    const truth = await this.financialTools.resolve(
+      principal,
+      route.intent,
+      input.content,
+      keyValue,
+    );
+    const evidence = truth.evidence.map((item, index) => ({
+      ...item,
+      alias: `EVIDENCE-${(index + 1).toString()}`,
+    }));
+    if (route.execution === 'deterministic') {
+      return this.accepted(
+        await this.repository.saveDeterministicMessage(
+          principal,
+          conversationIdValue,
+          {
+            content: redactedContent,
+            intent: route.intent,
+            answer: truth.answer,
+            context: truth.context,
+            evidence,
+            responseMode: input.responseMode,
+          },
+          keyValue,
+        ),
+      );
+    }
+    await this.available('financial_assistant');
     const result = resource(
       await this.repository.enqueueMessage(
         principal,
-        uuid(conversationId),
-        { ...input, content: redactAiText(input.content) },
-        idempotencyKey(key),
+        conversationIdValue,
+        {
+          content: redactedContent,
+          intent: route.intent,
+          context: truth.context,
+          evidence,
+          history: history.map(({ role, content }) => ({ role, content: redactAiText(content) })),
+          responseMode: input.responseMode,
+        },
+        keyValue,
       ),
     );
-    const message = resource(result.resource);
-    return {
-      id: message.id,
-      status: message.workStatus ?? 'queued',
-      replayed: result.replayed === true,
-    };
+    return this.accepted(result);
   }
 
   async listMessages(principal: ClerkPrincipal, conversationId: string, query: unknown) {
@@ -628,5 +695,26 @@ export class AiService {
       !(await this.repository.workloadAvailable(workload))
     )
       throw new HttpException({ code: 'AI_UNAVAILABLE' }, 503);
+  }
+
+  private accepted(value: unknown) {
+    const result = resource(value);
+    const message = resource(result.resource);
+    return {
+      id: message.id,
+      status: message.workStatus ?? 'queued',
+      replayed: result.replayed === true,
+    };
+  }
+
+  private redirect(content: string, intent: 'unrelated' | 'unsupported'): string {
+    const arabic = /[\u0600-\u06ff]/u.test(content);
+    if (intent === 'unsupported')
+      return arabic
+        ? 'ما قدرت أحدد طلبًا ماليًا مدعومًا. اسألني عن مصاريفك أو ميزانيتك أو ادخارك أو التزاماتك.'
+        : 'I could not identify a supported financial request. Ask about spending, budgets, savings, or obligations.';
+    return arabic
+      ? 'أنا متخصص في مساعدتك في مصاريفك وميزانيتك وادخارك والتزاماتك وقراراتك المالية.'
+      : "I'm focused on helping with your spending, budgets, savings, obligations, and financial decisions.";
   }
 }

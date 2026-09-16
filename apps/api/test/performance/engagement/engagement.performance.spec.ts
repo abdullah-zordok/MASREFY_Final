@@ -38,7 +38,7 @@ describe('engagement performance budgets', () => {
   it('keeps deterministic provider failures bounded and payload-safe', async () => {
     const input = {
       token: 'fixture-token',
-      eventId: '10000000-0000-4000-8000-000000000001',
+      notificationId: '10000000-0000-4000-8000-000000000001',
       title: 'Masarifi',
       body: 'A safe update is available.',
       route: 'notification_detail',

@@ -8,6 +8,11 @@ export function validateClientBuildEnvironment(environment = process.env) {
     ([name, value]) => value && publicSecretPattern.test(name)
   );
   if (exposed) throw new Error(`forbidden public secret variable: ${exposed[0]}`);
+  if (environment.EAS_BUILD_PROFILE === 'development') {
+    if (environment.EXPO_PUBLIC_CLIENT_MODE !== 'demo')
+      throw new Error('development build requires demo client mode');
+    return;
+  }
   if (environment.NODE_ENV !== 'production') return;
   if (environment.EXPO_PUBLIC_CLIENT_MODE !== 'live')
     throw new Error('production requires live client mode');

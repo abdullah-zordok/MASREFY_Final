@@ -75,12 +75,14 @@ describe('AssistantLanding', () => {
 
     fireEvent.press(screen.getByTestId('suggestion-card-spending'));
     expect(onAskQuestion).toHaveBeenCalledWith(
-      translate('assistant.suggestions.spending')
+      translate('assistant.suggestions.spending'),
+      'spending_summary'
     );
 
     fireEvent.press(screen.getByTestId('suggestion-card-budget'));
     expect(onAskQuestion).toHaveBeenCalledWith(
-      translate('assistant.suggestions.budget')
+      translate('assistant.suggestions.budget'),
+      'budget_status'
     );
   });
 
@@ -102,6 +104,31 @@ describe('AssistantLanding', () => {
 
     fireEvent.press(screen.getByTestId('assistant-consent-enable-button'));
     expect(onEnableConsent).toHaveBeenCalled();
+  });
+
+  it('renders only authoritative proactive insight values supplied by the backend', () => {
+    renderWithProviders(
+      <AssistantLanding
+        onAskQuestion={jest.fn()}
+        onEnableConsent={jest.fn()}
+        insight={{
+          id: 'insight-1',
+          kind: 'budget_threshold',
+          budgetName: 'Restaurants',
+          currency: 'SAR',
+          budgetMinor: 100_000,
+          spentMinor: 85_000,
+          remainingMinor: 15_000,
+          utilizationBps: 8500,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 1000
+        }}
+      />
+    );
+
+    expect(screen.getByText('Restaurants')).toBeTruthy();
+    expect(screen.getByText('850.00 SAR')).toBeTruthy();
+    expect(screen.queryByText('1,870.00 SAR')).toBeNull();
   });
 
   it.each(['ar', 'en'] as const)(

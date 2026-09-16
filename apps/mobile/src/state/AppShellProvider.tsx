@@ -13,6 +13,7 @@ import { useLiveClerkSessionKey } from '@/services/live/clerk-provider';
 import { synchronizeLiveCoreFinance } from '@/services/live/core-finance-service';
 import { refreshPlatformOperations } from '@/services/platform-operations-service';
 import { syncAutomaticTracking } from '@/services/automatic-tracking-coordinator';
+import { ensureLivePushDeviceRegistration } from '@/services/live/engagement-service';
 
 interface AppShellProviderProps {
   children: ReactNode;
@@ -40,6 +41,7 @@ export function AppShellProvider({
   const liveClerkSessionKey = useLiveClerkSessionKey();
   const restoredLiveSession = useRef<string | null | undefined>(undefined);
   const restoreQueue = useRef(Promise.resolve());
+  const registeredPushSession = useRef<string | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -62,8 +64,13 @@ export function AppShellProvider({
       .then(() =>
         current ? restoreAppShellSession(authService, () => current) : undefined
       )
-      .then(() => {
+      .then(async () => {
         if (current && liveClerkSessionKey) {
+          void authService.touchActivity().catch(() => undefined);
+          if (registeredPushSession.current !== liveClerkSessionKey) {
+            registeredPushSession.current = liveClerkSessionKey;
+            void ensureLivePushDeviceRegistration().catch(() => undefined);
+          }
           void synchronizeLiveCoreFinance().catch(() => undefined);
           void refreshPlatformOperations().catch(() => undefined);
           void syncAutomaticTracking().catch(() => undefined);
@@ -117,6 +124,7 @@ export function AppShellProvider({
         resolveClientMode() === 'live' &&
         liveClerkSessionKey
       ) {
+        void authService.touchActivity().catch(() => undefined);
         void synchronizeLiveCoreFinance().catch(() => undefined);
         void refreshPlatformOperations().catch(() => undefined);
         void syncAutomaticTracking().catch(() => undefined);

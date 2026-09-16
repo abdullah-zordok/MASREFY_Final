@@ -7,6 +7,8 @@ import { DatabaseModule } from '../platform/database/database.module';
 import { PlatformConfigService } from '../platform/config/platform-config.service';
 import { SecurityModule } from '../security/security.module';
 import { TrackingModule } from '../tracking/tracking.module';
+import { ReportsModule } from '../reports/reports.module';
+import { AssistantFinancialTools } from './ai-financial-tools';
 import { AiController } from './ai.controller';
 import { AiAdminController } from './ai.admin.controller';
 import { AiGateway } from './ai.gateway';
@@ -24,9 +26,16 @@ import { AiNoStoreInterceptor } from './ai-no-store.interceptor';
     LedgerModule,
     PlanningModule,
     TrackingModule,
+    ReportsModule,
   ],
   controllers: [AiController, AiAdminController],
-  providers: [AiRepository, AiStorage, AiService, AiNoStoreInterceptor],
+  providers: [
+    AiRepository,
+    AiStorage,
+    AiService,
+    AssistantFinancialTools,
+    AiNoStoreInterceptor,
+  ],
 })
 export class AiModule {}
 

@@ -85,6 +85,28 @@ describe('notification response controller', () => {
     expect(navigate).toHaveBeenCalledWith('/transactions/transaction-1');
   });
 
+  it.each([
+    [{ kind: 'home' }, '/(tabs)/home'],
+    [{ kind: 'tracking' }, '/tracking'],
+  ])('opens the existing reminder destination', async (target, route) => {
+    const navigate = jest.fn();
+    const controller = createNotificationResponseController({
+      notificationService: targetService({
+        resolveTarget: jest.fn(async () => ({ status: 'exact', target })) as never,
+        revalidateAction: jest.fn(async (_id, action) => ({
+          status: 'available', target, action,
+        })) as never,
+      }),
+      phoneService: phoneService().phone,
+      navigate,
+      unlock: async () => true,
+    });
+
+    await controller.handle({ notificationId: 'reminder-1', action: 'view' });
+
+    expect(navigate).toHaveBeenCalledWith(route);
+  });
+
   it('uses a trusted fallback target and returns unavailable targets to notifications', async () => {
     const navigate = jest.fn();
     const controller = createNotificationResponseController({

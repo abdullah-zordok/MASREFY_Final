@@ -8,15 +8,18 @@ test('turns a committed registered source event into preference-aware channel wo
   const source = {
     source_event_id: '10000000-0000-4000-8000-000000000001',
     source_id: '20000000-0000-4000-8000-000000000001',
-    event_type: 'account.credit_card_payment_due',
+    event_type: 'transaction.created',
     user_id: 'user-1',
     locale: 'en' as const,
     time_zone: 'Asia/Riyadh',
     occurred_at: '2026-09-05T07:00:00.000Z',
     expires_at: null,
   };
+  const claimSourceEvents = jest
+    .fn<Promise<(typeof source)[]>, [string[], number]>()
+    .mockResolvedValue([source]);
   const repository = {
-    claimSourceEvents: jest.fn().mockResolvedValue([source]),
+    claimSourceEvents,
     loadSourceTemplates: jest.fn().mockResolvedValue(
       ['in_app', 'push', 'email'].map((channel) => ({
         id: `${channel}-template`,
@@ -26,7 +29,7 @@ test('turns a committed registered source event into preference-aware channel wo
         template_version: 1,
         subject: channel === 'email' ? 'Masarifi update' : null,
         body: 'A safe update is available.',
-        enabled: channel !== 'email',
+        enabled: channel !== 'push',
         quiet_hours: {},
       })),
     ),
@@ -58,16 +61,18 @@ test('turns a committed registered source event into preference-aware channel wo
     expect.arrayContaining(['planning.obligation_overdue']),
     100,
   );
+  const claimedTypes = claimSourceEvents.mock.calls[0]?.[0];
+  expect(claimedTypes).not.toContain('balance.changed');
   expect(repository.createNotificationFromSource).toHaveBeenCalledWith(
     source,
     expect.arrayContaining([
       expect.objectContaining({ channel: 'in_app', status: 'queued' }),
-      expect.objectContaining({ channel: 'push', status: 'queued' }),
       expect.objectContaining({
-        channel: 'email',
+        channel: 'push',
         status: 'suppressed',
         errorCode: 'PREFERENCE_DISABLED',
       }),
+      expect.objectContaining({ channel: 'email', status: 'queued' }),
     ]),
   );
 });

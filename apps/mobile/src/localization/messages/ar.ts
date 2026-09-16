@@ -1100,6 +1100,16 @@ const ar: MessageCatalog = {
     'تحليل التسجيل الصوتي غير متاح حالياً. أدخل المعاملة يدوياً.',
   'voice.error.analysis_failed':
     'تعذر تحليل التسجيل. حاول مجددًا أو أدخل المعاملة يدويًا.',
+  'voice.error.provider_unavailable':
+    'التحليل الصوتي غير مهيأ أو غير متاح مؤقتًا.',
+  'voice.error.quota_exhausted':
+    'وصل التحليل الصوتي إلى حد الاستخدام الحالي. حاول لاحقًا.',
+  'voice.error.processing_timed_out':
+    'استغرق التحليل الصوتي وقتًا طويلًا. حاول مجددًا أو أدخل المعاملة يدويًا.',
+  'voice.error.session_expired':
+    'انتهت جلستك. سجّل الدخول مجددًا للمتابعة.',
+  'voice.error.unsupported_intent':
+    'يتطلب هذا الطلب الصوتي مراجعة يدوية ولم يتم تحويله إلى معاملة.',
   'voice.error.offline':
     'التحليل الصوتي غير متاح دون اتصال. الإدخال اليدوي ما زال متاحًا.',
   'voice.error.invalid_proposal': 'راجع القيم المحددة قبل الحفظ.',
@@ -1545,6 +1555,21 @@ const ar: MessageCatalog = {
   'notifications.preferences.hideLock': 'إخفاء المبالغ على شاشة القفل',
   'notifications.preferences.categories': 'الفئات',
   'notifications.preferences.categoryPrefix': 'الفئة',
+  'notifications.preferences.category.transaction':
+    'إشعارات العمليات التلقائية',
+  'notifications.preferences.category.income': 'إشعارات الدخل',
+  'notifications.preferences.category.obligation': 'الالتزامات',
+  'notifications.preferences.category.budget': 'الميزانيات',
+  'notifications.preferences.category.salary': 'الراتب',
+  'notifications.preferences.category.savings': 'أهداف الادخار',
+  'notifications.preferences.category.report': 'التقارير',
+  'notifications.preferences.category.assistant': 'المساعد',
+  'notifications.preferences.category.security': 'الأمان',
+  'notifications.preferences.category.system': 'تحديثات النظام',
+  'notifications.preferences.category.app_inactivity':
+    'تذكيرات عدم فتح التطبيق',
+  'notifications.preferences.category.financial_activity':
+    'تذكيرات النشاط المالي',
   'notifications.preferences.quietHours': 'ساعات الهدوء',
   'notifications.preferences.quietStart': 'بداية الهدوء',
   'notifications.preferences.quietEnd': 'نهاية الهدوء',
@@ -1608,7 +1633,7 @@ const ar: MessageCatalog = {
   'assistant.suggestions.spending': 'كم أنفقت هذا الشهر؟',
   'assistant.suggestions.restaurants': 'أنفقت على المطاعم هذا الشهر؟',
   'assistant.suggestions.highest': 'ما هي أكبر مصروفاتي؟',
-  'assistant.suggestions.weekly': 'ملخص مصروفاتي الأسبوعية',
+  'assistant.suggestions.weekly': 'آخر معاملاتي المؤكدة',
   'assistant.suggestions.budget': 'هل تجاوزت ميزانيتي؟',
   'assistant.capabilities.reports': 'تقارير مخصصة لأموالك',
   'assistant.capabilities.analytics': 'تحليل إنفاقك بذكاء',

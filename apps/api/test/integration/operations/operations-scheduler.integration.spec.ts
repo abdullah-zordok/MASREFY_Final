@@ -1,6 +1,10 @@
 import { OperationsWorker } from '../../../src/operations/operations.worker';
+import { GOVERNED_JOB_KEYS } from '../../../src/operations/job-registry';
 
 describe('operations scheduler integration', () => {
+  it('registers daily reminder evaluation as a governed job', () => {
+    expect(GOVERNED_JOB_KEYS).toContain('notification.reminders.evaluate');
+  });
   it('dispatches one authoritative claim when workers poll concurrently', async () => {
     let available = true;
     const completions: unknown[][] = [];

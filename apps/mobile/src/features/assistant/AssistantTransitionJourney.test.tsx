@@ -6,6 +6,7 @@ import { usePreferenceStore } from '@/state/preferences';
 
 const mockAssistantQueries = {
   useAssistantConsent: jest.fn(),
+  useAssistantInsights: jest.fn(),
   useSetAssistantConsent: jest.fn(),
   useCreateAssistantConversation: jest.fn(),
   useAssistantConversations: jest.fn(),
@@ -30,6 +31,7 @@ describe('Assistant Transition & Chat Journey', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     changeLocale('ar');
+    mockAssistantQueries.useAssistantInsights.mockReturnValue({ data: [] });
     usePreferenceStore.setState({ hideBalances: false });
 
     mockAssistantQueries.useAssistantConsent.mockReturnValue({

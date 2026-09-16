@@ -25,7 +25,7 @@ beforeEach(() => {
   mockAssistantQueries.useCancelAssistantAction.mockReturnValue({ mutate: jest.fn(), isPending: false });
 });
 
-test('discloses destination, values, editable input, and cancel/back without owner confirmation', () => {
+test('discloses destination and values but hides unsupported preview editing', () => {
   const update = jest.fn();
   const cancel = jest.fn();
   mockAssistantQueries.useUpdateAssistantActionPreview.mockReturnValue({ mutate: update, isPending: false });
@@ -38,55 +38,15 @@ test('discloses destination, values, editable input, and cancel/back without own
   expect(screen.getByText(t('assistant.actionPreview.value.amount'))).toBeTruthy();
   expect(screen.getByText('300.00 SAR')).toBeTruthy();
 
-  fireEvent.changeText(screen.getByLabelText(t('assistant.actionPreview.input.amount')), '350.00');
-  fireEvent.press(screen.getByText(t('assistant.actionPreview.action.saveEdit')));
+  expect(screen.queryByLabelText(t('assistant.actionPreview.input.amount'))).toBeNull();
+  expect(screen.queryByText(t('assistant.actionPreview.action.saveEdit'))).toBeNull();
   fireEvent.press(screen.getByText(t('assistant.actionPreview.action.cancel')));
   fireEvent.press(screen.getByText(t('assistant.actionPreview.action.back')));
 
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({ previewId: 'preview-1', input: { amountMinor: 35000, currency: 'SAR' } }));
+  expect(update).not.toHaveBeenCalled();
   expect(cancel).toHaveBeenCalledWith(expect.objectContaining({ previewId: 'preview-1', expectedVersion: 1 }));
   expect(router.back).toHaveBeenCalled();
 });
-
-it.each([
-  ['JPY', 12_345, '12345'],
-  ['SAR', 12_345, '123.45'],
-  ['OMR', 12_345, '12.345']
-])(
-  'keeps %s minor units unchanged when the editable amount is saved',
-  async (currency, amountMinor, majorAmount) => {
-    const update = jest.fn();
-    mockAssistantQueries.useAssistantActionPreview.mockReturnValue({
-      data: preview({ currency, amountMinor }),
-      isLoading: false,
-      isError: false
-    });
-    mockAssistantQueries.useUpdateAssistantActionPreview.mockReturnValue({
-      mutate: update,
-      isPending: false
-    });
-
-    renderWithProviders(
-      <AssistantActionPreviewScreen
-        conversationId="conversation-1"
-        previewId="preview-1"
-      />
-    );
-
-    expect(
-      await screen.findByDisplayValue(majorAmount)
-    ).toBeTruthy();
-    fireEvent.press(
-      screen.getByText(t('assistant.actionPreview.action.saveEdit'))
-    );
-
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        input: { amountMinor: 12_345, currency }
-      })
-    );
-  }
-);
 
 test('requires confirmation dialog before mutating and routes to the safe success destination', () => {
   const confirm = jest.fn((_input, options) => options?.onSuccess?.({ value: { ...preview(), status: 'succeeded', resultReference: 'goal-1' } }));

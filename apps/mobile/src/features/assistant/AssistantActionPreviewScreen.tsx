@@ -5,12 +5,9 @@ import { router } from 'expo-router';
 
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { FinancialPulse } from '@/design-system/components/financial/FinancialPulse';
-import { FormField } from '@/design-system/components/forms/FormField';
 import { GroupedList, NavigationRow } from '@/design-system/components/navigation/GroupedList';
 import { ConfirmationDialog } from '@/design-system/components/overlays/ConfirmationDialog';
 import type { AssistantActionPreview } from '@/domain/assistant';
-import { minorToMajorAmountText } from '@/domain/currencies';
-import { parseAmountToMinor } from '@/domain/core-finance';
 import { StyledText } from '@/components/StyledText';
 import { currentLocale, translateDynamic } from '@/localization/i18n';
 import { formatMinorAmount } from '@/utils/format-financial-value';
@@ -20,24 +17,16 @@ type AssistantQueries = typeof import('./assistant-queries');
 export function AssistantActionPreviewScreen({ previewId }: { conversationId: string; previewId: string }) {
   const queries = require('./assistant-queries') as AssistantQueries;
   const previewQuery = queries.useAssistantActionPreview(previewId);
-  const update = queries.useUpdateAssistantActionPreview();
   const confirm = queries.useConfirmAssistantAction();
   const cancel = queries.useCancelAssistantAction();
   const preview = previewQuery.data as AssistantActionPreview | undefined;
-  const [amount, setAmount] = React.useState('');
   const [submitted, setSubmitted] = React.useState(false);
   const [confirmVisible, setConfirmVisible] = React.useState(false);
   const moneyInput = isMoneyInput(preview?.input) ? preview.input : null;
   const amountMinor = moneyInput?.amountMinor ?? 0;
   const currency = moneyInput?.currency ?? 'SAR';
-  const editedAmountMinor = parseAmountToMinor(amount, currency);
   const formattedAmount = formatMinorAmount(amountMinor, currency, currentLocale());
   const queryError = previewQuery.error as { code?: string } | null;
-
-  React.useEffect(() => {
-    if (preview && moneyInput)
-      setAmount(minorToMajorAmountText(amountMinor, currency));
-  }, [amountMinor, currency, moneyInput, preview]);
 
   if (previewQuery.isError) return <StyledText>{queryError?.code === 'offline' ? 'assistant.actionPreview.state.offline' : 'assistant.actionPreview.state.error'}</StyledText>;
   if (!preview) return <StyledText>assistant.actionPreview.state.loading</StyledText>;
@@ -61,16 +50,6 @@ export function AssistantActionPreviewScreen({ previewId }: { conversationId: st
         </GroupedList>
       ) : null}
       {confirm.isPending ? <StyledText>assistant.actionPreview.state.pending</StyledText> : null}
-      {moneyInput ? (
-        <>
-          <FormField label={translateDynamic('assistant.actionPreview.input.amount')} value={amount} onChangeText={setAmount} variant="amount" />
-          <ActionButton
-            label="assistant.actionPreview.action.saveEdit"
-            disabled={editedAmountMinor === null || editedAmountMinor <= 0}
-            onPress={() => update.mutate({ previewId, input: { amountMinor: editedAmountMinor!, currency }, expectedVersion: preview.version })}
-          />
-        </>
-      ) : null}
       <ActionButton
         label="assistant.actionPreview.action.confirm"
         onPress={() => {

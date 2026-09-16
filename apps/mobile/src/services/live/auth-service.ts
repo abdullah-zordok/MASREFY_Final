@@ -40,7 +40,10 @@ import {
 } from './http-client';
 import { configureAutomaticTrackingTokenProvider } from './automatic-tracking-service';
 import { configureAssistantApiTokenProvider } from './assistant-api-service';
-import { configureVoiceApiTokenProvider } from './voice-api-service';
+import {
+  configureVoiceApiOwnerProvider,
+  configureVoiceApiTokenProvider
+} from './voice-api-service';
 
 type ClerkSession = {
   id: string;
@@ -161,6 +164,11 @@ export function registerLiveClerkBridge(bridge: LiveClerkBridge): void {
   configureMobileApiTokenProvider(getLiveClerkToken);
   configureAssistantApiTokenProvider(getLiveClerkToken);
   configureVoiceApiTokenProvider(getLiveClerkToken);
+  configureVoiceApiOwnerProvider(async () => {
+    const session = await bridge.getSession();
+    if (!session) throw new HttpError('session_expired', 401);
+    return session.userId;
+  });
   configureAutomaticTrackingTokenProvider(async () => {
     const token = await bridge.getToken({ skipCache: true });
     if (!token) throw new TrackingError('permission_required');
@@ -199,7 +207,8 @@ export function registeredLiveAuthService(): CapabilityProviderHandle<AuthServic
 }
 
 export function createLiveAuthService(
-  bridge: LiveClerkBridge
+  bridge: LiveClerkBridge,
+  request: IdentityRequest = defaultIdentityRequest
 ): CapabilityProviderHandle<AuthService> {
   return {
     metadata: {
@@ -227,6 +236,9 @@ export function createLiveAuthService(
     async restoreSession() {
       const session = await bridge.getSession();
       return session ? authenticated(session) : signedOut();
+    },
+    async touchActivity() {
+      await parsedRequest(request, '/api/v1/me', profileSchema);
     },
     signOut: (scope) =>
       bridge.signOut({ scope: scope === 'all' ? 'all' : 'current' })

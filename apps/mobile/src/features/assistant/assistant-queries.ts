@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { assistantService } from '@/services/assistant-service';
+import type { AssistantQuestionIntent } from '@/services/contracts/assistant-notifications-service';
 
 export type AssistantConversationQuery = {
   cursor?: string;
@@ -11,6 +12,7 @@ export type AssistantConversationQuery = {
 export const assistantKeys = {
   consent: () => ['assistant', 'consent'] as const,
   availability: () => ['assistant', 'availability'] as const,
+  insights: () => ['assistant', 'insights'] as const,
   conversations: (input: AssistantConversationQuery = {}) => ['assistant', 'conversations', input] as const,
   conversation: (id: string, cursor?: string) => cursor ? ['assistant', 'conversation', id, cursor] as const : ['assistant', 'conversation', id] as const,
   response: (id: string) => ['assistant', 'response', id] as const,
@@ -55,14 +57,20 @@ export function useSetAssistantConsent() {
 }
 
 export function useAskAssistant() {
-  return useAssistantMutation(({ conversationId, question, operationId }: { conversationId: string; question: string; operationId: string }) =>
-    assistantService.ask(conversationId, question, operationId)
+  return useAssistantMutation(({ conversationId, question, operationId, intent }: { conversationId: string; question: string; operationId: string; intent?: AssistantQuestionIntent }) =>
+    intent
+      ? assistantService.ask(conversationId, question, operationId, intent)
+      : assistantService.ask(conversationId, question, operationId)
   );
 }
 
+export function useAssistantInsights() {
+  return useQuery({ queryKey: assistantKeys.insights(), queryFn: () => assistantService.listInsights() });
+}
+
 export function useCreateAssistantConversation() {
-  return useAssistantMutation(({ question, operationId }: { question: string; operationId: string }) =>
-    assistantService.createConversation({ question }, operationId)
+  return useAssistantMutation(({ question, operationId, intent }: { question: string; operationId: string; intent?: AssistantQuestionIntent }) =>
+    assistantService.createConversation({ question, intent }, operationId)
   );
 }
 

@@ -59,6 +59,7 @@ export const GOVERNED_JOB_KEYS = Object.freeze([
   'ai.usage_rollup',
   'voice-media.purge',
   'ai.reconcile',
+  'financial-insights.generate',
   'report.generate',
   'report.email.deliver',
   'report.output.expire',
@@ -67,6 +68,7 @@ export const GOVERNED_JOB_KEYS = Object.freeze([
   'notification.dispatch',
   'notification.expire',
   'notification.campaign.expand',
+  'notification.reminders.evaluate',
   'support-attachment.scan',
   'support-attachment.cleanup',
   ...OPERATIONS_JOB_KEYS,
@@ -114,7 +116,7 @@ export class OperationsJobRegistry {
       result = await this.required(this.tracking).runJob(
         jobKey as Parameters<TrackingWorker['runJob']>[0],
       );
-    else if (/^(ai\.|voice\.|assistant\.)/u.test(jobKey))
+    else if (/^(ai\.|voice\.|assistant\.|financial-insights\.)/u.test(jobKey))
       result = await this.required(this.ai).runJob(jobKey as Parameters<AiWorker['runJob']>[0]);
     else if (jobKey.startsWith('report.'))
       result = await this.required(this.reports).runJob(

@@ -91,19 +91,50 @@ export class AiPrivacyHandler implements PrivacyDomainHandler {
     };
   }
 
-  listRetentionCandidates(): Promise<{
+  async listRetentionCandidates(
+    before: Date,
+    cursor: string | null,
+    limit: number,
+  ): Promise<{
     items: readonly RetentionCandidate[];
     nextCursor: string | null;
   }> {
-    return Promise.resolve({ items: [], nextCursor: null });
-  }
-  applyRetention(): Promise<DeletionOutcome> {
-    return Promise.resolve({
-      deletedCount: 0,
-      anonymizedCount: 0,
-      retainedCount: 0,
-      policyIds: [],
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+      throw new Error('RETENTION_LIMIT_INVALID');
+    return this.worker(async (client) => {
+      const rows = (
+        await client.query<{ id: string; last_message_at: Date; version: string }>(
+          `select id,last_message_at,version from public.assistant_conversations
+           where last_message_at<$1 and ($2::uuid is null or id>$2::uuid)
+           order by id limit $3`,
+          [before, cursor, limit + 1],
+        )
+      ).rows;
+      const selected = rows.slice(0, limit);
+      return {
+        items: selected.map((row) => ({
+          resourceId: row.id,
+          eligibleAt: row.last_message_at,
+          version: Number(row.version),
+        })),
+        nextCursor: rows.length > limit ? (selected.at(-1)?.id ?? null) : null,
+      };
     });
+  }
+  async applyRetention(
+    candidate: RetentionCandidate,
+    mode: 'delete' | 'anonymize' | 'archive',
+  ): Promise<DeletionOutcome> {
+    if (mode !== 'delete')
+      return { deletedCount: 0, anonymizedCount: 0, retainedCount: 1, policyIds: [] };
+    const deletedCount = await this.worker(async (client) => {
+      const result = await client.query(
+        'delete from public.assistant_conversations where id=$1::uuid and version=$2',
+        [candidate.resourceId, candidate.version],
+      );
+      return result.rowCount ?? 0;
+    });
+    return { deletedCount, anonymizedCount: 0, retainedCount: 0, policyIds: [] };
   }
 
   private async *entries(userId: string, kind: string): AsyncIterable<Uint8Array> {

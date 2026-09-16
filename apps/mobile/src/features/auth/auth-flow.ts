@@ -29,6 +29,7 @@ export const authService: CapabilityProviderHandle<AuthService> = {
   signInWithGoogle: () => createAuthService().signInWithGoogle(),
   reverifyConflict: (input) => createAuthService().reverifyConflict(input),
   restoreSession: () => createAuthService().restoreSession(),
+  touchActivity: () => createAuthService().touchActivity(),
   signOut: (scope) => createAuthService().signOut(scope)
 };
 
@@ -82,6 +83,7 @@ function createUnavailableAuthService(): CapabilityProviderHandle<AuthService> {
     async restoreSession() {
       return signedOut;
     },
+    async touchActivity() {},
     async signOut() {}
   };
 }

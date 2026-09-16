@@ -201,7 +201,12 @@ function mapPermission(status: {
   canAskAgain?: boolean;
   status?: string;
 }): NotificationPermissionState {
-  if (status.granted) return 'granted';
+  if (
+    status.granted ||
+    status.status === 'granted' ||
+    status.status === 'provisional'
+  )
+    return 'granted';
   if (status.status === 'undetermined') return 'not_requested';
   return status.canAskAgain === false ? 'permanently_denied' : 'denied';
 }
@@ -216,9 +221,9 @@ function responseFromExpo(response: unknown): PhoneNotificationResponse | null {
   };
   const notificationId =
     value.notification?.request?.content?.data?.notificationId;
-  if (typeof notificationId !== 'string') return null;
   const action = mapAction(value.actionIdentifier);
   if (!action) return null;
+  if (typeof notificationId !== 'string') return null;
   return {
     notificationId,
     action

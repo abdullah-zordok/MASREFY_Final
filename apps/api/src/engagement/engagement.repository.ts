@@ -5,6 +5,7 @@ import type { ClerkPrincipal } from '../identity/clerk-auth.guard';
 import { hashIdempotencyKey, hashNormalizedCommand } from '../ledger/idempotency';
 import { PoolService } from '../platform/database/pool.service';
 import { PlatformConfigService } from '../platform/config/platform-config.service';
+import type { ReminderCandidate } from './engagement.reminders';
 
 export interface EngagementCommand {
   operation: string;
@@ -38,6 +39,7 @@ export interface NotificationDeliveryClaim extends QueryResultRow {
   provider: string;
   attempt_count: number;
   event_id: string | null;
+  event_type: string | null;
   title: string;
   body_safe: string;
   data: Record<string, unknown>;
@@ -65,6 +67,8 @@ export interface SourceNotificationClaim extends QueryResultRow {
   time_zone: string;
   occurred_at: string;
   expires_at: string | null;
+  target_kind?: 'home' | 'tracking';
+  cycle_baseline?: string;
 }
 
 export interface SourceTemplate extends QueryResultRow {
@@ -253,6 +257,32 @@ export class EngagementRepository {
     });
   }
 
+  async listReminderCandidates(limit: number): Promise<ReminderCandidate[]> {
+    return this.worker(async (client) => {
+      const result = await client.query<{
+        kind: 'app' | 'financial';
+        user_id: string;
+        locale: 'ar' | 'en';
+        time_zone: string;
+        baseline_at: string;
+        evaluated_at: string;
+        inactive_days: number;
+      }>(
+        'select * from private.list_reminder_candidates($1)',
+        [limit],
+      );
+      return result.rows.map((row) => ({
+        kind: row.kind,
+        userId: row.user_id,
+        locale: row.locale,
+        timeZone: row.time_zone,
+        baselineAt: row.baseline_at,
+        evaluatedAt: row.evaluated_at,
+        inactiveDays: row.inactive_days,
+      }));
+    });
+  }
+
   async loadSourceTemplates(source: SourceNotificationClaim): Promise<SourceTemplate[]> {
     return this.worker(async (client) => {
       const result = await client.query<SourceTemplate>(
@@ -283,14 +313,15 @@ export class EngagementRepository {
              jsonb_build_object('key','view','expiresAt',null),jsonb_build_object('key','edit','expiresAt',null),
              jsonb_build_object('key','undo','expiresAt',least(coalesce($6,$7::timestamptz+interval '15 minutes'),$7::timestamptz+interval '15 minutes'))
            ) else jsonb_build_array(jsonb_build_object('key','view','expiresAt',null)) end,
-           'targetKind',case
+           'targetKind',coalesce($9,case
              when $3 like 'transaction.%' or $3 like 'transfer.%' then 'transaction'
              when $3 like 'planning.obligation_%' then 'obligation'
              when $3='account.credit_card_payment_due' then 'account'
              when $3 like 'planning.savings_%' then 'goal'
              when $3 like 'tracking.review.%' then 'review'
-             else 'settings' end,
-           'targetId',coalesce($8,'notifications')
+             else 'settings' end),
+           'targetId',case when $9 is null then coalesce($8,'notifications') end,
+           'cycleBaseline',$10
          ),$6,$7)
          on conflict(source_event_id) do nothing returning id`,
         [
@@ -302,6 +333,8 @@ export class EngagementRepository {
           source.expires_at,
           source.occurred_at,
           source.source_id,
+          source.target_kind ?? null,
+          source.cycle_baseline ?? null,
         ],
       );
       const eventId = inserted.rows[0]?.id;
@@ -333,7 +366,7 @@ export class EngagementRepository {
   ): Promise<NotificationDeliveryClaim[]> {
     return this.worker(async (client) => {
       const claims = await client.query<NotificationDeliveryClaim>(
-        `select d.id,d.claim_token,d.user_id,d.channel,d.provider,d.attempt_count,d.event_id,
+        `select d.id,d.claim_token,d.user_id,d.channel,d.provider,d.attempt_count,d.event_id,e.type event_type,
           coalesce(d.rendered_title,e.title,t.subject,'Masarifi') title,coalesce(d.rendered_body,e.body_safe,t.body) body_safe,
           coalesce(d.rendered_data,e.data,jsonb_build_object('route','notification_detail')) data,
           p.token_ciphertext,p.device_id token_device_id,p.provider token_provider
@@ -346,6 +379,16 @@ export class EngagementRepository {
         [workerId, limit],
       );
       return claims.rows;
+    });
+  }
+
+  async reminderDeliveryEligible(eventId: string, userId: string): Promise<boolean> {
+    return this.worker(async (client) => {
+      const result = await client.query<{ eligible: boolean }>(
+        'select private.reminder_delivery_eligible($1::uuid,$2) eligible',
+        [eventId, userId],
+      );
+      return result.rows[0]?.eligible ?? false;
     });
   }
 

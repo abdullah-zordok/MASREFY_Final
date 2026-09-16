@@ -72,6 +72,11 @@ describe('phone notification platform service', () => {
       canAskAgain: true
     });
     mockNotifications.getPermissionsAsync.mockResolvedValueOnce({
+      status: 'provisional',
+      granted: false,
+      canAskAgain: true
+    });
+    mockNotifications.getPermissionsAsync.mockResolvedValueOnce({
       status: 'undetermined',
       granted: false,
       canAskAgain: true
@@ -90,6 +95,7 @@ describe('phone notification platform service', () => {
     });
     const service = createPhoneNotificationService();
 
+    expect(await service.getPermission()).toBe('granted');
     expect(await service.getPermission()).toBe('granted');
     expect(await service.getPermission()).toBe('not_requested');
     expect(await service.getPermission()).toBe('permanently_denied');

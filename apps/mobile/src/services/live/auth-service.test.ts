@@ -172,7 +172,7 @@ describe('live Clerk authentication', () => {
         baseUrl: 'https://api.example.test',
         request: voiceRequest
       }).transcribe('private://audio', 'clear_en', 1000)
-    ).rejects.toMatchObject({ code: 'analysis_unavailable' });
+    ).rejects.toMatchObject({ code: 'provider_unavailable' });
     expect(voiceRequest.mock.calls[1]?.[1]?.headers).toEqual(
       expect.objectContaining({ Authorization: 'Bearer clerk-token' })
     );
@@ -198,6 +198,25 @@ describe('live Clerk authentication', () => {
     await service.signOut('all');
     expect(bridge.signOut).toHaveBeenNthCalledWith(1, { scope: 'current' });
     expect(bridge.signOut).toHaveBeenNthCalledWith(2, { scope: 'all' });
+  });
+
+  test('touches only the profile endpoint for foreground activity', async () => {
+    const request = jest.fn(async () => ({
+      id: 'user-1',
+      displayName: null,
+      primaryEmailMasked: null,
+      phoneMasked: null,
+      locale: 'en',
+      timezone: 'Asia/Riyadh',
+      status: 'active',
+      version: 1
+    }));
+    const service = createLiveAuthService(clerkBridge(), request);
+
+    await service.touchActivity();
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith('/api/v1/me', undefined);
   });
 });
 

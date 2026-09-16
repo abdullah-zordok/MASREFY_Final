@@ -81,6 +81,7 @@ describe('voice transcription worker', () => {
           Promise.resolve({
             value: {
               schemaVersion: 1,
+              outcome: 'supported',
               transcript,
               language,
               confidence: 0.9,
@@ -186,6 +187,81 @@ describe('voice transcription worker', () => {
       'VOICE_MEDIA_INVALID',
     );
   });
+
+  it.each(['transfer', 'multiple', 'obligation'] as const)(
+    'fails %s intent explicitly without saving a transaction proposal',
+    async (unsupportedReason) => {
+      const repository = {
+        claimWork: jest.fn((kind: string) => Promise.resolve(kind === claim.kind ? [claim] : [])),
+        workInput: jest.fn(() => Promise.resolve({
+          storageRef: 'voice/session/audio',
+          sizeBytes: 44,
+          contentType: 'audio/wav',
+          locale: 'en',
+          operationId: 'request-voice-unsupported',
+          aliases: [],
+        })),
+        getRoute: jest.fn(() => Promise.resolve(route)),
+        recordUsage: jest.fn(),
+        saveVoiceResult: jest.fn(),
+        completeWork: jest.fn(),
+        recordFailure: jest.fn(),
+        expire: jest.fn(),
+        rollup: jest.fn(),
+        claimPurges: jest.fn(() => Promise.resolve([])),
+        reconcile: jest.fn(),
+      };
+      const audio = Buffer.alloc(44);
+      audio.write('RIFF');
+      audio.write('WAVE', 8);
+      const gateway = {
+        complete: jest.fn(() => Promise.resolve({
+          value: {
+            schemaVersion: 1,
+            outcome: 'unsupported',
+            transcript: 'unsupported intent',
+            language: 'en',
+            confidence: 0.9,
+            unsupportedReason,
+          },
+          model: 'openai/gpt-audio-mini',
+          provider: 'openai',
+          fallbackUsed: false,
+          generationId: 'generation-unsupported',
+          usage: { inputTokens: 1, outputTokens: 1, cost: 0.01 },
+          latencyMs: 1,
+        })),
+      };
+      const config = {
+        getRequired: jest.fn(
+          (name: string) =>
+            ({
+              MASARIFI_AI_PROVIDER_ENABLED: true,
+              MASARIFI_AI_JOB_BATCH_SIZE: 1,
+              MASARIFI_AI_LEASE_SECONDS: 120,
+              MASARIFI_AI_MAX_CONCURRENCY: 1,
+            })[name as 'MASARIFI_AI_PROVIDER_ENABLED'],
+        ),
+        get: jest.fn(() => 'voice-worker'),
+      };
+
+      await new AiWorker(
+        repository as never,
+        { download: jest.fn(() => Promise.resolve(audio)), delete: jest.fn() } as never,
+        gateway as never,
+        config as never,
+      ).runOnce();
+
+      expect(repository.saveVoiceResult).not.toHaveBeenCalled();
+      expect(repository.completeWork).toHaveBeenCalledWith(
+        claim.kind,
+        claim.id,
+        claim.claim_token,
+        'failed',
+        `VOICE_INTENT_UNSUPPORTED_${unsupportedReason.toUpperCase()}`,
+      );
+    },
+  );
 
   it('aborts an active provider request and drains cleanly on shutdown', async () => {
     let dispatched!: () => void;

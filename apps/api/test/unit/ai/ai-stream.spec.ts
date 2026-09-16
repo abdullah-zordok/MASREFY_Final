@@ -23,6 +23,7 @@ describe('assistant SSE orchestration', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     const events = [];
     for await (const event of service.streamMessage(owner, id, new AbortController().signal))
@@ -43,6 +44,7 @@ describe('assistant SSE orchestration', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     const controller = new AbortController();
     const stream = service.streamMessage(owner, id, controller.signal)[Symbol.asyncIterator]();
@@ -55,6 +57,7 @@ describe('assistant SSE orchestration', () => {
   it('surfaces durable message replay state to the transport', async () => {
     const repository = {
       workloadAvailable: jest.fn(() => Promise.resolve(true)),
+      recentConversationTurns: jest.fn(() => Promise.resolve([])),
       enqueueMessage: jest.fn(() =>
         Promise.resolve({ resource: { id, workStatus: 'queued' }, replayed: true }),
       ),
@@ -65,6 +68,11 @@ describe('assistant SSE orchestration', () => {
       {} as never,
       {} as never,
       {} as never,
+      {
+        resolve: jest.fn(() =>
+          Promise.resolve({ answer: null, context: {}, evidence: [] }),
+        ),
+      } as never,
       { getRequired: jest.fn(() => true) } as never,
     );
 
@@ -72,7 +80,7 @@ describe('assistant SSE orchestration', () => {
       service.createMessage(
         owner,
         id,
-        { content: 'status', contextScope: ['budgets'], responseMode: 'stream' },
+        { content: 'Why is my budget worse?', responseMode: 'stream' },
         'message-operation',
       ),
     ).resolves.toEqual({ id, status: 'queued', replayed: true });

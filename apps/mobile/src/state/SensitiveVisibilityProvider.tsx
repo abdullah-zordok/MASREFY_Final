@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AppState, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { translateDynamic } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
+import { useTheme } from '@/state/theme-context';
 
 interface SensitiveVisibilityContextValue {
   revealed: boolean;
@@ -17,6 +18,7 @@ const SensitiveVisibilityContext = createContext<SensitiveVisibilityContextValue
 
 export function SensitiveVisibilityProvider({ children }: { children: ReactNode }) {
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
+  const theme = useTheme();
   const [sessionRevealed, setSessionRevealed] = useState(false);
   const [obscured, setObscured] = useState(false);
   const revealed = !hideBalances || sessionRevealed;
@@ -44,10 +46,32 @@ export function SensitiveVisibilityProvider({ children }: { children: ReactNode 
 
   return (
     <SensitiveVisibilityContext.Provider value={value}>
-      {obscured ? <View accessibilityLabel={translateDynamic('app.title')} style={{ flex: 1 }} testID="privacy-shield" /> : children}
+      <View style={styles.root}>
+        <View
+          accessibilityElementsHidden={obscured}
+          importantForAccessibility={obscured ? 'no-hide-descendants' : 'auto'}
+          pointerEvents={obscured ? 'none' : 'auto'}
+          style={styles.content}
+        >
+          {children}
+        </View>
+        {obscured ? (
+          <View
+            accessibilityLabel={translateDynamic('app.title')}
+            style={[styles.shield, { backgroundColor: theme.colors.background }]}
+            testID="privacy-shield"
+          />
+        ) : null}
+      </View>
     </SensitiveVisibilityContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  content: { flex: 1 },
+  shield: { ...StyleSheet.absoluteFillObject }
+});
 
 export function useSensitiveVisibility() {
   return useContext(SensitiveVisibilityContext);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, ScrollView, StyleSheet, Text } from 'react-native';
 
 import {
   notificationCategorySchema,
@@ -11,14 +11,13 @@ import { StateView } from '@/design-system/components/feedback/StateView';
 import { ChipSelector } from '@/design-system/components/forms/ChipControls';
 import { FormField } from '@/design-system/components/forms/FormField';
 import { SwitchRow } from '@/design-system/components/forms/SelectionControls';
-import { ConfirmationDialog } from '@/design-system/components/overlays/ConfirmationDialog';
-import { phoneNotificationService } from '@/services/platform/phone-notification-service';
 import { useTheme } from '@/state/theme-context';
 import { translateDynamic } from '@/localization/i18n';
 
 import {
   useNotificationPreferences,
-  useRefreshNotificationPermission,
+  useNotificationPermission,
+  useOpenNotificationSettings,
   useRequestNotificationPermission,
   useSaveNotificationPreferences
 } from './notification-preferences-queries';
@@ -28,12 +27,13 @@ const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday
 export function NotificationPreferencesScreen() {
   const theme = useTheme();
   const preferences = useNotificationPreferences();
+  const permission = useNotificationPermission();
   const save = useSaveNotificationPreferences();
-  const refresh = useRefreshNotificationPermission();
   const request = useRequestNotificationPermission();
+  const openSettings = useOpenNotificationSettings();
   const [input, setInput] = useState<NotificationPreferencesInput | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [permissionEducationVisible, setPermissionEducationVisible] = useState(false);
+  const refetchPermission = permission.refetch;
 
   useEffect(() => {
     if (!preferences.data) return;
@@ -47,6 +47,13 @@ export function NotificationPreferencesScreen() {
       permissionState: preferences.data.permissionState
     });
   }, [preferences.data]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refetchPermission();
+    });
+    return () => subscription.remove();
+  }, [refetchPermission]);
 
   if (preferences.isLoading) {
     return <StateView state="loading" title={t('notifications.preferences.loading')} />;
@@ -79,35 +86,29 @@ export function NotificationPreferencesScreen() {
     );
   };
   const quietDayLabels = dayKeys.map((day) => `${t('notifications.preferences.quietPrefix')} ${t(`notifications.preferences.day.${day}`)}`);
-  const weeklyDayLabels = dayKeys.map((day) => `${t('notifications.preferences.weeklyPrefix')} ${t(`notifications.preferences.day.${day}`)}`);
+  const permissionState = permission.data ?? 'unavailable';
+  const changePhonePermission = () => {
+    if (permissionState === 'not_requested' || permissionState === 'denied') {
+      request.mutate();
+      return;
+    }
+    openSettings.mutate();
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.stack}>
       <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{t('notifications.preferences.title')}</Text>
-      <Text style={{ color: theme.colors.textSecondary }}>
-        {`${t('notifications.preferences.currentPermission')}: ${input.permissionState.replaceAll('_', ' ')}`}
-      </Text>
-      {input.permissionState !== 'granted' ? (
-        <Text style={{ color: theme.colors.status.warning }}>
-          {`${t('notifications.preferences.permissionPrefix')} ${input.permissionState.replaceAll('_', ' ')}`}
-        </Text>
-      ) : null}
       <SwitchRow
         label={t('notifications.preferences.phone')}
-        value={input.phoneEnabled}
-        onValueChange={(phoneEnabled) => update({ phoneEnabled })}
-      />
-      <SwitchRow
-        label={t('notifications.preferences.hideLock')}
-        value={input.hideAmountsOnLockScreen}
-        onValueChange={(hideAmountsOnLockScreen) => update({ hideAmountsOnLockScreen })}
+        value={permissionState === 'granted'}
+        onValueChange={changePhonePermission}
       />
 
       <Section title={t('notifications.preferences.categories')}>
         {notificationCategorySchema.options.map((category) => (
           <SwitchRow
             key={category}
-            label={`${t('notifications.preferences.categoryPrefix')} ${category}`}
+            label={t(`notifications.preferences.category.${category}`)}
             value={input.categoryEnabled[category] ?? false}
             onValueChange={(enabled) =>
               update({
@@ -156,52 +157,8 @@ export function NotificationPreferencesScreen() {
         />
       </Section>
 
-      <Section title={t('notifications.preferences.summaries')}>
-        <SwitchRow
-          label={t('notifications.preferences.dailySummary')}
-          value={input.dailySummary.enabled}
-          onValueChange={(enabled) => update({ dailySummary: { ...input.dailySummary, enabled } })}
-        />
-        <FormField
-          label={t('notifications.preferences.dailyTime')}
-          value={input.dailySummary.time}
-          onChangeText={(time) => update({ dailySummary: { ...input.dailySummary, time } })}
-        />
-        <SwitchRow
-          label={t('notifications.preferences.weeklySummary')}
-          value={input.weeklySummary.enabled}
-          onValueChange={(enabled) => update({ weeklySummary: { ...input.weeklySummary, enabled } })}
-        />
-        <FormField
-          label={t('notifications.preferences.weeklyTime')}
-          value={input.weeklySummary.time}
-          onChangeText={(time) => update({ weeklySummary: { ...input.weeklySummary, time } })}
-        />
-        <ChipSelector
-          options={weeklyDayLabels}
-          selected={[weeklyDayLabels[input.weeklySummary.weekday]]}
-          onToggle={(label) => update({ weeklySummary: { ...input.weeklySummary, weekday: Math.max(0, weeklyDayLabels.indexOf(label)) } })}
-        />
-      </Section>
-
-      <View style={styles.row}>
-        <ActionButton label={t('notifications.preferences.reviewPermission')} loading={request.isPending} onPress={() => setPermissionEducationVisible(true)} />
-        <ActionButton label={t('notifications.preferences.refreshPermission')} loading={refresh.isPending} variant="secondary" onPress={() => refresh.mutate()} />
-        <ActionButton label={t('notifications.preferences.openSettings')} variant="secondary" onPress={() => void phoneNotificationService.openSystemSettings()} />
-      </View>
       {error ? <Text accessibilityRole="alert" style={{ color: theme.colors.status.danger }}>{error}</Text> : null}
       <ActionButton label={t('notifications.preferences.save')} loading={save.isPending} onPress={saveInput} />
-      <ConfirmationDialog
-        visible={permissionEducationVisible}
-        title={t('notifications.preferences.requestTitle')}
-        message={t('notifications.preferences.requestMessage')}
-        confirmLabel={t('notifications.preferences.requestConfirm')}
-        onCancel={() => setPermissionEducationVisible(false)}
-        onConfirm={() => {
-          setPermissionEducationVisible(false);
-          request.mutate();
-        }}
-      />
     </ScrollView>
   );
 }
@@ -226,11 +183,6 @@ const styles = StyleSheet.create({
     padding: 16
   },
   section: {
-    gap: 8
-  },
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8
   },
   title: {

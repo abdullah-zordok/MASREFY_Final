@@ -5,9 +5,10 @@ import { StyledText } from '@/components/StyledText';
 import { translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { colorTokens, radius, spacing } from '@/design-system/tokens';
+import type { AssistantQuestionIntent } from '@/services/contracts/assistant-notifications-service';
 
 export interface AssistantSuggestedQuestionsProps {
-  onSelectQuestion: (question: string) => void;
+  onSelectQuestion: (question: string, intent: AssistantQuestionIntent) => void;
   disabled?: boolean;
 }
 
@@ -22,6 +23,7 @@ export function AssistantSuggestedQuestions({
   const cards = [
     {
       id: 'spending',
+      intent: 'spending_summary' as const,
       label: translate('assistant.suggestions.spending'),
       renderIcon: () => <BarChartIcon size={18} color={colorTokens.teal['700']} />,
       badgeBg: colorTokens.teal['50'],
@@ -29,6 +31,7 @@ export function AssistantSuggestedQuestions({
     },
     {
       id: 'highest',
+      intent: 'category_breakdown' as const,
       label: translate('assistant.suggestions.highest'),
       renderIcon: () => <PieChartIcon size={18} color={colorTokens.teal['700']} />,
       badgeBg: colorTokens.teal['50'],
@@ -36,6 +39,7 @@ export function AssistantSuggestedQuestions({
     },
     {
       id: 'weekly',
+      intent: 'recent_transactions' as const,
       label: translate('assistant.suggestions.weekly'),
       renderIcon: () => <CalendarIcon size={17} color={colorTokens.teal['700']} />,
       badgeBg: colorTokens.teal['50'],
@@ -43,6 +47,7 @@ export function AssistantSuggestedQuestions({
     },
     {
       id: 'budget',
+      intent: 'budget_status' as const,
       label: translate('assistant.suggestions.budget'),
       renderIcon: () => <WalletIcon size={17} color={colorTokens.teal['700']} />,
       badgeBg: colorTokens.teal['50'],
@@ -54,7 +59,7 @@ export function AssistantSuggestedQuestions({
     <Pressable
       key={item.id}
       testID={`suggestion-card-${item.id}`}
-      onPress={() => !disabled && onSelectQuestion(item.label)}
+      onPress={() => !disabled && onSelectQuestion(item.label, item.intent)}
       disabled={disabled}
       style={({ pressed }) => [
         styles.card,

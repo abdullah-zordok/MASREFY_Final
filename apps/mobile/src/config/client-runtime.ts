@@ -35,8 +35,6 @@ export function resolveClientMode(
           : 'demo');
 
   if (!clientModes.has(rawMode as ClientMode)) throw new Error('invalid client mode');
-  if (nodeEnvironment === 'production' && rawMode !== 'live')
-    throw new Error('production requires live client mode');
   return rawMode as ClientMode;
 }
 

@@ -17,15 +17,27 @@ import {
   voiceAnalyzerServiceCapability,
   type VoiceAnalyzerService
 } from '@/services/contracts/voice-capture-service';
+import {
+  clearPendingVoiceSession,
+  loadPendingVoiceSession,
+  savePendingVoiceSession
+} from '@/storage/voice-pending-session';
 
 type TokenProvider = () => Promise<string>;
+type OwnerProvider = () => Promise<string>;
 let tokenProvider: TokenProvider = () =>
-  Promise.reject(new VoiceCaptureError('analysis_unavailable'));
-let tokenProviderConfigured = false;
+  Promise.reject(new VoiceCaptureError('session_expired'));
+let ownerProvider: OwnerProvider = () =>
+  Promise.reject(new VoiceCaptureError('session_expired'));
+let ownerProviderConfigured = false;
 
 export function configureVoiceApiTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider;
-  tokenProviderConfigured = true;
+}
+
+export function configureVoiceApiOwnerProvider(provider: OwnerProvider): void {
+  ownerProvider = provider;
+  ownerProviderConfigured = true;
 }
 
 const uuid = z.string().uuid();
@@ -132,11 +144,8 @@ const executedActionSchema = z
   .strict();
 
 type ServerProposal = z.infer<typeof proposalSchema>;
-const unsupportedScenarios = new Set<VoiceScenario>([
-  'multiple',
-  'transfer',
-  'obligation'
-]);
+const pollIntervalMs = 1_000;
+const maxPollAttempts = 125;
 
 function failClosed<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -205,15 +214,22 @@ function mapProposal(value: ServerProposal): VoiceTransactionProposal {
 function apiError(status: number, value: unknown): VoiceCaptureError {
   const code =
     value && typeof value === 'object' ? Reflect.get(value, 'code') : undefined;
-  if (
-    status === 503 ||
-    code === 'AI_UNAVAILABLE' ||
-    code === 'AI_TEMPORARILY_UNAVAILABLE'
-  )
-    return new VoiceCaptureError('analysis_unavailable');
+  if (status === 401) return new VoiceCaptureError('session_expired');
+  if (status === 503 || code === 'AI_UNAVAILABLE' || code === 'AI_TEMPORARILY_UNAVAILABLE')
+    return new VoiceCaptureError('provider_unavailable');
   if (status === 422) return new VoiceCaptureError('invalid_proposal');
-  if (status === 429) return new VoiceCaptureError('analysis_unavailable');
-  if (status === 404) return new VoiceCaptureError('proposal_pending');
+  if (status === 429) return new VoiceCaptureError('quota_exhausted');
+  if (status === 404) return new VoiceCaptureError('analysis_failed');
+  return new VoiceCaptureError('analysis_failed');
+}
+
+function failedSession(code: string | null | undefined): VoiceCaptureError {
+  if (code?.startsWith('VOICE_INTENT_UNSUPPORTED_'))
+    return new VoiceCaptureError('unsupported_intent');
+  if (code === 'AI_UNAVAILABLE' || code === 'AI_TEMPORARILY_UNAVAILABLE')
+    return new VoiceCaptureError('provider_unavailable');
+  if (code?.includes('QUOTA') || code?.includes('BUDGET'))
+    return new VoiceCaptureError('quota_exhausted');
   return new VoiceCaptureError('analysis_failed');
 }
 
@@ -221,6 +237,7 @@ export function createLiveVoiceApiService(
   options: {
     baseUrl?: string;
     token?: TokenProvider;
+    owner?: OwnerProvider;
     request?: typeof fetch;
     sleep?: (milliseconds: number) => Promise<void>;
     now?: () => number;
@@ -228,6 +245,8 @@ export function createLiveVoiceApiService(
 ): CapabilityProviderHandle<VoiceAnalyzerService> {
   const baseUrl = options.baseUrl ?? process.env.EXPO_PUBLIC_API_URL ?? '';
   const token = options.token ?? (() => tokenProvider());
+  const owner = options.owner ?? (() =>
+    ownerProviderConfigured ? ownerProvider() : Promise.resolve(null));
   const request = options.request ?? fetch;
   const sleep =
     options.sleep ??
@@ -243,12 +262,30 @@ export function createLiveVoiceApiService(
     body?: unknown,
     key?: string
   ): Promise<unknown> => {
+    let authToken: string;
+    try {
+      authToken = await token();
+    } catch (error) {
+      if (
+        error instanceof VoiceCaptureError &&
+        error.code === 'session_expired'
+      )
+        throw error;
+      if (
+        error &&
+        typeof error === 'object' &&
+        (Reflect.get(error, 'code') === 'session_expired' ||
+          Reflect.get(error, 'status') === 401)
+      )
+        throw new VoiceCaptureError('session_expired');
+      throw new VoiceCaptureError('analysis_failed');
+    }
     let response: Response;
     try {
       response = await request(`${baseUrl.replace(/\/$/u, '')}${path}`, {
         method,
         headers: {
-          Authorization: `Bearer ${await token()}`,
+          Authorization: `Bearer ${authToken}`,
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...(key ? { 'Idempotency-Key': key } : {})
         },
@@ -271,6 +308,49 @@ export function createLiveVoiceApiService(
     return failClosed(proposalSchema, value);
   };
 
+  const fetchSession = async (sessionId: string) =>
+    failClosed(
+      sessionSchema,
+      await send('GET', `/api/v1/voice/sessions/${encodeURIComponent(sessionId)}`)
+    );
+
+  const waitForProposal = async (sessionId: string, ownerId?: string) => {
+    for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+      const current = await fetchSession(sessionId);
+      if (current.status === 'failed') {
+        if (ownerId) await clearPendingVoiceSession(ownerId);
+        throw failedSession(current.failureCode);
+      }
+      if (current.status === 'expired') {
+        if (ownerId) await clearPendingVoiceSession(ownerId);
+        throw new VoiceCaptureError('processing_timed_out');
+      }
+      if (current.status === 'proposed' || current.status === 'confirmed')
+        return { proposal: await fetchProposal(sessionId), locale: current.locale };
+      if (attempt + 1 < maxPollAttempts) await sleep(pollIntervalMs);
+    }
+    throw new VoiceCaptureError('processing_timed_out');
+  };
+
+  const transcriptFor = (
+    proposal: ServerProposal,
+    locale: 'ar' | 'en',
+    sessionId: string,
+    sessionVersion: number
+  ): VoiceTranscript => ({
+    text: proposal.redactedTranscript,
+    language: locale,
+    confidence: Math.round(proposal.payload.confidence * 100),
+    capturedAt: now(),
+    editedByUser: false,
+    analysisReference: {
+      sessionId,
+      sessionVersion,
+      proposalId: proposal.id,
+      proposalVersion: proposal.version
+    }
+  });
+
   return {
     metadata: {
       id: 'phase09-voice-http',
@@ -278,18 +358,16 @@ export function createLiveVoiceApiService(
       majorVersion: voiceAnalyzerServiceCapability.majorVersion,
       kind: 'live',
       availability:
-        baseUrl && (Boolean(options.token) || tokenProviderConfigured)
-          ? 'available'
-          : 'unavailable'
+        baseUrl ? 'available' : 'unavailable'
     },
     async transcribe(
       audioReference: string,
-      scenario: VoiceScenario,
-      durationMs?: number
+      _scenario: VoiceScenario,
+      durationMs?: number,
+      locale: 'ar' | 'en' = 'en'
     ) {
       if (!baseUrl) throw new VoiceCaptureError('analysis_unavailable');
-      if (unsupportedScenarios.has(scenario))
-        throw new VoiceCaptureError('analysis_unavailable');
+      const captureOwnerId = await owner();
       if (
         !Number.isSafeInteger(durationMs) ||
         Number(durationMs) < 1 ||
@@ -304,6 +382,8 @@ export function createLiveVoiceApiService(
       }
       if (!audio.ok) throw new VoiceCaptureError('recording_interrupted');
       const bytes = await audio.arrayBuffer();
+      if (bytes.byteLength < 1 || bytes.byteLength > 12_582_912)
+        throw new VoiceCaptureError('recording_interrupted');
       const header = audio.headers.get('content-type') ?? '';
       const contentType = [
         'audio/m4a',
@@ -321,7 +401,7 @@ export function createLiveVoiceApiService(
           'POST',
           '/api/v1/voice/sessions',
           {
-            locale: scenario === 'clear_ar' ? 'ar' : 'en',
+            locale,
             durationMs,
             contentType,
             sizeBytes: bytes.byteLength
@@ -355,55 +435,71 @@ export function createLiveVoiceApiService(
       );
       if (accepted.id !== created.session.id || accepted.status !== 'queued')
         throw new VoiceCaptureError('analysis_failed');
-      let proposal: ServerProposal | null = null;
-      for (let attempt = 0; attempt < 650 && !proposal; attempt += 1) {
-        try {
-          proposal = await fetchProposal(created.session.id);
-        } catch (error) {
-          if (
-            !(error instanceof VoiceCaptureError) ||
-            error.code !== 'proposal_pending'
-          )
-            throw error;
-        }
-        if (!proposal) await sleep(100);
-      }
-      if (!proposal) throw new VoiceCaptureError('analysis_unavailable');
-      analyzed.set(proposal.id, proposal);
-      return {
-        text: proposal.redactedTranscript,
-        language: created.session.locale,
-        confidence: Math.round(proposal.payload.confidence * 100),
-        capturedAt: now(),
-        editedByUser: false,
-        analysisReference: {
+      const currentOwnerId = await owner();
+      if (captureOwnerId !== currentOwnerId)
+        throw new VoiceCaptureError('session_expired');
+      const ownerId = captureOwnerId ?? undefined;
+      if (ownerId)
+        await savePendingVoiceSession(ownerId, {
           sessionId: created.session.id,
           sessionVersion: created.session.version,
-          proposalId: proposal.id,
-          proposalVersion: proposal.version
-        }
-      } satisfies VoiceTranscript;
+          recordedAt: Date.parse(created.session.createdAt),
+          timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+          createdAt: now()
+        });
+      const { proposal, locale: sessionLocale } = await waitForProposal(
+        created.session.id,
+        ownerId
+      );
+      analyzed.set(proposal.id, proposal);
+      return transcriptFor(
+        proposal,
+        sessionLocale,
+        created.session.id,
+        created.session.version
+      );
+    },
+    async recoverPending() {
+      const ownerId = await owner();
+      if (!ownerId) return null;
+      const pending = await loadPendingVoiceSession(ownerId);
+      if (!pending) return null;
+      const current = await fetchSession(pending.sessionId);
+      if (current.status === 'confirmed') {
+        await clearPendingVoiceSession(ownerId);
+        return null;
+      }
+      const recovered =
+        current.status === 'proposed'
+          ? { proposal: await fetchProposal(pending.sessionId), locale: current.locale }
+          : await waitForProposal(pending.sessionId, ownerId);
+      const { proposal, locale } = recovered;
+      analyzed.set(proposal.id, proposal);
+      return {
+        transcript: transcriptFor(
+          proposal,
+          locale,
+          pending.sessionId,
+          pending.sessionVersion
+        ),
+        recordedAt: pending.recordedAt,
+        timezoneOffsetMinutes: pending.timezoneOffsetMinutes
+      };
+    },
+    async discardPending() {
+      const ownerId = await owner();
+      if (ownerId) await clearPendingVoiceSession(ownerId);
     },
     async analyze(input) {
       const reference = input.transcript.analysisReference;
       if (
-        unsupportedScenarios.has(input.scenario) ||
         input.transcript.editedByUser ||
         !reference
       )
         throw new VoiceCaptureError('analysis_unavailable');
       let proposal = analyzed.get(reference.proposalId);
       if (!proposal) {
-        try {
-          proposal = await fetchProposal(reference.sessionId);
-        } catch (error) {
-          if (
-            error instanceof VoiceCaptureError &&
-            error.code === 'proposal_pending'
-          )
-            throw new VoiceCaptureError('analysis_unavailable');
-          throw error;
-        }
+        proposal = await fetchProposal(reference.sessionId);
       }
       if (
         proposal.id !== reference.proposalId ||
@@ -423,6 +519,7 @@ export function createLiveVoiceApiService(
       } satisfies VoiceProposalGroup;
     },
     async confirm(input) {
+      const confirmationOwnerId = await owner();
       const proposal = input.proposals[0];
       const server = proposal ? serverProposals.get(proposal.id) : undefined;
       if (input.proposals.length !== 1 || !proposal || !server)
@@ -463,6 +560,8 @@ export function createLiveVoiceApiService(
       if (result.sourceId !== proposal.id)
         throw new VoiceCaptureError('analysis_failed');
       serverProposals.delete(proposal.id);
+      if (confirmationOwnerId && confirmationOwnerId === (await owner()))
+        await clearPendingVoiceSession(confirmationOwnerId);
       return {
         transactionIds: [result.resourceId],
         affectedScopes: [
