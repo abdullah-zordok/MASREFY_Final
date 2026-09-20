@@ -40,20 +40,45 @@ const planning = {
     reservedObligationMinor: '245000',
   },
   budgets: [
-    { name: 'المطاعم', currencyCode: 'SAR', totalMinor: '172000', spentMinor: '130000', remainingMinor: '42000' },
+    {
+      name: 'المطاعم',
+      currencyCode: 'SAR',
+      totalMinor: '172000',
+      spentMinor: '130000',
+      remainingMinor: '42000',
+    },
   ],
   obligations: {
-    payables: [{ name: 'إيجار', currencyCode: 'SAR', remainingMinor: '245000', nextDueAt: '2026-09-20T00:00:00.000Z' }],
+    payables: [
+      {
+        name: 'إيجار',
+        currencyCode: 'SAR',
+        remainingMinor: '245000',
+        nextDueAt: '2026-09-20T00:00:00.000Z',
+      },
+    ],
     receivables: [],
   },
-  savings: [{ name: 'طوارئ', currencyCode: 'SAR', targetMinor: '1000000', progressMinor: '300000', remainingMinor: '700000' }],
+  savings: [
+    {
+      name: 'طوارئ',
+      currencyCode: 'SAR',
+      targetMinor: '1000000',
+      progressMinor: '300000',
+      remainingMinor: '700000',
+    },
+  ],
 };
 
 describe('AssistantFinancialTools', () => {
   const reports = { getReportSummary: jest.fn(() => Promise.resolve(report)) };
   const planningService = { getPlanningSummary: jest.fn(() => Promise.resolve(planning)) };
   const ledger = { listTransactions: jest.fn(() => Promise.resolve({ items: [] })) };
-  const tools = new AssistantFinancialTools(reports as never, planningService as never, ledger as never);
+  const tools = new AssistantFinancialTools(
+    reports as never,
+    planningService as never,
+    ledger as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -96,7 +121,12 @@ describe('AssistantFinancialTools', () => {
 
   it('builds purchase affordability truth from Reports and Planning owners', async () => {
     await expect(
-      tools.resolve(owner, 'purchase_affordability', 'هل أقدر أشتري جوال بـ5000 ريال؟', 'request-id'),
+      tools.resolve(
+        owner,
+        'purchase_affordability',
+        'هل أقدر أشتري جوال بـ5000 ريال؟',
+        'request-id',
+      ),
     ).resolves.toMatchObject({
       answer: null,
       context: {

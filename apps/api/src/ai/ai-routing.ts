@@ -72,7 +72,10 @@ const PROVIDER_TOOLS: Partial<Record<AssistantIntent, FinancialTool[]>> = {
 };
 
 const RULES: Array<[RegExp, AssistantIntent]> = [
-  [/(?:اكتب|write).*(?:كود|code|قصة|story|بوست|post)|(?:ترجم|translate)|(?:ماتش|match|رياضة|sports)|(?:لابتوب|laptop)/iu, 'unrelated'],
+  [
+    /(?:اكتب|write).*(?:كود|code|قصة|story|بوست|post)|(?:ترجم|translate)|(?:ماتش|match|رياضة|sports)|(?:لابتوب|laptop)/iu,
+    'unrelated',
+  ],
   [/(?:تضخم|inflation|فائدة مركبة|compound interest)/iu, 'general_finance'],
   [/(?:عد(?:ل|لّ)|غي(?:ر|رّ)|update).*(?:معامل|transaction)/iu, 'update_transaction'],
   [/(?:أنشئ|انشئ|create|add).*(?:هدف).*(?:ادخار|توفير|saving)/iu, 'create_savings_goal'],
@@ -81,9 +84,18 @@ const RULES: Array<[RegExp, AssistantIntent]> = [
   [/(?:خل.?[يى]|عد(?:ل|لّ)|غي(?:ر|رّ)).*(?:ميزاني|budget)/iu, 'update_budget'],
   [/(?:سجل|اضف|أضف|create|add).*(?:مصروف|دخل|transaction)/iu, 'create_transaction'],
   [/(?:اشتريت|اشتري|شراء|afford|buy).*(?:هل|ميزاني|budget|ضغط)/iu, 'purchase_affordability'],
-  [/(?:ليه|لماذا|why|مقارن|compare|زاد|انخفض).*(?:صرف|مصروف|spend)|(?:الشهر اللي قبله|previous month)/iu, 'period_comparison'],
-  [/(?:أعلى|اكبر|أكبر|فئة|category).*(?:صرف|مصروف|spend)|(?:صرف|spend).*(?:فئة|category)/iu, 'category_breakdown'],
-  [/(?:باقي|متبقي|remaining|status).*(?:ميزاني|budget)|(?:ميزاني|budget).*(?:باقي|متبقي|status)/iu, 'budget_status'],
+  [
+    /(?:ليه|لماذا|why|مقارن|compare|زاد|انخفض).*(?:صرف|مصروف|spend)|(?:الشهر اللي قبله|previous month)/iu,
+    'period_comparison',
+  ],
+  [
+    /(?:أعلى|اكبر|أكبر|فئة|category).*(?:صرف|مصروف|spend)|(?:صرف|spend).*(?:فئة|category)/iu,
+    'category_breakdown',
+  ],
+  [
+    /(?:باقي|متبقي|remaining|status).*(?:ميزاني|budget)|(?:ميزاني|budget).*(?:باقي|متبقي|status)/iu,
+    'budget_status',
+  ],
   [/(?:التزام|التزامات|obligation|فاتور).*(?:جاي|قادم|upcoming|due)/iu, 'upcoming_obligations'],
   [/(?:التزام|التزامات|obligation|debt)/iu, 'obligations_status'],
   [/(?:ادخار|توفير|savings|goal)/iu, 'savings_status'],

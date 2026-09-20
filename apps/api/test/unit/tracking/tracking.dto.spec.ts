@@ -38,10 +38,10 @@ describe('tracking DTO boundaries', () => {
             sourceItemKey: 'notification-1',
             receivedAt: '2026-09-02T00:00:00Z',
             amountMinor: -1200,
-            currency: 'SAR'
-          }
-        ]
-      }).sourceType
+            currency: 'SAR',
+          },
+        ],
+      }).sourceType,
     ).toBe('provider');
   });
 
@@ -84,9 +84,7 @@ describe('tracking DTO boundaries', () => {
         schemaVersion: 1,
         sourceType: 'provider',
         sourceChannel: 'android_sms',
-        events: [
-          { sourceItemKey: 'bad-channel', receivedAt: '2026-09-02T00:00:00Z' }
-        ]
+        events: [{ sourceItemKey: 'bad-channel', receivedAt: '2026-09-02T00:00:00Z' }],
       }),
     () => normalizeNormalizedImport({ schemaVersion: 2, sourceType: 'sms', events: [] }),
     () =>

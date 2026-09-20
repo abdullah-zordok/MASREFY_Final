@@ -13,11 +13,12 @@ export interface ReminderCandidate {
 }
 
 export function reminderSource(candidate: ReminderCandidate): SourceNotificationClaim {
-  const eventType = candidate.kind === 'financial'
-    ? 'reminder.financial_inactive.7d'
-    : candidate.inactiveDays >= 7
-      ? 'reminder.app_inactive.7d'
-      : 'reminder.app_inactive.3d';
+  const eventType =
+    candidate.kind === 'financial'
+      ? 'reminder.financial_inactive.7d'
+      : candidate.inactiveDays >= 7
+        ? 'reminder.app_inactive.7d'
+        : 'reminder.app_inactive.3d';
   return {
     source_event_id: stableUuid(`${candidate.userId}:${eventType}:${candidate.baselineAt}`),
     source_id: null,

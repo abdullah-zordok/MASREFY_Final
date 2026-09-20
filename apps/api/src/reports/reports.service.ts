@@ -111,8 +111,7 @@ export class ReportsService {
     const remainingSeconds = Math.floor(
       (new Date(String(attempt.expiresAt)).getTime() - now.getTime()) / 1_000,
     );
-    if (remainingSeconds <= 0)
-      throw new HttpException({ code: 'REPORT_EXPIRED' }, 410);
+    if (remainingSeconds <= 0) throw new HttpException({ code: 'REPORT_EXPIRED' }, 410);
     const { storageRef, ...safe } = attempt;
     if (
       (attempt.status === 'ready' || attempt.status === 'delivered') &&

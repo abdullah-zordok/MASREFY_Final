@@ -193,14 +193,16 @@ describe('voice transcription worker', () => {
     async (unsupportedReason) => {
       const repository = {
         claimWork: jest.fn((kind: string) => Promise.resolve(kind === claim.kind ? [claim] : [])),
-        workInput: jest.fn(() => Promise.resolve({
-          storageRef: 'voice/session/audio',
-          sizeBytes: 44,
-          contentType: 'audio/wav',
-          locale: 'en',
-          operationId: 'request-voice-unsupported',
-          aliases: [],
-        })),
+        workInput: jest.fn(() =>
+          Promise.resolve({
+            storageRef: 'voice/session/audio',
+            sizeBytes: 44,
+            contentType: 'audio/wav',
+            locale: 'en',
+            operationId: 'request-voice-unsupported',
+            aliases: [],
+          }),
+        ),
         getRoute: jest.fn(() => Promise.resolve(route)),
         recordUsage: jest.fn(),
         saveVoiceResult: jest.fn(),
@@ -215,22 +217,24 @@ describe('voice transcription worker', () => {
       audio.write('RIFF');
       audio.write('WAVE', 8);
       const gateway = {
-        complete: jest.fn(() => Promise.resolve({
-          value: {
-            schemaVersion: 1,
-            outcome: 'unsupported',
-            transcript: 'unsupported intent',
-            language: 'en',
-            confidence: 0.9,
-            unsupportedReason,
-          },
-          model: 'openai/gpt-audio-mini',
-          provider: 'openai',
-          fallbackUsed: false,
-          generationId: 'generation-unsupported',
-          usage: { inputTokens: 1, outputTokens: 1, cost: 0.01 },
-          latencyMs: 1,
-        })),
+        complete: jest.fn(() =>
+          Promise.resolve({
+            value: {
+              schemaVersion: 1,
+              outcome: 'unsupported',
+              transcript: 'unsupported intent',
+              language: 'en',
+              confidence: 0.9,
+              unsupportedReason,
+            },
+            model: 'openai/gpt-audio-mini',
+            provider: 'openai',
+            fallbackUsed: false,
+            generationId: 'generation-unsupported',
+            usage: { inputTokens: 1, outputTokens: 1, cost: 0.01 },
+            latencyMs: 1,
+          }),
+        ),
       };
       const config = {
         getRequired: jest.fn(

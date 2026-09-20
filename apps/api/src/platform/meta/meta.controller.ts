@@ -37,9 +37,7 @@ export class MetaController {
         : {}),
       ...(appVersion && /^\d+(?:\.\d+){0,2}$/u.test(appVersion) ? { appVersion } : {}),
       ...(locale && ['ar', 'en'].includes(locale) ? { locale: locale as 'ar' | 'en' } : {}),
-      ...(request.metaSubject
-        ? { cohort: derivePercentageCohort(request.metaSubject) }
-        : {}),
+      ...(request.metaSubject ? { cohort: derivePercentageCohort(request.metaSubject) } : {}),
     };
     const value = await this.meta.get(context);
     const etag = await this.meta.etag(context);

@@ -13,19 +13,21 @@ describe('AiService provider-boundary routing', () => {
     workloadAvailable: jest.fn(() => Promise.resolve(true)),
     recentConversationTurns: jest.fn<Promise<AssistantTurn[]>, []>(() => Promise.resolve([])),
     saveDeterministicMessage: jest.fn(() => Promise.resolve(accepted)),
-    enqueueMessage: jest.fn(() => Promise.resolve({
-      resource: { ...accepted.resource, workStatus: 'queued' },
-    })),
+    enqueueMessage: jest.fn(() =>
+      Promise.resolve({
+        resource: { ...accepted.resource, workStatus: 'queued' },
+      }),
+    ),
   };
   const tools = {
-    resolve: jest.fn<
-      Promise<FinancialToolResult>,
-      [typeof owner, AssistantIntent, string, string]
-    >(() => Promise.resolve({
-      answer: 'صرفت 2,350 ريال هذا الشهر.',
-      context: { monthlySpendingMinor: 235_000, currency: 'SAR' },
-      evidence: [{ kind: 'ledger', version: 12 }],
-    })),
+    resolve: jest.fn<Promise<FinancialToolResult>, [typeof owner, AssistantIntent, string, string]>(
+      () =>
+        Promise.resolve({
+          answer: 'صرفت 2,350 ريال هذا الشهر.',
+          context: { monthlySpendingMinor: 235_000, currency: 'SAR' },
+          evidence: [{ kind: 'ledger', version: 12 }],
+        }),
+    ),
   };
   const service = new AiService(
     repository as never,
@@ -39,7 +41,7 @@ describe('AiService provider-boundary routing', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it.each(['اكتبلي كود React', 'مين كسب ماتش الهلال؟', 'اكتب قصة']) (
+  it.each(['اكتبلي كود React', 'مين كسب ماتش الهلال؟', 'اكتب قصة'])(
     'persists an unrelated redirect without quota, provider, or personal finance reads: %s',
     async (content) => {
       await expect(

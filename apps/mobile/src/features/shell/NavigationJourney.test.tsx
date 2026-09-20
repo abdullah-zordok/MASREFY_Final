@@ -71,7 +71,6 @@ jest.mock('@/features/assistant/assistant-queries', () => ({
   useAssistantConsent: jest.fn(),
   useAssistantInsights: jest.fn(),
   useAssistantAvailability: jest.fn(),
-  useAssistantInsights: jest.fn(),
   useSetAssistantConsent: jest.fn(),
   useCreateAssistantConversation: jest.fn(),
   useAssistantConversations: jest.fn(),

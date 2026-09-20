@@ -72,15 +72,9 @@ describe('backend workflow action pins', () => {
     );
     expect(stressSeedIndex).toBeGreaterThan(loadIndex);
     expect(stressSeedIndex).toBeLessThan(stressIndex);
-    expect(workflow).toContain(
-      'K6_AUTO_EXTENSION_RESOLUTION: "false"',
-    );
-    expect(workflow).toContain(
-      "import sql from 'k6/x/sql';",
-    );
-    expect(workflow).toContain(
-      "import postgres from 'k6/x/sql/driver/postgres';",
-    );
+    expect(workflow).toContain('K6_AUTO_EXTENSION_RESOLUTION: "false"');
+    expect(workflow).toContain("import sql from 'k6/x/sql';");
+    expect(workflow).toContain("import postgres from 'k6/x/sql/driver/postgres';");
     expect(workflow).toContain(
       'K6_AUTO_EXTENSION_RESOLUTION=false "$binary" inspect /tmp/outbox-extension-check.js',
     );

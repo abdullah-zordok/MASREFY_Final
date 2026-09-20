@@ -84,18 +84,26 @@ describeLiveDatabase('profile and preferences repository', () => {
     );
 
     await repository.getProfile(owner);
-    const first = await asRole('masarifi_worker', async (client) =>
-      (await client.query<{ last_seen_at: Date }>(
-        'select last_seen_at from public.profiles where id = $1',
-        [owner.userId],
-      )).rows[0]?.last_seen_at,
+    const first = await asRole(
+      'masarifi_worker',
+      async (client) =>
+        (
+          await client.query<{ last_seen_at: Date }>(
+            'select last_seen_at from public.profiles where id = $1',
+            [owner.userId],
+          )
+        ).rows[0]?.last_seen_at,
     );
     await repository.getProfile(owner);
-    const second = await asRole('masarifi_worker', async (client) =>
-      (await client.query<{ last_seen_at: Date }>(
-        'select last_seen_at from public.profiles where id = $1',
-        [owner.userId],
-      )).rows[0]?.last_seen_at,
+    const second = await asRole(
+      'masarifi_worker',
+      async (client) =>
+        (
+          await client.query<{ last_seen_at: Date }>(
+            'select last_seen_at from public.profiles where id = $1',
+            [owner.userId],
+          )
+        ).rows[0]?.last_seen_at,
     );
     expect(second?.getTime()).toBe(first?.getTime());
 
@@ -106,11 +114,15 @@ describeLiveDatabase('profile and preferences repository', () => {
       ),
     );
     await repository.getProfile(owner);
-    const refreshed = await asRole('masarifi_worker', async (client) =>
-      (await client.query<{ last_seen_at: Date }>(
-        'select last_seen_at from public.profiles where id = $1',
-        [owner.userId],
-      )).rows[0]?.last_seen_at,
+    const refreshed = await asRole(
+      'masarifi_worker',
+      async (client) =>
+        (
+          await client.query<{ last_seen_at: Date }>(
+            'select last_seen_at from public.profiles where id = $1',
+            [owner.userId],
+          )
+        ).rows[0]?.last_seen_at,
     );
     expect(refreshed?.getTime()).toBeGreaterThan(first?.getTime() ?? 0);
   });

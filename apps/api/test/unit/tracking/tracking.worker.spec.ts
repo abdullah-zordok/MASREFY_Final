@@ -220,18 +220,16 @@ describe('tracking worker', () => {
     };
     const ledger = {
       createTransaction: jest.fn(),
-      transfer: jest.fn<
-        Promise<{ transaction: { transaction: { id: string } } }>,
-        [unknown]
-      >(() => Promise.resolve({ transaction: { transaction: { id: 'transfer-1' } } })),
+      transfer: jest.fn<Promise<{ transaction: { transaction: { id: string } } }>, [unknown]>(() =>
+        Promise.resolve({ transaction: { transaction: { id: 'transfer-1' } } }),
+      ),
     };
 
     await new TrackingWorker(repository as never, ledger as never, {} as never).runOnce();
 
     expect(ledger.createTransaction).not.toHaveBeenCalled();
     const transfer = ledger.transfer.mock.calls[0]?.[0] as
-      | { body: Record<string, unknown> }
-      | undefined;
+      { body: Record<string, unknown> } | undefined;
     expect(transfer?.body).toMatchObject({
       sourceAccountId: '80000000-0000-4000-8000-000000000005',
       destinationAccountId: '80000000-0000-4000-8000-000000000007',

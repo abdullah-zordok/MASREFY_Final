@@ -34,31 +34,34 @@ function workerFor(eventType: string, eligible: boolean) {
     {} as SupportStorage,
     {} as ClerkClientService,
     {
-      getRequired: jest.fn((key: string) => ({
-        MASARIFI_NOTIFICATION_BATCH_SIZE: 100,
-        MASARIFI_ENGAGEMENT_PROVIDER_MODE: 'disabled',
-        MASARIFI_NOTIFICATION_MAX_ATTEMPTS: 5,
-      })[key]),
+      getRequired: jest.fn(
+        (key: string) =>
+          ({
+            MASARIFI_NOTIFICATION_BATCH_SIZE: 100,
+            MASARIFI_ENGAGEMENT_PROVIDER_MODE: 'disabled',
+            MASARIFI_NOTIFICATION_MAX_ATTEMPTS: 5,
+          })[key],
+      ),
     } as unknown as PlatformConfigService,
   );
   return { repository, worker };
 }
 
-it.each([
-  'reminder.app_inactive.3d',
-  'reminder.financial_inactive.7d',
-])('suppresses a stale %s push before provider dispatch', async (eventType) => {
-  const { repository, worker } = workerFor(eventType, false);
+it.each(['reminder.app_inactive.3d', 'reminder.financial_inactive.7d'])(
+  'suppresses a stale %s push before provider dispatch',
+  async (eventType) => {
+    const { repository, worker } = workerFor(eventType, false);
 
-  await worker.runJob('notification.dispatch');
+    await worker.runJob('notification.dispatch');
 
-  expect(repository.finishNotificationDelivery).toHaveBeenCalledWith(
-    delivery(eventType).id,
-    delivery(eventType).claim_token,
-    'suppressed',
-    'REMINDER_STALE',
-  );
-});
+    expect(repository.finishNotificationDelivery).toHaveBeenCalledWith(
+      delivery(eventType).id,
+      delivery(eventType).claim_token,
+      'suppressed',
+      'REMINDER_STALE',
+    );
+  },
+);
 
 it('does not revalidate an ordinary transaction notification', async () => {
   const { repository, worker } = workerFor('transaction.created', false);

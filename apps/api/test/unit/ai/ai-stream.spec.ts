@@ -69,9 +69,7 @@ describe('assistant SSE orchestration', () => {
       {} as never,
       {} as never,
       {
-        resolve: jest.fn(() =>
-          Promise.resolve({ answer: null, context: {}, evidence: [] }),
-        ),
+        resolve: jest.fn(() => Promise.resolve({ answer: null, context: {}, evidence: [] })),
       } as never,
       { getRequired: jest.fn(() => true) } as never,
     );

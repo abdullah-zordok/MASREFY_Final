@@ -6,15 +6,17 @@ import type { SupportStorage } from '../../../src/engagement/support.storage';
 
 it('ingests daily reminder candidates without dispatching a provider', async () => {
   const repository = {
-    listReminderCandidates: jest.fn().mockResolvedValue([{
-      kind: 'app',
-      userId: 'user-1',
-      locale: 'en',
-      timeZone: 'Asia/Riyadh',
-      baselineAt: '2026-09-01T00:00:00.000Z',
-      evaluatedAt: '2026-09-05T00:00:00.000Z',
-      inactiveDays: 4,
-    }]),
+    listReminderCandidates: jest.fn().mockResolvedValue([
+      {
+        kind: 'app',
+        userId: 'user-1',
+        locale: 'en',
+        timeZone: 'Asia/Riyadh',
+        baselineAt: '2026-09-01T00:00:00.000Z',
+        evaluatedAt: '2026-09-05T00:00:00.000Z',
+        inactiveDays: 4,
+      },
+    ]),
     loadSourceTemplates: jest.fn().mockResolvedValue([
       {
         id: 'template-1',

@@ -190,7 +190,11 @@ export function assistantMessage(input: unknown) {
   const contextScope = value.contextScope === undefined ? [] : value.contextScope;
   if (!Array.isArray(contextScope) || contextScope.length > 5) bad();
   const normalizedScope = contextScope.map((scope) => text(scope));
-  if (new Set(normalizedScope).size !== normalizedScope.length || normalizedScope.some((scope) => !SCOPES.has(scope))) bad();
+  if (
+    new Set(normalizedScope).size !== normalizedScope.length ||
+    normalizedScope.some((scope) => !SCOPES.has(scope))
+  )
+    bad();
   const intent = value.intent === undefined ? undefined : text(value.intent);
   if (intent !== undefined && !ASSISTANT_INTENTS.includes(intent as AssistantIntent)) bad();
   if (typeof value.responseMode !== 'string' || !['async', 'stream'].includes(value.responseMode))

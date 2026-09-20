@@ -5,7 +5,10 @@ import addFormats from 'ajv-formats';
 import { load } from 'js-yaml';
 
 const document = load(
-  readFileSync('specs/013-performance-caching-observability-operations/contracts/openapi.yaml', 'utf8'),
+  readFileSync(
+    'specs/013-performance-caching-observability-operations/contracts/openapi.yaml',
+    'utf8',
+  ),
 ) as { components: { schemas: Record<string, unknown> } };
 const ajv = new Ajv({ strict: false });
 addFormats(ajv);
@@ -79,7 +82,11 @@ it('accepts exact closed setting, flag, and maintenance update instances', () =>
   const instances: [string, unknown][] = [
     [
       'UpdateSettingRequest',
-      { value: { minimumDays: 30, maximumDays: 365 }, expectedVersion: 2, reason: 'Keep the retention window bounded.' },
+      {
+        value: { minimumDays: 30, maximumDays: 365 },
+        expectedVersion: 2,
+        reason: 'Keep the retention window bounded.',
+      },
     ],
     [
       'UpdateFlagRequest',
@@ -102,6 +109,10 @@ it('accepts exact closed setting, flag, and maintenance update instances', () =>
 
   for (const [schema, instance] of instances) {
     const validate = validator(schema);
-    expect({ schema, valid: validate(instance), errors: validate.errors }).toEqual({ schema, valid: true, errors: null });
+    expect({ schema, valid: validate(instance), errors: validate.errors }).toEqual({
+      schema,
+      valid: true,
+      errors: null,
+    });
   }
 });

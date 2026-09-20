@@ -8,7 +8,11 @@ import {
 } from '../../../src/ai/ai.schemas';
 import { buildAiEvent } from '../../../src/ai/ai.events';
 import { AiNoStoreInterceptor } from '../../../src/ai/ai-no-store.interceptor';
-import { assistantProviderPayload, encodeAssistantProviderPayload, evaluatePromptCorpus } from '../../../src/ai/ai.worker';
+import {
+  assistantProviderPayload,
+  encodeAssistantProviderPayload,
+  evaluatePromptCorpus,
+} from '../../../src/ai/ai.worker';
 import { of } from 'rxjs';
 
 const voice = {
@@ -175,7 +179,13 @@ describe('Phase 09 AI trust boundaries', () => {
   it('rejects oversized provider context instead of truncating JSON', () => {
     expect(() =>
       encodeAssistantProviderPayload(
-        { content: 'why?', intent: 'financial_advice', contextPayload: { note: 'x'.repeat(100) }, historyPayload: [], aliases: [] },
+        {
+          content: 'why?',
+          intent: 'financial_advice',
+          contextPayload: { note: 'x'.repeat(100) },
+          historyPayload: [],
+          aliases: [],
+        },
         32,
       ),
     ).toThrow('AI_CONTEXT_LIMIT');

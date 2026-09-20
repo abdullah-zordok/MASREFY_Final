@@ -261,7 +261,9 @@ export function normalizeNormalizedImport(value: unknown): NormalizedImport {
     invalid();
   if (
     (input.sourceType === 'provider' && input.sourceChannel !== 'android_notification') ||
-    (input.sourceType === 'sms' && input.sourceChannel != null && input.sourceChannel !== 'android_sms')
+    (input.sourceType === 'sms' &&
+      input.sourceChannel != null &&
+      input.sourceChannel !== 'android_sms')
   )
     invalid();
   if (!Array.isArray(input.events) || input.events.length < 1 || input.events.length > 100)

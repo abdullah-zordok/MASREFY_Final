@@ -400,7 +400,9 @@ export function parseVoiceWorkerOutput(input: unknown): VoiceWorkerOutput {
   )
     invalid();
   if (value.outcome === 'unsupported') {
-    if (!['transfer', 'multiple', 'obligation', 'unclear'].includes(String(value.unsupportedReason)))
+    if (
+      !['transfer', 'multiple', 'obligation', 'unclear'].includes(String(value.unsupportedReason))
+    )
       invalid();
     return value as unknown as VoiceWorkerOutput;
   }
@@ -723,7 +725,10 @@ export function assertSafeAiInput(value: string, maximumBytes = 8_192): string {
 
 export function redactAiText(value: string): string {
   return value
-    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu, '[redacted-id]')
+    .replace(
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu,
+      '[redacted-id]',
+    )
     .replace(/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,30}\b/gu, '[redacted-iban]')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, '[redacted-email]')
     .replace(/\+\d(?:[ -]?\d){7,14}/gu, '[redacted-phone]')

@@ -414,11 +414,10 @@ export class AiRepository {
   }
 
   listInsights(principal: ClerkPrincipal, limit: number) {
-    return this.ownerValues(
-      principal,
-      'select value from private.list_financial_insights($1,$2)',
-      [principal.userId, limit],
-    );
+    return this.ownerValues(principal, 'select value from private.list_financial_insights($1,$2)', [
+      principal.userId,
+      limit,
+    ]);
   }
 
   listMessages(
@@ -672,10 +671,10 @@ export class AiRepository {
 
   workInput(kind: string, id: string, token: string) {
     return kind === 'assistant.respond'
-      ? this.workerJson(
-          'select private.get_assistant_work_input_v2($1::uuid,$2::uuid) result',
-          [id, token],
-        )
+      ? this.workerJson('select private.get_assistant_work_input_v2($1::uuid,$2::uuid) result', [
+          id,
+          token,
+        ])
       : this.workerJson('select private.get_ai_work_input($1,$2::uuid,$3::uuid) result', [
           kind,
           id,
@@ -830,13 +829,14 @@ export class AiRepository {
   }
 
   refreshInsights(limit: number): Promise<number> {
-    return this.worker(async (client) =>
-      (
-        await client.query<{ result: number }>(
-          'select private.refresh_financial_insights($1) result',
-          [limit],
-        )
-      ).rows[0]?.result ?? 0,
+    return this.worker(
+      async (client) =>
+        (
+          await client.query<{ result: number }>(
+            'select private.refresh_financial_insights($1) result',
+            [limit],
+          )
+        ).rows[0]?.result ?? 0,
     );
   }
   claimPurges(workerId: string, limit: number, leaseSeconds: number) {

@@ -1,7 +1,4 @@
-import {
-  routeAssistantMessage,
-  selectConversationHistory,
-} from '../../../src/ai/ai-routing';
+import { routeAssistantMessage, selectConversationHistory } from '../../../src/ai/ai-routing';
 
 describe('assistant domain and intent routing', () => {
   it.each([

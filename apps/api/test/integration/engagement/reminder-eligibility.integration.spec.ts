@@ -61,7 +61,9 @@ describeLiveDatabase('reminder eligibility', () => {
       await client.query('delete from public.push_tokens where user_id=any($1)', [users]);
       await client.query('delete from public.user_devices where user_id=any($1)', [users]);
       await client.query('delete from public.tracking_preferences where user_id=any($1)', [users]);
-      await client.query('delete from public.notification_preferences where user_id=any($1)', [users]);
+      await client.query('delete from public.notification_preferences where user_id=any($1)', [
+        users,
+      ]);
       await client.query('delete from public.profiles where id=any($1)', [users]);
     });
     await pool.onModuleDestroy();
@@ -85,21 +87,25 @@ describeLiveDatabase('reminder eligibility', () => {
       (item) => item.userId === 'reminder-app-3d',
     );
     if (!first) throw new Error('REMINDER_FIXTURE_MISSING');
-    await migration((client) => client.query(
-      `insert into public.notification_events(user_id,type,title,body_safe,data)
+    await migration((client) =>
+      client.query(
+        `insert into public.notification_events(user_id,type,title,body_safe,data)
        values($1,'reminder.app_inactive.3d','Reminder','Open Masarifi.',jsonb_build_object('cycleBaseline',$2::text))`,
-      [first.userId, first.baselineAt],
-    ));
-    expect((await repository.listReminderCandidates(100)).some(
-      (item) => item.userId === first.userId,
-    )).toBe(false);
+        [first.userId, first.baselineAt],
+      ),
+    );
+    expect(
+      (await repository.listReminderCandidates(100)).some((item) => item.userId === first.userId),
+    ).toBe(false);
 
-    await migration((client) => client.query(
-      `update public.profiles set last_seen_at=clock_timestamp()-interval '4 days' where id=$1`,
-      [first.userId],
-    ));
-    expect((await repository.listReminderCandidates(100)).some(
-      (item) => item.userId === first.userId,
-    )).toBe(true);
+    await migration((client) =>
+      client.query(
+        `update public.profiles set last_seen_at=clock_timestamp()-interval '4 days' where id=$1`,
+        [first.userId],
+      ),
+    );
+    expect(
+      (await repository.listReminderCandidates(100)).some((item) => item.userId === first.userId),
+    ).toBe(true);
   });
 });

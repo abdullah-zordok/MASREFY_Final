@@ -168,8 +168,7 @@ describe('tracking review orchestration', () => {
 
     expect(ledger.createTransaction).not.toHaveBeenCalled();
     const transfer = ledger.transfer.mock.calls[0]?.[0] as
-      | { body: Record<string, unknown>; idempotencyKey: string }
-      | undefined;
+      { body: Record<string, unknown>; idempotencyKey: string } | undefined;
     expect(transfer).toMatchObject({
       body: {
         sourceAccountId: accountId,

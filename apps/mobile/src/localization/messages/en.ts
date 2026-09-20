@@ -903,11 +903,20 @@ const en = {
     'Let Masarifi detect supported transactions automatically.',
   'tracking.home.enableAction': 'Enable automatic tracking',
   'tracking.home.dismissAction': 'Dismiss automatic tracking suggestion',
+  'notifications.home.enableTitle': 'Turn on notifications',
+  'notifications.home.enableBody':
+    'Get transaction alerts and reminders from Masarifi.',
+  'notifications.home.enableAction': 'Enable notifications',
+  'notifications.home.dismissAction': 'Dismiss notification suggestion',
+  'notifications.home.enableFailed':
+    'Notifications could not be enabled. Try again.',
   'tracking.header.title': 'Automatic Message Tracking',
   'tracking.status.label': 'Status',
   'tracking.status.enabled': 'Enabled',
   'tracking.status.disabled': 'Disabled',
   'tracking.status.unavailable': 'Unavailable',
+  'tracking.source.bankNotifications': 'Bank notifications',
+  'tracking.source.financialSms': 'Financial SMS',
   'tracking.status.demo': 'Demo tracking — not production data',
   'tracking.permission.warning':
     'Message permissions not granted. Tap to enable.',

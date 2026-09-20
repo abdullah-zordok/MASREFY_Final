@@ -18,18 +18,6 @@ jest.mock('@/storage/secure-preferences', () => ({
   loadPreferences: jest.fn(),
   savePreferences: jest.fn().mockResolvedValue(undefined)
 }));
-jest.mock('@/services/pre-signup-reminder-service', () => ({
-  preSignupReminderService: {
-    prepare: jest.fn(async () => ({ shouldRequestPermission: false })),
-    scheduleAfterPermission: jest.fn(async () => undefined)
-  }
-}));
-jest.mock('@/services/platform/phone-notification-service', () => ({
-  phoneNotificationService: {
-    requestPermission: jest.fn(async () => 'denied')
-  }
-}));
-
 const mockSavePreferences = jest.mocked(savePreferences);
 
 beforeEach(() => {

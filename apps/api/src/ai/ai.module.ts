@@ -29,13 +29,7 @@ import { AiNoStoreInterceptor } from './ai-no-store.interceptor';
     ReportsModule,
   ],
   controllers: [AiController, AiAdminController],
-  providers: [
-    AiRepository,
-    AiStorage,
-    AiService,
-    AssistantFinancialTools,
-    AiNoStoreInterceptor,
-  ],
+  providers: [AiRepository, AiStorage, AiService, AssistantFinancialTools, AiNoStoreInterceptor],
 })
 export class AiModule {}
 

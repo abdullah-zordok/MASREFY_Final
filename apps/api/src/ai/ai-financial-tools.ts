@@ -141,7 +141,12 @@ export class AssistantFinancialTools {
     if (intent === 'period_comparison') {
       const previous = await this.reports.getReportSummary(
         principal,
-        { type: 'category_spending', period: 'monthly', anchorDate: previousMonth(), currency: null },
+        {
+          type: 'category_spending',
+          period: 'monthly',
+          anchorDate: previousMonth(),
+          currency: null,
+        },
         requestId,
       );
       return {
@@ -170,14 +175,22 @@ export class AssistantFinancialTools {
 }
 
 function categoryResult(report: ReportsSummaryResponse, question: string): FinancialToolResult {
-  const category = report.breakdowns.find(({ labelAr, labelEn }) =>
-    question.toLowerCase().includes(labelAr.toLowerCase()) ||
-    question.toLowerCase().includes(labelEn.toLowerCase()),
-  ) ?? report.breakdowns[0];
+  const category =
+    report.breakdowns.find(
+      ({ labelAr, labelEn }) =>
+        question.toLowerCase().includes(labelAr.toLowerCase()) ||
+        question.toLowerCase().includes(labelEn.toLowerCase()),
+    ) ?? report.breakdowns[0];
   if (!category) return unavailableResult();
   return {
     answer: `صرفك في ${category.labelAr} هو ${money(category.expenseMinor)} ${currencyLabel(category.currencyCode)} هذا الشهر.`,
-    context: { category: { label: category.labelAr, expenseMinor: category.expenseMinor, currency: category.currencyCode } },
+    context: {
+      category: {
+        label: category.labelAr,
+        expenseMinor: category.expenseMinor,
+        currency: category.currencyCode,
+      },
+    },
     evidence: report.metadata.evidence,
   };
 }
@@ -261,7 +274,8 @@ function planningEvidence(summary: Record<string, unknown>) {
 
 function planningRecord(value: unknown): Record<string, unknown> {
   const result = record(value);
-  if (result.dataState === 'partial') throw new HttpException({ code: 'AI_EVIDENCE_INCOMPLETE' }, 409);
+  if (result.dataState === 'partial')
+    throw new HttpException({ code: 'AI_EVIDENCE_INCOMPLETE' }, 409);
   return result;
 }
 
@@ -277,7 +291,8 @@ function record(value: unknown): Record<string, unknown> {
 
 function minor(value: unknown): number {
   const parsed = Number(value ?? 0);
-  if (!Number.isSafeInteger(parsed)) throw new HttpException({ code: 'AI_EVIDENCE_INCOMPLETE' }, 409);
+  if (!Number.isSafeInteger(parsed))
+    throw new HttpException({ code: 'AI_EVIDENCE_INCOMPLETE' }, 409);
   return parsed;
 }
 

@@ -62,12 +62,14 @@ describe('Deletion and retention routes E2E', () => {
         })
         .expect(200);
 
-      expect(execute.mock.calls.map(([input]) => ({
-        operation: input.operation,
-        permission: input.permission,
-        query: input.query,
-        body: input.body,
-      }))).toEqual([
+      expect(
+        execute.mock.calls.map(([input]) => ({
+          operation: input.operation,
+          permission: input.permission,
+          query: input.query,
+          body: input.body,
+        })),
+      ).toEqual([
         {
           operation: 'listDeletionRequests',
           permission: 'privacy.deletions.read',

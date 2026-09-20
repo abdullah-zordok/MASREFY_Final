@@ -267,10 +267,7 @@ export class EngagementRepository {
         baseline_at: string;
         evaluated_at: string;
         inactive_days: number;
-      }>(
-        'select * from private.list_reminder_candidates($1)',
-        [limit],
-      );
+      }>('select * from private.list_reminder_candidates($1)', [limit]);
       return result.rows.map((row) => ({
         kind: row.kind,
         userId: row.user_id,

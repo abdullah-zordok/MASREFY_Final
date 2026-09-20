@@ -10,9 +10,7 @@ import {
 import type { Request } from 'express';
 
 export const META_TOKEN_VERIFIER = Symbol('META_TOKEN_VERIFIER');
-export type MetaTokenVerifier = (
-  token: string,
-) => Promise<boolean | Readonly<{ userId: string }>>;
+export type MetaTokenVerifier = (token: string) => Promise<boolean | Readonly<{ userId: string }>>;
 
 export interface MetaRequest extends Request {
   metaSubject?: string;
