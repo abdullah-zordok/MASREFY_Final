@@ -1,20 +1,27 @@
 import React from 'react';
 import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Rect,
+  Stop
+} from 'react-native-svg';
 
 import { ActionButton } from '@/design-system/components/ActionButton';
-import { FinancialPulse } from '@/design-system/components/financial/FinancialPulse';
-import {
-  StatusBadge,
-  type StatusBadgeStatus
-} from '@/design-system/components/StatusBadge';
 import { SurfaceCard } from '@/design-system/components/SurfaceCard';
 import { DesignIcon } from '@/design-system/icons';
-import { radius, spacing, typography } from '@/design-system/tokens';
+import {
+  colorTokens,
+  elevation,
+  radius,
+  spacing,
+  typography
+} from '@/design-system/tokens';
 import type { Calculation } from '@/domain/financial-planning';
 import type { MoneyValue } from '@/domain/core-finance';
 import { localDateInTimeZone } from '@/domain/financial-period';
-import { daysBetween, type LocalDate } from '@/domain/financial-planning';
 import {
   PlanningScreen,
   PlanningState,
@@ -23,8 +30,7 @@ import {
 import {
   currentLocale,
   translate,
-  translateDynamic,
-  type MessageKey
+  translateDynamic
 } from '@/localization/i18n';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
@@ -52,39 +58,6 @@ function formatMoney(
   );
 }
 
-function salaryStatusBadge(salaryState: string): {
-  status: StatusBadgeStatus;
-  key: MessageKey;
-} {
-  switch (salaryState) {
-    case 'early':
-      return {
-        status: 'success',
-        key: 'planning.salary.status.early' as MessageKey
-      };
-    case 'late':
-      return {
-        status: 'warning',
-        key: 'planning.salary.status.late' as MessageKey
-      };
-    case 'overdue':
-      return {
-        status: 'danger',
-        key: 'planning.salary.status.overdue' as MessageKey
-      };
-    case 'unconfigured':
-      return {
-        status: 'neutral',
-        key: 'planning.salary.status.unconfigured' as MessageKey
-      };
-    default:
-      return {
-        status: 'success',
-        key: 'planning.salary.status.on_time' as MessageKey
-      };
-  }
-}
-
 function formatLocalDate(isoDate: string, locale: string): string {
   const date = new Date(`${isoDate}T00:00:00`);
   const tag = locale === 'ar' ? 'ar-u-nu-latn' : 'en-US-u-nu-latn';
@@ -106,161 +79,69 @@ export function SalaryOverviewScreen() {
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
   const { revealed } = useSensitiveVisibility();
   const theme = useTheme();
-  const direction = usePreferenceStore((state) => state.direction);
+  const storedDirection = usePreferenceStore((state) => state.direction);
   const locale = currentLocale();
-  const largeText = PixelRatio.getFontScale() >= 1.5;
+  const direction = locale === 'ar' ? 'rtl' : storedDirection;
+  const largeText = PixelRatio.getFontScale() >= 1.25;
 
   const data = query.data;
   const money = (calc: Calculation<MoneyValue>) =>
     formatMoney(calc, hideBalances, revealed);
+  const nextSalaryDate = data?.projectedNextSalaryDate
+    ? formatLocalDate(data.projectedNextSalaryDate, locale)
+    : translate('planning.conflict.valueUnavailable');
 
   return (
     <PlanningScreen
       titleKey="planning.salary.title"
-      action={
-        data?.dataState === 'empty'
-          ? undefined
-          : {
-              labelKey: 'planning.salary.setup',
-              onPress: () => router.push('/salary/profile')
-            }
-      }
+      backgroundColor={theme.colors.surfaces.page}
+      hideHeader
     >
       {query.isLoading ? (
         <PlanningState state="loading" />
       ) : query.isError || !data ? (
         <PlanningState state="error" onRetry={() => void query.refetch()} />
-      ) : data.dataState === 'empty' ? (
+      ) : data.dataState === 'empty' && !data.profileId ? (
         <SalaryEmptyState direction={direction} theme={theme} />
       ) : (
-        <>
-          {/* ── Hero: Remaining Salary ── */}
-          <FinancialPulse
-            accessibilityLabel={`${translate('planning.salary.remaining')}, ${money(data.remaining)}, ${translateDynamic('planning.salary.untilNext', { count: data.daysRemaining })}`}
-            scope={translate('planning.salary.remaining')}
-            statement={money(data.remaining)}
-            supportingValue={translateDynamic('planning.salary.untilNext', {
+        <View style={styles.screenStack}>
+          <SalaryCycleHeader
+            direction={direction}
+            income={money(data.income)}
+            remaining={money(data.remaining)}
+            daily={money(data.suggestedDaily)}
+            daysRemaining={translateDynamic('planning.salary.daysRemaining', {
               count: data.daysRemaining
             })}
-          >
-            {/* Status badge inside the hero */}
-            <View style={styles.heroBadgeRow}>
-              <StatusBadge
-                status={salaryStatusBadge(data.salaryState).status}
-                label={translate(salaryStatusBadge(data.salaryState).key)}
-                textColor={theme.colors.content.onFinancialHero}
-              />
-            </View>
-          </FinancialPulse>
+            largeText={largeText}
+          />
 
-          {/* ── Cycle Progress ── */}
-          {data.startDate && data.projectedNextSalaryDate ? (
-            <CycleProgress
-              startDate={data.startDate}
-              endDate={data.projectedNextSalaryDate}
-              today={localDateInTimeZone(Date.now(), timeZone)}
-              direction={direction}
-              theme={theme}
-            />
-          ) : null}
-
-          {/* ── Financial Summary ── */}
           <Text
             style={[
-              styles.sectionLabel,
+              styles.detailsTitle,
               {
-                color: theme.colors.content.secondary,
-                textAlign: direction === 'rtl' ? 'right' : 'left'
+                color: theme.colors.content.primary,
+                textAlign: 'left'
               }
             ]}
           >
-            {translate('planning.salary.financialSummary')}
+            {translate('planning.salary.cycleDetails')}
           </Text>
 
-          <View style={largeText ? styles.metricsColumn : styles.metricsRow}>
-            <MetricCard
-              label={translate('planning.salary.income')}
-              value={money(data.income)}
-              color={theme.colors.financial.income}
-              theme={theme}
-              direction={direction}
-            />
-            <MetricCard
-              label={translate('planning.salary.expenses')}
-              value={money(data.expenses)}
-              color={theme.colors.financial.expense}
-              theme={theme}
-              direction={direction}
-            />
-          </View>
-
-          <MetricCard
-            label={translate('planning.salary.reserved')}
-            value={money(data.reservedObligations)}
-            color={theme.colors.status.warning}
-            theme={theme}
+          <SalaryDetailsCard
             direction={direction}
+            spent={money(data.expenses)}
+            reserved={money(data.reservedObligations)}
+            nextSalaryDate={nextSalaryDate}
           />
 
-          {/* ── Daily Spending Insight ── */}
-          <DailyInsight
-            suggestedDaily={data.suggestedDaily}
-            hideBalances={hideBalances}
-            revealed={revealed}
-            theme={theme}
-            direction={direction}
+          <ActionButton
+            label={translate('planning.salary.editSettings')}
+            onPress={() => router.push('/salary/profile')}
+            style={styles.primaryAction}
+            labelStyle={styles.primaryActionLabel}
           />
-
-          {/* ── Next Salary ── */}
-          {data.projectedNextSalaryDate ? (
-            <SurfaceCard
-              accessibilityLabel={`${translate('planning.salary.nextSalary')}, ${formatLocalDate(data.projectedNextSalaryDate, locale)}, ${translateDynamic('planning.salary.untilNext', { count: data.daysRemaining })}`}
-            >
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  {
-                    color: theme.colors.content.secondary,
-                    textAlign: direction === 'rtl' ? 'right' : 'left'
-                  }
-                ]}
-              >
-                {translate('planning.salary.nextSalary')}
-              </Text>
-              <View
-                style={[
-                  styles.nextRow,
-                  {
-                    direction: 'ltr',
-                    flexDirection: direction === 'rtl' ? 'row-reverse' : 'row'
-                  }
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.nextDate,
-                    {
-                      color: theme.colors.content.primary,
-                      textAlign: direction === 'rtl' ? 'right' : 'left'
-                    }
-                  ]}
-                >
-                  {formatLocalDate(data.projectedNextSalaryDate, locale)}
-                </Text>
-                <Text
-                  style={[
-                    styles.nextDays,
-                    { color: theme.colors.content.muted }
-                  ]}
-                >
-                  {translateDynamic('planning.salary.untilNext', {
-                    count: data.daysRemaining
-                  })}
-                </Text>
-              </View>
-            </SurfaceCard>
-          ) : null}
-        </>
+        </View>
       )}
     </PlanningScreen>
   );
@@ -286,10 +167,7 @@ function SalaryEmptyState({
       ]}
     >
       <View
-        style={[
-          styles.emptyIcon,
-          { backgroundColor: theme.colors.surface }
-        ]}
+        style={[styles.emptyIcon, { backgroundColor: theme.colors.surface }]}
       >
         <DesignIcon
           name="salary"
@@ -326,202 +204,239 @@ function SalaryEmptyState({
   );
 }
 
-/* ─── Cycle Progress ──────────────────────────────────────────────────── */
+/* ─── Redesigned overview ─────────────────────────────────────────────── */
 
-function CycleProgress({
-  startDate,
-  endDate,
-  today,
+function SalaryCycleHeader({
   direction,
-  theme
+  income,
+  remaining,
+  daily,
+  daysRemaining,
+  largeText
 }: {
-  startDate: LocalDate;
-  endDate: LocalDate;
-  today: LocalDate;
   direction: 'rtl' | 'ltr';
-  theme: ReturnType<typeof useTheme>;
+  income: string;
+  remaining: string;
+  daily: string;
+  daysRemaining: string;
+  largeText: boolean;
 }) {
-  const totalDays = Math.max(1, daysBetween(startDate, endDate));
-  const elapsed = Math.max(
-    0,
-    Math.min(totalDays, daysBetween(startDate, today))
+  return (
+    <View
+      accessibilityLabel={`${translate('planning.salary.yourCycle')}, ${translate('planning.salary.cycleSalary')}, ${income}`}
+      style={styles.hero}
+    >
+      <Svg height="100%" style={StyleSheet.absoluteFillObject} width="100%">
+        <Defs>
+          <LinearGradient id="salaryHero" x1="0" x2="1" y1="0" y2="1">
+            <Stop offset="0" stopColor={colorTokens.teal[700]} />
+            <Stop offset="0.48" stopColor={colorTokens.raw['00B8A6']} />
+            <Stop offset="1" stopColor={colorTokens.teal[900]} />
+          </LinearGradient>
+        </Defs>
+        <Rect fill="url(#salaryHero)" height="100%" width="100%" />
+        <Circle
+          cx={direction === 'rtl' ? '6%' : '94%'}
+          cy="0"
+          fill={colorTokens.effects.glassStrong}
+          r="150"
+        />
+        <Circle
+          cx={direction === 'rtl' ? '85%' : '15%'}
+          cy="86%"
+          fill={colorTokens.effects.glass}
+          r="130"
+        />
+      </Svg>
+      <View style={styles.heroContent}>
+        <Text
+          accessibilityRole="header"
+          style={[
+            styles.heroTitle,
+            { textAlign: 'left' }
+          ]}
+        >
+          {translate('planning.salary.yourCycle')}
+        </Text>
+        <View style={styles.heroAmountBlock}>
+          <Text
+            style={[
+              styles.heroLabel,
+              { textAlign: 'left' }
+            ]}
+          >
+            {translate('planning.salary.cycleSalary')}
+          </Text>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.66}
+            numberOfLines={1}
+            style={[
+              styles.heroAmount,
+              largeText ? styles.heroAmountLargeText : undefined,
+              { textAlign: 'left' }
+            ]}
+          >
+            {income}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.summaryStrip,
+            { flexDirection: 'row' }
+          ]}
+        >
+          <SummaryCell
+            icon="wallet"
+            label={translate('planning.salary.remainingMine')}
+            value={remaining}
+          />
+          <SummaryCell
+            dividerStart
+            dividerEnd
+            icon="card"
+            label={translate('planning.salary.dailyInsight')}
+            value={daily}
+          />
+          <SummaryCell
+            icon="calendar"
+            label={translate('planning.salary.daysUntilSalary')}
+            value={daysRemaining}
+          />
+        </View>
+      </View>
+    </View>
   );
-  const percent = Math.round((elapsed / totalDays) * 100);
+}
 
+function SummaryCell({
+  icon,
+  label,
+  value,
+  dividerStart = false,
+  dividerEnd = false
+}: {
+  icon: 'wallet' | 'card' | 'calendar';
+  label: string;
+  value: string;
+  dividerStart?: boolean;
+  dividerEnd?: boolean;
+}) {
+  return (
+    <View
+      accessibilityLabel={`${label}, ${value}`}
+      style={[
+        styles.summaryCell,
+        dividerStart ? styles.summaryDividerStart : undefined,
+        dividerEnd ? styles.summaryDividerEnd : undefined
+      ]}
+    >
+      <DesignIcon name={icon} color={colorTokens.surface.white} decorative />
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.68}
+        numberOfLines={1}
+        style={styles.summaryValue}
+      >
+        {value}
+      </Text>
+      <Text numberOfLines={2} style={styles.summaryLabel}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function SalaryDetailsCard({
+  direction,
+  spent,
+  reserved,
+  nextSalaryDate
+}: {
+  direction: 'rtl' | 'ltr';
+  spent: string;
+  reserved: string;
+  nextSalaryDate: string;
+}) {
   return (
     <SurfaceCard
-      accessibilityLabel={`${translate('planning.salary.cycleProgress')}, ${translateDynamic('planning.salary.cycleDays', { elapsed, total: totalDays })}`}
+      accessibilityLabel={translate('planning.salary.cycleDetails')}
+      style={styles.detailsCard}
     >
-      <Text
-        style={[
-          styles.sectionLabel,
-          {
-            color: theme.colors.content.secondary,
-            textAlign: direction === 'rtl' ? 'right' : 'left'
-          }
-        ]}
-      >
-        {translate('planning.salary.cycleProgress')}
-      </Text>
-      <View
-        style={[
-          styles.progressTrack,
-          { backgroundColor: theme.colors.surfaces.inset }
-        ]}
-      >
-        <View
-          testID="cycle-progress-fill"
-          style={[
-            styles.progressFill,
-            {
-              backgroundColor: theme.colors.interactions.primary,
-              width: `${percent}%` as `${number}%`
-            }
-          ]}
-        />
-      </View>
-      <Text
-        style={[
-          styles.progressLabel,
-          {
-            color: theme.colors.content.muted,
-            textAlign: direction === 'rtl' ? 'right' : 'left'
-          }
-        ]}
-      >
-        {translateDynamic('planning.salary.cycleDays', {
-          elapsed,
-          total: totalDays
-        })}
-      </Text>
+      <DetailRow
+        direction={direction}
+        dotColor={colorTokens.raw.EF5350}
+        label={translate('planning.salary.spent')}
+        value={spent}
+        valueDirection="ltr"
+      />
+      <DetailRow
+        direction={direction}
+        dotColor={colorTokens.raw['42A5F5']}
+        label={translate('planning.salary.reservedForObligations')}
+        value={reserved}
+        valueDirection="ltr"
+      />
+      <DetailRow
+        direction={direction}
+        dotColor={colorTokens.raw.A7F3D0}
+        label={translate('planning.salary.nextSalaryMine')}
+        last
+        value={nextSalaryDate}
+      />
     </SurfaceCard>
   );
 }
 
-/* ─── Metric Card ─────────────────────────────────────────────────────── */
-
-function MetricCard({
+function DetailRow({
+  direction,
   label,
   value,
-  color,
-  theme,
-  direction
+  dotColor,
+  valueDirection,
+  last = false
 }: {
+  direction: 'rtl' | 'ltr';
   label: string;
   value: string;
-  color: string;
-  theme: ReturnType<typeof useTheme>;
-  direction: 'rtl' | 'ltr';
+  dotColor: string;
+  valueDirection?: 'ltr' | 'rtl';
+  last?: boolean;
 }) {
   return (
-    <SurfaceCard
-      accessibilityLabel={`${label}, ${value}`}
-      style={styles.metricCard}
+    <View
+      style={[
+        styles.detailRow,
+        { flexDirection: 'row' },
+        last ? undefined : styles.detailRowBorder
+      ]}
     >
-      <View style={[styles.metricIndicator, { backgroundColor: color }]} />
-      <Text
+      <View
         style={[
-          styles.metricLabel,
-          {
-            color: theme.colors.content.secondary,
-            textAlign: direction === 'rtl' ? 'right' : 'left'
-          }
+          styles.detailLabelGroup,
+          { flexDirection: 'row' }
         ]}
       >
-        {label}
-      </Text>
+        <View style={[styles.detailDot, { backgroundColor: dotColor }]} />
+        <Text numberOfLines={2} style={styles.detailLabel}>
+          {label}
+        </Text>
+      </View>
       <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+        numberOfLines={1}
         style={[
-          styles.metricValue,
+          styles.detailValue,
           {
-            color: theme.colors.content.primary,
-            textAlign: direction === 'rtl' ? 'right' : 'left',
-            writingDirection: 'ltr'
+            textAlign: direction === 'rtl' ? 'left' : 'right',
+            writingDirection: valueDirection
           }
         ]}
       >
         {value}
       </Text>
-    </SurfaceCard>
-  );
-}
-
-/* ─── Daily Insight ───────────────────────────────────────────────────── */
-
-function DailyInsight({
-  suggestedDaily,
-  hideBalances,
-  revealed,
-  theme,
-  direction
-}: {
-  suggestedDaily: Calculation<MoneyValue>;
-  hideBalances: boolean;
-  revealed: boolean;
-  theme: ReturnType<typeof useTheme>;
-  direction: 'rtl' | 'ltr';
-}) {
-  const isAvailable = suggestedDaily.status === 'available';
-  const displayValue = isAvailable
-    ? formatMoney(suggestedDaily, hideBalances, revealed)
-    : null;
-  const reason = !isAvailable ? planningReason(suggestedDaily.reason) : null;
-
-  return (
-    <SurfaceCard
-      accessibilityLabel={`${translate('planning.salary.dailyInsight')}, ${displayValue ?? reason}`}
-      style={[
-        styles.dailyCard,
-        {
-          backgroundColor: isAvailable
-            ? theme.colors.surfaces.brandSubtle
-            : theme.colors.surfaces.card,
-          borderColor: isAvailable
-            ? theme.colors.interactions.primary
-            : theme.colors.borders.subtle
-        }
-      ]}
-    >
-      <Text
-        style={[
-          styles.dailyLabel,
-          {
-            color: isAvailable
-              ? theme.colors.interactions.primary
-              : theme.colors.content.secondary,
-            textAlign: direction === 'rtl' ? 'right' : 'left'
-          }
-        ]}
-      >
-        {translate('planning.salary.dailyInsight')}
-      </Text>
-      {displayValue ? (
-        <Text
-          style={[
-            styles.dailyAmount,
-            {
-              color: theme.colors.interactions.primary,
-              textAlign: direction === 'rtl' ? 'right' : 'left',
-              writingDirection: 'ltr'
-            }
-          ]}
-        >
-          {displayValue}
-        </Text>
-      ) : (
-        <Text
-          style={[
-            styles.dailyReason,
-            {
-              color: theme.colors.content.muted,
-              textAlign: direction === 'rtl' ? 'right' : 'left'
-            }
-          ]}
-        >
-          {reason}
-        </Text>
-      )}
-    </SurfaceCard>
+    </View>
   );
 }
 
@@ -551,82 +466,160 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22
   },
-  heroBadgeRow: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs
+  screenStack: {
+    gap: spacing.xl
+  },
+  hero: {
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.lg,
+    minHeight: 336,
+    overflow: 'hidden'
+  },
+  heroContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl
+  },
+  heroTitle: {
+    color: colorTokens.surface.white,
+    fontSize: 28,
+    fontWeight: '700',
+    lineHeight: 36,
+    width: '100%'
+  },
+  heroAmountBlock: {
+    gap: spacing.sm
+  },
+  heroLabel: {
+    color: colorTokens.teal[50],
+    fontSize: 18,
+    fontWeight: '500',
+    lineHeight: 26,
+    width: '100%'
+  },
+  heroAmount: {
+    color: colorTokens.surface.white,
+    fontSize: 46,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+    lineHeight: 54,
+    width: '100%',
+    writingDirection: 'ltr'
+  },
+  heroAmountLargeText: {
+    fontSize: 38,
+    lineHeight: 46
+  },
+  summaryStrip: {
+    alignItems: 'stretch',
+    backgroundColor: colorTokens.effects.glassStrong,
+    borderColor: colorTokens.effects.glassBorder,
+    borderRadius: 22,
+    borderWidth: 1,
+    minHeight: 108,
+    overflow: 'hidden'
+  },
+  summaryCell: {
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.xs,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md
+  },
+  summaryDividerStart: {
+    borderStartColor: colorTokens.effects.glassBorder,
+    borderStartWidth: 1
+  },
+  summaryDividerEnd: {
+    borderEndColor: colorTokens.effects.glassBorder,
+    borderEndWidth: 1
+  },
+  summaryValue: {
+    color: colorTokens.surface.white,
+    fontSize: 16,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    lineHeight: 22,
+    textAlign: 'center',
+    writingDirection: 'ltr'
+  },
+  summaryLabel: {
+    color: colorTokens.teal[50],
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
+    textAlign: 'center'
+  },
+  detailsTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 34,
+    marginTop: spacing.md,
+    width: '100%'
+  },
+  detailsCard: {
+    ...elevation.raised,
+    borderColor: 'transparent',
+    borderRadius: 18,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md
+  },
+  detailRow: {
+    alignItems: 'center',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+    minHeight: 70
+  },
+  detailRowBorder: {
+    borderBottomColor: colorTokens.neutral.warmBorder,
+    borderBottomWidth: 1
+  },
+  detailLabelGroup: {
+    alignItems: 'center',
+    flexShrink: 1,
+    gap: spacing.md
+  },
+  detailDot: {
+    borderRadius: 5,
+    height: 10,
+    width: 10
+  },
+  detailLabel: {
+    color: colorTokens.ink[900],
+    flexShrink: 1,
+    fontSize: 18,
+    lineHeight: 26
+  },
+  detailValue: {
+    color: colorTokens.ink[900],
+    flexShrink: 0,
+    fontSize: 19,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    lineHeight: 27,
+    maxWidth: '46%'
+  },
+  primaryAction: {
+    backgroundColor: colorTokens.raw['00B8A6'],
+    borderColor: colorTokens.raw['00B8A6'],
+    borderRadius: 18,
+    minHeight: 64
+  },
+  primaryActionLabel: {
+    color: colorTokens.surface.white,
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 26
   },
   sectionLabel: {
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
     marginBottom: spacing.xs
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: spacing.md
-  },
-  metricsColumn: {
-    gap: spacing.md
-  },
-  metricCard: {
-    flex: 1,
-    gap: spacing.xs
-  },
-  metricIndicator: {
-    borderRadius: 3,
-    height: 4,
-    width: 28
-  },
-  metricLabel: {
-    fontSize: 13,
-    lineHeight: 18
-  },
-  metricValue: {
-    ...typography.subtitle,
-    fontVariant: ['tabular-nums']
-  },
-  progressTrack: {
-    borderRadius: 4,
-    height: 8,
-    overflow: 'hidden'
-  },
-  progressFill: {
-    borderRadius: 4,
-    height: 8
-  },
-  progressLabel: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: spacing.xs
-  },
-  dailyCard: {
-    borderWidth: 1,
-    gap: spacing.xs,
-    borderRadius: radius.overlay
-  },
-  dailyLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 22
-  },
-  dailyAmount: {
-    ...typography.amount,
-    fontSize: 32
-  },
-  dailyReason: {
-    fontSize: 14,
-    lineHeight: 20
-  },
-  nextRow: {
-    alignItems: 'baseline',
-    gap: spacing.md,
-    justifyContent: 'space-between'
-  },
-  nextDate: {
-    ...typography.subtitle
-  },
-  nextDays: {
-    fontSize: 14,
-    lineHeight: 20
   }
 });

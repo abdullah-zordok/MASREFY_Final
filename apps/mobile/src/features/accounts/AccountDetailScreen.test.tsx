@@ -16,6 +16,7 @@ import { AccountDetailScreen } from './AccountDetailScreen';
 import { usePreferenceStore } from '@/state/preferences';
 import { coreFinanceService } from '@/services/mocks/core-finance-service';
 import { CoreFinanceError } from '@/services/contracts/core-finance-service';
+import { elevation, lightThemeColors } from '@/design-system/tokens';
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() }
@@ -233,8 +234,11 @@ it('reuses the RTL transaction card for recent account activity', () => {
     flexDirection: 'row-reverse'
   });
   expect(screen.getByTestId('account-detail-activity-card')).toHaveStyle({
+    backgroundColor: lightThemeColors.surfaces.card,
+    borderColor: lightThemeColors.borders.default,
     borderRadius: 16,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    shadowOpacity: elevation.card.shadowOpacity
   });
 
   rendered.unmount();

@@ -8,7 +8,8 @@
  */
 
 import React, { useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { Platform } from 'react-native';
+import { usePathname } from 'expo-router';
+import { Platform, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   DefaultTheme,
@@ -16,7 +17,7 @@ import {
   type Theme as NavigationTheme
 } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaInsetsContext, SafeAreaView } from 'react-native-safe-area-context';
 
 import { resolveTheme } from '@/design-system/theme';
 import type { ResolvedTheme } from '@/design-system/theme';
@@ -54,6 +55,8 @@ export function FoundationProviders({
   const hydrated = usePreferenceStore((state) => state.hydrated);
   const hydrate = usePreferenceStore((state) => state.hydrate);
   const previousLocale = useRef(locale);
+  const pathname = usePathname();
+  const insets = React.useContext(SafeAreaInsetsContext);
 
   useEffect(() => {
     if (!hydrated) {
@@ -82,6 +85,13 @@ export function FoundationProviders({
   }, [client, locale, direction]);
 
   const resolved: ResolvedTheme = useMemo(() => resolveTheme('light'), []);
+  const obligationHeroVisible =
+    pathname.startsWith('/obligations') &&
+    pathname !== '/obligations/new' &&
+    !pathname.endsWith('/edit');
+  const safeAreaColor = obligationHeroVisible
+    ? resolved.colors.horizon.referenceStart
+    : resolved.colors.background;
   const themeValue: ThemeContextValue = useMemo(
     () => ({ theme: resolved }),
     [resolved]
@@ -107,8 +117,8 @@ export function FoundationProviders({
       <ThemeContext.Provider value={themeValue}>
         <NavigationThemeProvider value={navigationTheme}>
           <StatusBar
-            backgroundColor={resolved.colors.background}
-            style={resolved.mode === 'dark' ? 'light' : 'dark'}
+            backgroundColor={safeAreaColor}
+            style={obligationHeroVisible || resolved.mode === 'dark' ? 'light' : 'dark'}
           />
           <SensitiveVisibilityProvider>
             <SafeAreaView
@@ -120,6 +130,12 @@ export function FoundationProviders({
               }}
             >
               {children}
+              {obligationHeroVisible ? (
+                <View
+                  pointerEvents="none"
+                  style={{ backgroundColor: safeAreaColor, height: insets?.top ?? 0, left: 0, position: 'absolute', right: 0, top: 0 }}
+                />
+              ) : null}
             </SafeAreaView>
           </SensitiveVisibilityProvider>
         </NavigationThemeProvider>

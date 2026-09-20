@@ -290,7 +290,11 @@ paths:
       tags: [PaymentMatches]
       operationId: getPaymentMatch
       responses:
-        '200': { $ref: '#/components/responses/Resource' }
+        '200':
+          description: Owner-scoped payment match review detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentMatchDetail' }
         '404': { $ref: '#/components/responses/Error' }
     patch:
       tags: [PaymentMatches]
@@ -759,8 +763,78 @@ components:
         ledgerVersion: { type: integer, minimum: 0 }
         salary: { oneOf: [{ type: object }, { type: 'null' }] }
         budgets: { type: array, maxItems: 100, items: { type: object } }
-        obligations: { type: object }
+        obligations:
+          type: object
+          additionalProperties: false
+          required: [payables, receivables]
+          properties:
+            payables: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/PlanningObligationSummary' } }
+            receivables: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/PlanningObligationSummary' } }
         savings: { type: array, maxItems: 100, items: { type: object } }
+    PlanningObligationSummary:
+      type: object
+      additionalProperties: true
+      required: [id, name, currencyCode, remainingMinor, nextDueAt, nextDueAmountMinor]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+        remainingMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+        nextDueAt: { oneOf: [{ $ref: '#/components/schemas/DateTime' }, { type: 'null' }] }
+        nextDueAmountMinor: { oneOf: [{ $ref: '#/components/schemas/NonnegativeMinor' }, { type: 'null' }] }
+    PaymentMatchDetail:
+      allOf:
+        - $ref: '#/components/schemas/Metadata'
+        - type: object
+          additionalProperties: false
+          required: [transactionId, obligationId, scheduleItemId, advisoryConfidence, reasonCodes, status, reviewedAt, transaction, candidate, suggestedAllocation]
+          properties:
+            transactionId: { $ref: '#/components/schemas/Uuid' }
+            obligationId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+            scheduleItemId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+            advisoryConfidence: { type: string, pattern: '^(0(?:\.\d+)?|1(?:\.0+)?)$' }
+            reasonCodes: { type: array, items: { type: string, enum: [amount_match, keyword_match] } }
+            status: { type: string, enum: [proposed, accepted, rejected] }
+            reviewedAt: { oneOf: [{ $ref: '#/components/schemas/DateTime' }, { type: 'null' }] }
+            transaction:
+              type: object
+              additionalProperties: false
+              required: [id, amountMinor, currencyCode, occurredAt, title, merchant, sourceAccountId, sourceAccountName]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+                currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+                occurredAt: { $ref: '#/components/schemas/DateTime' }
+                title: { type: string }
+                merchant: { oneOf: [{ type: string }, { type: 'null' }] }
+                sourceAccountId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+                sourceAccountName: { oneOf: [{ type: string }, { type: 'null' }] }
+            candidate:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [id, title, provider, type, direction, currencyCode, remainingMinor, nextDueAt, nextDueAmountMinor, obligationVersion]
+                  properties:
+                    id: { $ref: '#/components/schemas/Uuid' }
+                    title: { type: string }
+                    provider: { oneOf: [{ type: string }, { type: 'null' }] }
+                    type: { type: string }
+                    direction: { type: string, enum: [payable, receivable] }
+                    currencyCode: { $ref: '#/components/schemas/CurrencyCode' }
+                    remainingMinor: { $ref: '#/components/schemas/NonnegativeMinor' }
+                    nextDueAt: { oneOf: [{ $ref: '#/components/schemas/DateTime' }, { type: 'null' }] }
+                    nextDueAmountMinor: { oneOf: [{ $ref: '#/components/schemas/NonnegativeMinor' }, { type: 'null' }] }
+                    obligationVersion: { type: integer, minimum: 1 }
+                - type: 'null'
+            suggestedAllocation:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [scheduleItemId, amountMinor]
+                  properties:
+                    scheduleItemId: { $ref: '#/components/schemas/Uuid' }
+                    amountMinor: { $ref: '#/components/schemas/PositiveMinor' }
+                - type: 'null'
     ErrorResponse:
       type: object
       additionalProperties: false

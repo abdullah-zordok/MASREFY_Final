@@ -371,9 +371,9 @@ export function BudgetForm({
       ) : null}
       <SurfaceCard
         style={{
-          ...elevation.raised,
+          ...elevation.card,
           borderRadius: radius.card,
-          borderWidth: 0,
+          borderWidth: 1,
           gap: spacing.md
         }}
       >
@@ -405,9 +405,9 @@ export function BudgetForm({
 
       <SurfaceCard
         style={{
-          ...elevation.raised,
+          ...elevation.card,
           borderRadius: radius.card,
-          borderWidth: 0,
+          borderWidth: 1,
           gap: spacing.md
         }}
       >

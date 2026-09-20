@@ -32,11 +32,11 @@ describe('SPEC-002 design tokens', () => {
 
   it('applies the approved light canvas and card hierarchy without changing the hero or dark theme', () => {
     expect(lightThemeColors).toMatchObject({
-      background: hex('EEF6F4'),
+      background: hex('F6F7F5'),
       surface: hex('FFFFFF'),
       border: hex('D7E1DC'),
       surfaces: {
-        page: hex('EEF6F4'),
+        page: hex('F6F7F5'),
         grouped: hex('FFFFFF'),
         card: hex('FFFFFF'),
         inset: hex('F1F5F3'),
@@ -44,7 +44,7 @@ describe('SPEC-002 design tokens', () => {
       },
       borders: {
         default: hex('D7E1DC'),
-        subtle: hex('EEF3F0')
+        subtle: hex('E7E9E6')
       },
       financial: {
         incomeSurface: hex('BFEBD9'),
@@ -101,6 +101,13 @@ describe('SPEC-002 design tokens', () => {
       shadowOpacity: 0.08,
       shadowRadius: 12
     });
+    expect(elevation.card).toMatchObject({
+      elevation: 3,
+      shadowColor: hex('0B2F29'),
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12
+    });
     expect(iconSize.md).toBe(24);
     expect(controlHeight.md).toBeGreaterThanOrEqual(minTouchTarget);
     expect(viewport.minWidth).toBe(320);
@@ -146,12 +153,16 @@ describe('SPEC-002 design tokens', () => {
     expect(lightThemeColors.horizon).not.toBe(darkThemeColors.horizon);
     expect(lightThemeColors.horizon.heroStart).toBe(colorTokens.teal['900']);
     expect(lightThemeColors.horizon.heroEnd).toBe(colorTokens.teal['600']);
+    expect(lightThemeColors.horizon.referenceStart).toBe(hex('007A56'));
+    expect(lightThemeColors.horizon.referenceEnd).toBe(hex('009F70'));
     expect(lightThemeColors.surfaces.brandStrong).toBe(colorTokens.teal['900']);
     expect(darkThemeColors.horizon.heroStart).toBe(colorTokens.teal['950']);
     expect(darkThemeColors.horizon.heroEnd).toBe(colorTokens.teal['900']);
     expect(Object.keys(lightThemeColors.horizon)).toEqual([
       'heroStart',
       'heroEnd',
+      'referenceStart',
+      'referenceEnd',
       'glow',
       'wash',
       'sheet',

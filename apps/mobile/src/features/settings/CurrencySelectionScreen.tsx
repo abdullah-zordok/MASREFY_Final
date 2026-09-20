@@ -100,7 +100,7 @@ export function CurrencySelectionScreen({
                 : theme.colors.surfaces.card,
             borderColor: isSelected
               ? colorTokens.teal[300]
-              : theme.colors.borders.subtle,
+              : theme.colors.borders.default,
             borderWidth: 1,
             flexDirection: 'row'
           }
@@ -223,7 +223,7 @@ export function CurrencySelectionScreen({
 
 const styles = StyleSheet.create({
   row: {
-    ...elevation.raised,
+    ...elevation.card,
     alignItems: 'center',
     borderRadius: radius.card,
     justifyContent: 'space-between',

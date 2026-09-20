@@ -226,7 +226,36 @@ export const fixturePaymentMatch: PaymentMatch = {
   candidateObligationIds: [fixtureObligation.id],
   duplicatePaymentIds: [],
   status: 'clear',
-  resolution: null
+  resolution: null,
+  advisoryConfidence: 0.95,
+  reasonCodes: ['amount_match', 'keyword_match'],
+  version: 1,
+  transaction: {
+    id: fixturePayment.transactionId,
+    amountMinor: fixturePayment.amountMinor,
+    currencyCode: fixturePayment.currencyCode,
+    occurredAt: now,
+    title: fixtureObligation.provider ?? fixtureObligation.title,
+    merchant: fixtureObligation.provider,
+    sourceAccountId: fixtureAccounts[0].id,
+    sourceAccountName: fixtureAccounts[0].name
+  },
+  candidate: {
+    id: fixtureObligation.id,
+    title: fixtureObligation.title,
+    provider: fixtureObligation.provider,
+    type: fixtureObligation.type,
+    direction: fixtureObligation.direction,
+    currencyCode: fixtureObligation.currencyCode,
+    remainingMinor: 48_000_00,
+    nextDueDate: fixtureSchedule[0].dueDate,
+    nextDueAmountMinor: fixtureSchedule[0].scheduledMinor,
+    obligationVersion: fixtureObligation.version
+  },
+  suggestedAllocation: {
+    scheduleItemId: fixtureSchedule[0].id,
+    amountMinor: fixturePayment.amountMinor
+  }
 };
 
 export const fixturePlanningConflict: PlanningConflict = {

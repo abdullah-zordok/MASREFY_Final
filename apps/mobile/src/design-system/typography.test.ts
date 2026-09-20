@@ -37,7 +37,9 @@ describe('SPEC-002 typography', () => {
       'MasarifiEditorialArabic-700',
       'MasarifiEditorialLatin-400',
       'MasarifiEditorialLatin-600',
-      'MasarifiEditorialLatin-700'
+      'MasarifiEditorialLatin-700',
+      'MaterialSymbols_400Regular',
+      'MaterialSymbols_500Medium'
     ]);
   });
 

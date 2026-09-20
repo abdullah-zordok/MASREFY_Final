@@ -17,7 +17,7 @@ export function SurfaceCard({ children, style, ...props }: SurfaceCardProps) {
         styles.card,
         {
           backgroundColor: theme.colors.surfaces.card,
-          borderColor: theme.colors.borders.subtle
+          borderColor: theme.colors.borders.default
         },
         style
       ]}
@@ -30,9 +30,9 @@ export function SurfaceCard({ children, style, ...props }: SurfaceCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    ...elevation.raised,
+    ...elevation.card,
     borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     padding: 16
   }
 });

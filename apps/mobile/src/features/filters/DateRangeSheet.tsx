@@ -161,7 +161,7 @@ export function DateRangeSheet({
               styles.presetGroup,
               {
                 backgroundColor: theme.colors.surfaces.card,
-                borderColor: theme.colors.borders.subtle
+                borderColor: theme.colors.borders.default
               }
             ]}
           >
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     minHeight: 64
   },
   presetGroup: {
-    ...elevation.raised,
+    ...elevation.card,
     borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden'

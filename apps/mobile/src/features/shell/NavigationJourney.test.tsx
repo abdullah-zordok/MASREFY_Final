@@ -69,6 +69,7 @@ jest.mock('@/services/mocks/assistant-notifications-service', () => ({
 
 jest.mock('@/features/assistant/assistant-queries', () => ({
   useAssistantConsent: jest.fn(),
+  useAssistantInsights: jest.fn(),
   useAssistantAvailability: jest.fn(),
   useAssistantInsights: jest.fn(),
   useSetAssistantConsent: jest.fn(),
@@ -144,7 +145,9 @@ describe('navigation journey', () => {
 
   it('renders every primary and representative secondary destination', async () => {
     const home = renderWithProviders(<HomeRoute />);
-    expect(await screen.findByTestId('home-quick-action-accounts')).toBeOnTheScreen();
+    expect(
+      await screen.findByTestId('home-quick-action-accounts')
+    ).toBeOnTheScreen();
     home.unmount();
 
     const transactions = renderWithProviders(<TransactionsRoute />);
@@ -194,7 +197,6 @@ describe('navigation journey', () => {
       screen.getByText(translateDynamic('assistant.consent.title'))
     ).toBeOnTheScreen();
     assistant.unmount();
-
   });
 
   it('makes More the directory for every relocated secondary destination', async () => {
@@ -212,7 +214,6 @@ describe('navigation journey', () => {
     for (const [label, route] of [
       [translate('appShell.shell.accounts'), '/accounts'],
       [translate('coreFinance.action.categories'), '/categories'],
-      [translate('planning.budgets.title'), '/budgets'],
       [translate('planning.savings.title'), '/savings'],
       [translate('planning.salary.title'), '/salary'],
       [translate('planning.obligations.title'), '/obligations'],
@@ -223,6 +224,10 @@ describe('navigation journey', () => {
       fireEvent.press(link);
       expect(router.push).toHaveBeenLastCalledWith(route);
     }
+
+    expect(
+      screen.queryByLabelText(translate('planning.budgets.title'))
+    ).toBeNull();
   });
 
   it('lets an authenticated user sign out from More', async () => {
@@ -251,9 +256,7 @@ describe('navigation journey', () => {
         `client-demo, ${translate('appShell.more.planBasic')}`
       )
     ).toBeNull();
-    expect(
-      screen.queryByText(translate('appShell.more.planBasic'))
-    ).toBeNull();
+    expect(screen.queryByText(translate('appShell.more.planBasic'))).toBeNull();
 
     more.unmount();
     useAppShellStore.setState({ session: null });
@@ -262,14 +265,20 @@ describe('navigation journey', () => {
   it('updates mounted More labels immediately when the locale changes', () => {
     void usePreferenceStore.getState().setLocale('en');
     renderWithProviders(<MoreRoute />);
-    expect(screen.getByText(translate('appShell.more.services', 'en'))).toBeOnTheScreen();
+    expect(
+      screen.getByText(translate('appShell.more.services', 'en'))
+    ).toBeOnTheScreen();
 
     act(() => {
       void usePreferenceStore.getState().setLocale('ar');
     });
 
-    expect(screen.getByText(translate('appShell.more.services', 'ar'))).toBeOnTheScreen();
-    expect(screen.queryByText(translate('appShell.more.services', 'en'))).toBeNull();
+    expect(
+      screen.getByText(translate('appShell.more.services', 'ar'))
+    ).toBeOnTheScreen();
+    expect(
+      screen.queryByText(translate('appShell.more.services', 'en'))
+    ).toBeNull();
   });
 
   it('maintains profile preferences without displaying progressive setup on More screen', () => {
@@ -306,7 +315,9 @@ describe('navigation journey', () => {
     mockSearchParams = { returnTo: '/(tabs)/transactions' };
     renderWithProviders(<ReportsRoute />);
 
-    fireEvent.press(screen.getByLabelText(translate('appShell.navigation.back')));
+    fireEvent.press(
+      screen.getByLabelText(translate('appShell.navigation.back'))
+    );
     expect(router.navigate).toHaveBeenCalledWith('/(tabs)/transactions');
   });
 
@@ -314,16 +325,19 @@ describe('navigation journey', () => {
     mockSearchParams = { returnTo: '/not-approved' };
     renderWithProviders(<MoreRoute />);
 
-    fireEvent.press(screen.getByLabelText(translate('appShell.navigation.back')));
+    fireEvent.press(
+      screen.getByLabelText(translate('appShell.navigation.back'))
+    );
     expect(router.navigate).toHaveBeenCalledWith('/(tabs)/home');
   });
 
-  it('does not display notifications row in More services list', () => {
+  it('opens notification preferences from the main settings group', () => {
     renderWithProviders(<MoreRoute />);
 
-    expect(
-      screen.queryByLabelText(translate('appShell.shell.notifications'))
-    ).toBeNull();
+    fireEvent.press(
+      screen.getByLabelText(translate('appShell.shell.notifications'))
+    );
+    expect(router.push).toHaveBeenCalledWith('/notifications/preferences');
   });
 
   it('opens assistant from More and announces disabled and limit states', async () => {

@@ -25,7 +25,7 @@ export interface NormalizedTrackingEvent {
 
 export interface NormalizedImport {
   schemaVersion: 1;
-  sourceType: 'sms' | 'manual';
+  sourceType: 'sms' | 'provider' | 'manual';
   sourceChannel?:
     | 'android_sms'
     | 'android_notification'
@@ -243,7 +243,7 @@ export function normalizeNormalizedImport(value: unknown): NormalizedImport {
   if (
     input.schemaVersion !== 1 ||
     typeof input.sourceType !== 'string' ||
-    !['sms', 'manual'].includes(input.sourceType)
+    !['sms', 'provider', 'manual'].includes(input.sourceType)
   )
     invalid();
   const channels = [
@@ -259,12 +259,17 @@ export function normalizeNormalizedImport(value: unknown): NormalizedImport {
     (typeof input.sourceChannel !== 'string' || !channels.includes(input.sourceChannel))
   )
     invalid();
+  if (
+    (input.sourceType === 'provider' && input.sourceChannel !== 'android_notification') ||
+    (input.sourceType === 'sms' && input.sourceChannel != null && input.sourceChannel !== 'android_sms')
+  )
+    invalid();
   if (!Array.isArray(input.events) || input.events.length < 1 || input.events.length > 100)
     invalid();
   if (Buffer.byteLength(JSON.stringify(input), 'utf8') > 512 * 1024) invalid();
   return {
     schemaVersion: 1,
-    sourceType: input.sourceType as 'sms' | 'manual',
+    sourceType: input.sourceType as 'sms' | 'provider' | 'manual',
     ...(input.sourceChannel == null
       ? {}
       : { sourceChannel: input.sourceChannel as NormalizedImport['sourceChannel'] }),

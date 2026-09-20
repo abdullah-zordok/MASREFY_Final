@@ -69,6 +69,20 @@ describe('SPEC-002 icons', () => {
     );
   });
 
+  it('uses a visible fallback for an unknown runtime icon name', () => {
+    const screen = render(
+      <AppIcon
+        name={'missing-runtime-icon' as never}
+        label="Unknown icon"
+        testID="unknown-icon"
+      />
+    );
+
+    expect(screen.getByTestId('unknown-icon')).toHaveTextContent(
+      `tag|category|category:${iconSize.md}`
+    );
+  });
+
   it('declares the directional icon set explicitly', () => {
     expect(directionalIconNames).toEqual([
       'back',

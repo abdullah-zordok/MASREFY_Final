@@ -1,27 +1,34 @@
 import React, { useState } from 'react';
+import { router } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { FormField } from '@/design-system/components/forms/FormField';
 import { PickerField } from '@/design-system/components/forms/PickerField';
 import { AppSheet } from '@/design-system/components/overlays/AppSheet';
-import { parseAmountToMinor, type Account } from '@/domain/core-finance';
-import type { LocalDate } from '@/domain/financial-planning';
-import { useAccounts } from '@/features/core-finance/core-finance-queries';
+import { SurfaceCard } from '@/design-system/components/SurfaceCard';
+import { DesignIcon } from '@/design-system/icons';
+import { spacing } from '@/design-system/tokens';
+import { parseAmountToMinor, safeMinorSum, type Account } from '@/domain/core-finance';
 import {
-  PlanningMetric,
-  PlanningScreen,
-  PlanningState
-} from '@/features/financial-planning/PlanningScaffold';
+  localDateFromTimestamp,
+  type LocalDate
+} from '@/domain/financial-planning';
+import { useAccountBalances, useAccounts } from '@/features/core-finance/core-finance-queries';
+import { PlanningScreen, PlanningState } from '@/features/financial-planning/PlanningScaffold';
 import { usePlanningFormDraft } from '@/features/financial-planning/usePlanningDraft';
 import { AccountPicker } from '@/features/transactions/AccountPicker';
+import { TransactionDateField } from '@/features/transactions/TransactionDateField';
 import { currentLocale, translate, type MessageKey } from '@/localization/i18n';
 import type { ObligationPaymentPreview } from '@/services/contracts/financial-planning-service';
 import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
-import { formatMinorAmount } from '@/utils/format-financial-value';
+import { useTheme } from '@/state/theme-context';
+import { formatDate, formatMinorAmount } from '@/utils/format-financial-value';
 import { useObligation } from './obligation-queries';
+import { ObligationHeroHeader } from './ObligationVisuals';
 import { usePlanningMutation } from './payment-queries';
 
 export function ObligationPaymentScreen({
@@ -29,9 +36,10 @@ export function ObligationPaymentScreen({
 }: {
   obligationId?: string;
 }) {
-  const liveLedgerOnly = financialPlanningService.metadata.kind === 'live';
   const obligation = useObligation(obligationId);
   const accounts = useAccounts();
+  const balances = useAccountBalances();
+  const theme = useTheme();
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
   const { revealed } = useSensitiveVisibility();
   const [amount, setAmount] = useState('');
@@ -48,10 +56,10 @@ export function ObligationPaymentScreen({
     financialPlanningService.confirmObligationPayment(
       value.previewId,
       { allocations: value.allocations, intent: 'current' },
-      `obligation-payment:${obligationId}:${Date.now()}`
+      `obligation-payment:${value.previewId}`
     )
   );
-  const draftEnabled = Boolean(obligation.data) && !liveLedgerOnly;
+  const draftEnabled = Boolean(obligation.data);
   const { draftReady, discardDraft } = usePlanningFormDraft({
     id: `planning-form-payment:${obligationId}`,
     kind: 'payment',
@@ -78,6 +86,12 @@ export function ObligationPaymentScreen({
     const amountMinor = parseAmountToMinor(amount, item?.currencyCode ?? 'SAR');
     if (!amountMinor || !selectedAccount || !item) {
       setError(translate('planning.validation.required'));
+      return;
+    }
+    const account = accounts.data?.find((entry) => entry.id === selectedAccount);
+    const balance = balances.data?.find((entry) => entry.accountId === selectedAccount);
+    if (!account || !balance || account.currencyCode !== item.currencyCode || balance.currencyCode !== item.currencyCode) {
+      setError(translate('planning.validation.currencyMismatch'));
       return;
     }
     setPreviewing(true);
@@ -117,51 +131,55 @@ export function ObligationPaymentScreen({
     }
   };
   const selectedAccountId = accountId || accounts.data?.[0]?.id;
+  const selectedAccount = accounts.data?.find((entry) => entry.id === selectedAccountId);
+  const selectedBalance = balances.data?.find((entry) => entry.accountId === selectedAccountId);
+  const previewAfter = preview && selectedBalance
+    ? safeMinorSum(selectedBalance.balanceMinor, obligation.data?.obligation.direction === 'payable' ? -preview.amountMinor : preview.amountMinor)
+    : null;
+  const money = (minor: number | null) =>
+    minor === null
+      ? translate('reports.state.unavailable')
+      : hideBalances && !revealed
+        ? translate('planning.state.hidden')
+        : formatMinorAmount(minor, obligation.data?.obligation.currencyCode ?? 'SAR', currentLocale());
 
   return (
-    <PlanningScreen titleKey="planning.obligations.payment">
+    <PlanningScreen titleKey="planning.obligations.payment" hideHeader>
       {!obligationId ? (
         <PlanningState state="empty" />
       ) : obligation.isLoading ||
-        accounts.isLoading ||
+        accounts.isLoading || balances.isLoading ||
         (draftEnabled && !draftReady) ? (
         <PlanningState state="loading" />
-      ) : obligation.isError || accounts.isError || !obligation.data ? (
+      ) : obligation.isError || accounts.isError || balances.isError || !obligation.data ? (
         <PlanningState
           state="error"
           onRetry={() => {
             void obligation.refetch();
             void accounts.refetch();
+            void balances.refetch();
           }}
         />
-      ) : liveLedgerOnly ? (
-        <StyledText accessibilityRole="alert">
-          {translate('reports.state.unavailable')}
-        </StyledText>
       ) : preview ? (
         <>
-          <PlanningMetric
-            labelKey="planning.obligation.paymentCase"
-            value={translate(
-              `planning.obligation.paymentCase.${preview.case}` as MessageKey
-            )}
+          <ObligationHeroHeader
+            title={translate('planning.obligation.previewPayment')}
+            eyebrow={translate(`planning.obligation.paymentCase.${preview.case}` as MessageKey)}
+            amount={money(preview.amountMinor)}
+            description={obligation.data.obligation.title}
+            onBack={() => router.back()}
           />
-          <PlanningMetric
-            labelKey="planning.obligation.paymentAmount"
-            value={
-              hideBalances && !revealed
-                ? translate('planning.state.hidden')
-                : formatMinorAmount(
-                    preview.amountMinor,
-                    obligation.data.obligation.currencyCode,
-                    currentLocale()
-                  )
-            }
-          />
-          <PlanningMetric
-            labelKey="planning.obligation.allocations"
-            value={String(preview.allocations.length)}
-          />
+          <SurfaceCard style={styles.reviewCard}>
+            <PaymentDetail icon="calendar" label={translate('planning.obligation.paymentDate')} value={formatDate(Date.parse(`${paidDate}T00:00:00Z`), currentLocale())} />
+            <View style={[styles.separator, { backgroundColor: theme.colors.border }]} />
+            <PaymentDetail icon="wallet" label={translate('voice.review.account')} value={selectedAccount?.name ?? translate('reports.state.unavailable')} />
+            <View style={[styles.separator, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.balanceTransition}>
+              <PaymentDetail icon="salary" label={translate('planning.obligation.balanceBefore')} value={money(selectedBalance?.balanceMinor ?? null)} />
+              <DesignIcon name="chevronDown" decorative color={theme.colors.primary} />
+              <PaymentDetail icon="salary" label={translate('planning.obligation.balanceAfter')} value={money(previewAfter)} />
+            </View>
+          </SurfaceCard>
           <ActionButton
             label={translate('planning.obligation.confirmPayment')}
             loading={confirm.isPending}
@@ -181,7 +199,7 @@ export function ObligationPaymentScreen({
               setPreview(undefined);
               setSaved(false);
             }}
-            variant="secondary"
+            variant="quiet"
           />
           {saved ? (
             <StyledText accessibilityRole="alert">
@@ -194,18 +212,28 @@ export function ObligationPaymentScreen({
         </>
       ) : (
         <>
+          <ObligationHeroHeader
+            title={translate('planning.obligations.payment')}
+            eyebrow={translate('planning.obligation.recordPayment')}
+            description={obligation.data.obligation.title}
+            onBack={() => router.back()}
+          />
           <FormField
             label={translate('planning.obligation.paymentAmount')}
             onChangeText={setAmount}
             value={amount}
             variant="amount"
           />
-          <FormField
+          <TransactionDateField
             label={translate('planning.obligation.paymentDate')}
-            onChangeText={(value) => setPaidDate(value as LocalDate)}
-            value={paidDate}
-            errorText={error}
+            value={Date.parse(`${paidDate}T12:00:00`)}
+            onChange={(timestamp) =>
+              setPaidDate(localDateFromTimestamp(timestamp))
+            }
           />
+          {error ? (
+            <StyledText accessibilityRole="alert">{error}</StyledText>
+          ) : null}
           <PickerField
             label={translate('voice.review.account')}
             value={
@@ -239,3 +267,16 @@ export function ObligationPaymentScreen({
     </PlanningScreen>
   );
 }
+
+function PaymentDetail({ icon, label, value }: { icon: 'calendar' | 'wallet' | 'salary'; label: string; value: string }) {
+  const theme = useTheme();
+  return <View style={styles.detailRow}><DesignIcon name={icon} decorative color={theme.colors.primary} /><View style={styles.detailCopy}><StyledText variant="caption">{label}</StyledText><StyledText variant="subtitle">{value}</StyledText></View></View>;
+}
+
+const styles = StyleSheet.create({
+  reviewCard: { gap: spacing.md },
+  separator: { height: 1 },
+  balanceTransition: { gap: spacing.sm },
+  detailRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  detailCopy: { flex: 1, gap: spacing.xs }
+});

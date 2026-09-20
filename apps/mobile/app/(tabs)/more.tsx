@@ -81,17 +81,15 @@ export default function MoreRoute() {
             {initial}
           </StyledText>
         </View>
-        <View
-          style={[
-            styles.profileInfo,
-            { alignItems: 'flex-start' }
-          ]}
-        >
+        <View style={[styles.profileInfo, { alignItems: 'flex-start' }]}>
           <StyledText style={styles.profileName} variant="body">
             {userName}
           </StyledText>
           <StyledText
-            style={[styles.profileSub, { color: theme.colors.content.secondary }]}
+            style={[
+              styles.profileSub,
+              { color: theme.colors.content.secondary }
+            ]}
           >
             {userEmail}
           </StyledText>
@@ -115,8 +113,8 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('appShell.shell.profile')}
             icon="profile"
-            iconBackground={colorTokens.raw["E7F3EF"]}
-            iconColor={colorTokens.raw["175B4F"]}
+            iconBackground={colorTokens.raw['E7F3EF']}
+            iconColor={colorTokens.raw['175B4F']}
             showChevron
             hideBorder
             onPress={() => router.push('/profile')}
@@ -125,8 +123,8 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('appShell.shell.security')}
             icon="security"
-            iconBackground={colorTokens.raw["EAF2FB"]}
-            iconColor={colorTokens.raw["2E7087"]}
+            iconBackground={colorTokens.raw['EAF2FB']}
+            iconColor={colorTokens.raw['2E7087']}
             showChevron
             hideBorder
             onPress={() => router.push('/security/settings')}
@@ -135,18 +133,28 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('settings.profile.applicationOwner')}
             icon="settings"
-            iconBackground={colorTokens.raw["FFF5EB"]}
-            iconColor={colorTokens.raw["93663D"]}
+            iconBackground={colorTokens.raw['FFF5EB']}
+            iconColor={colorTokens.raw['93663D']}
             showChevron
             hideBorder
             onPress={() => router.push('/profile/application')}
           />
           <Divider />
           <MenuLink
+            label={translate('appShell.shell.notifications')}
+            icon="notifications"
+            iconBackground={colorTokens.raw['EAF2FB']}
+            iconColor={colorTokens.raw['2E7087']}
+            showChevron
+            hideBorder
+            onPress={() => router.push('/notifications/preferences')}
+          />
+          <Divider />
+          <MenuLink
             label={translate('tracking.action.openTracking')}
             icon="tracking"
-            iconBackground={colorTokens.raw["F3EEF9"]}
-            iconColor={colorTokens.raw["68469C"]}
+            iconBackground={colorTokens.raw['F3EEF9']}
+            iconColor={colorTokens.raw['68469C']}
             showChevron
             hideBorder
             onPress={() => router.push('/tracking')}
@@ -171,8 +179,8 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('appShell.shell.accounts')}
             icon="accounts"
-            iconBackground={colorTokens.raw["E7F3EF"]}
-            iconColor={colorTokens.raw["175B4F"]}
+            iconBackground={colorTokens.raw['E7F3EF']}
+            iconColor={colorTokens.raw['175B4F']}
             showChevron
             hideBorder
             onPress={() => router.push('/accounts')}
@@ -181,28 +189,18 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('coreFinance.action.categories')}
             icon="category"
-            iconBackground={colorTokens.raw["EBF5EC"]}
-            iconColor={colorTokens.raw["1F7A5A"]}
+            iconBackground={colorTokens.raw['EBF5EC']}
+            iconColor={colorTokens.raw['1F7A5A']}
             showChevron
             hideBorder
             onPress={() => router.push('/categories')}
           />
           <Divider />
           <MenuLink
-            label={translate('planning.budgets.title')}
-            icon="reports"
-            iconBackground={colorTokens.raw["EAF2FB"]}
-            iconColor={colorTokens.raw["2E7087"]}
-            showChevron
-            hideBorder
-            onPress={() => router.push('/budgets')}
-          />
-          <Divider />
-          <MenuLink
             label={translate('planning.savings.title')}
             icon="savings"
-            iconBackground={colorTokens.raw["FFF5EB"]}
-            iconColor={colorTokens.raw["93663D"]}
+            iconBackground={colorTokens.raw['FFF5EB']}
+            iconColor={colorTokens.raw['93663D']}
             showChevron
             hideBorder
             onPress={() => router.push('/savings')}
@@ -211,8 +209,8 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('planning.salary.title')}
             icon="profile"
-            iconBackground={colorTokens.raw["E3F7F2"]}
-            iconColor={colorTokens.raw["0F6B58"]}
+            iconBackground={colorTokens.raw['E3F7F2']}
+            iconColor={colorTokens.raw['0F6B58']}
             showChevron
             hideBorder
             onPress={() => router.push('/salary')}
@@ -221,16 +219,14 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('planning.obligations.title')}
             icon="receipt"
-            iconBackground={colorTokens.raw["FCECEB"]}
-            iconColor={colorTokens.raw["B4473F"]}
+            iconBackground={colorTokens.raw['FCECEB']}
+            iconColor={colorTokens.raw['B4473F']}
             showChevron
             hideBorder
             onPress={() => router.push('/obligations')}
           />
         </View>
       </View>
-
-
 
       {/* Section 4: Services */}
       <View style={styles.section}>
@@ -249,8 +245,8 @@ export default function MoreRoute() {
           <MenuLink
             label={assistantLabel}
             icon="voice"
-            iconBackground={colorTokens.raw["F3EEF9"]}
-            iconColor={colorTokens.raw["68469C"]}
+            iconBackground={colorTokens.raw['F3EEF9']}
+            iconColor={colorTokens.raw['68469C']}
             showChevron
             hideBorder
             accessibilityLabel={
@@ -260,7 +256,9 @@ export default function MoreRoute() {
             }
             accessory={
               assistantStateLabel ? (
-                <StyledText style={styles.stateLabel}>{assistantStateLabel}</StyledText>
+                <StyledText style={styles.stateLabel}>
+                  {assistantStateLabel}
+                </StyledText>
               ) : null
             }
             onPress={() => router.push('/assistant')}
@@ -269,8 +267,8 @@ export default function MoreRoute() {
           <MenuLink
             label={translate('appShell.shell.support')}
             icon="info"
-            iconBackground={colorTokens.raw["F1F5F3"]}
-            iconColor={colorTokens.raw["4B534E"]}
+            iconBackground={colorTokens.raw['F1F5F3']}
+            iconColor={colorTokens.raw['4B534E']}
             showChevron
             hideBorder
             onPress={() => router.push('/support')}
@@ -298,7 +296,6 @@ export default function MoreRoute() {
           />
         ) : null}
       </View>
-
     </ScrollView>
   );
 }
@@ -341,12 +338,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colorTokens.raw["103F37"],
+    backgroundColor: colorTokens.raw['103F37'],
     alignItems: 'center',
     justifyContent: 'center'
   },
   avatarText: {
-    color: colorTokens.raw["FFFFFF"],
+    color: colorTokens.raw['FFFFFF'],
     fontSize: 18,
     fontWeight: '700'
   },

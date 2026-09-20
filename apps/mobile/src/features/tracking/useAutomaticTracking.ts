@@ -18,21 +18,34 @@ import {
   subscribeAutomaticTrackingSyncState
 } from '@/services/automatic-tracking-coordinator';
 import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
+import { bankNotificationService } from '@/services/platform/bank-notification-service';
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 
 export function useTrackingStatus() {
   return useQuery({
     queryKey: automaticTrackingKeys.status,
     queryFn: async () => {
-      const [status, permission] = await Promise.all([
+      const [status, permission, notificationAccess] = await Promise.all([
         automaticTrackingService.getStatus(),
-        createTrackingPermissionService().getState()
+        createTrackingPermissionService().getState(),
+        bankNotificationService.getAccessState()
       ]);
+      if (status.platform !== 'android') return status;
+      const sourceGranted =
+        permission.status === 'granted' || notificationAccess === 'granted';
+      const sourcesUnavailable =
+        permission.status === 'unavailable' && notificationAccess === 'unavailable';
       return {
         ...status,
-        permissionStatus: permission.status,
+        permissionStatus: sourceGranted
+          ? ('granted' as const)
+          : permission.status === 'unavailable'
+            ? notificationAccess
+            : permission.status,
+        smsPermissionStatus: permission.status,
+        notificationAccessStatus: notificationAccess,
         serviceState:
-          permission.status === 'unavailable'
+          sourcesUnavailable
             ? ('unavailable' as const)
             : status.serviceState
       };

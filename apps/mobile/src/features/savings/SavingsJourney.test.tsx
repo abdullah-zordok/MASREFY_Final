@@ -49,22 +49,20 @@ it('creates, pauses, and records progress for savings goals', async () => {
   movement.unmount();
 });
 
-it('does not offer unsupported live savings movements', async () => {
+it('keeps savings movements available with the live provider', async () => {
   changeLocale('en');
   Object.assign(financialPlanningService.metadata, { kind: 'live' });
   try {
     const detail = renderWithProviders(
       <SavingsGoalDetailScreen goalId="goal-emergency" />
     );
-    expect(await detail.findByText('Unavailable')).toBeTruthy();
-    expect(detail.queryByText('Add movement')).toBeNull();
+    expect(await detail.findByText('Add savings movement')).toBeTruthy();
     detail.unmount();
 
     const movement = renderWithProviders(
       <SavingsMovementForm goalId="goal-emergency" />
     );
-    expect(await movement.findByRole('alert')).toHaveTextContent('Unavailable');
-    expect(movement.queryByText('Review movement')).toBeNull();
+    expect(await movement.findByText('Review movement')).toBeTruthy();
     movement.unmount();
   } finally {
     Object.assign(financialPlanningService.metadata, { kind: 'mock' });

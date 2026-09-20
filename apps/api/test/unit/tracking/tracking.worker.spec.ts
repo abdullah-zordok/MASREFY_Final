@@ -176,6 +176,74 @@ describe('tracking worker', () => {
     );
   });
 
+  it('posts an automatic transfer through the transfer ledger command', async () => {
+    const repository = {
+      claimParserCorpus: jest.fn(() => Promise.resolve([])),
+      claimImports: jest.fn(() =>
+        Promise.resolve([
+          { id: 'session-1', user_id: 'owner', claim_token: 'token-1', attempt_count: 1 },
+        ]),
+      ),
+      prepareImport: jest.fn(() => Promise.resolve({ parserItems: [] })),
+      finalizeImport: jest.fn(() =>
+        Promise.resolve({
+          autoItems: [
+            {
+              id: 'item-1',
+              userId: 'owner',
+              values: {
+                kind: 'transfer',
+                amountMinor: 100,
+                currency: 'SAR',
+                accountId: '80000000-0000-4000-8000-000000000005',
+                destinationAccountId: '80000000-0000-4000-8000-000000000007',
+                occurredAt: '2026-09-02T08:00:00.000Z',
+              },
+            },
+          ],
+        }),
+      ),
+      getImportSourceIdentityHash: jest.fn(() => Promise.resolve('e'.repeat(64))),
+      acceptImportItem: jest.fn(() => Promise.resolve()),
+      completeImport: jest.fn(() => Promise.resolve()),
+      rawDue: jest.fn(() => Promise.resolve([])),
+      maintenance: jest.fn(() => Promise.resolve()),
+      operationalMetrics: jest.fn(() =>
+        Promise.resolve({
+          importBacklog: 0,
+          reviewBacklog: 0,
+          duplicateBacklog: 0,
+          oldestImportAgeSeconds: 0,
+          rawPurgeLagSeconds: 0,
+        }),
+      ),
+    };
+    const ledger = {
+      createTransaction: jest.fn(),
+      transfer: jest.fn<
+        Promise<{ transaction: { transaction: { id: string } } }>,
+        [unknown]
+      >(() => Promise.resolve({ transaction: { transaction: { id: 'transfer-1' } } })),
+    };
+
+    await new TrackingWorker(repository as never, ledger as never, {} as never).runOnce();
+
+    expect(ledger.createTransaction).not.toHaveBeenCalled();
+    const transfer = ledger.transfer.mock.calls[0]?.[0] as
+      | { body: Record<string, unknown> }
+      | undefined;
+    expect(transfer?.body).toMatchObject({
+      sourceAccountId: '80000000-0000-4000-8000-000000000005',
+      destinationAccountId: '80000000-0000-4000-8000-000000000007',
+    });
+    expect(repository.acceptImportItem).toHaveBeenCalledWith(
+      'item-1',
+      'token-1',
+      expect.any(String),
+      'transfer-1',
+    );
+  });
+
   it('leaves failed raw objects retryable while continuing reconciliation', async () => {
     const repository = {
       claimParserCorpus: jest.fn(() => Promise.resolve([])),

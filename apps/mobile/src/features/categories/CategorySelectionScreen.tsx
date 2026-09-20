@@ -285,7 +285,7 @@ function CategoryGroup({
         styles.group,
         {
           backgroundColor: theme.colors.surfaces.card,
-          borderColor: theme.colors.borders.subtle
+          borderColor: theme.colors.borders.default
         }
       ]}
     >
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     lineHeight: 18
   },
   group: {
-    ...elevation.raised,
+    ...elevation.card,
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden'

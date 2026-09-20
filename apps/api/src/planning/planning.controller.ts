@@ -54,7 +54,31 @@ export class PlanningController {
         ledgerVersion: { type: 'integer', minimum: 0 },
         salary: { type: 'object', nullable: true },
         budgets: { type: 'array', maxItems: 100, items: { type: 'object' } },
-        obligations: { type: 'object' },
+        obligations: {
+          type: 'object',
+          properties: {
+            payables: {
+              type: 'array',
+              maxItems: 100,
+              items: {
+                type: 'object',
+                properties: {
+                  nextDueAmountMinor: { type: 'string', nullable: true, pattern: '^-?[0-9]+$' },
+                },
+              },
+            },
+            receivables: {
+              type: 'array',
+              maxItems: 100,
+              items: {
+                type: 'object',
+                properties: {
+                  nextDueAmountMinor: { type: 'string', nullable: true, pattern: '^-?[0-9]+$' },
+                },
+              },
+            },
+          },
+        },
         savings: { type: 'array', maxItems: 100, items: { type: 'object' } },
       },
     },
@@ -520,6 +544,72 @@ export class PlanningController {
 
   @Get('api/v1/payment-matches/:matchId')
   @ApiOperation({ operationId: 'getPaymentMatch' })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      required: [
+        'id',
+        'transactionId',
+        'obligationId',
+        'advisoryConfidence',
+        'reasonCodes',
+        'status',
+        'version',
+        'transaction',
+        'candidate',
+        'suggestedAllocation',
+      ],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        transactionId: { type: 'string', format: 'uuid' },
+        obligationId: { type: 'string', format: 'uuid', nullable: true },
+        advisoryConfidence: { type: 'string' },
+        reasonCodes: {
+          type: 'array',
+          items: { type: 'string', enum: ['amount_match', 'keyword_match'] },
+        },
+        status: { type: 'string', enum: ['proposed', 'accepted', 'rejected'] },
+        version: { type: 'integer', minimum: 1 },
+        transaction: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            amountMinor: { type: 'string', pattern: '^[0-9]+$' },
+            currencyCode: { type: 'string', pattern: '^[A-Z]{3}$' },
+            occurredAt: { type: 'string', format: 'date-time' },
+            title: { type: 'string' },
+            merchant: { type: 'string', nullable: true },
+            sourceAccountId: { type: 'string', format: 'uuid', nullable: true },
+            sourceAccountName: { type: 'string', nullable: true },
+          },
+        },
+        candidate: {
+          type: 'object',
+          nullable: true,
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            title: { type: 'string' },
+            provider: { type: 'string', nullable: true },
+            type: { type: 'string' },
+            direction: { type: 'string', enum: ['payable', 'receivable'] },
+            currencyCode: { type: 'string', pattern: '^[A-Z]{3}$' },
+            remainingMinor: { type: 'string', pattern: '^[0-9]+$' },
+            nextDueAt: { type: 'string', format: 'date-time', nullable: true },
+            nextDueAmountMinor: { type: 'string', nullable: true, pattern: '^[0-9]+$' },
+            obligationVersion: { type: 'integer', minimum: 1 },
+          },
+        },
+        suggestedAllocation: {
+          type: 'object',
+          nullable: true,
+          properties: {
+            scheduleItemId: { type: 'string', format: 'uuid' },
+            amountMinor: { type: 'string', pattern: '^[1-9][0-9]*$' },
+          },
+        },
+      },
+    },
+  })
   @ApiBearerAuth('ClerkBearer')
   @UseGuards(ClerkAuthGuard)
   getPaymentMatch(

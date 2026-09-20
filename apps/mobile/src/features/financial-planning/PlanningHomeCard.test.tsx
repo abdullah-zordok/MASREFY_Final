@@ -8,7 +8,7 @@ import { PlanningHomeCard } from './PlanningHomeCard';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
-it('shows current planning progress and keeps the existing destinations', async () => {
+it('hides budgets while keeping the available planning destinations', async () => {
   renderWithProviders(<PlanningHomeCard />);
 
   expect(
@@ -21,6 +21,8 @@ it('shows current planning progress and keeps the existing destinations', async 
     ).toBeGreaterThan(0);
   });
 
-  fireEvent.press(screen.getByText(translate('planning.budgets.title')));
-  expect(router.push).toHaveBeenCalledWith('/budgets');
+  expect(screen.queryByText(translate('planning.budgets.title'))).toBeNull();
+
+  fireEvent.press(screen.getByText(translate('planning.savings.title')));
+  expect(router.push).toHaveBeenCalledWith('/savings');
 });

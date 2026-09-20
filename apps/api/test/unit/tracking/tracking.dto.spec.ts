@@ -28,6 +28,21 @@ describe('tracking DTO boundaries', () => {
         ],
       }).events,
     ).toHaveLength(1);
+    expect(
+      normalizeNormalizedImport({
+        schemaVersion: 1,
+        sourceType: 'provider',
+        sourceChannel: 'android_notification',
+        events: [
+          {
+            sourceItemKey: 'notification-1',
+            receivedAt: '2026-09-02T00:00:00Z',
+            amountMinor: -1200,
+            currency: 'SAR'
+          }
+        ]
+      }).sourceType
+    ).toBe('provider');
   });
 
   it('requires bounded Admin reason, expected version, and action', () => {
@@ -64,6 +79,15 @@ describe('tracking DTO boundaries', () => {
     () => normalizeTrackingList({ limit: 101 }),
     () => normalizeTrackingList({ unexpected: true }),
     () => normalizeNormalizedImport({ schemaVersion: 1, sourceType: 'provider', events: [] }),
+    () =>
+      normalizeNormalizedImport({
+        schemaVersion: 1,
+        sourceType: 'provider',
+        sourceChannel: 'android_sms',
+        events: [
+          { sourceItemKey: 'bad-channel', receivedAt: '2026-09-02T00:00:00Z' }
+        ]
+      }),
     () => normalizeNormalizedImport({ schemaVersion: 2, sourceType: 'sms', events: [] }),
     () =>
       normalizeNormalizedImport({

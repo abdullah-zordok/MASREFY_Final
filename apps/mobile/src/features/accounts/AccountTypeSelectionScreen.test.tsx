@@ -51,7 +51,7 @@ describe('AccountTypeSelectionScreen', () => {
       screen.queryByText(translate('coreFinance.accounts.typeSelect.savings'))
     ).toBeNull();
     expect(screen.getByTestId('account-type-card-bank')).toHaveStyle({
-      shadowOpacity: elevation.raised.shadowOpacity
+      shadowOpacity: elevation.card.shadowOpacity
     });
 
     fireEvent.press(

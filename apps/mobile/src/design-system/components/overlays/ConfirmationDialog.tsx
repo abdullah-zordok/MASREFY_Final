@@ -10,6 +10,7 @@ export function ConfirmationDialog({
   title,
   message,
   confirmLabel,
+  cancelLabel,
   destructive = false,
   onCancel,
   onConfirm
@@ -18,6 +19,7 @@ export function ConfirmationDialog({
   title: string;
   message: string;
   confirmLabel: string;
+  cancelLabel?: string;
   destructive?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -36,7 +38,7 @@ export function ConfirmationDialog({
       <Text style={{ color: theme.colors.textSecondary }}>{translateDynamic(message)}</Text>
       <View style={styles.actions}>
         <ActionButton
-          label={translate('coreFinance.cancel')}
+          label={cancelLabel ?? translate('coreFinance.cancel')}
           variant="secondary"
           onPress={onCancel}
         />

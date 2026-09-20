@@ -17,6 +17,7 @@ import {
   expectedDateForMonth,
   FinancialPlanningError,
   localDateFromTimestamp,
+  parseLocalDate,
   scorePaymentMatch,
   validateCategoryBudgets,
   type Budget,
@@ -236,6 +237,11 @@ export function createMockFinancialPlanningService(
         today: input.today,
         timeZone
       });
+    },
+    async getSalaryProfile() {
+      await ensureReady();
+      const profile = repository.activeSalaryProfile();
+      return profile ? { ...profile } : null;
     },
     async getSalaryReceiptReview(transactionId) {
       await ensureReady();
@@ -502,6 +508,8 @@ export function createMockFinancialPlanningService(
         receivablesByCurrency: {},
         remainingByObligationId: {},
         nextDueDate: null,
+        nextDueAmountMinor: null,
+        nextDueObligationId: null,
         items
       };
       for (const obligation of items) {
@@ -534,6 +542,16 @@ export function createMockFinancialPlanningService(
           (!overview.nextDueDate || status.nextDueDate < overview.nextDueDate)
         ) {
           overview.nextDueDate = status.nextDueDate;
+          const nextItem = repository
+            .listSchedule(obligation.id)
+            .find(
+              (item) =>
+                item.dueDate === status.nextDueDate &&
+                item.status !== 'paid' &&
+                item.status !== 'cancelled'
+            );
+          overview.nextDueAmountMinor = nextItem?.scheduledMinor ?? null;
+          overview.nextDueObligationId = obligation.id;
         }
       }
       return overview;
@@ -998,6 +1016,17 @@ function normalizeObligation(
   Obligation,
   'id' | 'version' | 'syncStatus' | 'createdAt' | 'updatedAt' | 'status'
 > {
+  if (
+    input.installmentCount != null &&
+    (!Number.isInteger(input.installmentCount) || input.installmentCount < 1)
+  )
+    throw new FinancialPlanningError('validation');
+  if (
+    input.dueDay != null &&
+    (!Number.isInteger(input.dueDay) || input.dueDay < 1 || input.dueDay > 31)
+  )
+    throw new FinancialPlanningError('validation');
+  if (input.startDate) parseLocalDate(input.startDate);
   return {
     direction: input.direction,
     type: input.type,

@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { StyledText } from '@/components/StyledText';
 import { layoutDirectionStyle } from '@/design-system/direction';
@@ -69,8 +64,7 @@ export function FirstLaunchOnboardingScreen({
   const cardRadius = Math.round(theme.radius.card * 1.06);
   const controlRadius = Math.round(theme.radius.control * 1.06);
 
-  async function startOnboarding() {
-    if (submitting) return;
+  async function completeOnboarding() {
     setSubmitting(true);
     setSaveFailed(false);
     try {
@@ -178,8 +172,7 @@ export function FirstLaunchOnboardingScreen({
                 style={[
                   styles.merchant,
                   {
-                    alignItems:
-                      direction === 'rtl' ? 'flex-end' : 'flex-start',
+                    alignItems: direction === 'rtl' ? 'flex-end' : 'flex-start',
                     gap: theme.spacing.xs
                   }
                 ]}
@@ -208,16 +201,12 @@ export function FirstLaunchOnboardingScreen({
                 style={[
                   styles.amount,
                   {
-                    alignItems:
-                      direction === 'rtl' ? 'flex-start' : 'flex-end',
+                    alignItems: direction === 'rtl' ? 'flex-start' : 'flex-end',
                     gap: theme.spacing.xs
                   }
                 ]}
               >
-                <StyledText
-                  variant="subtitle"
-                  style={styles.amountText}
-                >
+                <StyledText variant="subtitle" style={styles.amountText}>
                   {example.amount}
                 </StyledText>
                 <View
@@ -301,7 +290,7 @@ export function FirstLaunchOnboardingScreen({
         <ActionButton
           label={translate('firstLaunch.cta')}
           loading={submitting}
-          onPress={() => void startOnboarding()}
+          onPress={() => void completeOnboarding()}
           style={{
             borderRadius: controlRadius,
             minHeight: theme.spacing.xxl + theme.spacing.xl

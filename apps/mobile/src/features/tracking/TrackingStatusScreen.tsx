@@ -20,10 +20,11 @@ import {
   useAutomaticTrackingSyncState,
   useTrackingStatus
 } from './useAutomaticTracking';
-import { translate } from '@/localization/i18n';
+import { translate, translateDynamic } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
+import { bankNotificationService } from '@/services/platform/bank-notification-service';
 import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import type { KeywordRule } from '@/domain/app-shell';
 import { TrackingKeywordChips } from './components/TrackingKeywordChips';
@@ -104,6 +105,15 @@ export function TrackingStatusScreen() {
     }
   }
 
+  async function openNotificationAccess() {
+    setActionFailed(false);
+    try {
+      await bankNotificationService.openSettings();
+    } catch {
+      setActionFailed(true);
+    }
+  }
+
   async function handleToggle(nextValue: boolean) {
     if (updating) return;
     setActionFailed(false);
@@ -165,6 +175,8 @@ export function TrackingStatusScreen() {
       ? 'tracking.permission.unavailableMessage'
       : 'tracking.permission.warning'
   );
+  const smsPermission = status.smsPermissionStatus ?? status.permissionStatus;
+  const notificationAccess = status.notificationAccessStatus ?? 'denied';
 
   return (
     <View testID="tracking-status-screen" style={[styles.root, { direction }]}>
@@ -243,6 +255,25 @@ export function TrackingStatusScreen() {
             state={syncState}
             onRetry={() => void syncAutomaticTracking()}
           />
+
+          {status.platform === 'android' ? (
+            <View style={styles.sourceList}>
+              <TrackingSourceRow
+                testID="tracking-bank-notifications-source"
+                label={translate('tracking.source.bankNotifications')}
+                status={notificationAccess}
+                disabled={notificationAccess === 'unavailable'}
+                onPress={() => void openNotificationAccess()}
+              />
+              <TrackingSourceRow
+                testID="tracking-sms-source"
+                label={translate('tracking.source.financialSms')}
+                status={smsPermission ?? 'unavailable'}
+                disabled={smsPermission === 'unavailable'}
+                onPress={() => void recoverPermission(smsPermission)}
+              />
+            </View>
+          ) : null}
 
           {/* Actionable Permission Warning: START = Warning Icon, MIDDLE = Warning Text, END = Chevron */}
           {!hasPermission && (
@@ -458,6 +489,34 @@ export function TrackingStatusScreen() {
   );
 }
 
+function TrackingSourceRow({
+  testID,
+  label,
+  status,
+  disabled,
+  onPress
+}: {
+  testID: string;
+  label: string;
+  status: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={styles.sourceRow}
+      testID={testID}
+    >
+      <StyledText>{label}</StyledText>
+      <StyledText>{translateDynamic(`tracking.permission.${status}`)}</StyledText>
+    </Pressable>
+  );
+}
+
 export function TrackingSyncPanel({
   state,
   onRetry
@@ -582,6 +641,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     minHeight: 52
+  },
+  sourceList: {
+    gap: spacing.sm
+  },
+  sourceRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 44
   },
   toggleWrapper: {
     alignItems: 'center',

@@ -1,1 +1,6 @@
-export { usePlanningMutation, useSalaryOverview, useSalaryReceiptReview } from '@/features/financial-planning/financial-planning-queries';
+export {
+  usePlanningMutation,
+  useSalaryOverview,
+  useSalaryProfile,
+  useSalaryReceiptReview
+} from '@/features/financial-planning/financial-planning-queries';

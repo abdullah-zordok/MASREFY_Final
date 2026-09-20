@@ -103,19 +103,14 @@ describe('onboarding journey', () => {
 
   it('resumes the earliest incomplete Android step after interruption', () => {
     const progress = applyOnboardingStep(
-      applyOnboardingStep(
-        createOnboardingProgress('android', 1),
-        'tracking_intro',
-        'completed',
-        2
-      ),
-      'permission_education',
+      createOnboardingProgress('android', 1),
+      'tracking_intro',
       'completed',
-      3
+      2
     );
 
     expect(routeForOnboardingProgress(progress)).toBe(
-      '/(onboarding)/android-sms-permission'
+      '/(onboarding)/tracking-keywords'
     );
   });
 });

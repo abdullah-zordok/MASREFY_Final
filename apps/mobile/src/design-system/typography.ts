@@ -1,6 +1,8 @@
 import React, { type ReactNode } from 'react';
 import { View } from 'react-native';
 import { useFonts } from 'expo-font';
+import mediumSymbols from 'expo-symbols/androidWeights/medium';
+import regularSymbols from 'expo-symbols/androidWeights/regular';
 
 import type { Locale } from '@/domain/foundation';
 import { typography } from './tokens';
@@ -21,7 +23,9 @@ export const FONT_ASSETS = {
   'MasarifiEditorialArabic-700': require('../../assets/fonts/IBMPlexSansArabic-Bold.ttf'),
   'MasarifiEditorialLatin-400': require('../../assets/fonts/IBMPlexSans-Regular.ttf'),
   'MasarifiEditorialLatin-600': require('../../assets/fonts/IBMPlexSans-SemiBold.ttf'),
-  'MasarifiEditorialLatin-700': require('../../assets/fonts/IBMPlexSans-Bold.ttf')
+  'MasarifiEditorialLatin-700': require('../../assets/fonts/IBMPlexSans-Bold.ttf'),
+  [regularSymbols.name]: regularSymbols.font,
+  [mediumSymbols.name]: mediumSymbols.font
 } as const;
 
 export type SemanticFontWeight = 400 | 500 | 600 | 700 | 800 | 900;

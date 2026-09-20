@@ -28,33 +28,41 @@ describe('GroupedList and NavigationRow', () => {
       </GroupedList>
     );
 
-    const row = screen.getByLabelText('Privacy, Hidden balances and app lock, On, Protected');
+    const row = screen.getByLabelText(
+      'Privacy, Hidden balances and app lock, On, Protected'
+    );
     fireEvent.press(row);
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Settings group')).toHaveStyle({
       backgroundColor: lightThemeColors.surfaces.card,
-      borderColor: lightThemeColors.borders.subtle,
+      borderColor: lightThemeColors.borders.default,
       borderRadius: radius.card,
-      shadowOpacity: elevation.raised.shadowOpacity
+      shadowOpacity: elevation.card.shadowOpacity
     });
     expect(row).toHaveStyle({ minHeight: minTouchTarget });
     expect(row).toHaveStyle({ flexDirection: 'row-reverse' });
-    expect(screen.getByLabelText('Disabled row').props.accessibilityState).toMatchObject({
+    expect(
+      screen.getByLabelText('Disabled row').props.accessibilityState
+    ).toMatchObject({
       disabled: true
     });
     expect(screen.getAllByText('‹')).toHaveLength(2);
     fontScale.mockRestore();
   });
 
-  it('stacks row slots at 200% text', () => {
-    const fontScale = jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(2);
+  it('stacks row slots before financial values start wrapping', () => {
+    const fontScale = jest
+      .spyOn(PixelRatio, 'getFontScale')
+      .mockReturnValue(1.3);
     const screen = renderWithProviders(
       <NavigationRow label="Category" value="A long category name" />
     );
-    expect(screen.getByLabelText('Category, A long category name')).toHaveStyle({
-      flexDirection: 'column'
-    });
+    expect(screen.getByLabelText('Category, A long category name')).toHaveStyle(
+      {
+        flexDirection: 'column'
+      }
+    );
     fontScale.mockRestore();
   });
 });

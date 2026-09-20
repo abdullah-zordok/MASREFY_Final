@@ -11,8 +11,6 @@ describe('onboarding progress', () => {
   it('orders Android, iOS, and conservative steps', () => {
     expect(applicableOnboardingSteps('android')).toEqual([
       'tracking_intro',
-      'permission_education',
-      'permission_request',
       'keywords',
       'preference',
       'demo',
@@ -28,15 +26,14 @@ describe('onboarding progress', () => {
 
   it('preserves completed/skipped steps and resumes earliest incomplete step', () => {
     const progress = applyOnboardingStep(
-      applyOnboardingStep(createOnboardingProgress('android', 1), 'tracking_intro', 'completed', 2),
-      'permission_education',
-      'skipped',
-      3
+      createOnboardingProgress('android', 1),
+      'tracking_intro',
+      'completed',
+      2
     );
 
     expect(progress.completedSteps).toContain('tracking_intro');
-    expect(progress.skippedSteps).toContain('permission_education');
-    expect(resumeOnboardingStep(progress)).toBe('permission_request');
+    expect(resumeOnboardingStep(progress)).toBe('keywords');
   });
 
   it('persists completed, skipped, reset, and resume through the mock service', async () => {

@@ -4,6 +4,15 @@ import { renderWithProviders } from '@/test-utils/render';
 import { FinancialProgress } from './FinancialProgress';
 
 describe('financial progress', () => {
+  it('renders a compact accessible progress bar without threshold copy', () => {
+    const screen = renderWithProviders(
+      <FinancialProgress label="Obligation paid" percent={40} compact />
+    );
+
+    expect(screen.getByLabelText('Obligation paid 40%')).toBeTruthy();
+    expect(screen.queryByText('normal')).toBeNull();
+  });
+
   it.each([
     [40, 'normal'],
     [75, 'warning'],

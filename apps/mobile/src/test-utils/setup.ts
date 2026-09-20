@@ -9,6 +9,11 @@ jest.mock('@react-navigation/native', () => ({
   usePreventRemove: jest.fn()
 }));
 
+beforeEach(() => {
+  const expoRouter = jest.requireMock<typeof import('expo-router')>('expo-router');
+  expoRouter.usePathname ??= jest.fn(() => '/');
+});
+
 afterEach(() => changeLocale('ar'));
 
 // React Native's setup happens via jest-expo preset. This file adds only the

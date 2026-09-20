@@ -2,7 +2,7 @@ import React from 'react';
 import { PixelRatio } from 'react-native';
 import { fireEvent, screen } from '@testing-library/react-native';
 
-import { lightThemeColors } from '@/design-system/tokens';
+import { colorTokens, lightThemeColors } from '@/design-system/tokens';
 import { coreFinanceKeys } from '@/features/core-finance/core-finance-queries';
 import { changeLocale, translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
@@ -53,7 +53,7 @@ it('renders active, archived, duplicate, and add-account states', () => {
     minHeight: 84
   });
   expect(screen.getByTestId('accounts-screen-masthead')).toHaveStyle({
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colorTokens.raw['FFFFFF'],
     flexDirection: 'row-reverse',
     paddingBottom: 8,
     paddingHorizontal: 20,

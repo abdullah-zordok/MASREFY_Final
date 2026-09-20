@@ -187,10 +187,10 @@ export function ProfileSetupScreen({
                     }
                     style={({ pressed }) => [
                       styles.currencyControl,
-                      elevation.raised,
+                      elevation.card,
                       {
                         backgroundColor: theme.colors.surfaces.card,
-                        borderColor: theme.colors.borders.subtle,
+                        borderColor: theme.colors.borders.default,
                         flexDirection: isRtl ? 'row-reverse' : 'row',
                         opacity: pressed ? 0.82 : 1
                       },

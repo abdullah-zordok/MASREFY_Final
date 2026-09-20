@@ -78,7 +78,7 @@ export interface TrackingImportEvent {
 
 export interface TrackingImportSubmission {
   schemaVersion: 1;
-  sourceType: 'sms' | 'manual';
+  sourceType: 'sms' | 'provider' | 'manual';
   sourceChannel?:
     | 'android_sms'
     | 'android_notification'
@@ -272,6 +272,8 @@ export interface TrackingStatusSnapshot {
     | 'revoked'
     | 'unavailable'
     | null;
+  smsPermissionStatus?: TrackingStatusSnapshot['permissionStatus'];
+  notificationAccessStatus?: 'granted' | 'denied' | 'unavailable' | null;
   serviceState: TrackingServiceState;
   lastDetectedAt: number | null;
   lastSuccessfulTransactionId: string | null;

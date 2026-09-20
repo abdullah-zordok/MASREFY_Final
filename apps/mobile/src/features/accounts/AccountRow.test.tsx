@@ -36,7 +36,7 @@ it('renders account identity, status, and a single selectable row action', () =>
     })
   ).toBeTruthy();
   expect(screen.getByTestId('account-row')).toHaveStyle({
-    shadowOpacity: elevation.raised.shadowOpacity
+    shadowOpacity: elevation.card.shadowOpacity
   });
 });
 

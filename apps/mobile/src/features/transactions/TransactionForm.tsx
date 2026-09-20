@@ -871,7 +871,7 @@ function TransactionPickerCard({
             backgroundColor: pressed
               ? theme.colors.interactions.quietPressed
               : theme.colors.surfaces.card,
-            borderColor: theme.colors.borders.subtle,
+            borderColor: theme.colors.borders.default,
             direction: 'ltr',
             flexDirection: direction === 'rtl' ? 'row-reverse' : 'row',
             opacity: disabled ? 0.56 : 1
@@ -1025,7 +1025,7 @@ const styles = StyleSheet.create({
   fieldStack: { gap: spacing.xs },
   fieldLabel: { fontSize: 13, fontWeight: '600', lineHeight: 18 },
   pickerCard: {
-    ...elevation.raised,
+    ...elevation.card,
     alignItems: 'center',
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,

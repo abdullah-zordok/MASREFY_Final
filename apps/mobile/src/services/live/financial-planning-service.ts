@@ -21,6 +21,7 @@ import {
   type SalaryReceiptLink
 } from '@/domain/financial-planning';
 import type { MutationResult } from '@/services/contracts/core-finance-service';
+import type { CoreFinanceService } from '@/services/contracts/core-finance-service';
 import {
   financialPlanningServiceCapability,
   type BudgetDetail,
@@ -41,6 +42,7 @@ import {
   registerRuntimeUserDataReset
 } from '@/storage/runtime-user-data-reset';
 import { captureLiveClerkIdentity } from './auth-service';
+import { createLiveLedgerService } from './core-finance-service';
 import {
   mapBudgetFromApi,
   mapSalaryProfileFromApi,
@@ -210,6 +212,7 @@ const obligationSummarySchema = z
     remainingMinor: minor,
     overdueMinor: minor,
     nextDueAt: instant.nullable(),
+    nextDueAmountMinor: minor.nullable().optional(),
     completedInstallmentCount: z.number().int().safe().nonnegative(),
     status: z.enum(['active', 'paused', 'completed', 'closed', 'archived']),
     ledgerVersion: z.number().int().safe().nonnegative()
@@ -287,6 +290,48 @@ const paymentMatchSchema = z
     requestId
   })
   .strict();
+const paymentMatchDetailSchema = paymentMatchSchema
+  .extend({
+    transaction: z
+      .object({
+        id: uuid,
+        amountMinor: minor,
+        currencyCode: z.string().regex(/^[A-Z]{3}$/u),
+        occurredAt: instant,
+        title: z.string(),
+        merchant: z.string().nullable(),
+        sourceAccountId: uuid.nullable(),
+        sourceAccountName: z.string().nullable()
+      })
+      .strict(),
+    candidate: z
+      .object({
+        id: uuid,
+        title: z.string(),
+        provider: z.string().nullable(),
+        type: obligationSchema.shape.type,
+        direction: z.enum(['payable', 'receivable']),
+        currencyCode: z.string().regex(/^[A-Z]{3}$/u),
+        remainingMinor: minor,
+        nextDueAt: instant.nullable(),
+        nextDueAmountMinor: minor.nullable(),
+        obligationVersion: z.number().int().safe().positive()
+      })
+      .strict()
+      .nullable(),
+    suggestedAllocation: z
+      .object({
+        scheduleItemId: uuid,
+        amountMinor: minor
+      })
+      .strict()
+      .nullable()
+  })
+  .superRefine((value, context) => {
+    if (value.candidate && value.transaction.currencyCode !== value.candidate.currencyCode) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'currency mismatch' });
+    }
+  });
 const paymentMatchMutationSchema = z
   .object({
     ...metadata,
@@ -546,7 +591,15 @@ function fromSchedule(
   };
 }
 
-function fromMatch(value: z.infer<typeof paymentMatchSchema>): PaymentMatch {
+function fromMatch(
+  value:
+    | z.infer<typeof paymentMatchSchema>
+    | z.infer<typeof paymentMatchDetailSchema>
+): PaymentMatch {
+  const transaction = 'transaction' in value ? value.transaction : null;
+  const candidate = 'candidate' in value ? value.candidate : null;
+  const suggestedAllocation =
+    'suggestedAllocation' in value ? value.suggestedAllocation : null;
   return {
     id: value.id,
     transactionId: value.transactionId,
@@ -563,7 +616,50 @@ function fromMatch(value: z.infer<typeof paymentMatchSchema>): PaymentMatch {
         ? value.obligationId
         : value.status === 'rejected'
           ? 'ignored'
-          : null
+          : null,
+    advisoryConfidence: Number(value.advisoryConfidence),
+    reasonCodes: value.reasonCodes,
+    version: value.version,
+    transaction: transaction
+      ? {
+          id: transaction.id,
+          amountMinor: parsePlanningMinor(transaction.amountMinor),
+          currencyCode: transaction.currencyCode,
+          occurredAt: Date.parse(transaction.occurredAt),
+          title: transaction.title,
+          merchant: transaction.merchant,
+          sourceAccountId: transaction.sourceAccountId,
+          sourceAccountName: transaction.sourceAccountName
+        }
+      : null,
+    candidate: candidate
+      ? {
+          id: candidate.id,
+          title: candidate.title,
+          provider: candidate.provider,
+          type:
+            candidate.type === 'bill' || candidate.type === 'other'
+              ? 'custom'
+              : candidate.type === 'installment'
+                ? 'debt'
+                : candidate.type,
+          direction: candidate.direction,
+          currencyCode: candidate.currencyCode,
+          remainingMinor: parsePlanningMinor(candidate.remainingMinor),
+          nextDueDate: candidate.nextDueAt?.slice(0, 10) as LocalDate | null,
+          nextDueAmountMinor:
+            candidate.nextDueAmountMinor === null
+              ? null
+              : parsePlanningMinor(candidate.nextDueAmountMinor),
+          obligationVersion: candidate.obligationVersion
+        }
+      : null,
+    suggestedAllocation: suggestedAllocation
+      ? {
+          scheduleItemId: suggestedAllocation.scheduleItemId,
+          amountMinor: parsePlanningMinor(suggestedAllocation.amountMinor)
+        }
+      : null
   };
 }
 
@@ -824,7 +920,8 @@ export function createLiveFinancialPlanningService({
   request = fetch,
   repository = new FinancialPlanningRepository(),
   persistent = Platform.OS !== 'web' && process.env.NODE_ENV !== 'test',
-  now = Date.now
+  now = Date.now,
+  ledger = createLiveLedgerService({ baseUrl, request })
 }: {
   baseUrl?: string;
   token?: () => Promise<string | null>;
@@ -832,6 +929,7 @@ export function createLiveFinancialPlanningService({
   repository?: FinancialPlanningRepository;
   persistent?: boolean;
   now?: () => number;
+  ledger?: Pick<CoreFinanceService, 'createTransaction'>;
 } = {}): CapabilityProviderHandle<FinancialPlanningService> {
   if (token) configureMobileApiTokenProvider(token);
   let hydration: Promise<void> | null = null;
@@ -1073,6 +1171,12 @@ export function createLiveFinancialPlanningService({
         await readSummary(input.today.slice(0, 7)),
         input.today
       );
+    },
+
+    async getSalaryProfile() {
+      const profiles = await allPages('/api/v1/salary-profiles', salarySchema);
+      const profile = profiles.find((item) => item.status === 'active');
+      return profile ? mapSalaryProfileFromApi(profile) : null;
     },
 
     async getSalaryReceiptReview(transactionId) {
@@ -1423,6 +1527,8 @@ export function createLiveFinancialPlanningService({
         receivablesByCurrency: {} as Record<string, number | null>,
         remainingByObligationId: {} as Record<string, number | null>,
         nextDueDate: null as LocalDate | null,
+        nextDueAmountMinor: null as number | null,
+        nextDueObligationId: null as string | null,
         items
       };
       const summary =
@@ -1453,8 +1559,13 @@ export function createLiveFinancialPlanningService({
           detail?.nextDueAt &&
           (!result.nextDueDate ||
             detail.nextDueAt.slice(0, 10) < result.nextDueDate)
-        )
+        ) {
           result.nextDueDate = detail.nextDueAt.slice(0, 10) as LocalDate;
+          result.nextDueAmountMinor = detail.nextDueAmountMinor
+            ? parsePlanningMinor(detail.nextDueAmountMinor)
+            : null;
+          result.nextDueObligationId = obligation.id;
+        }
       }
       return result;
     },
@@ -1564,7 +1675,8 @@ export function createLiveFinancialPlanningService({
     },
 
     async previewObligationPayment(input) {
-      if (input.transaction.kind !== 'link') return unsupported();
+      if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0)
+        throw new FinancialPlanningError('validation');
       const [detail, wireSchedule] = await Promise.all([
         service.getObligation(input.obligationId),
         allPages(
@@ -1626,10 +1738,20 @@ export function createLiveFinancialPlanningService({
       const stored = previews.get(previewId);
       if (!stored || stored.kind !== 'payment')
         throw new FinancialPlanningError('stale_preview');
-      if (stored.input.transaction.kind !== 'link') return unsupported();
       const current = await service.getObligation(stored.input.obligationId);
       if (current.obligation.version !== stored.expectedVersion)
         throw new FinancialPlanningError('stale_preview');
+      const transaction = stored.input.transaction;
+      const created = transaction.kind === 'create';
+      const transactionId = created
+        ? (
+            await ledger.createTransaction(
+              transaction.input,
+              `${operationId}.transaction`,
+              'manual'
+            )
+          ).value.id
+        : transaction.transactionId;
       const response = await send(
         'POST',
         `/api/v1/obligations/${stored.input.obligationId}/payments`,
@@ -1637,7 +1759,7 @@ export function createLiveFinancialPlanningService({
         {
           operationId,
           body: {
-            transactionId: stored.input.transaction.transactionId,
+            transactionId,
             expectedVersion: stored.expectedVersion,
             paymentMethod: null,
             paymentCase: stored.value.case,
@@ -1681,7 +1803,9 @@ export function createLiveFinancialPlanningService({
             : 0,
         settlementAdjustmentMinor: 0,
         source: wire.source,
-        transactionOwnership: 'linked_existing' as const,
+        transactionOwnership: created
+          ? ('created' as const)
+          : ('linked_existing' as const),
         status: wire.status === 'confirmed' ? ('posted' as const) : wire.status,
         operationId: wire.operationId,
         replacesPaymentId: null,
@@ -1783,17 +1907,28 @@ export function createLiveFinancialPlanningService({
 
     async getPaymentMatch(id) {
       return fromMatch(
-        await send('GET', `/api/v1/payment-matches/${id}`, paymentMatchSchema)
+        await send(
+          'GET',
+          `/api/v1/payment-matches/${id}`,
+          paymentMatchDetailSchema
+        )
       );
     },
 
     async resolvePaymentMatch(input, operationId) {
-      if (input.action === 'confirm') return unsupported();
       const current = await send(
         'GET',
         `/api/v1/payment-matches/${input.matchId}`,
-        paymentMatchSchema
+        paymentMatchDetailSchema
       );
+      if (
+        input.action === 'confirm' &&
+        (!input.obligationId ||
+          current.candidate?.id !== input.obligationId ||
+          !current.suggestedAllocation)
+      )
+        throw new FinancialPlanningError('stale_preview');
+      const accepted = input.action === 'confirm';
       const response = await send(
         'PATCH',
         `/api/v1/payment-matches/${input.matchId}`,
@@ -1801,15 +1936,41 @@ export function createLiveFinancialPlanningService({
         {
           operationId,
           body: {
-            decision: 'rejected',
+            decision: accepted ? 'accepted' : 'rejected',
             expectedVersion: current.version,
-            allocation: null
+            allocation: accepted
+              ? {
+                  transactionId: current.transaction.id,
+                  expectedVersion: current.candidate!.obligationVersion,
+                  paymentMethod: null,
+                  paymentCase:
+                    current.candidate!.nextDueAmountMinor !== null &&
+                    parsePlanningMinor(
+                      current.candidate!.nextDueAmountMinor
+                    ) ===
+                      parsePlanningMinor(
+                        current.suggestedAllocation!.amountMinor
+                      )
+                      ? 'full'
+                      : 'partial',
+                  allocationIntent: 'current',
+                  source: 'automatic',
+                  allocations: [
+                    {
+                      scheduleItemId:
+                        current.suggestedAllocation!.scheduleItemId,
+                      amountMinor: current.suggestedAllocation!.amountMinor
+                    }
+                  ]
+                }
+              : null
           }
         }
       );
       return scopes(
         {
           match: fromMatch({
+            ...current,
             id: response.resource.id,
             transactionId: response.resource.transactionId,
             obligationId: response.resource.obligationId,
@@ -1823,7 +1984,18 @@ export function createLiveFinancialPlanningService({
             version: response.resource.version
           })
         },
-        ['planning.paymentMatches', `planning.paymentMatch.${input.matchId}`]
+        [
+          'planning.overview',
+          'planning.obligations',
+          ...(input.obligationId
+            ? [`planning.obligation.${input.obligationId}`]
+            : []),
+          'planning.paymentMatches',
+          `planning.paymentMatch.${input.matchId}`,
+          'accounts.balances',
+          'transactions.list',
+          'home.summary'
+        ]
       );
     },
 

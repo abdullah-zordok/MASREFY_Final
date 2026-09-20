@@ -137,6 +137,8 @@ export interface ObligationsOverview {
   receivablesByCurrency: Record<string, number | null>;
   remainingByObligationId: Record<string, number | null>;
   nextDueDate: LocalDate | null;
+  nextDueAmountMinor: number | null;
+  nextDueObligationId: string | null;
   items: Obligation[];
 }
 
@@ -249,6 +251,7 @@ export interface FinancialPlanningService {
     today: LocalDate;
     timeZone?: string;
   }): Promise<SalaryCycle>;
+  getSalaryProfile(): Promise<SalaryProfile | null>;
   getSalaryReceiptReview(
     transactionId: string
   ): Promise<SalaryReceiptLink | null>;

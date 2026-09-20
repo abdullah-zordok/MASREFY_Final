@@ -33,7 +33,7 @@ describe('CurrencySelectionScreen', () => {
     expect(screen.getByText('US Dollar')).toBeTruthy();
     expect(screen.getByText('Euro')).toBeTruthy();
     expect(screen.getByTestId('currency-selection-row-SAR')).toHaveStyle({
-      shadowOpacity: elevation.raised.shadowOpacity
+      shadowOpacity: elevation.card.shadowOpacity
     });
   });
 

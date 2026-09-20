@@ -2,7 +2,10 @@ import { QueryClient } from '@tanstack/react-query';
 
 import { assistantKeys } from '@/features/assistant/assistant-queries';
 import { invalidateCoreFinanceScopes } from '@/features/core-finance/core-finance-queries';
-import { invalidatePlanningScopes } from '@/features/financial-planning/financial-planning-queries';
+import {
+  invalidatePlanningScopes,
+  scopeToKey as planningScopeToKey
+} from '@/features/financial-planning/financial-planning-queries';
 import { CoreFinanceRepository } from '@/storage/core-finance-repository';
 import {
   fixtureAccounts,
@@ -92,4 +95,12 @@ test('finance and planning mutations also refresh reports and current assistant 
   expect(client.getQueryState(contextKey)?.isInvalidated).toBe(true);
   expect(client.getQueryState(responseKey)?.isInvalidated).toBe(false);
   expect(client.getQueryState(snapshotKey)?.isInvalidated).toBe(false);
+});
+
+test.each([
+  ['accounts.balances', ['core-finance', 'accounts']],
+  ['transactions.list', ['core-finance', 'transactions']],
+  ['home.summary', ['core-finance', 'home']]
+])('planning mutation scope %s refreshes %j', (scope, expected) => {
+  expect(planningScopeToKey(scope)).toEqual(expected);
 });

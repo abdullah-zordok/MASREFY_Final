@@ -1,5 +1,6 @@
 import type { FinancialMeaning } from '@/design-system/components/financial/FinancialPrimitives';
 import type { Account, Category, Transaction } from '@/domain/core-finance';
+import { localizedDemoTransactionTitle } from '@/domain/core-finance-seeds';
 import type { Locale } from '@/domain/foundation';
 import { translate } from '@/localization/i18n';
 import { formatDate } from '@/utils/format-financial-value';
@@ -28,7 +29,8 @@ export function projectTransaction(
 ): TransactionPresentation {
   return {
     transaction,
-    title: transaction.title,
+    title:
+      localizedDemoTransactionTitle(transaction.id, locale) ?? transaction.title,
     accountName: account?.name ?? null,
     categoryName: category
       ? locale === 'ar'

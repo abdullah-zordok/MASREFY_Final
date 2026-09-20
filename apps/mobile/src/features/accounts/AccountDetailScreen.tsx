@@ -18,7 +18,7 @@ import { StateView } from '@/design-system/components/feedback/StateView';
 import { BrandedScreenHeader } from '@/design-system/components/navigation/AppNavigation';
 import { layoutDirectionStyle } from '@/design-system/direction';
 import { DesignIcon } from '@/design-system/icons';
-import { colorTokens, spacing } from '@/design-system/tokens';
+import { colorTokens, elevation, spacing } from '@/design-system/tokens';
 import { editorialFontFamilyForLocale } from '@/design-system/typography';
 import {
   emptyTransactionFilters,
@@ -370,9 +370,10 @@ export function AccountDetailScreen({ id }: { id: string }) {
           testID="account-detail-activity-card"
           style={[
             styles.activityCard,
+            elevation.card,
             {
-              backgroundColor: colorTokens.surface.white,
-              borderColor: colorTokens.raw.E2E7E3
+              backgroundColor: theme.colors.surfaces.card,
+              borderColor: theme.colors.borders.default
             }
           ]}
         >

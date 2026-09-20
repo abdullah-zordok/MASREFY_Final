@@ -7,8 +7,6 @@ export type StepResult = 'completed' | 'skipped';
 const stepsByPath: Record<PlatformPath, readonly OnboardingStep[]> = {
   android: [
     'tracking_intro',
-    'permission_education',
-    'permission_request',
     'keywords',
     'preference',
     'demo',

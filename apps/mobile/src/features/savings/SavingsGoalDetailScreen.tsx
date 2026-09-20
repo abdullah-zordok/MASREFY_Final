@@ -22,7 +22,7 @@ import { currentLocale, translate, type MessageKey } from '@/localization/i18n';
 import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
-import { formatMinorAmount } from '@/utils/format-financial-value';
+import { formatDate, formatMinorAmount } from '@/utils/format-financial-value';
 import { usePlanningMutation, useSavingsGoal } from './savings-queries';
 
 export function SavingsGoalDetailScreen({ goalId = '' }: { goalId?: string }) {
@@ -77,7 +77,10 @@ export function SavingsGoalDetailScreen({ goalId = '' }: { goalId?: string }) {
             />
             <NavigationRow
               label={translate('planning.savings.targetDate')}
-              value={item.targetDate}
+              value={formatDate(
+                Date.parse(`${item.targetDate}T00:00:00Z`),
+                currentLocale()
+              )}
             />
             <NavigationRow
               label={translate('planning.field.status')}
@@ -86,14 +89,10 @@ export function SavingsGoalDetailScreen({ goalId = '' }: { goalId?: string }) {
               )}
             />
           </GroupedList>
-          {financialPlanningService.metadata.kind === 'live' ? (
-            <StyledText>{translate('reports.state.unavailable')}</StyledText>
-          ) : (
-            <ActionButton
-              label={translate('planning.savings.addMovement')}
-              onPress={() => router.push(`/savings/${goalId}/movement`)}
-            />
-          )}
+          <ActionButton
+            label={translate('planning.savings.addMovement')}
+            onPress={() => router.push(`/savings/${goalId}/movement`)}
+          />
           <ActionButton
             label={translate('planning.action.edit')}
             onPress={() => router.push(`/savings/${goalId}/edit`)}
@@ -137,7 +136,12 @@ export function SavingsGoalDetailScreen({ goalId = '' }: { goalId?: string }) {
                   )}
                 </StyledText>
                 <StyledText>{amount(movement.amountMinor)}</StyledText>
-                <StyledText>{movement.movementDate}</StyledText>
+                <StyledText>
+                  {formatDate(
+                    Date.parse(`${movement.movementDate}T00:00:00Z`),
+                    currentLocale()
+                  )}
+                </StyledText>
               </SurfaceCard>
             ))
           )}

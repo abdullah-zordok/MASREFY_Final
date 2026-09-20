@@ -1,13 +1,15 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { StateView } from '@/design-system/components/feedback/StateView';
 import { SurfaceCard } from '@/design-system/components/SurfaceCard';
-import { spacing } from '@/design-system/tokens';
+import { DesignIcon } from '@/design-system/icons';
+import { minTouchTarget, spacing } from '@/design-system/tokens';
 import type { CalculationReason } from '@/domain/financial-planning';
 import { translate, type MessageKey } from '@/localization/i18n';
+import { usePreferenceStore } from '@/state/preferences';
 
 export function planningReason(reason: CalculationReason): string {
   return translate(`planning.reason.${reason}` as MessageKey);
@@ -15,21 +17,53 @@ export function planningReason(reason: CalculationReason): string {
 
 export function PlanningScreen({
   titleKey,
+  title,
   children,
   action,
-  backgroundColor
+  backgroundColor,
+  onBack,
+  centeredTitle = false,
+  hideHeader = false
 }: {
   titleKey: MessageKey;
+  title?: string;
   children: React.ReactNode;
   action?: { labelKey: MessageKey; onPress: () => void };
   backgroundColor?: string;
+  onBack?: () => void;
+  centeredTitle?: boolean;
+  hideHeader?: boolean;
 }) {
+  const rtl = usePreferenceStore((state) => state.direction === 'rtl');
   return (
     <ScrollView
       style={backgroundColor ? { backgroundColor } : undefined}
       contentContainerStyle={styles.stack}
     >
-      <StyledText variant="title">{translate(titleKey)}</StyledText>
+      {hideHeader ? null : (
+        <View style={styles.header}>
+          <StyledText
+            variant="title"
+            style={[
+              styles.headerTitle,
+              centeredTitle ? styles.centeredTitle : rtl ? styles.rtlTitle : styles.ltrTitle,
+              !centeredTitle && !rtl && onBack ? styles.ltrTitleWithBack : undefined
+            ]}
+          >
+            {title ?? translate(titleKey)}
+          </StyledText>
+          {onBack ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translate('common.back')}
+              onPress={onBack}
+              style={styles.backButton}
+            >
+              <DesignIcon name="back" decorative direction="ltr" />
+            </Pressable>
+          ) : null}
+        </View>
+      )}
       {children}
       {action ? (
         <ActionButton label={translate(action.labelKey)} onPress={action.onPress} />
@@ -87,6 +121,26 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
     paddingBottom: spacing.xxl
+  },
+  header: {
+    justifyContent: 'center',
+    minHeight: minTouchTarget,
+    position: 'relative'
+  },
+  headerTitle: { width: '100%' },
+  centeredTitle: { paddingHorizontal: 52, textAlign: 'center' },
+  rtlTitle: { textAlign: 'right' },
+  ltrTitle: { textAlign: 'left' },
+  ltrTitleWithBack: { paddingLeft: 52 },
+  backButton: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    minHeight: minTouchTarget,
+    minWidth: minTouchTarget,
+    position: 'absolute',
+    top: 0
   },
   metric: {
     gap: spacing.xs

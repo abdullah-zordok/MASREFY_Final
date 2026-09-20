@@ -2,7 +2,8 @@ import type { Account } from '@/domain/core-finance';
 import type { KeywordRule } from '@/domain/app-shell';
 import type { SenderRule } from '@/domain/automatic-tracking';
 import type { RawSmsMessage } from '@/services/platform/sms-inbox-service';
-import { prepareSmsImport } from './sms-import';
+import type { RawBankNotification } from '@/services/platform/bank-notification-service';
+import { prepareFinancialMessageImport, prepareSmsImport } from './sms-import';
 
 jest.mock('expo-crypto', () => ({
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
@@ -92,21 +93,140 @@ describe('SMS import preparation', () => {
     const result = await prepareSmsImport(
       [
         message({ id: 'sender', body: '12 SAR', receivedAt: 10 }),
-        message({ id: 'keyword', sender: 'OTHER', body: 'special debit 13 SAR', receivedAt: 11 }),
+        message({ id: 'keyword', body: 'special activity 13 SAR', receivedAt: 11 }),
         message({ id: 'pattern', sender: 'OTHER', body: 'Purchase 14 SAR', receivedAt: 12 }),
         message({ id: 'disabled', sender: 'OTHER', body: 'disabled 15 SAR', receivedAt: 13 }),
         message({ id: 'noise', sender: 'OTHER', body: 'Reference 16 SAR', receivedAt: 14 })
       ],
       {
-        keywordRules: [keyword('special debit'), keyword('disabled', false)],
+        keywordRules: [keyword('special activity'), keyword('disabled', false)],
         senderRules: [sender()],
         accounts: [account()],
         knownFingerprints: new Set()
       }
     );
 
-    expect(result.events.map((event) => event.amountMinor)).toEqual([-1200, -1300, -1400]);
+    expect(result.events.map((event) => event.amountMinor)).toEqual([-1300, -1400]);
     expect(result.newestReceivedAt).toBe(14);
+  });
+
+  it.each([
+    ['Purchase 12 SAR at Store using mada', 'expense', 'mada'],
+    ['Paid 13 SAR at Cafe using Apple Pay', 'expense', 'apple_pay'],
+    ['POS purchase 14 SAR at Market', 'expense', 'pos'],
+    ['Transferred 15 SAR to beneficiary', 'transfer', null],
+    ['ATM withdrawal 16 SAR', 'expense', null],
+    ['Salary credited 17 SAR', 'income', null],
+    ['Refunded 18 SAR from Store', 'refund', null]
+  ])('parses bank notification %s', async (text, kind, paymentRail) => {
+    const record: RawBankNotification = {
+      key: `notification-${kind}-${paymentRail}`,
+      packageName: 'com.example.bank',
+      title: 'Example Bank',
+      text,
+      postedAt: 1_757_678_401_000
+    };
+
+    const result = await prepareFinancialMessageImport([record], {
+      keywordRules: [],
+      senderRules: [],
+      accounts: [account()],
+      knownFingerprints: new Set()
+    });
+
+    expect(result.events[0]).toMatchObject({
+      kind,
+      metadata: expect.objectContaining({
+        sourcePackage: 'com.example.bank',
+        ...(paymentRail ? { paymentRail } : {})
+      })
+    });
+    expect(result.consumedSourceKeys).toEqual([record.key]);
+  });
+
+  it('extracts merchant and last-four account hints without retaining raw notification text', async () => {
+    const result = await prepareFinancialMessageImport(
+      [
+        {
+          key: 'notification-merchant',
+          packageName: 'com.example.bank',
+          title: 'Purchase alert',
+          text: 'Purchase 125.50 SAR at Example Store using Apple Pay card 4242',
+          postedAt: 1_757_678_401_000
+        }
+      ],
+      {
+        keywordRules: [],
+        senderRules: [],
+        accounts: [account()],
+        knownFingerprints: new Set()
+      }
+    );
+
+    expect(result.events[0]).toMatchObject({
+      amountMinor: -12550,
+      merchant: 'Example Store',
+      accountId: account().id,
+      metadata: {
+        paymentRail: 'apple_pay',
+        sourcePackage: 'com.example.bank'
+      }
+    });
+    expect(JSON.stringify(result.events)).not.toContain('Purchase alert');
+    expect(JSON.stringify(result.events)).not.toContain('125.50 SAR');
+  });
+
+  it('keeps an account-required notification unconsumed for retry', async () => {
+    const result = await prepareFinancialMessageImport(
+      [
+        {
+          key: 'notification-account-required',
+          packageName: 'com.example.bank',
+          title: 'Bank',
+          text: 'Purchase 12 SAR',
+          postedAt: 1_757_678_401_000
+        }
+      ],
+      {
+        keywordRules: [],
+        senderRules: [],
+        accounts: [],
+        knownFingerprints: new Set()
+      }
+    );
+
+    expect(result).toMatchObject({
+      events: [],
+      accountRequiredCount: 1,
+      consumedSourceKeys: []
+    });
+  });
+
+  it.each([
+    'OTP 123456 for purchase 10 SAR',
+    'Discount 50% on your next purchase',
+    'Your balance is available in the app',
+    'Reference 10 SAR'
+  ])('rejects unsafe or incomplete bank notification: %s', async (text) => {
+    const result = await prepareFinancialMessageImport(
+      [
+        {
+          key: text,
+          packageName: 'com.example.bank',
+          title: 'Bank',
+          text,
+          postedAt: 1_757_678_401_000
+        }
+      ],
+      {
+        keywordRules: [keyword('reference')],
+        senderRules: [],
+        accounts: [account()],
+        knownFingerprints: new Set()
+      }
+    );
+
+    expect(result.events).toEqual([]);
   });
 
   it('normalizes Arabic-Indic digits and SAR aliases into minor units', async () => {

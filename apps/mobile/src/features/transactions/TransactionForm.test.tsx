@@ -132,7 +132,7 @@ it('uses compact picker hierarchy and card-colored text fields', async () => {
   );
   expect(categoryPicker).toHaveStyle({
     minHeight: 60,
-    shadowOpacity: elevation.raised.shadowOpacity
+    shadowOpacity: elevation.card.shadowOpacity
   });
   expect(screen.getByText('Choose category')).toHaveStyle({
     fontSize: 16,

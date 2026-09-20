@@ -5,6 +5,7 @@ const itemId = '80000000-0000-4000-8000-000000000002';
 const sessionId = '80000000-0000-4000-8000-000000000003';
 const transactionId = '80000000-0000-4000-8000-000000000004';
 const accountId = '80000000-0000-4000-8000-000000000005';
+const destinationAccountId = '80000000-0000-4000-8000-000000000007';
 const sourceHash = 'a'.repeat(64);
 const principal = { userId: 'owner', sessionId: 'session', factorAgeSeconds: 0 };
 
@@ -110,6 +111,89 @@ describe('tracking review orchestration', () => {
         requestId: 'request-invalid-feedback',
       }),
     ).toThrow();
+  });
+
+  it('accepts a tracked transfer through the authoritative transfer ledger path', async () => {
+    const repository = {
+      listOwner: jest.fn((_principal, resource: string) =>
+        Promise.resolve(
+          resource === 'reviews'
+            ? [
+                {
+                  id: reviewId,
+                  importItemId: itemId,
+                  proposedValues: {
+                    kind: 'transfer',
+                    amountMinor: 120,
+                    currency: 'SAR',
+                    accountId,
+                    occurredAt: '2026-09-02T08:00:00.000Z',
+                  },
+                },
+              ]
+            : [{ id: itemId, sessionId }],
+        ),
+      ),
+      getImportSourceIdentityHash: jest.fn(() => Promise.resolve(sourceHash)),
+      claimReview: jest.fn(() => Promise.resolve({})),
+      decideReview: jest.fn(() => Promise.resolve({ resource: { id: reviewId } })),
+    };
+    const ledger = {
+      createTransaction: jest.fn(),
+      transfer: jest.fn<
+        Promise<{
+          operationId: string;
+          transaction: { transaction: { id: string } };
+        }>,
+        [unknown]
+      >(() =>
+        Promise.resolve({
+          operationId: '80000000-0000-4000-8000-000000000006',
+          transaction: { transaction: { id: transactionId } },
+        }),
+      ),
+    };
+    const service = new TrackingService(repository as never, ledger as never, {} as never);
+
+    await service.decideReview(reviewId, {
+      principal,
+      body: {
+        decision: 'edit_accept',
+        expectedVersion: 1,
+        edit: { destinationAccountId },
+      },
+      idempotencyKey: 'review-transfer-1234',
+      requestId: 'request-transfer',
+    });
+
+    expect(ledger.createTransaction).not.toHaveBeenCalled();
+    const transfer = ledger.transfer.mock.calls[0]?.[0] as
+      | { body: Record<string, unknown>; idempotencyKey: string }
+      | undefined;
+    expect(transfer).toMatchObject({
+      body: {
+        sourceAccountId: accountId,
+        destinationAccountId,
+        amountMinor: 120,
+        currency: 'SAR',
+        feeMinor: 0,
+        title: 'Imported transaction',
+      },
+      idempotencyKey: `tracking:${sourceHash}`,
+    });
+    expect(ledger.transfer.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.decideReview.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+    );
+    expect(repository.decideReview).toHaveBeenCalledWith(
+      principal,
+      reviewId,
+      expect.any(Object),
+      expect.any(String),
+      expect.any(String),
+      transactionId,
+      'review-transfer-1234',
+      'request-transfer',
+    );
   });
 
   it('rejects without invoking a ledger mutation', async () => {

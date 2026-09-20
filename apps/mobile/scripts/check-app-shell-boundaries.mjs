@@ -14,7 +14,9 @@ for (const file of files) {
   );
   const isAndroidSmsBoundary =
     normalized === 'app/(onboarding)/android-sms-permission.tsx' ||
-    normalized.endsWith('src/services/platform/tracking-permission-service.android.ts');
+    normalized === 'src/features/tracking/sms-import.ts' ||
+    normalized === 'src/services/automatic-tracking-coordinator.ts' ||
+    /^src\/services\/platform\/.*\.android\.ts$/.test(normalized);
 
   if (!isTest) {
     reportMatches(

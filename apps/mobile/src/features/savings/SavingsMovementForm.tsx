@@ -5,13 +5,18 @@ import { ActionButton } from '@/design-system/components/ActionButton';
 import { ChipSelector } from '@/design-system/components/forms/ChipControls';
 import { FormField } from '@/design-system/components/forms/FormField';
 import { parseAmountToMinor } from '@/domain/core-finance';
-import type { GoalMovement, LocalDate } from '@/domain/financial-planning';
+import {
+  localDateFromTimestamp,
+  type GoalMovement,
+  type LocalDate
+} from '@/domain/financial-planning';
 import {
   PlanningMetric,
   PlanningScreen,
   PlanningState
 } from '@/features/financial-planning/PlanningScaffold';
 import { usePlanningFormDraft } from '@/features/financial-planning/usePlanningDraft';
+import { TransactionDateField } from '@/features/transactions/TransactionDateField';
 import { currentLocale, translate, type MessageKey } from '@/localization/i18n';
 import type { GoalMovementPreview } from '@/services/contracts/financial-planning-service';
 import { financialPlanningService } from '@/services/financial-planning-service';
@@ -26,7 +31,6 @@ type MovementKind = Extract<
 >;
 
 export function SavingsMovementForm({ goalId = '' }: { goalId?: string }) {
-  const liveLedgerOnly = financialPlanningService.metadata.kind === 'live';
   const goal = useSavingsGoal(goalId);
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
   const { revealed } = useSensitiveVisibility();
@@ -49,7 +53,7 @@ export function SavingsMovementForm({ goalId = '' }: { goalId?: string }) {
       `goal-movement:${goalId}:${Date.now()}`
     )
   );
-  const draftEnabled = Boolean(goal.data) && !liveLedgerOnly;
+  const draftEnabled = Boolean(goal.data);
   const { draftReady, discardDraft } = usePlanningFormDraft({
     id: `planning-form-goal-movement:${goalId}`,
     kind: 'goal_movement',
@@ -111,10 +115,6 @@ export function SavingsMovementForm({ goalId = '' }: { goalId?: string }) {
         <PlanningState state="loading" />
       ) : goal.isError || !goal.data ? (
         <PlanningState state="error" onRetry={() => void goal.refetch()} />
-      ) : liveLedgerOnly ? (
-        <StyledText accessibilityRole="alert">
-          {translate('reports.state.unavailable')}
-        </StyledText>
       ) : preview ? (
         <>
           <PlanningMetric
@@ -182,12 +182,16 @@ export function SavingsMovementForm({ goalId = '' }: { goalId?: string }) {
             value={amount}
             variant="amount"
           />
-          <FormField
+          <TransactionDateField
             label={translate('planning.savings.movementDate')}
-            onChangeText={(value) => setMovementDate(value as LocalDate)}
-            value={movementDate}
-            errorText={error}
+            value={Date.parse(`${movementDate}T12:00:00`)}
+            onChange={(timestamp) =>
+              setMovementDate(localDateFromTimestamp(timestamp))
+            }
           />
+          {error ? (
+            <StyledText accessibilityRole="alert">{error}</StyledText>
+          ) : null}
           <StyledText>{translate('planning.savings.trackingOnly')}</StyledText>
           <ActionButton
             label={translate('planning.savings.previewMovement')}

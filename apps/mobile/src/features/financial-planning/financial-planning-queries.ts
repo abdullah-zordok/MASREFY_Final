@@ -13,6 +13,7 @@ export const financialPlanningKeys = {
     ['planning', 'overview', currencyCode, today, timeZone] as const,
   salary: (today: LocalDate, timeZone: string) =>
     ['planning', 'salary', today, timeZone] as const,
+  salaryProfile: () => ['planning', 'salary', 'profile'] as const,
   salaryReview: (id: string) => ['planning', 'salary-review', id] as const,
   budget: (periodKey: string) => ['planning', 'budget', periodKey] as const,
   budgetList: (periodKey: string) =>
@@ -50,6 +51,13 @@ export function useSalaryOverview(today: LocalDate, timeZone: string) {
     queryKey: financialPlanningKeys.salary(today, timeZone),
     queryFn: () =>
       financialPlanningService.getSalaryOverview({ today, timeZone })
+  });
+}
+
+export function useSalaryProfile() {
+  return useQuery({
+    queryKey: financialPlanningKeys.salaryProfile(),
+    queryFn: () => financialPlanningService.getSalaryProfile()
   });
 }
 
@@ -101,8 +109,7 @@ export function useObligations() {
 export function useObligationsOverview() {
   return useQuery({
     queryKey: [...financialPlanningKeys.obligations(), 'overview'],
-    queryFn: () =>
-      financialPlanningService.getObligationsOverview({ status: 'active' })
+    queryFn: () => financialPlanningService.getObligationsOverview({})
   });
 }
 
@@ -182,6 +189,7 @@ export function scopeToKey(scope: string): readonly unknown[] {
   }
   if (scope === 'reports.live') return ['reports', 'live'];
   if (scope === 'assistant.context') return ['assistant', 'context', 'current'];
+  if (scope.startsWith('accounts')) return ['core-finance', 'accounts'];
   if (scope.startsWith('home')) return ['core-finance', 'home'];
   if (scope.startsWith('transactions')) return ['core-finance', 'transactions'];
   return ['planning'];

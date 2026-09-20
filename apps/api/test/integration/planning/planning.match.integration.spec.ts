@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import { PlanningRepository } from '../../../src/planning/planning.repository';
 import { createLivePool, describeLiveDatabase } from '../../live-database';
 
 describeLiveDatabase('payment match live invariants', () => {
   const pool = createLivePool();
+  const repository = new PlanningRepository(pool);
   const owner = `match_live_${randomUUID()}`;
   const transactionId = randomUUID();
   beforeAll(async () => {
@@ -91,5 +93,60 @@ describeLiveDatabase('payment match live invariants', () => {
         )
       ).rows[0],
     ).toEqual({ status: 'rejected', version: '2' });
+  });
+
+  it('returns owned match detail and rejects another owner match', async () => {
+    const ownedMatch = (
+      await pool.query<{ id: string }>(
+        "select id from public.payment_matches where transaction_id=$1 and status='proposed' order by id limit 1",
+        [transactionId],
+      )
+    ).rows[0]?.id as string;
+    const detail = await repository.getPaymentMatch(
+      { userId: owner, sessionId: 'session', factorAgeSeconds: 0 },
+      ownedMatch,
+      'owned-match-detail',
+    );
+    const transaction = detail.transaction;
+    const candidate = detail.candidate;
+    if (!transaction || typeof transaction !== 'object' || !('id' in transaction)) {
+      throw new Error('Expected payment match transaction details');
+    }
+    if (!candidate || typeof candidate !== 'object' || !('id' in candidate)) {
+      throw new Error('Expected payment match candidate details');
+    }
+    expect(transaction.id).toBe(transactionId);
+    expect(typeof candidate.id).toBe('string');
+
+    const outsider = `match_outsider_${randomUUID()}`;
+    const outsiderTransaction = randomUUID();
+    await pool.query("insert into public.profiles(id,status) values($1,'active')", [outsider]);
+    await pool.query(
+      `insert into public.obligations(user_id,name,direction,type,schedule_kind,currency_code,principal_minor,installment_amount_minor,installment_count,frequency,expected_day,start_date,automatic_matching_enabled,provider_keywords)
+       values($1,'Other','payable','installment','fixed_term','SAR',100,100,1,'monthly',1,current_date,true,array['other'])`,
+      [outsider],
+    );
+    await pool.query(
+      "insert into public.transactions(id,user_id,kind,status,amount_minor,currency_code,title,occurred_at) values($1,$2,'expense','confirmed',100,'SAR','Other',clock_timestamp())",
+      [outsiderTransaction, outsider],
+    );
+    await pool.query('select * from private.propose_payment_matches($1,$2)', [
+      outsiderTransaction,
+      10,
+    ]);
+    const outsiderMatch = (
+      await pool.query<{ id: string }>(
+        'select id from public.payment_matches where transaction_id=$1 limit 1',
+        [outsiderTransaction],
+      )
+    ).rows[0]?.id as string;
+
+    await expect(
+      repository.getPaymentMatch(
+        { userId: owner, sessionId: 'session', factorAgeSeconds: 0 },
+        outsiderMatch,
+        'foreign-match-detail',
+      ),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });

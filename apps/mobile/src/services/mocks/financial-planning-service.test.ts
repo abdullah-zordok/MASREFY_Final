@@ -244,6 +244,26 @@ it('keeps previews side-effect free and confirms with operation IDs', async () =
   ).rejects.toThrow(FinancialPlanningError);
 });
 
+it('keeps mock payment-match detail structurally aligned with live data', async () => {
+  const match = await createSeededFinancialPlanningService().getPaymentMatch(
+    'match-payment-car'
+  );
+
+  expect(match).toMatchObject({
+    transaction: {
+      amountMinor: expect.any(Number),
+      currencyCode: 'SAR'
+    },
+    candidate: {
+      id: fixtureObligation.id,
+      obligationVersion: fixtureObligation.version
+    },
+    suggestedAllocation: {
+      amountMinor: expect.any(Number)
+    }
+  });
+});
+
 it('settles only the current outstanding amount from a stored preview', async () => {
   jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-04T12:00:00Z').getTime());
   const service = createSeededFinancialPlanningService();

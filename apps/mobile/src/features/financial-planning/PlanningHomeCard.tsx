@@ -18,10 +18,6 @@ export function PlanningHomeCard() {
     localDateInTimeZone(Date.now(), timeZone),
     timeZone
   ).data;
-  const budgetPercent =
-    overview?.budget?.percentage.status === 'available'
-      ? overview.budget.percentage.value
-      : undefined;
   const savingsPercent = overview?.savings.find(
     (goal: SavingsProgress) => goal.percentage.status === 'available'
   )?.percentage;
@@ -32,11 +28,7 @@ export function PlanningHomeCard() {
         {translate('coreFinance.home.financialProgress')}
       </Text>
       <GroupedList label={translate('coreFinance.home.financialProgress')}>
-        <PlanningRow
-          label={translate('planning.budgets.title')}
-          onPress={() => router.push('/budgets')}
-          percent={budgetPercent}
-        />
+        {/* TODO: Restore the budget entry when the budget experience is ready for release. */}
         <PlanningRow
           label={translate('planning.savings.title')}
           onPress={() => router.push('/savings')}

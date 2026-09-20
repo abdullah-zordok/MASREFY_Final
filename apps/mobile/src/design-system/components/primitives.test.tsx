@@ -62,9 +62,10 @@ describe('design-system primitives', () => {
 
     expect(screen.getByTestId('surface-card')).toHaveStyle({
       backgroundColor: lightThemeColors.surfaces.card,
-      borderColor: lightThemeColors.borders.subtle,
+      borderColor: lightThemeColors.borders.default,
       borderRadius: radius.card,
-      shadowOpacity: elevation.raised.shadowOpacity
+      borderWidth: 1,
+      shadowOpacity: elevation.card.shadowOpacity
     });
   });
 

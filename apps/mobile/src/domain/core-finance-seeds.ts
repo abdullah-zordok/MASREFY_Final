@@ -66,6 +66,24 @@ const demoCopy = {
   }
 } as const;
 
+export function localizedDemoTransactionTitle(
+  transactionId: string,
+  locale: Locale
+): string | null {
+  const match = /^demo-transaction-(\d+)$/.exec(transactionId);
+  return match ? demoCopy[locale].titles[Number(match[1]) - 1] ?? null : null;
+}
+
+export function localizedDemoAccountName(
+  accountId: string,
+  locale: Locale
+): string | null {
+  if (accountId === 'account-default') return demoCopy[locale].bankAccount;
+  if (accountId === 'demo-account-cash') return demoCopy[locale].cashAccount;
+  if (accountId === 'demo-account-card') return demoCopy[locale].cardAccount;
+  return null;
+}
+
 export const defaultCategorySeeds = [
   ['housing', 'السكن', 'Housing', 'expense'],
   ['food', 'الطعام', 'Food', 'expense'],

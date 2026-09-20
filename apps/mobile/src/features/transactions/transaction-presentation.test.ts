@@ -3,6 +3,7 @@ import {
   fixtureCategories,
   fixtureTransactions
 } from '@/test-utils/core-finance-fixtures';
+import { createDemoTransactions } from '@/domain/core-finance-seeds';
 import {
   formatTransactionMonth,
   formatTransactionTimestamp,
@@ -16,6 +17,7 @@ it('projects transaction display data without changing ledger meaning', () => {
 
   expect(projectTransaction(transaction, 'en', account, category)).toMatchObject({
     transaction,
+    title: transaction.title,
     accountName: account?.name,
     categoryName: category?.labelEn,
     meaning: 'expense',
@@ -33,6 +35,15 @@ it('keeps unsynced status caller-supplied and explicit', () => {
     projectTransaction({ ...transaction, syncStatus: 'synced' }, 'ar')
       .syncLabelKey
   ).toBeNull();
+});
+
+it.each([
+  ['ar', 'فاتورة الكهرباء'],
+  ['en', 'Electricity bill']
+] as const)('localizes demo transaction titles in %s', (locale, title) => {
+  const englishDemo = createDemoTransactions(Date.UTC(2026, 8, 18), 'en')[6];
+
+  expect(projectTransaction(englishDemo, locale).title).toBe(title);
 });
 
 it('formats the visible month and relative transaction timestamps', () => {

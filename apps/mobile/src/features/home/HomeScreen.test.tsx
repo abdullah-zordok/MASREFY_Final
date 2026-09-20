@@ -238,6 +238,7 @@ it('shows recent expenses before income and excludes transfers from both section
 });
 
 it('renders every recent transaction as an independent card without dividers', () => {
+  jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(1);
   changeLocale('en');
   renderWithProviders(
     <HomeScreen
@@ -257,10 +258,41 @@ it('renders every recent transaction as an independent card without dividers', (
   for (const id of ['transaction-2', 'transaction-3']) {
     expect(screen.getByTestId(`home-transaction-row-${id}`)).toHaveStyle({
       borderRadius: radius.card,
-      borderWidth: 1
+      borderWidth: 1,
+      height: 84,
+      minHeight: 84
     });
   }
 });
+
+it.each([
+  ['ar', 'rtl', 'الخدمات'],
+  ['en', 'ltr', 'Utilities']
+] as const)(
+  'keeps recent-expense system text localized in %s',
+  (locale, direction, categoryLabel) => {
+    changeLocale(locale);
+    usePreferenceStore.setState({ locale, direction });
+    renderWithProviders(
+      <HomeScreen
+        summary={{
+          ...summary,
+          recentTransactions: [
+            makeTransaction(7, {
+              categoryId: 'utilities',
+              title: 'Electricity bill'
+            })
+          ]
+        }}
+      />
+    );
+
+    expect(screen.getByText(categoryLabel)).toBeTruthy();
+    expect(
+      screen.getByText(translate('coreFinance.home.recentExpenses', locale))
+    ).toBeTruthy();
+  }
+);
 
 it('extends the activity surface through the bottom of the Home screen', () => {
   changeLocale('en');
@@ -713,7 +745,7 @@ it.each([
       flexDirection,
       gap: 12,
       paddingHorizontal: 16,
-      paddingVertical: 12
+      paddingVertical: 8
     });
     expect(screen.getByTestId('home-account-card')).toHaveStyle({
       direction: 'ltr',
@@ -734,7 +766,7 @@ it.each([
       writingDirection
     });
     expect(screen.getByText('Al Nakheel Restaurant').props.numberOfLines).toBe(
-      2
+      1
     );
   }
 );
@@ -751,9 +783,12 @@ it('keeps secondary planning and shortcut content off Home', () => {
   ).toBeNull();
 });
 
-it.each(['ar', 'en'] as const)(
-  'reflows transaction cards instead of shrinking their typography at 200%% text in %s',
-  (locale) => {
+it.each([
+  ['ar', 'row-reverse'],
+  ['en', 'row']
+] as const)(
+  'keeps Home transaction cards fixed at 200%% text in %s',
+  (locale, flexDirection) => {
     jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(2);
     changeLocale(locale);
     usePreferenceStore.setState({
@@ -765,10 +800,15 @@ it.each(['ar', 'en'] as const)(
 
     expect(
       screen.getByTestId('home-transaction-row-transaction-2')
-    ).toHaveStyle({ alignItems: 'stretch', flexDirection: 'column' });
+    ).toHaveStyle({
+      alignItems: 'center',
+      flexDirection,
+      height: 84,
+      minHeight: 84
+    });
     expect(
       screen.getByText('Al Nakheel Restaurant').props.numberOfLines
-    ).toBeUndefined();
+    ).toBe(1);
     expect(
       screen.getByTestId('home-period-label').props.numberOfLines
     ).toBeUndefined();

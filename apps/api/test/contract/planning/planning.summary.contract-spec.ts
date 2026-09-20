@@ -30,5 +30,6 @@ describe('planning summary HTTP contract', () => {
       expect.arrayContaining([expect.objectContaining({ name: 'period', required: true })]),
     );
     expect(owner.responses['200']).toBeDefined();
+    expect(JSON.stringify(owner.responses['200'])).toContain('nextDueAmountMinor');
   });
 });

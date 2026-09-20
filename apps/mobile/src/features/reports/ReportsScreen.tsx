@@ -1160,10 +1160,11 @@ const styles = StyleSheet.create({
     gap: spacing.xl
   },
   card: {
-    ...elevation.raised,
+    ...elevation.card,
     backgroundColor: colorTokens.surface.white,
+    borderColor: colorTokens.sand['400'],
     borderRadius: radius.card,
-    borderWidth: 0
+    borderWidth: 1
   },
   netWorthCard: {
     minHeight: 340,

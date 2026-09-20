@@ -105,8 +105,15 @@ function setup(overrides: Record<string, unknown> = {}) {
     ],
     skippedFingerprints: [],
     newestReceivedAt: 100,
-    accountRequiredCount: 0
+    accountRequiredCount: 0,
+    consumedSourceKeys: []
   });
+  const bankNotifications = {
+    getAccessState: jest.fn().mockResolvedValue('denied'),
+    openSettings: jest.fn(),
+    readRecent: jest.fn().mockResolvedValue([]),
+    acknowledge: jest.fn().mockResolvedValue(undefined)
+  };
   const dependencies = {
     isLive: () => true,
     session: () => ({ status: 'authenticated' as const, userId: 'owner-1' }),
@@ -116,6 +123,7 @@ function setup(overrides: Record<string, unknown> = {}) {
       getState: jest.fn().mockResolvedValue(permissionState('granted'))
     },
     inbox,
+    bankNotifications,
     listAccounts: jest.fn().mockResolvedValue([ownerAccount]),
     listCachedAccounts: jest.fn().mockResolvedValue([ownerAccount]),
     queue,
@@ -128,6 +136,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     dependencies,
     tracking,
     inbox,
+    bankNotifications,
     prepare,
     queue,
     setOnline(value: boolean) {
@@ -160,6 +169,87 @@ describe('automatic tracking coordinator', () => {
     await expect(context.queue.load('owner-1')).resolves.toMatchObject({
       pending: [expect.objectContaining({ idempotencyKey: expect.stringMatching(/^sms:/) })]
     });
+  });
+
+  it('queues bank notifications when SMS permission is denied and acknowledges after persistence', async () => {
+    const context = setup({
+      permission: {
+        getState: jest.fn().mockResolvedValue(permissionState('denied'))
+      }
+    });
+    context.bankNotifications.getAccessState.mockResolvedValue('granted');
+    context.bankNotifications.readRecent.mockResolvedValue([
+      {
+        key: 'notification-1',
+        packageName: 'com.bank',
+        title: 'Bank',
+        text: 'Paid 12 SAR',
+        postedAt: 100
+      }
+    ]);
+    context.prepare.mockResolvedValue({
+      events: [
+        {
+          sourceItemKey: 'sha256:notification-one',
+          amountMinor: -1200,
+          currency: 'SAR',
+          kind: 'expense',
+          accountId: ownerAccount.id,
+          receivedAt: '2026-09-12T10:00:00.000Z'
+        }
+      ],
+      skippedFingerprints: [],
+      newestReceivedAt: 100,
+      accountRequiredCount: 0,
+      consumedSourceKeys: ['notification-1']
+    });
+    const enqueue = jest.spyOn(context.queue, 'enqueue');
+
+    await context.coordinator.sync();
+
+    const queued = await context.queue.load('owner-1');
+    expect(queued.pending[0]?.submission).toMatchObject({
+      sourceType: 'provider',
+      sourceChannel: 'android_notification'
+    });
+    expect(enqueue.mock.invocationCallOrder[0]).toBeLessThan(
+      context.bankNotifications.acknowledge.mock.invocationCallOrder[0]
+    );
+    expect(context.bankNotifications.acknowledge).toHaveBeenCalledWith([
+      'notification-1'
+    ]);
+  });
+
+  it('acknowledges rejected bank notifications without submitting them', async () => {
+    const context = setup({
+      permission: {
+        getState: jest.fn().mockResolvedValue(permissionState('denied'))
+      }
+    });
+    context.bankNotifications.getAccessState.mockResolvedValue('granted');
+    context.bankNotifications.readRecent.mockResolvedValue([
+      {
+        key: 'notification-otp',
+        packageName: 'com.bank',
+        title: 'Bank',
+        text: 'OTP 123456',
+        postedAt: 100
+      }
+    ]);
+    context.prepare.mockResolvedValue({
+      events: [],
+      skippedFingerprints: ['sha256:otp'],
+      newestReceivedAt: 100,
+      accountRequiredCount: 0,
+      consumedSourceKeys: ['notification-otp']
+    });
+
+    await context.coordinator.sync();
+
+    expect(context.tracking.submitImport).not.toHaveBeenCalled();
+    expect(context.bankNotifications.acknowledge).toHaveBeenCalledWith([
+      'notification-otp'
+    ]);
   });
 
   it('reuses the persisted idempotency key when connectivity returns', async () => {

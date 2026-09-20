@@ -53,7 +53,7 @@ it('groups real favorites above other categories and marks the current choice', 
   expect(screen.queryByText('Favorite')).toBeNull();
   expect(screen.getByTestId('category-selection-most-used')).toHaveStyle({
     backgroundColor: lightThemeColors.surfaces.card,
-    shadowOpacity: elevation.raised.shadowOpacity
+    shadowOpacity: elevation.card.shadowOpacity
   });
 });
 

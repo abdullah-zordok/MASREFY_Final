@@ -37,7 +37,7 @@ describe('CycleStartDaySelectionScreen', () => {
     expect(screen.getByText('28th')).toBeTruthy();
     expect(screen.queryByText('29th')).toBeNull();
     expect(screen.getByTestId('cycle-start-day-1')).toHaveStyle({
-      shadowOpacity: elevation.raised.shadowOpacity
+      shadowOpacity: elevation.card.shadowOpacity
     });
   });
 

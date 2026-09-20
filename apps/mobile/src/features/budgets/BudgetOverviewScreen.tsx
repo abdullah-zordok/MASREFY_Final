@@ -9,7 +9,6 @@ import { SurfaceCard } from '@/design-system/components/SurfaceCard';
 import { NavigationRow } from '@/design-system/components/navigation/GroupedList';
 import {
   colorTokens,
-  elevation,
   radius,
   spacing
 } from '@/design-system/tokens';
@@ -218,10 +217,7 @@ function calculationAmount(
 
 const styles = StyleSheet.create({
   card: {
-    ...elevation.raised,
-    backgroundColor: colorTokens.surface.white,
     borderRadius: radius.card,
-    borderWidth: 0,
     gap: spacing.sm
   },
   cardHeader: {

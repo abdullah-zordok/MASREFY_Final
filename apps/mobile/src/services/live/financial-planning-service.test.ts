@@ -118,6 +118,127 @@ const methods = [
 ] as const satisfies readonly (keyof FinancialPlanningService)[];
 
 describe('live financial-planning service contract', () => {
+  it('maps authoritative payment-match detail needed for review and confirmation', async () => {
+    const service = createLiveFinancialPlanningService({
+      baseUrl: 'https://api.test',
+      token: async () => 'owner',
+      request: jest.fn().mockResolvedValue(
+        response({
+          id: '70000000-0000-4000-8000-000000000077',
+          transactionId: '70000000-0000-4000-8000-000000000073',
+          obligationId: '70000000-0000-4000-8000-000000000071',
+          scheduleItemId: '70000000-0000-4000-8000-000000000072',
+          advisoryConfidence: '0.95',
+          reasonCodes: ['amount_match'],
+          status: 'proposed',
+          reviewedAt: null,
+          createdAt: '2026-09-09T00:00:00.000Z',
+          updatedAt: '2026-09-09T00:00:00.000Z',
+          version: 1,
+          transaction: {
+            id: '70000000-0000-4000-8000-000000000073',
+            amountMinor: '200000',
+            currencyCode: 'SAR',
+            occurredAt: '2026-09-09T00:00:00.000Z',
+            title: 'Car showroom',
+            merchant: 'Car showroom',
+            sourceAccountId: '70000000-0000-4000-8000-000000000075',
+            sourceAccountName: 'Daily account'
+          },
+          candidate: {
+            id: '70000000-0000-4000-8000-000000000071',
+            title: 'Car installment',
+            provider: 'Car showroom',
+            type: 'installment',
+            direction: 'payable',
+            currencyCode: 'SAR',
+            remainingMinor: '5000000',
+            nextDueAt: '2026-09-25T00:00:00.000Z',
+            nextDueAmountMinor: '200000',
+            obligationVersion: 4
+          },
+          suggestedAllocation: {
+            scheduleItemId: '70000000-0000-4000-8000-000000000072',
+            amountMinor: '200000'
+          },
+          requestId: 'match-detail'
+        })
+      )
+    });
+
+    await expect(
+      service.getPaymentMatch('70000000-0000-4000-8000-000000000077')
+    ).resolves.toMatchObject({
+      transaction: { amountMinor: 200000, currencyCode: 'SAR' },
+      candidate: {
+        remainingMinor: 5000000,
+        nextDueAmountMinor: 200000,
+        obligationVersion: 4
+      },
+      suggestedAllocation: { amountMinor: 200000 }
+    });
+  });
+
+  it.each([
+    ['unsafe minor units', { transaction: { amountMinor: '9007199254740992' } }],
+    ['unknown reason code', { reasonCodes: ['merchant_keyword'] }],
+    ['missing obligation version', { candidate: { obligationVersion: undefined } }],
+    ['cross-currency candidate', { candidate: { currencyCode: 'USD' } }]
+  ])('rejects malformed payment-match detail: %s', async (_name, override) => {
+    const base = {
+      id: '70000000-0000-4000-8000-000000000077',
+      transactionId: '70000000-0000-4000-8000-000000000073',
+      obligationId: '70000000-0000-4000-8000-000000000071',
+      scheduleItemId: '70000000-0000-4000-8000-000000000072',
+      advisoryConfidence: '0.95',
+      reasonCodes: ['amount_match'],
+      status: 'proposed',
+      reviewedAt: null,
+      createdAt: '2026-09-09T00:00:00.000Z',
+      updatedAt: '2026-09-09T00:00:00.000Z',
+      version: 1,
+      transaction: {
+        id: '70000000-0000-4000-8000-000000000073',
+        amountMinor: '200000',
+        currencyCode: 'SAR',
+        occurredAt: '2026-09-09T00:00:00.000Z',
+        title: 'Car showroom',
+        merchant: null,
+        sourceAccountId: null,
+        sourceAccountName: null,
+        ...('transaction' in override ? override.transaction : {})
+      },
+      candidate: {
+        id: '70000000-0000-4000-8000-000000000071',
+        title: 'Car installment',
+        provider: null,
+        type: 'installment',
+        direction: 'payable',
+        currencyCode: 'SAR',
+        remainingMinor: '5000000',
+        nextDueAt: '2026-09-25T00:00:00.000Z',
+        nextDueAmountMinor: '200000',
+        obligationVersion: 4,
+        ...('candidate' in override ? override.candidate : {})
+      },
+      suggestedAllocation: {
+        scheduleItemId: '70000000-0000-4000-8000-000000000072',
+        amountMinor: '200000'
+      },
+      requestId: 'match-detail',
+      ...override
+    };
+    const service = createLiveFinancialPlanningService({
+      baseUrl: 'https://api.test',
+      token: async () => 'owner',
+      request: jest.fn().mockResolvedValue(response(base))
+    });
+
+    await expect(
+      service.getPaymentMatch('70000000-0000-4000-8000-000000000077')
+    ).rejects.toBeDefined();
+  });
+
   it('publishes the live planning capability metadata', () => {
     const service = createLiveFinancialPlanningService({
       baseUrl: 'https://api.test',
@@ -246,6 +367,36 @@ describe('live financial-planning service contract', () => {
       updatedAt: '2026-09-09T00:00:00.000Z',
       version: 1
     } as const;
+    const paymentMatchDetail = {
+      ...paymentMatch,
+      transaction: {
+        id: transactionId,
+        amountMinor: '100',
+        currencyCode: 'SAR',
+        occurredAt: '2026-09-09T00:00:00.000Z',
+        title: 'Loan payment',
+        merchant: null,
+        sourceAccountId: null,
+        sourceAccountName: null
+      },
+      candidate: {
+        id: obligationId,
+        title: obligation.name,
+        provider: obligation.provider,
+        type: obligation.type,
+        direction: obligation.direction,
+        currencyCode: obligation.currencyCode,
+        remainingMinor: '100',
+        nextDueAt: obligationSummary.nextDueAt,
+        nextDueAmountMinor: '100',
+        obligationVersion: obligation.version
+      },
+      suggestedAllocation: {
+        scheduleItemId: scheduleId,
+        amountMinor: '100'
+      },
+      requestId: 'payment-match-detail'
+    } as const;
     const movement = {
       id: movementId,
       goalId: savingsGoalWireFixture.id,
@@ -370,7 +521,11 @@ describe('live financial-planning service contract', () => {
                   transactionId,
                   obligationId,
                   scheduleItemId: scheduleId,
-                  status: 'rejected',
+                  status:
+                    JSON.parse(String(init?.body ?? '{}')).decision ===
+                    'accepted'
+                      ? 'accepted'
+                      : 'rejected',
                   reviewedAt: '2026-09-09T00:00:00.000Z',
                   payment: null,
                   createdAt: paymentMatch.createdAt,
@@ -381,7 +536,7 @@ describe('live financial-planning service contract', () => {
               )
             );
           return url.includes(`/${matchId}`)
-            ? response(paymentMatch)
+            ? response(paymentMatchDetail)
             : response({ items: [paymentMatch], nextCursor: null });
         }
         if (url.includes('/savings-goals')) {
@@ -406,13 +561,18 @@ describe('live financial-planning service contract', () => {
         throw new Error(`unexpected request ${method} ${url}`);
       }
     );
+    const createTransaction = jest.fn().mockResolvedValue({
+      value: { id: transactionId },
+      affectedScopes: ['transactions.list']
+    });
     const service = createLiveFinancialPlanningService({
       baseUrl: 'https://api.test',
       request,
       repository: new FinancialPlanningRepository(financialPlanningSeed),
       persistent: false,
-      now: () => Date.parse('2026-09-09T00:00:00.000Z')
-    });
+      now: () => Date.parse('2026-09-09T00:00:00.000Z'),
+      ledger: { createTransaction }
+    } as never);
     const covered = new Set<keyof FinancialPlanningService>();
     const use = <T>(method: keyof FinancialPlanningService, call: () => T) => {
       covered.add(method);
@@ -622,6 +782,39 @@ describe('live financial-planning service contract', () => {
         )
       )
     ).resolves.toMatchObject({ value: { payment: { id: paymentId } } });
+    const createdPaymentPreview = await service.previewObligationPayment({
+      obligationId,
+      amountMinor: 100,
+      currencyCode: 'SAR',
+      paidDate: '2026-09-09',
+      source: 'manual',
+      transaction: {
+        kind: 'create',
+        input: {
+          type: 'expense',
+          amountMinor: 100,
+          currencyCode: 'SAR',
+          accountId: '70000000-0000-4000-8000-000000000075',
+          categoryId: null,
+          title: 'Loan payment',
+          occurredAt: Date.parse('2026-09-09T00:00:00.000Z')
+        }
+      }
+    });
+    await expect(
+      service.confirmObligationPayment(
+        createdPaymentPreview.previewId,
+        { allocations: createdPaymentPreview.allocations, intent: 'current' },
+        'payment-create-confirm'
+      )
+    ).resolves.toMatchObject({
+      value: { payment: { transactionOwnership: 'created' } }
+    });
+    expect(createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ amountMinor: 100 }),
+      'payment-create-confirm.transaction',
+      'manual'
+    );
     await expect(
       use('reverseObligationPayment', () =>
         service.reverseObligationPayment(paymentId, 'payment-reverse')
@@ -654,6 +847,14 @@ describe('live financial-planning service contract', () => {
         )
       )
     ).resolves.toMatchObject({ value: { match: { status: 'ignored' } } });
+    await expect(
+      service.resolvePaymentMatch(
+        { matchId, obligationId, action: 'confirm' },
+        'match-confirm'
+      )
+    ).resolves.toMatchObject({
+      value: { match: { status: 'resolved', resolution: obligationId } }
+    });
 
     await expect(
       use('listGoals', () => service.listGoals({ status: 'active' }))
@@ -736,21 +937,11 @@ describe('live financial-planning service contract', () => {
     expect([...covered].sort()).toEqual([...methods].sort());
   });
 
-  it('rejects previews that cannot be backed by authoritative server state', async () => {
+  it('rejects unsupported settlement previews', async () => {
     const service = createLiveFinancialPlanningService({
       baseUrl: 'https://api.test',
       token: async () => 'owner'
     });
-    await expect(
-      service.previewObligationPayment({
-        obligationId: '70000000-0000-4000-8000-000000000001',
-        amountMinor: 100,
-        currencyCode: 'SAR',
-        paidDate: '2026-09-09',
-        source: 'manual',
-        transaction: { kind: 'create', input: {} as never }
-      })
-    ).rejects.toMatchObject({ code: 'offline_unavailable' });
     await expect(
       service.previewEarlySettlement('70000000-0000-4000-8000-000000000001')
     ).rejects.toMatchObject({ code: 'offline_unavailable' });
@@ -1568,25 +1759,6 @@ describe('live financial-planning service contract', () => {
         'unsafe-money'
       )
     ).rejects.toMatchObject({ code: 'validation' });
-    expect(request).not.toHaveBeenCalled();
-  });
-
-  it('rejects unsupported payment-match confirmation before reading the network', async () => {
-    const request = jest.fn();
-    const service = createLiveFinancialPlanningService({
-      baseUrl: 'https://api.test',
-      request
-    });
-    await expect(
-      service.resolvePaymentMatch(
-        {
-          matchId: '70000000-0000-4000-8000-000000000081',
-          action: 'confirm',
-          obligationId: '70000000-0000-4000-8000-000000000082'
-        },
-        'confirm-match'
-      )
-    ).rejects.toMatchObject({ code: 'offline_unavailable' });
     expect(request).not.toHaveBeenCalled();
   });
 

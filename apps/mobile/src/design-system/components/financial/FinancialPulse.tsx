@@ -1,8 +1,13 @@
 import React from 'react';
-import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DesignIcon, type DesignIconName } from '@/design-system/icons';
-import { minTouchTarget, radius, spacing, typography } from '@/design-system/tokens';
+import {
+  minTouchTarget,
+  radius,
+  spacing,
+  typography
+} from '@/design-system/tokens';
 import { usePreferenceStore } from '@/state/preferences';
 import { useTheme } from '@/state/theme-context';
 
@@ -27,8 +32,6 @@ export function FinancialPulse({
 }) {
   const theme = useTheme();
   const direction = usePreferenceStore((state) => state.direction);
-  const largeText = PixelRatio.getFontScale() >= 1.5;
-
   return (
     <View
       accessibilityLabel={accessibilityLabel}
@@ -64,7 +67,12 @@ export function FinancialPulse({
           }
         ]}
       >
-        <Text style={[styles.scope, { color: theme.colors.content.onFinancialHero }]}>
+        <Text
+          style={[
+            styles.scope,
+            { color: theme.colors.content.onFinancialHero }
+          ]}
+        >
           {scope}
         </Text>
         {scopeIcon ? (
@@ -79,9 +87,9 @@ export function FinancialPulse({
       </View>
       <Text
         testID="financial-pulse-statement"
-        adjustsFontSizeToFit={!largeText}
+        adjustsFontSizeToFit
         minimumFontScale={0.68}
-        numberOfLines={largeText ? 2 : 1}
+        numberOfLines={1}
         style={[
           styles.statement,
           {
@@ -114,7 +122,12 @@ export function FinancialPulse({
           onPress={onEvidence}
           style={styles.evidence}
         >
-          <Text style={[styles.evidenceText, { color: theme.colors.content.onFinancialHero }]}> 
+          <Text
+            style={[
+              styles.evidenceText,
+              { color: theme.colors.content.onFinancialHero }
+            ]}
+          >
             {evidenceLabel}
           </Text>
         </Pressable>

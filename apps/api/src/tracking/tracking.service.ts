@@ -442,6 +442,7 @@ export class TrackingService {
         'amountMinor',
         'currency',
         'accountId',
+        'destinationAccountId',
         'categoryId',
         'title',
         'merchant',
@@ -488,26 +489,11 @@ export class TrackingService {
       String(importItem.id),
     )}`;
     const values = { ...record(review.proposedValues), ...record(command.patch) };
-    const ledger = record(
-      await this.ledger.createTransaction({
-        principal: input.principal,
-        body: {
-          kind: values.kind,
-          amountMinor: Math.abs(Number(values.amountMinor)),
-          currency: values.currency,
-          accountId: values.accountId,
-          categoryId: values.categoryId ?? null,
-          title: values.title ?? values.merchant ?? 'Imported transaction',
-          merchant: values.merchant ?? null,
-          paymentMethod: values.paymentMethod ?? null,
-          note: values.note ?? null,
-          occurredAt: values.occurredAt,
-          source: 'tracking-import',
-          externalRef: sourceKey,
-        },
-        idempotencyKey: sourceKey,
-        requestId: input.requestId,
-      }),
+    const ledger = await this.createImportedLedgerEntry(
+      input.principal,
+      values,
+      sourceKey,
+      input.requestId,
     );
     const transaction = record(record(ledger.transaction).transaction);
     return this.repository.decideReview(
@@ -606,9 +592,55 @@ export class TrackingService {
       String(item.id),
     )}`;
     const values = { ...record(item.normalizedPayload), ...record(command.merge) };
-    const ledger = record(
+    const ledger = await this.createImportedLedgerEntry(
+      input.principal,
+      values,
+      sourceKey,
+      input.requestId,
+    );
+    const transaction = record(record(ledger.transaction).transaction);
+    return this.repository.decideDuplicate(
+      input.principal,
+      id,
+      command,
+      decisionToken,
+      typeof ledger.operationId === 'string' ? ledger.operationId : uuidFrom(input.idempotencyKey),
+      String(transaction.id),
+      input.idempotencyKey,
+      input.requestId,
+    );
+  }
+
+  private async createImportedLedgerEntry(
+    principal: ClerkPrincipal,
+    values: Record<string, unknown>,
+    sourceKey: string,
+    requestId: string,
+  ): Promise<Record<string, unknown>> {
+    const common = {
+      principal,
+      idempotencyKey: sourceKey,
+      requestId,
+    };
+    if (values.kind === 'transfer')
+      return record(
+        await this.ledger.transfer({
+          ...common,
+          body: {
+            sourceAccountId: values.accountId,
+            destinationAccountId: values.destinationAccountId,
+            amountMinor: Math.abs(Number(values.amountMinor)),
+            currency: values.currency,
+            feeMinor: 0,
+            occurredAt: values.occurredAt,
+            title: values.title ?? values.merchant ?? 'Imported transaction',
+            note: values.note ?? null,
+          },
+        }),
+      );
+    return record(
       await this.ledger.createTransaction({
-        principal: input.principal,
+        ...common,
         body: {
           kind: values.kind,
           amountMinor: Math.abs(Number(values.amountMinor)),
@@ -623,20 +655,7 @@ export class TrackingService {
           source: 'tracking-import',
           externalRef: sourceKey,
         },
-        idempotencyKey: sourceKey,
-        requestId: input.requestId,
       }),
-    );
-    const transaction = record(record(ledger.transaction).transaction);
-    return this.repository.decideDuplicate(
-      input.principal,
-      id,
-      command,
-      decisionToken,
-      typeof ledger.operationId === 'string' ? ledger.operationId : uuidFrom(input.idempotencyKey),
-      String(transaction.id),
-      input.idempotencyKey,
-      input.requestId,
     );
   }
 

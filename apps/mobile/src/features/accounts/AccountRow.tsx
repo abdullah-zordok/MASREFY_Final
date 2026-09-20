@@ -106,7 +106,9 @@ export function AccountRow({
             : theme.colors.surfaces.card,
           borderColor: selected
             ? theme.colors.borders.selected
-            : theme.colors.borders.subtle,
+            : groupedPosition
+              ? theme.colors.borders.subtle
+              : theme.colors.borders.default,
           borderWidth: groupedPosition
             ? StyleSheet.hairlineWidth
             : selected
@@ -116,7 +118,7 @@ export function AccountRow({
           opacity: disabled ? 0.56 : 1
         },
         styles.physicalLtr,
-        !groupedPosition && elevation.raised,
+        !groupedPosition && elevation.card,
         groupedPosition && styles.grouped,
         variant === 'account-list' && styles.accountListCard,
         groupedPosition === 'first' && styles.groupedFirst,

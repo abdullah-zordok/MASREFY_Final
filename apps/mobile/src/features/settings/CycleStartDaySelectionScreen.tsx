@@ -85,7 +85,7 @@ export function CycleStartDaySelectionScreen({
                 : theme.colors.surfaces.card,
             borderColor: isSelected
               ? colorTokens.teal[300]
-              : theme.colors.borders.subtle,
+              : theme.colors.borders.default,
             borderWidth: isSelected ? 1.5 : 1
           }
         ]}
@@ -205,7 +205,7 @@ export function CycleStartDaySelectionScreen({
 
 const styles = StyleSheet.create({
   dayCard: {
-    ...elevation.raised,
+    ...elevation.card,
     alignItems: 'center',
     borderRadius: radius.card,
     gap: 3,

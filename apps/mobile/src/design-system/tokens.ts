@@ -447,6 +447,8 @@ export interface ThemeColors {
   horizon: {
     heroStart: string;
     heroEnd: string;
+    referenceStart: string;
+    referenceEnd: string;
     glow: string;
     wash: string;
     sheet: string;
@@ -465,7 +467,7 @@ export const lightThemeColors: ThemeColors = {
   primaryPressed: colorTokens.teal['950'],
   accent: colorTokens.bronze['700'],
   focus: colorTokens.teal['600'],
-  background: colorTokens.sand['100'],
+  background: colorTokens.neutral.warmSurface,
   surface: colorTokens.sand['50'],
   surfaceMuted: colorTokens.sand['200'],
   border: colorTokens.sand['400'],
@@ -479,7 +481,7 @@ export const lightThemeColors: ThemeColors = {
   financialPositive: colorTokens.financial.positive,
   financialNegative: colorTokens.financial.negative,
   surfaces: {
-    page: colorTokens.sand['100'],
+    page: colorTokens.neutral.warmSurface,
     grouped: colorTokens.sand['50'],
     card: colorTokens.sand['50'],
     inset: colorTokens.sand['200'],
@@ -501,7 +503,7 @@ export const lightThemeColors: ThemeColors = {
   },
   borders: {
     default: colorTokens.sand['400'],
-    subtle: colorTokens.sand['300'],
+    subtle: colorTokens.neutral.warmBorder,
     strong: colorTokens.border.dark,
     focus: colorTokens.teal['600'],
     selected: colorTokens.teal['900'],
@@ -551,6 +553,8 @@ export const lightThemeColors: ThemeColors = {
   horizon: {
     heroStart: colorTokens.teal['900'],
     heroEnd: colorTokens.teal['600'],
+    referenceStart: '#007A56',
+    referenceEnd: '#009F70',
     glow: colorTokens.effects.horizonGlow,
     wash: colorTokens.teal['100'],
     sheet: colorTokens.sand['50'],
@@ -655,6 +659,8 @@ export const darkThemeColors: ThemeColors = {
   horizon: {
     heroStart: colorTokens.teal['950'],
     heroEnd: colorTokens.teal['900'],
+    referenceStart: '#007A56',
+    referenceEnd: '#009F70',
     glow: colorTokens.effects.horizonGlowDark,
     wash: colorTokens.dark.surfaceMuted,
     sheet: colorTokens.dark.surface,
@@ -703,6 +709,13 @@ export const elevation = {
   none: {
     shadowOpacity: 0,
     elevation: 0
+  },
+  card: {
+    shadowColor: colorTokens.teal['950'],
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 3
   },
   raised: {
     shadowColor: colorTokens.teal['950'],

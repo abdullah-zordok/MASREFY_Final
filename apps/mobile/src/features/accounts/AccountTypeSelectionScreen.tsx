@@ -177,7 +177,7 @@ export function AccountTypeSelectionScreen({
                 styles.physicalLtr,
                 {
                   backgroundColor: theme.colors.surfaces.card,
-                  borderColor: theme.colors.borders.subtle,
+                  borderColor: theme.colors.borders.default,
                   flexDirection: isRtl ? 'row-reverse' : 'row'
                 },
                 pressed && {
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     gap: spacing.md
   },
   card: {
-    ...elevation.raised,
+    ...elevation.card,
     borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,

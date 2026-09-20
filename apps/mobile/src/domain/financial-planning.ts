@@ -209,6 +209,32 @@ export interface PaymentMatch {
   duplicatePaymentIds: string[];
   status: 'clear' | 'review_required' | 'resolved' | 'ignored';
   resolution: string | null;
+  advisoryConfidence: number | null;
+  reasonCodes: ('amount_match' | 'keyword_match')[];
+  version: number | null;
+  transaction: {
+    id: string;
+    amountMinor: number;
+    currencyCode: string;
+    occurredAt: number;
+    title: string;
+    merchant: string | null;
+    sourceAccountId: string | null;
+    sourceAccountName: string | null;
+  } | null;
+  candidate: {
+    id: string;
+    title: string;
+    provider: string | null;
+    type: Obligation['type'];
+    direction: Obligation['direction'];
+    currencyCode: string;
+    remainingMinor: number;
+    nextDueDate: LocalDate | null;
+    nextDueAmountMinor: number | null;
+    obligationVersion: number;
+  } | null;
+  suggestedAllocation: PaymentAllocation | null;
 }
 
 export interface SavingsGoal extends RecordMetadata {
@@ -708,7 +734,13 @@ export function scorePaymentMatch(input: {
       duplicatePaymentIds.length || candidateObligationIds.length !== 1
         ? 'review_required'
         : 'clear',
-    resolution: null
+    resolution: null,
+    advisoryConfidence: null,
+    reasonCodes: [],
+    version: null,
+    transaction: null,
+    candidate: null,
+    suggestedAllocation: null
   };
 }
 

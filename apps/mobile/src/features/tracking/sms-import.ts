@@ -12,12 +12,14 @@ import {
 } from '@/domain/core-finance';
 import { getCurrencyMinorUnitScale } from '@/domain/currencies';
 import type { RawSmsMessage } from '@/services/platform/sms-inbox-service';
+import type { RawBankNotification } from '@/services/platform/bank-notification-service';
 
 export interface PreparedSmsImport {
   events: TrackingImportEvent[];
   skippedFingerprints: string[];
   newestReceivedAt: number | null;
   accountRequiredCount: number;
+  consumedSourceKeys: string[];
 }
 
 const otpPattern =
@@ -31,9 +33,33 @@ const kindPatterns: [
   ['refund', /\brefund(?:ed)?\b|استرداد|مسترد/iu],
   ['income', /\bsalary\b|\bcredited\b|\bdeposit(?:ed)?\b|\breceived\b|راتب|إيداع|ايداع|استلام/iu],
   ['transfer', /\btransfer(?:red)?\b|تحويل/iu],
+  ['expense', /\bwithdraw(?:al|n)?\b|سحب/iu],
   ['fee', /\bfees?\b|رسوم/iu],
   ['expense', /\bpaid\b|\bpurchase\b|\bspent\b|\bdebit(?:ed)?\b|\bcharged\b|شراء|دفع|خصم/iu]
 ];
+const paymentRailPatterns: [string, RegExp][] = [
+  ['apple_pay', /\bapple\s+pay\b/iu],
+  ['mada', /\bmada\b|مدى/iu],
+  ['pos', /\bpos\b/iu],
+  ['visa', /\bvisa\b/iu],
+  ['mastercard', /\bmastercard\b/iu]
+];
+const keywordKind: Record<
+  KeywordRule['group'],
+  NonNullable<TrackingImportEvent['kind']> | null
+> = {
+  expense: 'expense',
+  income: 'income',
+  transfer: 'transfer',
+  withdrawal: 'expense',
+  deposit: 'income',
+  refund: 'refund',
+  subscription: 'expense',
+  installment: 'expense',
+  fee: 'fee',
+  failed_transaction: null,
+  reversal: 'refund'
+};
 const currencies: [string, string][] = [
   ['SAR', 'SAR|ر\s*\.\s*س|ريال(?:\s+سعودي)?'],
   ['AED', 'AED|د\s*\.\s*إ|درهم(?:\s+إماراتي)?'],
@@ -51,27 +77,43 @@ export async function prepareSmsImport(
     knownFingerprints: ReadonlySet<string>;
   }
 ): Promise<PreparedSmsImport> {
+  return prepareFinancialMessageImport(messages, options);
+}
+
+export async function prepareFinancialMessageImport(
+  messages: readonly (RawSmsMessage | RawBankNotification)[],
+  options: {
+    keywordRules: readonly KeywordRule[];
+    senderRules: readonly SenderRule[];
+    accounts: readonly Account[];
+    knownFingerprints: ReadonlySet<string>;
+  }
+): Promise<PreparedSmsImport> {
   const events: TrackingImportEvent[] = [];
   const skippedFingerprints: string[] = [];
+  const consumedSourceKeys: string[] = [];
   let newestReceivedAt: number | null = null;
   let accountRequiredCount = 0;
 
-  for (const message of messages) {
+  for (const input of messages) {
+    const message = normalizeMessage(input);
     newestReceivedAt = Math.max(newestReceivedAt ?? 0, message.receivedAt);
     const normalized = normalize(message.body);
-    const fingerprint = await fingerprintSms(message, normalized);
+    const fingerprint = await fingerprintMessage(message, normalized);
     if (
       options.knownFingerprints.has(fingerprint) ||
       otpPattern.test(normalized) ||
       marketingPattern.test(normalized)
     ) {
       skippedFingerprints.push(fingerprint);
+      if (message.packageName) consumedSourceKeys.push(message.sourceKey);
       continue;
     }
     const parsed = parseAmount(normalized);
-    const kind = detectKind(normalized);
-    if (!parsed || !matchesRule(message.sender, normalized, kind, options)) {
+    const kind = detectKind(normalized, message.sender, options);
+    if (!parsed || kind === null) {
       skippedFingerprints.push(fingerprint);
+      if (message.packageName) consumedSourceKeys.push(message.sourceKey);
       continue;
     }
     const selectedAccount = selectAccount(
@@ -86,6 +128,7 @@ export async function prepareSmsImport(
     const receivedAt = new Date(message.receivedAt);
     if (Number.isNaN(receivedAt.valueOf())) {
       skippedFingerprints.push(fingerprint);
+      if (message.packageName) consumedSourceKeys.push(message.sourceKey);
       continue;
     }
     const amountMinor =
@@ -93,33 +136,75 @@ export async function prepareSmsImport(
         ? parsed.amountMinor
         : -parsed.amountMinor;
     const safeSender = minimizedSender(message.sender);
+    const paymentRail = detectPaymentRail(normalized);
+    const merchant = kind === 'expense' ? extractMerchant(message.body) : null;
     events.push({
       sourceItemKey: fingerprint,
       ...(safeSender ? { sender: safeSender } : {}),
       amountMinor,
       currency: parsed.currency,
-      kind: kind ?? 'expense',
+      kind,
+      ...(merchant ? { merchant } : {}),
       accountId: selectedAccount.id,
+      ...(message.packageName
+        ? {
+            metadata: {
+              sourcePackage: message.packageName,
+              ...(paymentRail ? { paymentRail } : {})
+            }
+          }
+        : {}),
       receivedAt: receivedAt.toISOString(),
       occurredAt: receivedAt.toISOString()
     });
+    if (message.packageName) consumedSourceKeys.push(message.sourceKey);
   }
 
   return {
     events,
     skippedFingerprints,
     newestReceivedAt,
-    accountRequiredCount
+    accountRequiredCount,
+    consumedSourceKeys
   };
 }
 
-async function fingerprintSms(
-  message: RawSmsMessage,
+interface NormalizedFinancialMessage {
+  sourceKey: string;
+  sender: string;
+  packageName: string | null;
+  body: string;
+  receivedAt: number;
+}
+
+function normalizeMessage(
+  message: RawSmsMessage | RawBankNotification
+): NormalizedFinancialMessage {
+  if ('body' in message) {
+    return {
+      sourceKey: message.id,
+      sender: message.sender,
+      packageName: null,
+      body: message.body,
+      receivedAt: message.receivedAt
+    };
+  }
+  return {
+    sourceKey: message.key,
+    sender: message.packageName,
+    packageName: message.packageName,
+    body: `${message.title} ${message.text}`.trim(),
+    receivedAt: message.postedAt
+  };
+}
+
+async function fingerprintMessage(
+  message: NormalizedFinancialMessage,
   normalizedBody: string
 ): Promise<string> {
   const digest = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
-    `${normalizeSender(message.sender)}\n${message.receivedAt}\n${normalizedBody}`
+    `${message.packageName ?? 'sms'}\n${normalizeSender(message.sender)}\n${message.receivedAt}\n${normalizedBody}`
   );
   return `sha256:${digest}`;
 }
@@ -137,31 +222,38 @@ function normalize(value: string): string {
 }
 
 function detectKind(
-  value: string
-): NonNullable<TrackingImportEvent['kind']> | null {
-  return kindPatterns.find(([, pattern]) => pattern.test(value))?.[0] ?? null;
-}
-
-function matchesRule(
-  senderValue: string,
-  body: string,
-  kind: TrackingImportEvent['kind'] | null,
+  value: string,
+  sender: string,
   options: {
     keywordRules: readonly KeywordRule[];
     senderRules: readonly SenderRule[];
   }
-): boolean {
-  const normalizedSender = normalizeSender(senderValue);
-  return (
-    kind !== null ||
-    options.senderRules.some(
-      (rule) =>
-        rule.enabled && normalizeSender(rule.normalizedSender) === normalizedSender
-    ) ||
-    options.keywordRules.some(
-      (rule) => rule.enabled && body.includes(normalize(rule.value))
-    )
+): NonNullable<TrackingImportEvent['kind']> | null {
+  const structuredKind = kindPatterns.find(([, pattern]) => pattern.test(value))?.[0];
+  if (structuredKind) return structuredKind;
+  const normalizedSender = normalizeSender(sender);
+  const trustedSender = options.senderRules.some(
+    (rule) =>
+      rule.enabled &&
+      rule.trusted &&
+      normalizeSender(rule.normalizedSender) === normalizedSender
   );
+  if (!trustedSender) return null;
+  const keyword = options.keywordRules.find(
+    (rule) => rule.enabled && value.includes(normalize(rule.value))
+  );
+  return keyword ? keywordKind[keyword.group] : null;
+}
+
+function detectPaymentRail(value: string): string | null {
+  return paymentRailPatterns.find(([, pattern]) => pattern.test(value))?.[0] ?? null;
+}
+
+function extractMerchant(value: string): string | null {
+  const match = value.match(
+    /(?:\bat\b|\bfrom\b|لدى|من)\s+(.+?)(?=\s+(?:using|with|via|card|account|ending|بواسطة|عن\s+طريق)\b|$)/iu
+  )?.[1];
+  return match?.trim().slice(0, 160) || null;
 }
 
 function parseAmount(

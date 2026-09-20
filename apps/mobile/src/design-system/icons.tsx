@@ -64,6 +64,8 @@ const appIconMap = {
     android: 'calendar_month',
     web: 'calendar_month'
   },
+  work: { ios: 'briefcase', android: 'work', web: 'work' },
+  bolt: { ios: 'bolt.fill', android: 'bolt', web: 'bolt' },
   notifications: {
     ios: 'bell',
     android: 'notifications',
@@ -296,7 +298,7 @@ function iconName(
   name: AppIconName,
   direction: LayoutDirection
 ): PlatformIconName {
-  const mappedName = appIconMap[name];
+  const mappedName = appIconMap[name] ?? appIconMap.category;
   const rtlName = direction === 'rtl' ? rtlMaterialIcons[name] : undefined;
   if (!rtlName) return mappedName;
   return { ...mappedName, android: rtlName, web: rtlName } as PlatformIconName;

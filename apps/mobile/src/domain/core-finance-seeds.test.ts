@@ -1,6 +1,8 @@
 import {
   createDefaultCategories,
-  createDemoTransactions
+  createDemoTransactions,
+  localizedDemoAccountName,
+  localizedDemoTransactionTitle
 } from './core-finance-seeds';
 
 it('initializes income or expense reference categories with one remittance category', () => {
@@ -35,4 +37,14 @@ it('keeps demo transfers category-free', () => {
 
   expect(transfers).toHaveLength(1);
   expect(transfers[0].categoryId).toBeNull();
+});
+
+it.each([
+  ['ar', 'فاتورة الكهرباء', 'مصاريفي'],
+  ['en', 'Electricity bill', 'Masarifi']
+] as const)('localizes known demo finance copy in %s', (locale, title, account) => {
+  expect(localizedDemoTransactionTitle('demo-transaction-7', locale)).toBe(
+    title
+  );
+  expect(localizedDemoAccountName('account-default', locale)).toBe(account);
 });

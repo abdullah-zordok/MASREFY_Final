@@ -25,7 +25,7 @@ export function GroupedList({
         styles.group,
         {
           backgroundColor: theme.colors.surfaces.card,
-          borderColor: theme.colors.borders.subtle
+          borderColor: theme.colors.borders.default
         }
       ]}
     >
@@ -51,8 +51,10 @@ export function NavigationRow({
 }) {
   const theme = useTheme();
   const direction = usePreferenceStore((state) => state.direction);
-  const largeText = PixelRatio.getFontScale() >= 1.5;
-  const accessibleLabel = [label, description, value, status].filter(Boolean).join(', ');
+  const largeText = PixelRatio.getFontScale() >= 1.2;
+  const accessibleLabel = [label, description, value, status]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Pressable
@@ -76,7 +78,10 @@ export function NavigationRow({
           minHeight: minTouchTarget,
           opacity: disabled ? 0.56 : 1
         },
-        pressed && !disabled && { backgroundColor: theme.colors.interactions.quietPressed }
+        pressed &&
+          !disabled && {
+            backgroundColor: theme.colors.interactions.quietPressed
+          }
       ]}
     >
       <View style={styles.text}>
@@ -106,10 +111,14 @@ export function NavigationRow({
         ) : null}
       </View>
       {status ? (
-        <Text style={[styles.status, { color: theme.colors.status.review }]}>{status}</Text>
+        <Text style={[styles.status, { color: theme.colors.status.review }]}>
+          {status}
+        </Text>
       ) : null}
       {value ? (
-        <Text style={[styles.value, { color: theme.colors.content.secondary }]}>{value}</Text>
+        <Text style={[styles.value, { color: theme.colors.content.secondary }]}>
+          {value}
+        </Text>
       ) : null}
       {onPress ? (
         <Text
@@ -126,9 +135,9 @@ export function NavigationRow({
 
 const styles = StyleSheet.create({
   group: {
-    ...elevation.raised,
+    ...elevation.card,
     borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     overflow: 'hidden'
   },
   row: {

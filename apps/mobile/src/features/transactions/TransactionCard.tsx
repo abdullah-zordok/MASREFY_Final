@@ -8,8 +8,12 @@ import {
   CategoryIcon
 } from '@/design-system/components/financial/FinancialPrimitives';
 import { resolveCategoryVisual } from '@/design-system/components/financial/category-visuals';
-import { borderWidth, radius, spacing } from '@/design-system/tokens';
+import { borderWidth, elevation, radius, spacing } from '@/design-system/tokens';
 import type { Transaction } from '@/domain/core-finance';
+import {
+  localizedDemoAccountName,
+  localizedDemoTransactionTitle
+} from '@/domain/core-finance-seeds';
 import { translateDynamic } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { useTheme } from '@/state/theme-context';
@@ -36,6 +40,12 @@ export function TransactionCard({
   const locale = usePreferenceStore((state) => state.locale);
   const direction = usePreferenceStore((state) => state.direction);
   const presentation = projectTransaction(transaction, locale);
+  const localizedAccountName = localizedDemoTransactionTitle(
+    transaction.id,
+    locale
+  )
+    ? localizedDemoAccountName(transaction.accountId, locale) ?? accountName
+    : accountName;
   const visualKey =
     transaction.categoryId ?? (transaction.type === 'income' ? 'salary' : null);
   const category = resolveCategoryVisual(visualKey, 'category');
@@ -47,6 +57,7 @@ export function TransactionCard({
     {},
     locale
   );
+  const fixedHomeCard = testIDPrefix === 'home' && !groupedPosition;
 
   return (
     <Pressable
@@ -54,7 +65,7 @@ export function TransactionCard({
       accessibilityLabel={[
         presentation.title,
         categoryLabel,
-        accountName,
+        localizedAccountName,
         presentation.dateLabel
       ]
         .filter(Boolean)
@@ -63,8 +74,10 @@ export function TransactionCard({
       onPress={() => router.push(`/transactions/${transaction.id}/edit`)}
       style={({ pressed }) => [
         styles.card,
+        fixedHomeCard && styles.fixedHome,
+        !groupedPosition && elevation.card,
         groupedPosition && styles.grouped,
-        largeText
+        largeText && !fixedHomeCard
           ? styles.stacked
           : { flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' },
         {
@@ -91,7 +104,7 @@ export function TransactionCard({
       >
         <CategoryIcon
           label={categoryLabel}
-          size={groupedPosition ? 38 : 'md'}
+          size={fixedHomeCard ? 'sm' : groupedPosition ? 38 : 'md'}
           visualKey={visualKey}
         />
         <View
@@ -102,9 +115,10 @@ export function TransactionCard({
           ]}
         >
           <Text
-            numberOfLines={largeText ? undefined : 2}
+            numberOfLines={fixedHomeCard ? 1 : largeText ? undefined : 2}
             style={[
               styles.title,
+              fixedHomeCard && styles.compactHomeTitle,
               groupedPosition && styles.groupedTitle,
               {
                 color: theme.colors.content.primary,
@@ -119,9 +133,10 @@ export function TransactionCard({
             {presentation.title}
           </Text>
           <Text
-            numberOfLines={largeText ? undefined : 1}
+            numberOfLines={largeText && !fixedHomeCard ? undefined : 1}
             style={[
               styles.meta,
+              fixedHomeCard && styles.compactHomeMeta,
               groupedPosition && styles.groupedMeta,
               {
                 color: theme.colors.content.secondary,
@@ -133,11 +148,11 @@ export function TransactionCard({
               }
             ]}
           >
-            {groupedPosition && accountName
-              ? `${categoryLabel} · ${accountName}`
+            {groupedPosition && localizedAccountName
+              ? `${categoryLabel} · ${localizedAccountName}`
               : categoryLabel}
           </Text>
-          {accountName && !groupedPosition ? (
+          {localizedAccountName && !groupedPosition ? (
             <View style={styles.account}>
               <View
                 style={[
@@ -146,13 +161,13 @@ export function TransactionCard({
                 ]}
               />
               <Text
-                numberOfLines={largeText ? undefined : 1}
+                numberOfLines={largeText && !fixedHomeCard ? undefined : 1}
                 style={[
                   styles.accountText,
                   { color: theme.colors.content.secondary }
                 ]}
               >
-                {accountName}
+                {localizedAccountName}
               </Text>
             </View>
           ) : null}
@@ -162,10 +177,10 @@ export function TransactionCard({
         testID={`${testIDPrefix}-transaction-amount-${transaction.id}`}
         style={[
           styles.amount,
-          largeText && styles.amountStacked,
+          largeText && !fixedHomeCard && styles.amountStacked,
           {
             alignItems: direction === 'rtl' ? 'flex-start' : 'flex-end',
-            alignSelf: largeText
+            alignSelf: largeText && !fixedHomeCard
               ? direction === 'rtl'
                 ? 'flex-start'
                 : 'flex-end'
@@ -184,6 +199,7 @@ export function TransactionCard({
           <Text
             style={[
               styles.date,
+              fixedHomeCard && styles.compactHomeDate,
               {
                 color: theme.colors.content.muted,
                 textAlign: direction === 'rtl' ? 'left' : 'right',
@@ -212,6 +228,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     writingDirection: 'ltr'
   },
+  fixedHome: {
+    height: 84,
+    minHeight: 84,
+    paddingVertical: spacing.sm
+  },
   grouped: {
     borderRadius: 0,
     borderWidth: 0,
@@ -227,8 +248,10 @@ const styles = StyleSheet.create({
   info: { alignItems: 'center', flex: 1, gap: spacing.md, minWidth: 0 },
   text: { flex: 1, gap: 2, minWidth: 0 },
   title: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
+  compactHomeTitle: { fontSize: 14, lineHeight: 18 },
   groupedTitle: { fontSize: 14, lineHeight: 18 },
   meta: { fontSize: 12, lineHeight: 17 },
+  compactHomeMeta: { fontSize: 11, lineHeight: 15 },
   groupedMeta: {
     color: colorTokens.raw['68716C'],
     fontSize: 11,
@@ -244,5 +267,6 @@ const styles = StyleSheet.create({
   accountDot: { borderRadius: radius.pill, height: 6, width: 6 },
   amount: { flexShrink: 0, gap: 2, maxWidth: '45%' },
   amountStacked: { maxWidth: '100%' },
-  date: { fontSize: 11, lineHeight: 15, textAlign: 'right' }
+  date: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
+  compactHomeDate: { fontSize: 10, lineHeight: 14 }
 });

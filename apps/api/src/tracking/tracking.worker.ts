@@ -186,26 +186,43 @@ export class TrackingWorker implements OnModuleDestroy {
           String(item.id),
         )}`;
         try {
+          const common = {
+            principal,
+            idempotencyKey: key,
+            requestId: stableUuid(key),
+          };
           const response = record(
-            await this.ledger.createTransaction({
-              principal,
-              body: {
-                kind: command.kind,
-                amountMinor: Math.abs(Number(command.amountMinor)),
-                currency: command.currency,
-                accountId: command.accountId,
-                categoryId: command.categoryId ?? null,
-                title: command.title ?? command.merchant ?? 'Imported transaction',
-                merchant: command.merchant ?? null,
-                paymentMethod: command.paymentMethod ?? null,
-                note: command.note ?? null,
-                occurredAt: command.occurredAt,
-                source: 'tracking-import',
-                externalRef: key,
-              },
-              idempotencyKey: key,
-              requestId: stableUuid(key),
-            }),
+            command.kind === 'transfer'
+              ? await this.ledger.transfer({
+                  ...common,
+                  body: {
+                    sourceAccountId: command.accountId,
+                    destinationAccountId: command.destinationAccountId,
+                    amountMinor: Math.abs(Number(command.amountMinor)),
+                    currency: command.currency,
+                    feeMinor: 0,
+                    occurredAt: command.occurredAt,
+                    title: command.title ?? command.merchant ?? 'Imported transaction',
+                    note: command.note ?? null,
+                  },
+                })
+              : await this.ledger.createTransaction({
+                  ...common,
+                  body: {
+                    kind: command.kind,
+                    amountMinor: Math.abs(Number(command.amountMinor)),
+                    currency: command.currency,
+                    accountId: command.accountId,
+                    categoryId: command.categoryId ?? null,
+                    title: command.title ?? command.merchant ?? 'Imported transaction',
+                    merchant: command.merchant ?? null,
+                    paymentMethod: command.paymentMethod ?? null,
+                    note: command.note ?? null,
+                    occurredAt: command.occurredAt,
+                    source: 'tracking-import',
+                    externalRef: key,
+                  },
+                }),
           );
           const transaction = record(record(response.transaction).transaction);
           await this.repository.acceptImportItem(

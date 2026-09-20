@@ -2,10 +2,13 @@ package com.masarifi.smsinbox
 
 import android.Manifest
 import android.content.Context
+import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.provider.Telephony
+import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -60,6 +63,48 @@ class MasarifiSmsInboxModule : Module() {
         ?: return@AsyncFunction false
       capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
         capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    AsyncFunction("isNotificationAccessEnabled") {
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      val enabled = Settings.Secure.getString(
+        context.contentResolver,
+        "enabled_notification_listeners"
+      ).orEmpty()
+      enabled.split(':').any { value ->
+        val component = ComponentName.unflattenFromString(value)
+        component?.packageName == context.packageName &&
+          component.className == MasarifiNotificationListenerService::class.java.name
+      }
+    }
+
+    AsyncFunction("openNotificationAccessSettings") {
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("notification_context_unavailable")
+      context.startActivity(
+        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      )
+    }
+
+    AsyncFunction("readRecentNotifications") { requestedLimit: Int ->
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("notification_context_unavailable")
+      NotificationQueue(context).read(requestedLimit).map { record ->
+        mapOf(
+          "key" to record.key,
+          "packageName" to record.packageName,
+          "title" to record.title,
+          "text" to record.text,
+          "postedAt" to record.postedAt
+        )
+      }
+    }
+
+    AsyncFunction("acknowledgeNotifications") { keys: List<String> ->
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("notification_context_unavailable")
+      NotificationQueue(context).acknowledge(keys.filter { it.isNotBlank() }.toSet())
     }
   }
 }

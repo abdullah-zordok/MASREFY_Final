@@ -83,7 +83,7 @@ describeLiveDatabase('planning summary completeness', () => {
         nextExpectedAt: '2026-01-20T00:00:00.000Z',
       },
       obligations: {
-        payables: [{ id: payableId }],
+        payables: [{ id: payableId, nextDueAmountMinor: '400' }],
         receivables: [{ id: receivableId }],
       },
     });

@@ -10,7 +10,7 @@ import type {
 } from '@/domain/automatic-tracking';
 import type { Account } from '@/domain/core-finance';
 import {
-  prepareSmsImport,
+  prepareFinancialMessageImport,
   type PreparedSmsImport
 } from '@/features/tracking/sms-import';
 import { useAppShellStore } from '@/state/app-shell';
@@ -30,6 +30,10 @@ import {
   smsInboxService,
   type SmsInboxService
 } from './platform/sms-inbox-service';
+import {
+  bankNotificationService,
+  type BankNotificationService
+} from './platform/bank-notification-service';
 
 export type AutomaticTrackingSyncStatus =
   | 'idle'
@@ -67,10 +71,11 @@ interface CoordinatorDependencies {
   >;
   permission: Pick<TrackingPermissionService, 'getState'>;
   inbox: SmsInboxService;
+  bankNotifications: BankNotificationService;
   listAccounts: CoreFinanceService['listAccounts'];
   listCachedAccounts(): Promise<Account[]>;
   queue: SmsImportQueue;
-  prepare: typeof prepareSmsImport;
+  prepare: typeof prepareFinancialMessageImport;
   now(): number;
 }
 
@@ -118,13 +123,19 @@ export function createAutomaticTrackingCoordinator(
       }
       if (
         mode === 'paused' ||
-        status?.serviceState === 'unavailable' ||
-        !dependencies.inbox.available
+        status?.serviceState === 'unavailable'
       ) {
         return update('idle');
       }
-      const permission = await dependencies.permission.getState();
-      if (permission.status !== 'granted') return update('idle');
+      const [permission, notificationAccess] = await Promise.all([
+        dependencies.permission.getState(),
+        dependencies.bankNotifications.getAccessState()
+      ]);
+      if (
+        (permission.status !== 'granted' || !dependencies.inbox.available) &&
+        notificationAccess !== 'granted'
+      )
+        return update('idle');
 
       if (online && queue.pending.length) {
         return await flush(ownerId, queue.pending, dependencies, update);
@@ -138,6 +149,55 @@ export function createAutomaticTrackingCoordinator(
         : await dependencies.listCachedAccounts();
       update('scanning');
       const since = queue.cursor ?? Math.max(0, dependencies.now() - 7 * 86_400_000);
+      if (notificationAccess === 'granted') {
+        const notifications = await dependencies.bankNotifications.readRecent(100);
+        if (notifications.length > 0) {
+          const prepared = await dependencies.prepare(notifications, {
+            ...rules,
+            accounts,
+            knownFingerprints: new Set(queue.fingerprints)
+          });
+          if (prepared.events.length > 0) {
+            const idempotencyKey = await importKey(prepared, 'provider');
+            const queued = await dependencies.queue.enqueue(ownerId, {
+              idempotencyKey,
+              submission: {
+                schemaVersion: 1,
+                sourceType: 'provider',
+                sourceChannel: 'android_notification',
+                events: prepared.events
+              },
+              cursor: queue.cursor ?? 0,
+              fingerprints: [
+                ...prepared.events.map((event) => event.sourceItemKey),
+                ...prepared.skippedFingerprints
+              ],
+              mode: mode ?? undefined
+            });
+            await dependencies.bankNotifications.acknowledge(
+              prepared.consumedSourceKeys
+            );
+            if (!online)
+              return update(
+                prepared.accountRequiredCount ? 'account_required' : 'queued'
+              );
+            return await flush(ownerId, queued.pending, dependencies, update);
+          }
+          await dependencies.queue.checkpoint(
+            ownerId,
+            queue.cursor ?? 0,
+            prepared.skippedFingerprints,
+            mode ?? undefined
+          );
+          await dependencies.bankNotifications.acknowledge(
+            prepared.consumedSourceKeys
+          );
+          if (prepared.accountRequiredCount) return update('account_required');
+        }
+      }
+
+      if (permission.status !== 'granted' || !dependencies.inbox.available)
+        return update('idle');
       const messages = await dependencies.inbox.readRecent({ since, limit: 100 });
       const prepared = await dependencies.prepare(messages, {
         ...rules,
@@ -156,7 +216,7 @@ export function createAutomaticTrackingCoordinator(
         return update('idle');
       }
 
-      const idempotencyKey = await importKey(prepared);
+      const idempotencyKey = await importKey(prepared, 'sms');
       const cursor = prepared.accountRequiredCount
         ? (queue.cursor ?? since)
         : (prepared.newestReceivedAt ?? since);
@@ -256,12 +316,15 @@ function cachedRules(rules: SmsRuleSnapshot): {
   };
 }
 
-async function importKey(prepared: PreparedSmsImport): Promise<string> {
+async function importKey(
+  prepared: PreparedSmsImport,
+  source: 'sms' | 'provider'
+): Promise<string> {
   const digest = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     prepared.events.map((event) => event.sourceItemKey).join('|')
   );
-  return `sms:${digest}`;
+  return `${source}:${digest}`;
 }
 
 async function flush(
@@ -359,6 +422,7 @@ const coordinator = createAutomaticTrackingCoordinator({
   tracking: automaticTrackingService,
   permission: createTrackingPermissionService(),
   inbox: smsInboxService,
+  bankNotifications: bankNotificationService,
   listAccounts: (...args) => coreFinanceService.listAccounts(...args),
   async listCachedAccounts() {
     cachedAccountsReady ??= cachedAccounts.hydrate();
@@ -366,7 +430,7 @@ const coordinator = createAutomaticTrackingCoordinator({
     return cachedAccounts.listAccounts();
   },
   queue: new SmsImportQueue(),
-  prepare: prepareSmsImport,
+  prepare: prepareFinancialMessageImport,
   now: Date.now
 });
 

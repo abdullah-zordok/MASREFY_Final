@@ -25,6 +25,18 @@ describe('payment and match HTTP contract', () => {
     expect(runtime.paths['/api/v1/payment-matches/{matchId}']?.get?.operationId).toBe(
       'getPaymentMatch',
     );
+    const matchDetail = runtime.paths['/api/v1/payment-matches/{matchId}']?.get?.responses['200'];
+    const serializedMatchDetail = JSON.stringify(matchDetail);
+    for (const field of [
+      'transaction',
+      'candidate',
+      'obligationVersion',
+      'suggestedAllocation',
+      'advisoryConfidence',
+      'reasonCodes',
+    ]) {
+      expect(serializedMatchDetail).toContain(field);
+    }
     expect(runtime.paths['/api/v1/payment-matches/{matchId}']?.patch?.operationId).toBe(
       'decidePaymentMatch',
     );

@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import WelcomeRoute from '@app/(public)/welcome';
+import { colorTokens } from '@/design-system/tokens';
 import { buildPreferences } from '@/domain/foundation';
 import { changeLocale } from '@/localization/i18n';
 import { useAppShellStore } from '@/state/app-shell';
@@ -16,6 +17,17 @@ jest.mock('expo-router', () => ({
 jest.mock('@/storage/secure-preferences', () => ({
   loadPreferences: jest.fn(),
   savePreferences: jest.fn().mockResolvedValue(undefined)
+}));
+jest.mock('@/services/pre-signup-reminder-service', () => ({
+  preSignupReminderService: {
+    prepare: jest.fn(async () => ({ shouldRequestPermission: false })),
+    scheduleAfterPermission: jest.fn(async () => undefined)
+  }
+}));
+jest.mock('@/services/platform/phone-notification-service', () => ({
+  phoneNotificationService: {
+    requestPermission: jest.fn(async () => 'denied')
+  }
 }));
 
 const mockSavePreferences = jest.mocked(savePreferences);
@@ -67,10 +79,10 @@ it('renders the Arabic first-launch experience in RTL', () => {
     }).props
   ).toMatchObject({
     name: 'checkmark',
-    tintColor: '#007A3D'
+    tintColor: colorTokens.raw['007A3D']
   });
   expect(screen.getAllByLabelText('تسجيل تلقائيًا')[0]).toHaveStyle({
-    color: '#007A3D'
+    color: colorTokens.raw['007A3D']
   });
   expect(
     screen.getByTestId('transaction-saved-check-1', {

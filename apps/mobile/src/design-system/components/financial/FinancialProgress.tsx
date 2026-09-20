@@ -5,10 +5,14 @@ import { useTheme } from '@/state/theme-context';
 
 export function FinancialProgress({
   label,
-  percent
+  percent,
+  compact = false,
+  inverse = false
 }: {
   label: string;
   percent: number;
+  compact?: boolean;
+  inverse?: boolean;
 }) {
   const theme = useTheme();
   const safePercent = Number.isFinite(percent) ? Math.max(0, percent) : 0;
@@ -17,19 +21,21 @@ export function FinancialProgress({
 
   return (
     <View
-      accessibilityLabel={`${label} ${safePercent}% ${threshold}`}
+      accessibilityLabel={`${label} ${safePercent}%${compact ? '' : ` ${threshold}`}`}
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: Math.min(safePercent, 100) }}
       style={styles.stack}
     >
-      <View style={styles.header}>
-        <Text style={[styles.label, { color: theme.colors.textPrimary }]}>{label}</Text>
-        <Text style={{ color: theme.colors.textSecondary }}>{safePercent}%</Text>
+      {compact ? null : (
+        <View style={styles.header}>
+          <Text style={[styles.label, { color: theme.colors.textPrimary }]}>{label}</Text>
+          <Text style={{ color: theme.colors.textSecondary }}>{safePercent}%</Text>
+        </View>
+      )}
+      <View style={[styles.track, { borderColor: inverse ? theme.colors.horizon.glassBorder : theme.colors.border, backgroundColor: inverse ? theme.colors.textInverse : undefined }]}>
+        <View style={[styles.fill, { width, backgroundColor: inverse ? theme.colors.financial.incomeOnHero : theme.colors.primary }]} />
       </View>
-      <View style={[styles.track, { borderColor: theme.colors.border }]}>
-        <View style={[styles.fill, { width, backgroundColor: theme.colors.primary }]} />
-      </View>
-      <Text style={{ color: theme.colors.textSecondary }}>{threshold}</Text>
+      {compact ? null : <Text style={{ color: theme.colors.textSecondary }}>{threshold}</Text>}
     </View>
   );
 }

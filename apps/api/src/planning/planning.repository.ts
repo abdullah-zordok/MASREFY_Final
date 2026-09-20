@@ -149,9 +149,30 @@ interface ObligationStatusRow extends QueryResultRow {
   remaining_minor: string;
   overdue_minor: string;
   next_due_at: Date | null;
+  next_due_amount_minor?: string | null;
   completed_installment_count: number;
   status: string;
   ledger_version: string;
+}
+interface PaymentMatchDetailRow extends PaymentMatchRow {
+  transaction_amount_minor: string;
+  transaction_currency_code: string;
+  transaction_occurred_at: Date;
+  transaction_title: string;
+  transaction_merchant: string | null;
+  source_account_id: string | null;
+  source_account_name: string | null;
+  obligation_name: string | null;
+  obligation_provider: string | null;
+  obligation_type: string | null;
+  obligation_direction: string | null;
+  obligation_currency_code: string | null;
+  obligation_remaining_minor: string | null;
+  obligation_next_due_at: Date | null;
+  obligation_next_due_amount_minor: string | null;
+  obligation_version: string | null;
+  suggested_schedule_item_id: string | null;
+  suggested_amount_minor: string | null;
 }
 interface PaymentMatchRow extends QueryResultRow {
   id: string;
@@ -779,14 +800,80 @@ export class PlanningRepository {
     requestId: string,
   ): Promise<Record<string, unknown>> {
     const row = (
-      await this.queryOwner<PaymentMatchRow>(
+      await this.queryOwner<PaymentMatchDetailRow>(
         principal,
-        'select * from public.payment_matches where id=$1 and user_id=$2',
+        `select m.*,
+          t.amount_minor transaction_amount_minor,t.currency_code transaction_currency_code,
+          t.occurred_at transaction_occurred_at,t.title transaction_title,t.merchant transaction_merchant,
+          source_account.id source_account_id,source_account.name source_account_name,
+          o.name obligation_name,o.provider obligation_provider,o.type obligation_type,
+          o.direction obligation_direction,o.currency_code obligation_currency_code,
+          status.remaining_minor obligation_remaining_minor,
+          next_item.due_at obligation_next_due_at,
+          greatest(next_item.amount_minor-next_item.paid_minor,0)::bigint obligation_next_due_amount_minor,
+          o.version obligation_version,next_item.id suggested_schedule_item_id,
+          case when t.currency_code=o.currency_code
+            then least(t.amount_minor,greatest(next_item.amount_minor-next_item.paid_minor,0))::bigint
+            else null end suggested_amount_minor
+         from public.payment_matches m
+         join public.transactions t on t.id=m.transaction_id and t.user_id=m.user_id
+         left join public.obligations o on o.id=m.obligation_id and o.user_id=m.user_id
+         left join public.v_obligation_status status on status.obligation_id=o.id
+         left join lateral (
+           select i.* from public.obligation_schedule_items i
+           where i.user_id=m.user_id and i.obligation_id=o.id
+             and i.status not in ('paid','cancelled')
+           order by i.due_at,i.sequence_no,i.id limit 1
+         ) next_item on true
+         left join lateral (
+           select a.id,a.name from public.transaction_postings p
+           join public.accounts a on a.id=p.account_id and a.user_id=m.user_id
+           where p.transaction_id=t.id and p.posting_role='source'
+           order by p.created_at,p.id limit 1
+         ) source_account on true
+         where m.id=$1 and m.user_id=$2`,
         [matchId, principal.userId],
       )
     )[0];
     if (!row) throw domainError('NOT_FOUND', 404);
-    return { ...this.paymentMatch(row), requestId };
+    const suggestedAllocation =
+      row.suggested_schedule_item_id &&
+      row.suggested_amount_minor &&
+      BigInt(row.suggested_amount_minor) > 0n
+        ? {
+            scheduleItemId: row.suggested_schedule_item_id,
+            amountMinor: row.suggested_amount_minor,
+          }
+        : null;
+    return {
+      ...this.paymentMatch(row),
+      transaction: {
+        id: row.transaction_id,
+        amountMinor: row.transaction_amount_minor,
+        currencyCode: row.transaction_currency_code.trim(),
+        occurredAt: row.transaction_occurred_at.toISOString(),
+        title: row.transaction_title,
+        merchant: row.transaction_merchant,
+        sourceAccountId: row.source_account_id,
+        sourceAccountName: row.source_account_name,
+      },
+      candidate: row.obligation_id
+        ? {
+            id: row.obligation_id,
+            title: row.obligation_name,
+            provider: row.obligation_provider,
+            type: row.obligation_type,
+            direction: row.obligation_direction,
+            currencyCode: row.obligation_currency_code?.trim(),
+            remainingMinor: row.obligation_remaining_minor,
+            nextDueAt: row.obligation_next_due_at?.toISOString() ?? null,
+            nextDueAmountMinor: row.obligation_next_due_amount_minor,
+            obligationVersion: Number(row.obligation_version),
+          }
+        : null,
+      suggestedAllocation,
+      requestId,
+    };
   }
 
   async listSavingsGoals(
@@ -895,8 +982,15 @@ export class PlanningRepository {
       const obligations = (
         await client.query<PlanningObligationSummaryRow>(
           `select o.id,o.name,s.direction,s.currency_code,s.scheduled_minor,s.allocated_minor,s.paid_minor,
-          s.remaining_minor,s.overdue_minor,s.next_due_at,s.completed_installment_count,s.status,s.ledger_version
+          s.remaining_minor,s.overdue_minor,s.next_due_at,
+          greatest(next_item.amount_minor-next_item.paid_minor,0)::bigint next_due_amount_minor,
+          s.completed_installment_count,s.status,s.ledger_version
          from public.obligations o join public.v_obligation_status s on s.obligation_id=o.id
+         left join lateral (
+           select i.amount_minor,i.paid_minor from public.obligation_schedule_items i
+           where i.user_id=o.user_id and i.obligation_id=o.id and i.status not in ('paid','cancelled')
+           order by i.due_at,i.sequence_no,i.id limit 1
+         ) next_item on true
          where o.user_id=$1 and o.status='active'
          order by s.next_due_at nulls last,o.id limit 101`,
           [principal.userId],
@@ -1256,6 +1350,7 @@ export class PlanningRepository {
       remainingMinor: row.remaining_minor,
       overdueMinor: row.overdue_minor,
       nextDueAt: row.next_due_at?.toISOString() ?? null,
+      nextDueAmountMinor: row.next_due_amount_minor ?? null,
       completedInstallmentCount: row.completed_installment_count,
       status: row.status,
       ledgerVersion: Number(row.ledger_version),

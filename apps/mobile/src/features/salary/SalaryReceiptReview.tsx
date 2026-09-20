@@ -3,22 +3,23 @@ import React, { useState } from 'react';
 import { StyledText } from '@/components/StyledText';
 import { ActionButton } from '@/design-system/components/ActionButton';
 import { FinancialPulse } from '@/design-system/components/financial/FinancialPulse';
-import { FormField } from '@/design-system/components/forms/FormField';
 import {
   GroupedList,
   NavigationRow
 } from '@/design-system/components/navigation/GroupedList';
 import { localDateInTimeZone } from '@/domain/financial-period';
+import { localDateFromTimestamp } from '@/domain/financial-planning';
 import { useTransaction } from '@/features/core-finance/core-finance-queries';
 import {
   PlanningScreen,
   PlanningState
 } from '@/features/financial-planning/PlanningScaffold';
+import { TransactionDateField } from '@/features/transactions/TransactionDateField';
 import { currentLocale, translate, type MessageKey } from '@/localization/i18n';
 import { financialPlanningService } from '@/services/financial-planning-service';
 import { useSensitiveVisibility } from '@/state/SensitiveVisibilityProvider';
 import { usePreferenceStore } from '@/state/preferences';
-import { formatMinorAmount } from '@/utils/format-financial-value';
+import { formatDate, formatMinorAmount } from '@/utils/format-financial-value';
 import {
   usePlanningMutation,
   useSalaryOverview,
@@ -34,7 +35,7 @@ export function SalaryReceiptReview({
   const today = localDateInTimeZone(Date.now(), timeZone);
   const receipt = useSalaryReceiptReview(receiptId);
   const salary = useSalaryOverview(today, timeZone);
-  const transaction = useTransaction(receipt.data?.transactionId ?? '');
+  const transaction = useTransaction(receipt.data?.transactionId ?? receiptId);
   const hideBalances = usePreferenceStore((state) => state.hideBalances);
   const { revealed } = useSensitiveVisibility();
   const [expectedDate, setExpectedDate] = useState(today);
@@ -122,11 +123,17 @@ export function SalaryReceiptReview({
             />
             <NavigationRow
               label={translate('planning.salary.expectedDate')}
-              value={receipt.data.expectedOccurrenceDate}
+              value={formatDate(
+                Date.parse(`${receipt.data.expectedOccurrenceDate}T00:00:00Z`),
+                currentLocale()
+              )}
             />
             <NavigationRow
               label={translate('planning.salary.receivedDate')}
-              value={receipt.data.receivedDate}
+              value={formatDate(
+                Date.parse(`${receipt.data.receivedDate}T00:00:00Z`),
+                currentLocale()
+              )}
             />
             <NavigationRow
               label={translate('planning.field.status')}
@@ -146,18 +153,30 @@ export function SalaryReceiptReview({
         </>
       ) : (
         <>
+          <FinancialPulse
+            accessibilityLabel={`${receiptAmount}, ${receiptSource}`}
+            scope={translate('planning.salary.detectedIncome')}
+            statement={receiptAmount}
+            supportingValue={receiptSource}
+          />
           <StyledText>{translate('planning.salary.confirmReceipt')}</StyledText>
-          <FormField
+          <TransactionDateField
             label={translate('planning.salary.expectedDate')}
-            onChangeText={(value) => setExpectedDate(value as typeof today)}
-            value={expectedDate}
+            value={Date.parse(`${expectedDate}T12:00:00`)}
+            onChange={(timestamp) =>
+              setExpectedDate(localDateFromTimestamp(timestamp))
+            }
           />
-          <FormField
+          <TransactionDateField
             label={translate('planning.salary.receivedDate')}
-            onChangeText={(value) => setReceivedDate(value as typeof today)}
-            value={receivedDate}
-            errorText={error}
+            value={Date.parse(`${receivedDate}T12:00:00`)}
+            onChange={(timestamp) =>
+              setReceivedDate(localDateFromTimestamp(timestamp))
+            }
           />
+          {error ? (
+            <StyledText accessibilityRole="alert">{error}</StyledText>
+          ) : null}
           <ActionButton
             label={translate('planning.salary.confirmReceipt')}
             loading={confirm.isPending}
