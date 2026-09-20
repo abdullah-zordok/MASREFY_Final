@@ -1,6 +1,6 @@
 # Mobile Notifications and Automatic Tracking Design
 
-**Date:** 2026-09-15  
+**Date:** 2026-09-15
 **Status:** Approved
 
 ## Objective
