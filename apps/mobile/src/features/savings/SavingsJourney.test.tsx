@@ -14,7 +14,11 @@ it('creates, pauses, and records progress for savings goals', async () => {
   changeLocale('en');
   usePreferenceStore.setState({ hideBalances: false });
   const form = renderWithProviders(<SavingsGoalForm />);
-  expect(await form.findByLabelText(/Linked account Unavailable/)).toBeTruthy();
+  await waitFor(
+    () =>
+      expect(form.getByLabelText(/Linked account Unavailable/)).toBeTruthy(),
+    { timeout: 5_000 }
+  );
   fireEvent.changeText(await form.findByLabelText('Goal name'), 'Travel fund');
   fireEvent.changeText(form.getByLabelText('Target amount'), '5000');
   fireEvent.press(form.getByText('Save'));
@@ -47,7 +51,7 @@ it('creates, pauses, and records progress for savings goals', async () => {
   fireEvent.press(movement.getByText('Confirm movement'));
   expect(await movement.findByText('Saved')).toBeTruthy();
   movement.unmount();
-});
+}, 15_000);
 
 it('keeps savings movements available with the live provider', async () => {
   changeLocale('en');

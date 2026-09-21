@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Platform, Pressable, Text } from 'react-native';
 import { QueryClient } from '@tanstack/react-query';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { resolveTheme } from '@/design-system/theme';
 import { usePreferenceStore } from '@/state/preferences';
@@ -12,6 +13,11 @@ import {
 } from '@/storage/runtime-user-data-reset';
 
 const mockNavigationTheme = jest.fn();
+let mockPathname = '/';
+
+jest.mock('expo-router', () => ({
+  usePathname: () => mockPathname
+}));
 
 jest.mock('@react-navigation/native', () => ({
   DefaultTheme: {
@@ -34,6 +40,10 @@ jest.mock('@react-navigation/native', () => ({
   }
 }));
 
+beforeEach(() => {
+  mockPathname = '/';
+});
+
 it('keeps nested navigators light while dark mode is disabled', () => {
   usePreferenceStore.setState({ hydrated: true, theme: 'dark' });
 
@@ -52,6 +62,31 @@ it('keeps nested navigators light while dark mode is disabled', () => {
         card: colors.surfaces.card,
         text: colors.content.primary
       })
+    })
+  );
+});
+
+it('uses the obligation reference color behind the safe area on detail routes', () => {
+  mockPathname = '/obligations/obligation-1';
+
+  render(
+    <SafeAreaInsetsContext.Provider
+      value={{ bottom: 0, left: 0, right: 0, top: 24 }}
+    >
+      <FoundationProviders>
+        <></>
+      </FoundationProviders>
+    </SafeAreaInsetsContext.Provider>
+  );
+
+  expect(
+    screen.UNSAFE_getByProps({ pointerEvents: 'none' }).props.style
+  ).toEqual(
+    expect.objectContaining({
+      backgroundColor: resolveTheme('light').colors.horizon.referenceStart,
+      height: 24,
+      position: 'absolute',
+      top: 0
     })
   );
 });
