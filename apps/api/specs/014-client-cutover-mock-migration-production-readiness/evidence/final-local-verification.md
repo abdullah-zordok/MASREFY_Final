@@ -1,5 +1,33 @@
 # Phase 14 Final Local Verification
 
+## 2026-09-21 staging-readiness refresh
+
+**Reviewed base**: `3960dbb29d00b45f1eb98a65656f8cb01ded7f91`
+
+**Candidate branch**: `codex/staging-readiness-review`
+
+**Accepted candidate SHA**: pending a green remote workflow on the final candidate; no deployment or publication was performed.
+
+This refresh supersedes the status of the 2026-09-11 evidence for the current candidate but preserves that evidence below as historical proof. The current local verdict is **NOT READY** until the final candidate receives green remote CI and the designated staging slice completes its required external gates.
+
+| Area | Fresh result |
+|---|---|
+| Mobile clean CI reproduction | PASS: direct `expo-router` boundary mock and obligation-detail coverage; full clean npm Jest passed 445 suites / 2,273 tests. Typecheck, lint (0 errors / 78 existing warnings), 978-file frontend-quality check, Expo dependency alignment and Android prebuild passed. Targeted `--detectOpenHandles` passed 2 suites / 11 tests without reporting an open handle. High/Critical audit threshold passed; 28 Moderate transitive advisories remain. |
+| API configuration contract | PASS: all 102 runtime keys are represented in `.env.example`; environment schema tests passed 2 suites / 67 tests; typecheck and build passed. Worker/provider secrets remain commented and process-specific. |
+| API clean verification | PASS: `npm run verify` exited 0 with 124 unit suites / 934 tests, 79 contract suites / 233 tests, build, migration checksums, workflow-pin security and the High audit threshold. One upstream Moderate `qs` advisory remains. Without the Docker database, 66 integration suites / 182 tests, 15 E2E suites / 34 tests and one security suite / eight tests were skipped and are not claimed as fresh proof. |
+| Admin dependency/security gate | PASS after remediation: the existing Sites/Vite build chain was moved to supported versions; `npm audit --audit-level=high` reports zero vulnerabilities. |
+| Admin functional/build gate | PASS: typecheck, lint, 82 Vitest files / 873 tests, 82-route Next production build, Vinext/Sites production build, and desktop Playwright 109 passed / 9 intentional skips. The tracked Sites plugin replaces the ignored local-only module, and explicit Admin/API/TRPC middleware matchers preserve Clerk protection across both build systems. |
+| Local Supabase/database/container refresh | BLOCKED: Docker Desktop was installed but its Linux engine did not expose the API after a bounded startup attempt. No current database reset, pgTAP, live integration/E2E/security or release-image result is claimed from this host. |
+| Current remote workflow | FAILING on the reviewed base in Backend Foundation run `35540182542`: API, database, Admin, Admin E2E, security and secret-scan jobs passed; Mobile failed at `FoundationProviders.test.tsx`; downstream image/release-evidence jobs were skipped. The local fix has not been pushed or rerun remotely. |
+
+Cross-system review traced Clerk identity and owner isolation; accounts/categories; integer-minor-unit ledger/planning/reporting; durable sync/idempotency/conflicts/tombstones; Android SMS/notification capture and review; AI gateway/privacy/quota/fallback; push/SMTP/reminders; private attachment/scanner boundaries; Admin RBAC/recent-auth/audit; and health/logging/worker lease paths across controllers, contracts, repositories, Mobile live services, migrations/RLS tests, workers and error mapping. No additional source defect was confirmed. Hosted identities, providers, signed devices and real staging infrastructure remain external proof, not local simulations.
+
+### Current verdict
+
+**NOT READY** — the repository-side defects found in this review are fixed locally, but the final candidate has no green remote workflow, current Docker-backed database/image proof is unavailable on this host, and the required hosted/provider/device/backup/rollback gates remain open.
+
+---
+
 **Date**: 2026-09-11
 **Accepted Wave 9 base**: `86a64c4c3f70bd9f8cd2d388144be470f90c7ff7`
 **Environment**: Windows local checkout; repository-local Supabase project `MASREFY__Final` on loopback API/database ports 54321/54322. Hosted, device, provider and signing proof remains in `external-gates.md`.

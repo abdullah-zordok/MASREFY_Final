@@ -1,5 +1,17 @@
 # Phase 14 Free-Only Release Checklist
 
+## 2026-09-21 candidate refresh
+
+The checked sections below record the previously accepted 2026-09-11 baseline. They do not automatically accept the current candidate.
+
+- [x] Clean npm Mobile CI failure reproduced and fixed with boundary-complete router mocking and regression coverage.
+- [x] API staging environment example documents every runtime key without real credentials.
+- [x] Admin High dependency findings, clean Sites build defect and unsupported middleware matcher are remediated; Next/Sites builds, unit tests, desktop E2E and audit pass.
+- [ ] Final candidate Backend Foundation workflow is green, including Mobile and the downstream image job.
+- [ ] Fresh Docker-backed Supabase reset, pgTAP, live database suites and release-image checks pass for the final candidate.
+- [ ] Required hosted, provider, signed-device, backup/PITR, alert-routing, rollback, registry and restricted-SMS-permission gates are complete.
+- [ ] Final staging verdict is promoted from **NOT READY** using immutable evidence links.
+
 Unchecked items are implementation/release gates, not omissions from the planning package.
 
 ## Artifact and Scope Gates

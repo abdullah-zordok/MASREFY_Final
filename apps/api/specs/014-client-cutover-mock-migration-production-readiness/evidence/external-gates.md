@@ -1,5 +1,16 @@
 # Phase 14 External Gates
 
+## 2026-09-21 current candidate gates
+
+| Gate | Status | Required evidence |
+|---|---|---|
+| Final candidate remote CI | open | Push only after authorization, run Backend Foundation for the final SHA, and require every application, database, security, Admin viewport and container-image job to pass. Signed-release jobs may remain tag-gated. |
+| Fresh database and image refresh | open | Run the documented Supabase reset/lint/pgTAP/live integration/E2E/security and non-root release-image checks on a clean runner with a working Docker Linux engine. The local 2026-09-21 host could not start that engine. |
+| Google Play restricted SMS permission | open | Obtain and retain an accepted permitted-use declaration for `READ_SMS`; notification-listener-only testing does not make a public Play release eligible. |
+| Hosted staging acceptance | open | Complete the Clerk/Supabase owner matrix, API/worker/migration image smoke and N-1 rollback, authenticated Admin smoke, signed-device Mobile matrix, tracking corpus, OpenRouter, APNs/FCM, SMTP, storage/scanner, alert routing, backup/PITR and registry-by-digest checks below. |
+
+The current candidate must not be called staging-ready while any release-critical row above is open. No deployment, credential creation, image publication, signing or store submission occurred during the local refresh.
+
 All gates start `open`. Change to `passed` only with current real-world evidence; local simulations remain linked supporting evidence.
 
 Final local closeout through T133 is recorded in [final local verification](final-local-verification.md), with security-family mapping in [security traceability](security-traceability.md). Every row below remains open only because it requires an external identity, credential, provider account, hosted target, signed artifact, physical device, operator action or observation interval. Each row names the completed local proof, exact follow-up and responsible owner; none is a locally actionable implementation gap.
