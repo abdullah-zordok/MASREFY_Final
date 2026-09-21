@@ -7,10 +7,10 @@ The checked sections below record the previously accepted 2026-09-11 baseline. T
 - [x] Clean npm Mobile CI failure reproduced and fixed with boundary-complete router mocking and regression coverage.
 - [x] API staging environment example documents every runtime key without real credentials.
 - [x] Admin High dependency findings, clean Sites build defect and unsupported middleware matcher are remediated; Next/Sites builds, unit tests, desktop E2E and audit pass.
-- [ ] Final candidate Backend Foundation workflow is green, including Mobile and the downstream image job.
-- [ ] Fresh Docker-backed Supabase reset, pgTAP, live database suites and release-image checks pass for the final candidate.
+- [x] Final implementation Backend Foundation workflow is green in run `35597915147`, including Mobile, the complete database/performance/stress matrix, all Admin viewports and the downstream image/Trivy job.
+- [x] Fresh Docker-backed Supabase reset, pgTAP, live database suites, recovery checks, release-image tests and Docker Scout scan pass for the final implementation.
 - [ ] Required hosted, provider, signed-device, backup/PITR, alert-routing, rollback, registry and restricted-SMS-permission gates are complete.
-- [ ] Final staging verdict is promoted from **NOT READY** using immutable evidence links.
+- [x] Repository staging verdict is promoted to **READY WITH CONDITIONS** using immutable local and remote evidence; promotion to **READY** remains blocked by the explicitly open external gates.
 
 Unchecked items are implementation/release gates, not omissions from the planning package.
 
