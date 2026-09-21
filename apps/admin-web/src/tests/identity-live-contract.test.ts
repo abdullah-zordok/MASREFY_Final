@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { z } from "zod";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -14,6 +15,7 @@ import { accessRepository } from "@/features/access/repository";
 import { foundationRepository } from "@/features/foundation/repository";
 import { usersRepository } from "@/features/users/repository";
 import { securityRepository } from "@/features/security/repository";
+import { config as proxyConfig } from "@/proxy";
 
 const source = (path: string) =>
   readFileSync(resolve(process.cwd(), path), "utf8");
@@ -43,10 +45,22 @@ describe("Admin live identity boundary", () => {
     expect(proxy).toContain("clerkMiddleware");
     expect(proxy).toContain("createRouteMatcher");
     expect(proxy).toContain("/admin(.*)");
-    expect(proxy).toContain('"/admin/:path*"');
-    expect(proxy).toContain('"/api/:path*"');
-    expect(proxy).toContain('"/trpc/:path*"');
-    expect(proxy).not.toContain("?!_next");
+
+    for (const url of [
+      "/admin",
+      "/admin/users",
+      "/api/health",
+      "/trpc/query",
+    ]) {
+      expect(
+        unstable_doesMiddlewareMatch({ config: proxyConfig, nextConfig: {}, url }),
+      ).toBe(true);
+    }
+    for (const url of ["/", "/_next/static/app.js"]) {
+      expect(
+        unstable_doesMiddlewareMatch({ config: proxyConfig, nextConfig: {}, url }),
+      ).toBe(false);
+    }
   });
 
   test("refreshes and forwards the Clerk bearer without role or scenario authority", async () => {
