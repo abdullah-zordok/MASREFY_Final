@@ -28,26 +28,26 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/vite-plugin": "1.56.0",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "6.0.2",
-    "@vitejs/plugin-rsc": "0.5.26",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitejs/plugin-rsc": "0.5.35",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "latest",
     "eslint-config-next": "latest",
     "jsdom": "^30.0.0",
     "msw": "^2.15.0",
-    "react-server-dom-webpack": "19.2.6",
+    "react-server-dom-webpack": "19.3.0",
     "tailwindcss": "latest",
     "typescript": "latest",
-    "vinext": "0.0.50",
-    "vite": "8.0.13",
-    "vitest": "^4.1.10",
-    "wrangler": "4.92.0"
+    "vinext": "1.0.0-beta.10",
+    "vite": "8.3.0",
+    "vitest": "^4.1.11",
+    "wrangler": "4.135.0"
   },
   "msw": {
     "workerDirectory": [

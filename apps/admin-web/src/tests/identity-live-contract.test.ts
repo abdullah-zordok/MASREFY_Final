@@ -43,6 +43,10 @@ describe("Admin live identity boundary", () => {
     expect(proxy).toContain("clerkMiddleware");
     expect(proxy).toContain("createRouteMatcher");
     expect(proxy).toContain("/admin(.*)");
+    expect(proxy).toContain('"/admin/:path*"');
+    expect(proxy).toContain('"/api/:path*"');
+    expect(proxy).toContain('"/trpc/:path*"');
+    expect(proxy).not.toContain("?!_next");
   });
 
   test("refreshes and forwards the Clerk bearer without role or scenario authority", async () => {
