@@ -12,7 +12,7 @@
 
 ## Global constraints
 
-- Canonical source: `masarifiratibi-spec/masarifi.ratibi_app`, current baseline `440f68044c47415612efe3de60de19a303c6321b`; never replace it with older `origin/main`.
+- Canonical source: `masarifiratibi-spec/masarifi.ratibi_app`, accepted staging branch SHA `1365d3fa06b5c66f0feb60bac8f94a1dba60a8b5`; never replace it with older `origin/main`.
 - Staging only: no production deployment, app-store distribution, production users, or production data.
 - Never print, commit, log, or paste credentials, tokens, raw SMS, audio, or financial PII into GitHub evidence.
 - No purchase, account-level deletion, security-control downgrade, or production-impacting action without explicit authorization.
@@ -29,7 +29,7 @@
 
 ## Current state and dependencies
 
-The canonical worktree is clean at the baseline SHA. GitHub Actions run `35743240594` passed secrets, redaction, API, database, Admin, five Admin E2E viewports, Mobile, and image checks; `signed-release-evidence` was intentionally skipped because no release tag was used. The CLI GitHub identity has repository write access but not admin access; no repository secrets or variables are configured. Supabase CLI is unauthenticated. Supabase, Clerk, Vercel, and OpenRouter dashboards require login. Firebase is open in an unrelated Google account and requires MFA. EAS is logged into `abdallazordok`, and the configured project is `@abdallazordok/masarifi-mobile`. An Android device is attached, but its pre-existing SMS is out of scope. The worker requires SMTP variables even for the first production-mode boot. No staging host, DNS, hosted database, or signed staging APK has been verified.
+The canonical staging branch is at `1365d3fa06b5c66f0feb60bac8f94a1dba60a8b5`. GitHub Actions run `35764232456` passed secrets, redaction, API, database, Admin, five Admin E2E viewports, Mobile, image, Compose-contract, container, non-root, digest, and Trivy checks; `signed-release-evidence` was intentionally skipped because no release tag was used. The CLI GitHub identity has repository write access but not admin access; no repository secrets or variables are configured. An isolated Free-plan Supabase project, `Masarifi Staging` (`qcffvfbpzvpwcwxwjyro`, `eu-central-1`), is active with all 68 canonical migrations applied, exact remote history, zero security-advisor lints, private application buckets, and a successful rollback-only two-owner RLS proof. Separate runtime login roles, Clerk staging trust/webhooks, VPS, DNS, providers, backup/restore, and signed APK evidence remain pending. Firebase is open in an unrelated Google account and requires MFA. EAS is logged into `abdallazordok`, and the configured project is `@abdallazordok/masarifi-mobile`. An Android device is attached, but its pre-existing SMS is out of scope. The worker requires SMTP variables even for the first production-mode boot.
 
 ## Tasks
 
@@ -51,8 +51,8 @@ The canonical worktree is clean at the baseline SHA. GitHub Actions run `3574324
 ### Task 3: Clerk and Supabase staging foundation
 
 - [ ] Create/select a separate Clerk staging application with a Production instance and configure Phone/Google methods, issuer, authorized parties, required role claim, and signed `user.created`, `user.updated`, `user.deleted` webhook.
-- [ ] Create/select an isolated Supabase staging project. Before hosted changes, run `npm --prefix apps/api run migration:checksums`, `supabase db reset`, `db lint`, and local pgTAP. Compare remote migration history and dry-run pending SQL. Apply the accepted migration image once; never reset a linked hosted project.
-- [ ] Create separate API and worker login roles without owner/superuser/`BYPASSRLS`; bind them to the repository roles. Configure Clerk third-party trust and private Storage. Test two owners, unauthorized/authorized Admin, webhook replay/signature, and expired/wrong-issuer tokens.
+- [x] Create an isolated Supabase staging project and apply the 68 canonical migrations with exact timestamp/name history. Local migration, lint, pgTAP, application, and image gates passed in run `35764232456`; the hosted project was never reset.
+- [ ] Create separate API and worker login roles without owner/superuser/`BYPASSRLS`; bind them to the repository roles. Private Storage and rollback-only two-owner RLS are verified. Clerk third-party trust, real-token/API isolation, Admin authorization, webhook replay/signature, and expired/wrong-issuer token checks remain.
 - [ ] Test mutating pgTAP on an isolated database; use read-only structural queries and controlled test identities on the shared staging project. Back up before migration.
 
 **Verification:** migration checksum and remote-history match; local pgTAP green; hosted schema/extensions/functions/triggers match; role attributes are least privilege; owner B cannot read owner A; invalid Clerk tokens/webhooks fail closed. Human-only: intended-account Supabase/Clerk login, missing permissions, paid MFA entitlement.

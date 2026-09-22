@@ -4,13 +4,13 @@ Last reviewed: 2026-09-22
 
 Canonical repository: `masarifiratibi-spec/masarifi.ratibi_app`
 
-Repository-side baseline SHA: `440f68044c47415612efe3de60de19a303c6321b`
+Accepted staging branch SHA: `1365d3fa06b5c66f0feb60bac8f94a1dba60a8b5`
 
 Execution plan: [2026-09-22-masarifi-staging-environment](../superpowers/plans/2026-09-22-masarifi-staging-environment.md)
 
-Repository workflow evidence: [Backend Foundation run 35743240594](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35743240594) (release-critical jobs passed; tag-only signing skipped)
+Repository workflow evidence: [Backend Foundation run 35764232456](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35764232456) (release-critical jobs passed; tag-only signing skipped)
 
-This is the operator checklist for the external work that remains after repository-side verification. It does not authorize a production deployment. Replace every `<PLACEHOLDER>` locally; never paste a secret into Git, a ticket, a pull request, CI output, or this document.
+This is the operator checklist and redacted evidence ledger for staging work. It does not authorize a production deployment. Replace every `<PLACEHOLDER>` locally; never paste a secret into Git, a ticket, a pull request, CI output, or this document.
 
 ## Priority and readiness definitions
 
@@ -45,7 +45,7 @@ Before any external action:
 git fetch ratibi
 git status --short
 git rev-parse HEAD
-gh run view 35743240594 --repo masarifiratibi-spec/masarifi.ratibi_app
+gh run view 35764232456 --repo masarifiratibi-spec/masarifi.ratibi_app
 ```
 
 Expected: clean worktree, the accepted SHA, and all repository release jobs passing. `signed-release-evidence` may be skipped because it is intentionally limited to authorized `backend-v*` tags.
@@ -56,11 +56,21 @@ Official references: [environment management](https://supabase.com/docs/guides/d
 
 | Priority | What is missing / why | Where | Safe action | Verification evidence |
 | --- | --- | --- | --- | --- |
-| **BLOCKING (P0)** | No isolated hosted staging project is linked. Using production would risk production data. | Supabase dashboard → New project | Create a dedicated staging project in the intended region and organization. Use no production data. Record the project reference privately. | Dashboard project name/region and a redacted `npx supabase projects list` entry. |
-| **BLOCKING (P0)** | Migrations have not been applied to hosted staging. | Local CLI and one-shot migration container | Link the staging project, dry-run, lint, then execute the repository migration entrypoint once. Never use `db reset --linked` on shared staging. | Dry-run output, checksum verification, migration logs, remote migration history, and pgTAP results. |
+| **PASS** | An isolated hosted staging project exists with no production users or data. | Supabase organization `masarif_Rratibi` → project `Masarifi Staging` | Keep project ref `qcffvfbpzvpwcwxwjyro` restricted to staging configuration. Region is `eu-central-1`; plan is Free. | Connector inventory on 2026-09-22 returned one organization, no prior projects, then project status `ACTIVE_HEALTHY`. |
+| **PASS** | All canonical migrations are applied to hosted staging. | Supabase migration history | Keep hosted history aligned with the timestamped files; never use `db reset --linked`. | Remote history has exactly 68 entries matching `supabase/migrations` by version and name, with no missing or extra migration. Latest: `20260915150000_ai_assistant_routing`. |
 | **BLOCKING (P0)** | Runtime database login roles are not created/bound by repository migrations. API and worker must not connect as database owner or with `BYPASSRLS`. | Supabase SQL editor or direct `psql` as the staging database owner | Create separate login roles and grant only the repository group roles. Set passwords interactively so they do not enter SQL history. | Role attributes show `rolsuper=false`, `rolbypassrls=false`; each runtime connection can `SET LOCAL ROLE` only to its intended group. |
-| **BLOCKING (P0)** | Clerk JWT trust and RLS owner isolation are not proven in hosted staging. | Supabase dashboard → Authentication → Third-Party Auth; staging API | Add the separate staging Clerk domain, then run two-owner and Admin authorization tests through the API. | Owner A cannot access owner B; unauthorized Admin is denied; authorized Admin is audited. |
+| **BLOCKING (P0)** | Hosted RLS owner isolation is proven, but the separate Clerk staging tenant, third-party trust, real tokens, webhook, and Admin authorization remain pending. | Supabase dashboard → Authentication → Third-Party Auth; Clerk staging application; staging API | Add the separate staging Clerk domain, then run token, webhook, and Admin tests through the deployed API. | Rollback-only SQL proof: Owner A saw only A, Owner B saw only B, and a missing subject saw no rows. Follow-up confirmed zero test rows. Real Clerk/API evidence remains required. |
 | **REQUIRED (P1)** | Backup and restore evidence is missing. Supabase Free has no automatic backups or PITR; database backups do not include Storage objects. | Supabase dashboard; isolated restore target | On Free, take encrypted off-host logical database and separate private Storage backups, then restore to an isolated target. Use PITR only if an already authorized paid plan provides it. | Measured RPO/RTO, row/count reconciliation, application smoke results, and Storage recovery evidence; PITR marked `BLOCKED` if unavailable. |
+
+Hosted structural evidence captured on 2026-09-22:
+
+- Supabase security advisors returned zero lints.
+- All public tables have RLS enabled; 296 policies are installed.
+- `report-exports`, `support-attachments`, `tracking-imports`, and `voice-temp` are private buckets.
+- `masarifi_api`, `masarifi_worker`, and `masarifi_migration` are `NOLOGIN`, `NOINHERIT`, non-owner group roles without superuser, database/role creation, replication, or `BYPASSRLS` attributes. Separate login roles are still required before service deployment.
+- `private.sync_cursor_positions` intentionally has RLS disabled, but both `anon` and `authenticated` lack schema usage and every table privilege. Supabase security advisors therefore report no security lint; do not enable RLS without first defining the worker-only access policy.
+- Performance advisors reported informational unused-index and unindexed-foreign-key findings on a new, empty database plus six multiple-permissive-policy warnings. These are not being changed without staging workload evidence because several policies encode distinct authorization paths.
+- API/Admin/Mobile protected-route checks passed locally: API unit 23/23, API security 15/15, Admin proxy contract 7/7, and Mobile auth/session 39/39.
 
 Safe migration sequence using the repository-pinned Supabase CLI (`2.116.0`):
 
