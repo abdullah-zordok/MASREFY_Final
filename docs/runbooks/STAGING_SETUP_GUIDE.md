@@ -1,14 +1,14 @@
-# MASREFY Staging Setup and Acceptance Guide
+# Masarifi Staging Setup and Acceptance Guide
 
-Last reviewed: 2026-09-21
+Last reviewed: 2026-09-22
 
-Repository: `abdullah-zordok/MASREFY_Final`
+Canonical repository: `masarifiratibi-spec/masarifi.ratibi_app`
 
-Accepted review branch SHA: `e64f36c3b3250f928e4765dba8bd27af2bb7a0d3`
+Repository-side baseline SHA: `440f68044c47415612efe3de60de19a303c6321b`
 
-Pull request: [#17](https://github.com/abdullah-zordok/MASREFY_Final/pull/17)
+Execution plan: [2026-09-22-masarifi-staging-environment](../superpowers/plans/2026-09-22-masarifi-staging-environment.md)
 
-Repository workflow evidence: [Backend Foundation run 35600321038](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/35600321038)
+Repository workflow evidence: [Backend Foundation run 35743240594](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35743240594) (release-critical jobs passed; tag-only signing skipped)
 
 This is the operator checklist for the external work that remains after repository-side verification. It does not authorize a production deployment. Replace every `<PLACEHOLDER>` locally; never paste a secret into Git, a ticket, a pull request, CI output, or this document.
 
@@ -24,10 +24,11 @@ This is the operator checklist for the external work that remains after reposito
 | Readiness state | Current state | Exit condition |
 | --- | --- | --- |
 | **CODE READY** | Yes | Repository lint, typecheck, tests, builds, migrations, contract checks, and image checks pass on the accepted SHA. |
-| **CI READY** | Yes, with governance work pending | Required jobs pass. Protect `main` and remove obsolete failing status contexts before relying on CI as a merge gate. |
+| **CI READY** | Yes, with governance work pending | Required jobs pass on the accepted staging SHA. Protect `main` before relying on CI as a merge gate. |
 | **STAGING CONFIGURED** | No | Separate hosted identity/database resources, VPS services, provider credentials, EAS environments, TLS, and observability are configured. |
 | **STAGING VERIFIED** | No | Section 19 passes on the same immutable release and its evidence is retained. |
-| **PRODUCTION READY** | No | Staging acceptance, public-store permission decisions, production isolation, DR, monitoring, signing, and rollback evidence all pass. |
+| **CLIENT APK READY** | No | A signed internal Android build from the accepted SHA passes physical-device acceptance. |
+| **PRODUCTION READY** | Out of scope | Staging acceptance, public-store permission decisions, production isolation, DR, monitoring, signing, and rollback evidence all pass. |
 
 Current repository verdict is **READY WITH CONDITIONS**. The system is not yet staging configured or staging verified.
 
@@ -35,17 +36,16 @@ Current repository verdict is **READY WITH CONDITIONS**. The system is not yet s
 
 | Priority | What is missing / why | Where | Safe action | Verification evidence |
 | --- | --- | --- | --- | --- |
-| **BLOCKING (P0)** | One immutable SHA and image digest must identify every service. Mutable branches or tags make rollback and incident correlation unreliable. | GitHub PR #17, Actions, image registry, VPS | Merge only after approval. Record the accepted commit SHA. Build/publish one backend image and deploy it by digest, never by `latest`. Record Admin and EAS build commit metadata. | `git rev-parse HEAD`; registry digest; API `/health/live` release value; EAS build details; Admin release metadata all name the same SHA. |
+| **BLOCKING (P0)** | One immutable SHA and image digest must identify every service. Mutable branches or tags make rollback and incident correlation unreliable. | Canonical GitHub repository, Actions, image registry, VPS | Record the accepted commit SHA. Build/publish one backend image and deploy it by digest, never by `latest`. Record Admin and EAS build commit metadata. | `git rev-parse HEAD`; registry digest; API `/health/live` release value; EAS build details; Admin release metadata all name the same SHA. |
 | **REQUIRED (P1)** | External evidence is not stored yet. | A restricted release record outside Git, plus redacted links in the Phase 14 evidence files | Create an evidence folder named with the release SHA. Store screenshots/exports without tokens, passwords, user PII, SMS text, or audio. | A reviewer can trace every Section 19 row to dated evidence and an owner. |
 
 Before any external action:
 
 ```powershell
-git fetch origin
-git switch codex/staging-readiness-review
+git fetch ratibi
 git status --short
 git rev-parse HEAD
-gh run view 35600321038 --repo abdullah-zordok/MASREFY_Final
+gh run view 35743240594 --repo masarifiratibi-spec/masarifi.ratibi_app
 ```
 
 Expected: clean worktree, the accepted SHA, and all repository release jobs passing. `signed-release-evidence` may be skipped because it is intentionally limited to authorized `backend-v*` tags.
@@ -60,7 +60,7 @@ Official references: [environment management](https://supabase.com/docs/guides/d
 | **BLOCKING (P0)** | Migrations have not been applied to hosted staging. | Local CLI and one-shot migration container | Link the staging project, dry-run, lint, then execute the repository migration entrypoint once. Never use `db reset --linked` on shared staging. | Dry-run output, checksum verification, migration logs, remote migration history, and pgTAP results. |
 | **BLOCKING (P0)** | Runtime database login roles are not created/bound by repository migrations. API and worker must not connect as database owner or with `BYPASSRLS`. | Supabase SQL editor or direct `psql` as the staging database owner | Create separate login roles and grant only the repository group roles. Set passwords interactively so they do not enter SQL history. | Role attributes show `rolsuper=false`, `rolbypassrls=false`; each runtime connection can `SET LOCAL ROLE` only to its intended group. |
 | **BLOCKING (P0)** | Clerk JWT trust and RLS owner isolation are not proven in hosted staging. | Supabase dashboard → Authentication → Third-Party Auth; staging API | Add the separate staging Clerk domain, then run two-owner and Admin authorization tests through the API. | Owner A cannot access owner B; unauthorized Admin is denied; authorized Admin is audited. |
-| **REQUIRED (P1)** | Backup, PITR, and restore evidence is missing. Database backups do not include Storage objects. | Supabase dashboard → Database → Backups; isolated restore target | Enable the plan-appropriate backup/PITR controls. Restore a current backup to a separate isolated project. Back up private Storage separately. | Measured RPO/RTO, row/count reconciliation, application smoke results, and Storage recovery evidence. |
+| **REQUIRED (P1)** | Backup and restore evidence is missing. Supabase Free has no automatic backups or PITR; database backups do not include Storage objects. | Supabase dashboard; isolated restore target | On Free, take encrypted off-host logical database and separate private Storage backups, then restore to an isolated target. Use PITR only if an already authorized paid plan provides it. | Measured RPO/RTO, row/count reconciliation, application smoke results, and Storage recovery evidence; PITR marked `BLOCKED` if unavailable. |
 
 Safe migration sequence using the repository-pinned Supabase CLI (`2.116.0`):
 
@@ -74,10 +74,11 @@ npx --no-install supabase link --workdir ../.. --project-ref <STAGING_PROJECT_RE
 npx --no-install supabase migration list --workdir ../.. --linked
 npx --no-install supabase db push --workdir ../.. --dry-run --linked
 npx --no-install supabase db lint --workdir ../.. --linked --schema public,private,audit --level error --fail-on error
-npx --no-install supabase test db --workdir ../.. --linked
+npm run db:reset
+npm run test:db
 ```
 
-`migration:checksums` must report no drift, `migration list` must show repository migrations in the same order as remote history, and the dry run must contain only the intended pending migrations. The linked pgTAP suite is the canonical structural check: it asserts required extensions (including `pgcrypto` and `pgmq`), schemas, owners/grants, RLS, functions, fixed function search paths, triggers, constraints, and named indexes. Retain the full pgTAP output. Additionally inspect Supabase Database → Extensions and Database → Tables/Policies for unexpected objects or disabled RLS; do not make dashboard-only schema edits.
+`migration:checksums` must report no drift, `migration list` must show repository migrations in the same order as remote history, and the dry run must contain only the intended pending migrations. Local pgTAP asserts required extensions (including `pgcrypto` and `pgmq`), schemas, owners/grants, RLS, functions, fixed function search paths, triggers, constraints, and named indexes. Run mutating pgTAP cases only on a disposable database; use read-only structural queries and controlled owner-isolation tests on hosted staging. Retain the full output. Inspect Supabase Database → Extensions and Database → Tables/Policies for unexpected objects or disabled RLS; do not make dashboard-only schema edits.
 
 This repository has no Supabase Edge Function secret contract. Do not invent Supabase secrets. `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are backend runtime inputs stored on the VPS; only the Clerk third-party-auth trust is configured in the Supabase dashboard.
 
@@ -274,14 +275,14 @@ Current seed assumptions that require revalidation are: voice primary `openai/gp
 
 Run these staging cases: valid financial request; unsupported request; malformed provider JSON; primary outage with approved fallback; both providers unavailable; connection and overall timeout; per-user rolling quota; global monthly budget at 70/85/95 percent; unauthorized user; circuit open/recovery. An unrelated/unsupported request must return before enqueueing: confirm no OpenRouter Activity entry and no new `ai_usage_events` row.
 
-## 6. Push notifications: Expo, FCM, and APNs
+## 6. Push notifications: Expo and Android FCM
 
 Official references: [Expo push setup](https://docs.expo.dev/push-notifications/push-notifications-setup/) and [FCM credentials](https://docs.expo.dev/push-notifications/fcm-credentials/).
 
 | Priority | What is missing / why | Where | Safe action | Verification evidence |
 | --- | --- | --- | --- | --- |
-| **BLOCKING (P0)** | Current Mobile code registers Expo push tokens, but Expo, Android FCM v1, and iOS APNs credentials are not proven. | Expo/EAS project → Credentials; Firebase console; Apple Developer portal | Configure FCM v1 for the Android app `com.masarifi.mobile` and APNs credentials for the iOS bundle. Configure worker `MASARIFI_EXPO_ACCESS_TOKEN`. Use staging/test projects or tightly scoped credentials. | Physical Android/iOS receipts, foreground/background/killed delivery, tap routing, denial flow, retry, expiry, dedupe, and redacted worker logs. |
-| **BLOCKING (P0), configuration check** | `app.json` does not currently declare `android.googleServicesFile`. EAS credential setup may require this for the managed Android build. | EAS credential wizard and `apps/mobile/app.json` | Attempt the documented EAS FCM v1 setup. If EAS cannot supply the config without a project file reference, stop and raise a minimal code-plan amendment to add a non-secret file path; never commit the service-account key. | Fresh preview build succeeds and obtains an Expo token; push receipt is delivered. |
+| **BLOCKING (P0)** | Current Mobile code registers Expo push tokens, but Expo and Android FCM v1 credentials are not proven. | Masarifi-owned Expo/EAS project → Credentials; staging Firebase project | Configure FCM v1 for the Android app `com.masarifi.mobile` and worker `MASARIFI_EXPO_ACCESS_TOKEN`. Use staging/test projects or tightly scoped credentials. | Physical Android receipt, foreground/background/killed delivery, tap routing, denial flow, retry, expiry, dedupe, and redacted worker logs. |
+| **BLOCKING (P0), configuration check** | `app.json` does not currently declare `android.googleServicesFile`, required for the Android FCM build setup. | EAS credential wizard and `apps/mobile/app.json` | Add the staging `google-services.json` file reference only after creating the owned Firebase app. Inspect the JSON before committing: it must contain public client identifiers only; never commit the FCM service-account private key. | Fresh preview build succeeds and obtains an Expo token; push receipt is delivered. |
 | **OPTIONAL** | Direct FCM/APNs worker providers are unused unless clients register native `fcm`/`apns` tokens. | Worker env | Leave direct-provider variables unset for the current app. Do not use them as a substitute for EAS credentials. | Registered token provider is `expo`; no direct-provider calls occur. |
 
 Test transactional, reminder, and AI-result notifications on physical devices with notifications allowed and denied. Verify quiet hours, duplicate suppression, expired tokens, provider rejection, receipt processing, and token removal/rotation.
@@ -318,22 +319,20 @@ Official references: [EAS environment variables](https://docs.expo.dev/eas/envir
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Plaintext, public key | **BLOCKING** — staging Clerk Production-instance publishable key |
 | `EXPO_PUBLIC_APP_ORIGIN` | Plaintext | **OPTIONAL** — approved staging app origin if the configured flow uses it |
 
-The preview profile currently relies on EAS's implicit environment selection. Adding `"environment": "preview"` to `eas.json` is **RECOMMENDED (P2)** for clarity but is not required to create the first build; make it only through a reviewed code change.
+The preview profile currently relies on EAS's implicit environment selection. Bind it explicitly to `"environment": "preview"` before the first staging build so it cannot consume another environment by default.
 
-The EAS project is authenticated but currently has no required preview environment values and only an old expired development APK. A fresh preview build from the accepted SHA is therefore **BLOCKING (P0)**.
+The configured Expo project belongs to `@abdallazordok`, not the intended Masarifi staging owner. Create or select a Masarifi-owned project and verify its preview environment before building. A fresh signed preview build from the accepted SHA is **BLOCKING (P0)**.
 
 ```powershell
 Set-Location apps/mobile
 npx eas-cli env:list --environment preview
 npx eas-cli credentials --platform android
-npx eas-cli credentials --platform ios
 npx eas-cli build --platform android --profile preview
-npx eas-cli build --platform ios --profile preview
 ```
 
-Set values in the EAS dashboard or with `eas env:set`; avoid placing values directly in shared terminal logs. Record build IDs, source SHA, runtime version, signing identity, and expiration. Install Android through the EAS link/QR or `adb install -r <SIGNED_STAGING_APK_PATH>`. iOS requires an Apple Developer account, registered device/provisioning, and an allowed internal distribution path.
+Set values in the EAS dashboard or with `eas env:set`; avoid placing values directly in shared terminal logs. Record build ID, source SHA, runtime version, signing identity, and expiration. Install Android through the EAS link/QR or `adb install -r <SIGNED_STAGING_APK_PATH>`. iOS is outside this Android staging slice.
 
-Expo Go is not acceptance evidence for SMS/notification listener behavior, app signing, secure storage, native local modules, biometric lock, background behavior, full push, or voice. Test physical Android and iOS devices for first launch, auth, secure storage, biometric allow/deny/cancel, offline enqueue, force-stop/restart recovery, upgrade from the previous staging build, deep links, accessibility, microphone, and notifications.
+Expo Go is not acceptance evidence for SMS/notification listener behavior, app signing, secure storage, native local modules, biometric lock, background behavior, full push, or voice. Test a physical Android device for first launch, auth, secure storage, biometric allow/deny/cancel, offline enqueue, force-stop/restart recovery, upgrade from the previous staging build, deep links, accessibility, microphone, and notifications.
 
 | Build type | Intended use | Native capability / staging status |
 | --- | --- | --- |
@@ -500,14 +499,9 @@ Do not require `signed-release-evidence` on ordinary PRs because it is intention
 
 Official reference: [manage Vercel projects](https://vercel.com/docs/projects/managing-projects).
 
-The maintained `admin-web` Vercel context succeeds. Two old duplicate projects make PR #17 appear unstable:
+The intended Vercel workspace is not authenticated in the current browser. Its project inventory, plan, domains, environment variables, and ownership remain unverified. Do not alter or delete any existing project based on the older repository's PR contexts.
 
-- `masrefy-final-hm8l`: fails because production mocks are enabled.
-- `masrefy-final-xtd4`: fails because the production API origin is missing/invalid or not HTTPS.
-
-**REQUIRED (P1):** In the Vercel team dashboard, confirm these projects own no required domain, environment, traffic, analytics, or deployment history. Then disconnect their Git integration or delete them through Project Settings → Advanced/Danger Zone. This is an account-level destructive action and must be performed by the owning administrator after that check. Do not copy secrets from them. Re-run the PR checks and remove obsolete GitHub required-status references.
-
-If Admin staging is hosted on the VPS, Vercel is a PR-preview provider only and must not be presented as the staging authority. If Vercel becomes the staging host later, create one explicit staging project/environment with the Section 13 variables and protect its deployment; do not keep multiple competing staging origins.
+Use one Masarifi-owned staging Admin project on Vercel only if its plan permits the project's use; Hobby is limited to personal/non-commercial use. Otherwise host staging Admin on the isolated VPS using Section 14. In either case, use the exact staging API origin, staging Clerk keys, live client mode, and mocks disabled. Do not keep competing staging origins.
 
 ## 17. Security and privacy acceptance
 
@@ -531,7 +525,7 @@ Use the thresholds and event names already documented in the repository runbooks
 | **BLOCKING (P0)** | No hosted log/metric/alert routing evidence | Collect JSON stdout/journald centrally or retain it durably; add uptime check for public `/health/live`; keep `/health/ready` private. Alert on API/worker down, readiness failure, disk/CPU/memory pressure, queue age/depth, provider failures, Clerk webhook/auth failures, AI circuit/quota/budget, push/SMTP failure, and outbox terminal items. | Trigger each release-blocking alert and capture delivery to the on-call/test destination. |
 | **REQUIRED (P1)** | Distributed correlation/export is unproven | If using OTLP, set endpoint, secret headers, and resource attributes on VPS only. Preserve request/job/release correlation and redaction. | One API→DB/outbox→worker→provider trace or correlated log chain; exporter outage does not break service. |
 | **BLOCKING (P0)** | Graceful shutdown/restart/lease recovery is not proven | Send SIGTERM during requests and jobs; kill worker while holding outbox/sync/AI/report leases; restart services. | No lost committed work, no duplicate financial effect, lease is reclaimed, readiness transitions correctly. |
-| **BLOCKING (P0)** | Hosted backup/PITR/failover and rollback are not rehearsed | Complete Section 2 isolated restore and Section 14 N-1 application rollback. Reconcile ledger totals/counts and private Storage separately. | Measured RPO/RTO, reconciliation, incident timeline, and rollback/restore sign-off. |
+| **BLOCKING (P0)** | Hosted backup/restore and rollback are not rehearsed | Complete Section 2 isolated restore and Section 14 N-1 application rollback. Reconcile ledger totals/counts and private Storage separately. Mark PITR blocked on Supabase Free. | Measured RPO/RTO, reconciliation, incident timeline, and rollback/restore sign-off. |
 
 Document an owner and response link for every alert. A dashboard without a tested notification route is not an acceptance result.
 
@@ -548,7 +542,7 @@ Run this matrix against the same immutable release after Sections 1–18 are con
 | Offline/sync | Queue mutations offline; reconnect; conflict/tombstone; duplicate; force-stop/restart; lease recovery; delta pagination/retention | Eventual single correct state with documented conflict result and no lost committed work | Device DB state, sync IDs, queue/lease rows, final API state | `NOT RUN` | **P0** |
 | Tracking review | Supported/unsupported/malformed/duplicate/transfer import; edit/reject/accept | Only accepted supported income/expense produces one reconciled ledger effect | Import/review IDs, parser result, ledger row | `NOT RUN` | **P0** |
 | Android SMS/listener | Consent and both capture paths independently; offline/restart; same event via both sources | Minimal data leaves device; one review item; retention/deletion works | Permission capture, redacted local/API records, dedupe key | `NOT RUN` | **P0 for Android scope** |
-| Notifications | Transaction/reminder/AI; Android/iOS; foreground/background/killed/denied; quiet hours; retry/receipt/deep link | One eligible notification, correct safe content and destination, no duplicate | Expo ticket/receipt, worker job ID, device recording | `NOT RUN` | **P0** |
+| Notifications | Transaction/reminder/AI; Android; foreground/background/killed/denied; quiet hours; retry/receipt/deep link | One eligible notification, correct safe content and destination, no duplicate | Expo ticket/receipt, worker job ID, device recording | `NOT RUN` | **P0** |
 | Reminders | 3-day/7-day/financial-inactive; cooldown; re-evaluation; activity before dispatch; disabled notification | Eligible reminder once; stale/ineligible work canceled; correct Home/Tracking destination | Eligibility/job rows, notification ID, device recording | `NOT RUN` | **P0 for implemented scope** |
 | AI Chat | Domain/intent routing; deterministic/provider; tools/truth; multi-turn; injection; malformed; quota/token/budget; outage/timeout; action confirmation | Deterministic/unrelated paths use zero provider tokens; provider output is schema/privacy bounded; no unconfirmed mutation | OpenRouter Activity absence/presence, `ai_usage_events`, tool evidence, audit/action rows | `NOT RUN` | **P0 if enabled** |
 | Voice AI | Permission states; record/re-record/cancel; silent/unclear; expense/income/unsupported/multiple; expiry/retry/outage; confirm/replay | Private short-lived upload; structured proposal; no ledger change before confirm; one change after replayed confirm | Device recording, Storage/session/job/action IDs, ledger before/after | `NOT RUN` | **P0 if enabled** |
@@ -560,7 +554,7 @@ Run this matrix against the same immutable release after Sections 1–18 are con
 | Admin | Bootstrap; roles; stale/fresh MFA; users; notifications; AI; monitoring; tracking; jobs; audits; incidents/maintenance | Least privilege and recent-auth hold; every sensitive action audited; staging API only | Admin recording, API/audit IDs, configured API origin | `NOT RUN` | **P0** |
 | API | CORS; body/validation/error limits; auth; liveness/readiness; SIGTERM; dependency outage | Contract-safe errors; foreign origins denied; liveness/readiness differ correctly; graceful drain | HTTP captures, structured logs, shutdown timing | `NOT RUN` | **P0** |
 | Worker | Outbox/sync/AI/report/security jobs; lease loss; provider failure; SIGTERM/restart | Jobs process once or retry/terminalize visibly; leases recover; no HTTP health dependency | Worker logs, queue rows, metrics/alerts | `NOT RUN` | **P0** |
-| Database | From-zero migrations; checksums/order; lint/pgTAP; RLS; constraints/indexes/functions/triggers; restore/PITR | Schema matches repository, isolation holds, restore reconciles | CLI output, migration history, pgTAP TAP output, restore comparison | `NOT RUN` | **P0** |
+| Database | From-zero migrations; checksums/order; lint/pgTAP; RLS; constraints/indexes/functions/triggers; isolated restore; PITR only if available | Schema matches repository, isolation holds, restore reconciles | CLI output, migration history, pgTAP TAP output, restore comparison | `NOT RUN` | **P0** |
 | Release/rollback | Deploy immutable digest; smoke; switch to compatible N-1; switch forward | Release identity is traceable; both transitions preserve data and restore service within target | Digests/build IDs, timestamps, health/smoke output, RTO | `NOT RUN` | **P0** |
 | Accessibility/performance | Mobile screen reader/focus/text scale/contrast; Admin keyboard/focus/viewports; staging load | Agreed accessibility checks and p95 latency/error budget pass | Device/browser recordings and load summary | `NOT RUN` | **P1** |
 
@@ -568,7 +562,7 @@ Run this matrix against the same immutable release after Sections 1–18 are con
 
 For each row record:
 
-- Accepted Git SHA, backend image digest, Admin build ID, EAS Android/iOS build IDs.
+- Accepted Git SHA, backend image digest, Admin build ID, EAS Android build ID.
 - UTC start/end, operator, environment hostnames/project names with secrets redacted.
 - Exact command or test case, result, log/request/job correlation IDs, and evidence link.
 - Any skipped or blocked step, its owner, risk, due date, and release decision.
@@ -585,7 +579,7 @@ Current final verdict: **NOT READY for full staging acceptance**. Code and CI ar
 
 ### External dependency inventory
 
-The staging slice depends on: hosted Supabase PostgreSQL/Storage/backups; a separate Clerk application; Hostinger VPS, DNS, TLS, Nginx, Docker, Node/npm, and ClamAV; Expo/EAS; Firebase FCM; Apple Developer/APNs; an approved SMTP sandbox/subaccount; OpenRouter only when AI/voice is enabled; GitHub Actions/environments and an image registry; Vercel only for the maintained preview; Google Play permission review before any Play-distributed `READ_SMS` build; and the chosen log/uptime/alert destinations. Record an owner, account/organization, staging resource name, access-review date, and rotation/recovery contact for each without recording credentials.
+The Android staging slice depends on: hosted Supabase PostgreSQL/Storage and a tested backup; a separate Clerk application; persistent isolated VPS compute, DNS/TLS, Docker, and ClamAV; Masarifi-owned Expo/EAS; Firebase FCM; an SMTP sandbox/subaccount; OpenRouter for enabled AI/voice; GitHub Actions and an image registry; one permitted Admin host (Vercel or VPS); and log/uptime/alert destinations. Apple Developer/APNs and Google Play restricted-SMS approval are later iOS/public-distribution gates, not blockers for an internal Android APK. Record an owner, account/organization, staging resource name, access-review date, and rotation/recovery contact for each without recording credentials.
 
 ### Ready for Staging checklist
 
@@ -593,11 +587,11 @@ The staging slice depends on: hosted Supabase PostgreSQL/Storage/backups; a sepa
 - [ ] Supabase and Clerk are separate staging resources; migrations, pgTAP, RLS, login roles, JWT trust, and webhooks pass.
 - [ ] API, worker, migration, and Admin have separate validated staging-only environment files and least-privilege credentials.
 - [ ] VPS DNS/TLS/firewall/reverse proxy/process isolation/health/logging are configured and no private port is public.
-- [ ] Fresh signed Android and iOS preview builds pass physical-device auth, secure storage, offline/restart, permissions, push, and deep links.
-- [ ] SMTP, ClamAV, Expo/FCM/APNs, and every enabled AI/voice provider path pass positive and negative canaries.
+- [ ] A fresh signed Android preview build passes physical-device auth, secure storage, offline/restart, permissions, push, and deep links; iOS is separately marked `BLOCKED` or out of scope.
+- [ ] SMTP, ClamAV, Expo/FCM, and every enabled AI/voice provider path pass positive and negative canaries; APNs is a later iOS gate.
 - [ ] Android tracking passes controlled device tests; Google Play approval exists before a Play track uses `READ_SMS`.
 - [ ] Admin bootstrap/RBAC/recent-auth/audit and every enabled business flow in the matrix are `PASS` with evidence.
-- [ ] Release-blocking alerts reach the responsible operator; backup/PITR restore and N-1 application rollback meet recorded RPO/RTO.
+- [ ] Release-blocking alerts reach the responsible operator; an isolated database/Storage backup restore and N-1 application rollback meet recorded RPO/RTO. PITR is `BLOCKED` on Supabase Free.
 - [ ] Every `BLOCKED`, skipped, or conditional item has an owner and accepted release decision; no failed P0 is waived silently.
 - [ ] Final verdict and evidence are reviewed by engineering, security/privacy, and the staging release owner.
 
@@ -608,19 +602,19 @@ The staging slice depends on: hosted Supabase PostgreSQL/Storage/backups; a sepa
 1. Freeze the accepted SHA and immutable backend image digest.
 2. Create isolated Supabase and Clerk staging resources; bind non-owner DB runtime logins; apply migrations; configure JWT trust/webhooks; prove RLS/auth isolation.
 3. Configure process-separated VPS environment files, DNS/TLS/firewall, migration, API, worker, Admin, and first-superadmin bootstrap.
-4. Configure EAS preview variables, signing, FCM/APNs/Expo, SMTP, ClamAV, and—when in scope—OpenRouter routes/prompts/privacy.
-5. Produce fresh signed Android/iOS builds; run the in-scope identity, financial, sync, tracking, notification, email, Admin, AI/voice, and file-flow matrix.
-6. Trigger alerts, restore a backup/PITR target, and rehearse N-1 application rollback.
-7. Obtain Google Play restricted-SMS approval before using any Play track with `READ_SMS`; resolve the pre-signup reminder scope; resolve Android FCM build configuration if EAS requires `googleServicesFile`.
+4. Configure EAS preview variables, signing, FCM/Expo, SMTP, ClamAV, and—when in scope—OpenRouter routes/prompts/privacy.
+5. Produce a fresh signed Android build; run the in-scope identity, financial, sync, tracking, notification, email, Admin, AI/voice, and file-flow matrix.
+6. Trigger alerts, restore a database and Storage backup to an isolated target, and rehearse N-1 application rollback. Record PITR as `BLOCKED` if unavailable.
+7. Resolve Android FCM `googleServicesFile` configuration. Google Play restricted-SMS approval is required only before a Play track uses `READ_SMS`.
 
 ### P1 — make staging repeatable and governed
 
 1. Protect `main`, create the protected GitHub `staging` environment, and add a reviewed digest-based deployment workflow after the manual deployment succeeds.
-2. Disconnect/delete obsolete Vercel projects after the owning administrator confirms they hold no required state.
+2. Inventory existing Vercel projects; do not disconnect or delete any project during this staging task.
 3. Complete SMTP/provider negative tests, accessibility/performance checks, OTLP correlation if selected, secret rotation rehearsal, and retained external evidence.
 
 ### P2 — reduce operational ambiguity
 
-1. Explicitly bind the EAS preview profile to the `preview` environment in a reviewed `eas.json` change.
+1. Keep the EAS preview profile explicitly bound to the `preview` environment after the Masarifi-owned project is selected.
 2. Automate evidence indexing and scheduled restore drills only after the manual process is stable.
 3. Tune pool, queue, timeout, and alert thresholds from measured staging behavior without changing business rules.
