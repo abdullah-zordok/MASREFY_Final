@@ -4,11 +4,11 @@ Last reviewed: 2026-09-23
 
 Canonical repository: `masarifiratibi-spec/masarifi.ratibi_app`
 
-Accepted runtime SHA: `79c41151013016f914fb1bedfaa945899a114ea3`
+Accepted runtime SHA: `6a2beb83420ac3c6fd19b42c18b42257ae4f97b8`
 
 Execution plan: [2026-09-22-masarifi-staging-environment](../superpowers/plans/2026-09-22-masarifi-staging-environment.md)
 
-Repository workflow evidence: [Backend Foundation run 35786882667](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35786882667) (release-critical jobs passed; tag-only signing skipped)
+Repository workflow evidence: [Backend Foundation run 35790588649](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35790588649) (release-critical jobs passed; tag-only signing skipped)
 
 This is the operator checklist and redacted evidence ledger for staging work. It does not authorize a production deployment. Replace every `<PLACEHOLDER>` locally; never paste a secret into Git, a ticket, a pull request, CI output, or this document.
 
@@ -45,12 +45,12 @@ Before any external action:
 git fetch ratibi
 git status --short
 git rev-parse HEAD
-gh run view 35786882667 --repo masarifiratibi-spec/masarifi.ratibi_app
+gh run view 35790588649 --repo masarifiratibi-spec/masarifi.ratibi_app
 ```
 
 Expected: clean worktree, the accepted SHA, and all repository release jobs passing. `signed-release-evidence` may be skipped because it is intentionally limited to authorized `backend-v*` tags.
 
-Run `35786882667` built CI-local image ID `sha256:472f37482caba6bd20ebd2a0697593d79acb6f7191f205686ac15812498099c8`, passed all 10 container suites, and passed Trivy with zero fixable High/Critical findings. The [image-evidence artifact](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35786882667/artifacts/10721074659) records that local image ID. It is not a registry digest and must not be deployed until an authorized registry publish produces an immutable pullable digest.
+Run `35790588649` built CI-local image ID `sha256:e6c823226deb63030108e09065cc52638e62d769485caa35bf3a145923fa45bd`, passed all 10 container suites, and passed Trivy with zero fixable High/Critical findings. The [image-evidence artifact](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35790588649/artifacts/10722668878) records that local image ID. It is not a registry digest and must not be deployed until an authorized registry publish produces an immutable pullable digest.
 
 ## 2. Hosted Supabase staging project
 
@@ -59,14 +59,14 @@ Official references: [environment management](https://supabase.com/docs/guides/d
 | Priority | What is missing / why | Where | Safe action | Verification evidence |
 | --- | --- | --- | --- | --- |
 | **PASS** | An isolated hosted staging project exists with no production users or data. | Supabase organization `masarif_Rratibi` → project `Masarifi Staging` | Keep project ref `qcffvfbpzvpwcwxwjyro` restricted to staging configuration. Region is `eu-central-1`; plan is Free. | Connector inventory on 2026-09-22 returned one organization, no prior projects, then project status `ACTIVE_HEALTHY`. |
-| **PASS** | All canonical migrations are applied to hosted staging. | Supabase migration history | Keep hosted history aligned with the timestamped files; never use `db reset --linked`. | Remote history has exactly 69 entries matching `supabase/migrations` by version and name, with no missing or extra migration. Latest: `20260922211640_revoke_public_execute_from_tracking_guards`. |
+| **PASS** | All canonical migrations are applied to hosted staging. | Supabase migration history | Keep hosted history aligned with the timestamped files; never use `db reset --linked`. | Remote history has exactly 70 entries matching `supabase/migrations` by version and name, with no missing or extra migration. Latest: `20260922220434_refresh_voice_zdr_models`. |
 | **PASS (credential activation pending host)** | Separate least-privilege API and worker login roles exist, but intentionally have no password until a restricted VPS secret store is available. | Hosted Supabase project `qcffvfbpzvpwcwxwjyro` | Set separate generated passwords only through the restricted host secret workflow, then use the session/direct connection string for each process. | `masarifi_api_login` and `masarifi_worker_login` are `LOGIN NOINHERIT`, non-owner, non-superuser roles without create-db/create-role/replication/`BYPASSRLS`; passwords are unset. Each can `SET ROLE` only to its matching repository role and cannot set the migration or sibling runtime role. |
 | **BLOCKING (P0)** | Hosted RLS owner isolation is proven, but the separate Clerk staging tenant, third-party trust, real tokens, webhook, and Admin authorization remain pending. | Supabase dashboard → Authentication → Third-Party Auth; Clerk staging application; staging API | Add the separate staging Clerk domain, then run token, webhook, and Admin tests through the deployed API. | Rollback-only SQL proof: Owner A saw only A, Owner B saw only B, and a missing subject saw no rows. Follow-up confirmed zero test rows. Real Clerk/API evidence remains required. |
 | **REQUIRED (P1)** | Backup and restore evidence is missing. Supabase Free has no automatic backups or PITR; database backups do not include Storage objects. | Supabase dashboard; isolated restore target | On Free, take encrypted off-host logical database and separate private Storage backups, then restore to an isolated target. Use PITR only if an already authorized paid plan provides it. | Measured RPO/RTO, row/count reconciliation, application smoke results, and Storage recovery evidence; PITR marked `BLOCKED` if unavailable. |
 
 On 2026-09-23 Supabase quoted an isolated database branch at USD `0.01344/hour`. No branch was created because that would incur a recurring charge; branch-based restore testing remains a billing-approval gate.
 
-Hosted structural evidence captured on 2026-09-22:
+Hosted structural evidence captured on 2026-09-22 and refreshed on 2026-09-23:
 
 - Supabase security advisors returned zero lints.
 - No `SECURITY DEFINER` function in `public`, `private`, or `audit` is executable by `PUBLIC`; the two tracking guard triggers remain enabled while `anon`, `authenticated`, `service_role`, API, and worker roles cannot execute their trigger functions directly.
@@ -284,12 +284,12 @@ Official references: [provider catalog](https://openrouter.ai/providers), [Zero 
 | Priority | What is missing / why | Where | Safe action | Verification evidence |
 | --- | --- | --- | --- | --- |
 | **BLOCKING (P0) for AI/voice** | No approved staging key/privacy posture/evaluation exists. | OpenRouter dashboard and `/etc/masarifi/worker.env` | Create a staging-only key with the smallest practical spend limit. Confirm organizational privacy approval, ZDR availability, and no-training/provider retention behavior. Store the key only on the worker. | Redacted key metadata, budget limit, approved privacy decision, and provider canary correlation. |
-| **BLOCKING (P0) for AI/voice** | Seeded model IDs, prices, capabilities, and privacy were code-time assumptions. | OpenRouter model/provider catalog and Admin AI configuration | Revalidate `openai/gpt-audio-mini`, its Google fallback, `openai/gpt-5.2`, and its Anthropic fallback before enabling. Confirm structured output, modality, context/output limits, regional/privacy behavior, and current prices. | Dated evaluation record and approved route versions. |
+| **PASS (catalog metadata only)** | Current model IDs, capabilities, ZDR eligibility, and prices were revalidated; provider execution is still blocked without an approved staging key. | OpenRouter model/provider catalog and Admin AI configuration | Keep Voice disabled until a redacted live canary and governed prompt/route publication pass. Revalidate metadata again immediately before enablement. | On 2026-09-23, the Models API showed `openai/gpt-audio-mini` is not ZDR-eligible, while `google/gemini-2.5-flash` supports audio, structured output, and ZDR. Migration `20260922220434` changed the disabled Voice route to Google Flash with Flash Lite fallback and marked the OpenAI audio model unapproved. |
 | **BLOCKING (P0) for AI/voice** | Routes are seeded disabled and prompts are not published in staging. | Admin → AI configuration | Keep provider globally disabled. Run redacted evaluations, publish approved prompt versions, enable one route, then set provider enabled. Use recent MFA and idempotency. | Audit event identifies approver/version; normal, fallback, timeout, malformed, quota, and outage tests pass. |
 
 The gateway already requests provider-only routing, disables provider fallback, requires `data_collection: deny` and `zdr: true`, enforces price/token/schema limits, performs at most one application fallback, and has timeout/circuit-breaker controls. Verify those fields in a redacted outbound capture; do not log prompts, audio, tokens, or financial PII.
 
-Current seed assumptions that require revalidation are: voice primary `openai/gpt-audio-mini` with a Google fallback, 128k input/1,200 output-token bounds, 120-second route timeout, and a USD 25 monthly route budget; financial assistant primary `openai/gpt-5.2` with an Anthropic fallback, 32k input/4,096 output-token bounds, 60-second route timeout, and a USD 50 monthly route budget. The repository's default accepted-work quota is five AI items per user in a rolling 24 hours, its global monthly guard is USD 200, and budget events are expected at 70/85/95 percent. These are staging-test expectations, not authorization to spend: confirm current model availability/pricing/privacy and set a stricter OpenRouter account limit before enablement.
+Current disabled Voice configuration is primary `google/gemini-2.5-flash` with `google/gemini-2.5-flash-lite` fallback and a Google-only allowlist; its 128k input/1,200 output-token bounds, 120-second route timeout, and USD 25 monthly route budget are unchanged. Financial assistant remains primary `openai/gpt-5.2` with an Anthropic fallback, 32k input/4,096 output-token bounds, 60-second route timeout, and a USD 50 monthly route budget. The repository's default accepted-work quota is five AI items per user in a rolling 24 hours, its global monthly guard is USD 200, and budget events are expected at 70/85/95 percent. These are staging-test expectations, not authorization to spend: rerun metadata checks, obtain privacy approval, and set a stricter OpenRouter account limit before enablement.
 
 Run these staging cases: valid financial request; unsupported request; malformed provider JSON; primary outage with approved fallback; both providers unavailable; connection and overall timeout; per-user rolling quota; global monthly budget at 70/85/95 percent; unauthorized user; circuit open/recovery. An unrelated/unsupported request must return before enqueueing: confirm no OpenRouter Activity entry and no new `ai_usage_events` row.
 
