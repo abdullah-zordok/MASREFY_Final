@@ -1,14 +1,14 @@
 # Masarifi Staging Setup and Acceptance Guide
 
-Last reviewed: 2026-09-22
+Last reviewed: 2026-09-23
 
 Canonical repository: `masarifiratibi-spec/masarifi.ratibi_app`
 
-Accepted staging branch SHA: `1365d3fa06b5c66f0feb60bac8f94a1dba60a8b5`
+Accepted runtime SHA: `79c41151013016f914fb1bedfaa945899a114ea3`
 
 Execution plan: [2026-09-22-masarifi-staging-environment](../superpowers/plans/2026-09-22-masarifi-staging-environment.md)
 
-Repository workflow evidence: [Backend Foundation run 35764232456](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35764232456) (release-critical jobs passed; tag-only signing skipped)
+Repository workflow evidence: [Backend Foundation run 35786882667](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35786882667) (release-critical jobs passed; tag-only signing skipped)
 
 This is the operator checklist and redacted evidence ledger for staging work. It does not authorize a production deployment. Replace every `<PLACEHOLDER>` locally; never paste a secret into Git, a ticket, a pull request, CI output, or this document.
 
@@ -45,7 +45,7 @@ Before any external action:
 git fetch ratibi
 git status --short
 git rev-parse HEAD
-gh run view 35764232456 --repo masarifiratibi-spec/masarifi.ratibi_app
+gh run view 35786882667 --repo masarifiratibi-spec/masarifi.ratibi_app
 ```
 
 Expected: clean worktree, the accepted SHA, and all repository release jobs passing. `signed-release-evidence` may be skipped because it is intentionally limited to authorized `backend-v*` tags.
@@ -57,17 +57,19 @@ Official references: [environment management](https://supabase.com/docs/guides/d
 | Priority | What is missing / why | Where | Safe action | Verification evidence |
 | --- | --- | --- | --- | --- |
 | **PASS** | An isolated hosted staging project exists with no production users or data. | Supabase organization `masarif_Rratibi` → project `Masarifi Staging` | Keep project ref `qcffvfbpzvpwcwxwjyro` restricted to staging configuration. Region is `eu-central-1`; plan is Free. | Connector inventory on 2026-09-22 returned one organization, no prior projects, then project status `ACTIVE_HEALTHY`. |
-| **PASS** | All canonical migrations are applied to hosted staging. | Supabase migration history | Keep hosted history aligned with the timestamped files; never use `db reset --linked`. | Remote history has exactly 68 entries matching `supabase/migrations` by version and name, with no missing or extra migration. Latest: `20260915150000_ai_assistant_routing`. |
-| **BLOCKING (P0)** | Runtime database login roles are not created/bound by repository migrations. API and worker must not connect as database owner or with `BYPASSRLS`. | Supabase SQL editor or direct `psql` as the staging database owner | Create separate login roles and grant only the repository group roles. Set passwords interactively so they do not enter SQL history. | Role attributes show `rolsuper=false`, `rolbypassrls=false`; each runtime connection can `SET LOCAL ROLE` only to its intended group. |
+| **PASS** | All canonical migrations are applied to hosted staging. | Supabase migration history | Keep hosted history aligned with the timestamped files; never use `db reset --linked`. | Remote history has exactly 69 entries matching `supabase/migrations` by version and name, with no missing or extra migration. Latest: `20260922211640_revoke_public_execute_from_tracking_guards`. |
+| **PASS (credential activation pending host)** | Separate least-privilege API and worker login roles exist, but intentionally have no password until a restricted VPS secret store is available. | Hosted Supabase project `qcffvfbpzvpwcwxwjyro` | Set separate generated passwords only through the restricted host secret workflow, then use the session/direct connection string for each process. | `masarifi_api_login` and `masarifi_worker_login` are `LOGIN NOINHERIT`, non-owner, non-superuser roles without create-db/create-role/replication/`BYPASSRLS`; passwords are unset. Each can `SET ROLE` only to its matching repository role and cannot set the migration or sibling runtime role. |
 | **BLOCKING (P0)** | Hosted RLS owner isolation is proven, but the separate Clerk staging tenant, third-party trust, real tokens, webhook, and Admin authorization remain pending. | Supabase dashboard → Authentication → Third-Party Auth; Clerk staging application; staging API | Add the separate staging Clerk domain, then run token, webhook, and Admin tests through the deployed API. | Rollback-only SQL proof: Owner A saw only A, Owner B saw only B, and a missing subject saw no rows. Follow-up confirmed zero test rows. Real Clerk/API evidence remains required. |
 | **REQUIRED (P1)** | Backup and restore evidence is missing. Supabase Free has no automatic backups or PITR; database backups do not include Storage objects. | Supabase dashboard; isolated restore target | On Free, take encrypted off-host logical database and separate private Storage backups, then restore to an isolated target. Use PITR only if an already authorized paid plan provides it. | Measured RPO/RTO, row/count reconciliation, application smoke results, and Storage recovery evidence; PITR marked `BLOCKED` if unavailable. |
 
 Hosted structural evidence captured on 2026-09-22:
 
 - Supabase security advisors returned zero lints.
+- No `SECURITY DEFINER` function in `public`, `private`, or `audit` is executable by `PUBLIC`; the two tracking guard triggers remain enabled while `anon`, `authenticated`, `service_role`, API, and worker roles cannot execute their trigger functions directly.
 - All public tables have RLS enabled; 296 policies are installed.
 - `report-exports`, `support-attachments`, `tracking-imports`, and `voice-temp` are private buckets.
-- `masarifi_api`, `masarifi_worker`, and `masarifi_migration` are `NOLOGIN`, `NOINHERIT`, non-owner group roles without superuser, database/role creation, replication, or `BYPASSRLS` attributes. Separate login roles are still required before service deployment.
+- `masarifi_api`, `masarifi_worker`, and `masarifi_migration` are `NOLOGIN`, `NOINHERIT`, non-owner group roles without superuser, database/role creation, replication, or `BYPASSRLS` attributes.
+- `masarifi_api_login` and `masarifi_worker_login` are matching `LOGIN NOINHERIT` roles with the same restricted attributes. They have no passwords yet, cannot assume each other or `masarifi_migration`, and remain unusable externally until separate credentials are generated directly into the restricted VPS environment.
 - `private.sync_cursor_positions` intentionally has RLS disabled, but both `anon` and `authenticated` lack schema usage and every table privilege. Supabase security advisors therefore report no security lint; do not enable RLS without first defining the worker-only access policy.
 - Performance advisors reported informational unused-index and unindexed-foreign-key findings on a new, empty database plus six multiple-permissive-policy warnings. These are not being changed without staging workload evidence because several policies encode distinct authorization paths.
 - API/Admin/Mobile protected-route checks passed locally: API unit 23/23, API security 15/15, Admin proxy contract 7/7, and Mobile auth/session 39/39.
@@ -92,7 +94,7 @@ npm run supabase:stop
 
 `migration:checksums` must report no drift, `migration list` must show repository migrations in the same order as remote history, and the dry run must contain only the intended pending migrations. Local pgTAP asserts required extensions (including `pgcrypto` and `pgmq`), schemas, owners/grants, RLS, functions, fixed function search paths, triggers, constraints, and named indexes. Run mutating pgTAP cases only on a disposable database; use read-only structural queries and controlled owner-isolation tests on hosted staging. Retain the full output. Inspect Supabase Database → Extensions and Database → Tables/Policies for unexpected objects or disabled RLS; do not make dashboard-only schema edits.
 
-This repository has no Supabase Edge Function secret contract. Do not invent Supabase secrets. `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are backend runtime inputs stored on the VPS; only the Clerk third-party-auth trust is configured in the Supabase dashboard.
+This repository has no Supabase Edge Function secret contract. Do not invent Supabase secrets. `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are backend runtime inputs stored on the VPS; only the Clerk third-party-auth trust is configured in the Supabase dashboard. Clerk remains the identity system of record; Supabase validates Clerk tokens for RLS instead of creating a second native Supabase Auth identity.
 
 After the dry run/lint/tests pass, execute the accepted image on the staging VPS:
 
@@ -435,7 +437,7 @@ Then set API `MASARIFI_ADMIN_ROUTES_ENABLED=true` and restart only the API. Veri
 
 Official Hostinger references: [VPS support](https://www.hostinger.com/support/vps/), [Docker VPS template](https://www.hostinger.com/support/8306612-how-to-use-the-docker-vps-template-at-hostinger/), [VPS firewall](https://www.hostinger.com/support/4805502-how-to-set-up-a-firewall-at-vps/), and [Docker project domains](https://www.hostinger.com/support/how-to-change-the-domain-of-a-docker-project/).
 
-No production/VPS Compose file, reverse-proxy configuration, systemd unit, PM2 configuration, Admin Dockerfile, or deployment workflow exists in this repository. Do not describe one as already available. The minimum staging deployment is:
+A secret-free hardened backend Compose contract exists at `docker/staging/compose.backend.yml` for one digest-pinned migration, API, and worker image; CI validates its process separation, non-root/read-only controls, private API binding, and distinct environment files. Reverse-proxy configuration, a VPS service unit, Admin Dockerfile, ClamAV service, and deployment workflow are still absent. The minimum staging deployment is:
 
 1. **BLOCKING (P0):** Provision a dedicated supported Ubuntu VPS. Create a non-root deployment/service account, disable password/root SSH after confirming key access, apply security updates, and install Docker Engine/Compose, Node 24/npm, Nginx, and the TLS client only when absent. Record versions.
 2. **BLOCKING (P0):** Create DNS A/AAAA records for `<STAGING_API_HOST>` pointing to this VPS; add `<STAGING_ADMIN_HOST>` only if Admin will be hosted here. Issue trusted TLS certificates. Redirect HTTP to HTTPS.
