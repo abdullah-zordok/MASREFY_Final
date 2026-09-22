@@ -64,6 +64,8 @@ Official references: [environment management](https://supabase.com/docs/guides/d
 | **BLOCKING (P0)** | Hosted RLS owner isolation is proven, but the separate Clerk staging tenant, third-party trust, real tokens, webhook, and Admin authorization remain pending. | Supabase dashboard → Authentication → Third-Party Auth; Clerk staging application; staging API | Add the separate staging Clerk domain, then run token, webhook, and Admin tests through the deployed API. | Rollback-only SQL proof: Owner A saw only A, Owner B saw only B, and a missing subject saw no rows. Follow-up confirmed zero test rows. Real Clerk/API evidence remains required. |
 | **REQUIRED (P1)** | Backup and restore evidence is missing. Supabase Free has no automatic backups or PITR; database backups do not include Storage objects. | Supabase dashboard; isolated restore target | On Free, take encrypted off-host logical database and separate private Storage backups, then restore to an isolated target. Use PITR only if an already authorized paid plan provides it. | Measured RPO/RTO, row/count reconciliation, application smoke results, and Storage recovery evidence; PITR marked `BLOCKED` if unavailable. |
 
+On 2026-09-23 Supabase quoted an isolated database branch at USD `0.01344/hour`. No branch was created because that would incur a recurring charge; branch-based restore testing remains a billing-approval gate.
+
 Hosted structural evidence captured on 2026-09-22:
 
 - Supabase security advisors returned zero lints.
