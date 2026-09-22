@@ -17,7 +17,18 @@ select is((select count(*) from private.ai_providers where key='openrouter'),1::
   'OpenRouter provider metadata is seeded once');
 select is((select count(*) from private.ai_models where model_id in
  ('openai/gpt-audio-mini','google/gemini-2.5-flash-lite','anthropic/claude-haiku-4.5',
-  'openai/gpt-5.2','anthropic/claude-sonnet-5')),5::bigint,'reviewed model candidates are seeded');
+  'openai/gpt-5.2','anthropic/claude-sonnet-5','google/gemini-2.5-flash')),6::bigint,
+  'reviewed model candidates are seeded');
+select is((select m.model_id from private.ai_feature_routes r join private.ai_models m on m.id=r.primary_model_id
+  where r.workload='voice_transcription'),'google/gemini-2.5-flash','voice primary uses a reviewed ZDR audio model');
+select is((select array_agg(m.model_id order by f.ordinality) from private.ai_feature_routes r
+  cross join lateral unnest(r.fallback_model_ids) with ordinality f(id,ordinality)
+  join private.ai_models m on m.id=f.id where r.workload='voice_transcription'),
+  array['google/gemini-2.5-flash-lite']::text[],'voice fallback uses a reviewed ZDR audio model');
+select is((select provider_allowlist from private.ai_feature_routes where workload='voice_transcription'),
+  array['google']::text[],'voice route allows only the reviewed ZDR provider');
+select ok(not (select approved from private.ai_models where model_id='openai/gpt-audio-mini'),
+  'audio model without a current ZDR endpoint is not approved');
 select is((select count(*) from private.ai_feature_routes where enabled),0::bigint,
   'all routes are disabled until deployment/provider approval');
 select ok((select bool_and(zdr_required) from private.ai_feature_routes),
