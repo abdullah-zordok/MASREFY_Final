@@ -399,13 +399,13 @@ For implemented reminders, record: new registered user below threshold (no remin
 
 | Variable | Build/runtime location | Priority / value |
 | --- | --- | --- |
-| `NEXT_PUBLIC_CLIENT_MODE` | `/etc/masarifi/admin.env`, build and runtime | **BLOCKING** — `live` |
+| `NEXT_PUBLIC_CLIENT_MODE` | Admin host, build and runtime | **BLOCKING** — `live` |
 | `NEXT_PUBLIC_API_URL` | Same; public value | **BLOCKING** — `https://<STAGING_API_HOST>` |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Same; public key | **BLOCKING** — staging Clerk Production-instance publishable key |
 | `CLERK_SECRET_KEY` | Same; server-only secret | **BLOCKING** — staging Clerk secret |
 | `NEXT_PUBLIC_ENABLE_MOCKS` | Same | **BLOCKING** — `false` |
 
-Public `NEXT_PUBLIC_*` values are embedded at build time; rebuild after changing them. Never point a staging Admin build at production. Build and start with the repository scripts under Node 24:
+Set these in the staging Vercel project's environment when Vercel is the permitted Admin host; use restricted `/etc/masarifi/admin.env` only when hosting Admin on the VPS. Public `NEXT_PUBLIC_*` values are embedded at build time; rebuild after changing them. Never point a staging Admin build at production. Build and start with the repository scripts under Node 24:
 
 ```powershell
 npm --prefix apps/admin-web ci --ignore-scripts
@@ -586,7 +586,7 @@ The Android staging slice depends on: hosted Supabase PostgreSQL/Storage and a t
 
 - [ ] Accepted Git SHA, backend digest, Admin build, and EAS builds are immutable and recorded.
 - [ ] Supabase and Clerk are separate staging resources; migrations, pgTAP, RLS, login roles, JWT trust, and webhooks pass.
-- [ ] API, worker, migration, and Admin have separate validated staging-only environment files and least-privilege credentials.
+- [ ] API, worker, and migration have separate validated staging-only environment files and least-privilege credentials; Admin uses only the selected host's staging environment.
 - [ ] VPS DNS/TLS/firewall/reverse proxy/process isolation/health/logging are configured and no private port is public.
 - [ ] A fresh signed Android preview build passes physical-device auth, secure storage, offline/restart, permissions, push, and deep links; iOS is separately marked `BLOCKED` or out of scope.
 - [ ] SMTP, ClamAV, Expo/FCM, and every enabled AI/voice provider path pass positive and negative canaries; APNs is a later iOS gate.
@@ -602,11 +602,11 @@ The Android staging slice depends on: hosted Supabase PostgreSQL/Storage and a t
 
 1. Freeze the accepted SHA and immutable backend image digest.
 2. Create isolated Supabase and Clerk staging resources; bind non-owner DB runtime logins; apply migrations; configure JWT trust/webhooks; prove RLS/auth isolation.
-3. Configure process-separated VPS environment files, DNS/TLS/firewall, migration, API, worker, Admin, and first-superadmin bootstrap.
-4. Configure EAS preview variables, signing, FCM/Expo, SMTP, ClamAV, and—when in scope—OpenRouter routes/prompts/privacy.
+3. Configure process-separated VPS environment files, DNS/TLS/firewall, migration, API, worker, the selected Admin host, and first-superadmin bootstrap.
+4. Configure the Android `googleServicesFile`, EAS preview variables, signing, FCM/Expo, SMTP, ClamAV, and—when in scope—OpenRouter routes/prompts/privacy.
 5. Produce a fresh signed Android build; run the in-scope identity, financial, sync, tracking, notification, email, Admin, AI/voice, and file-flow matrix.
 6. Trigger alerts, restore a database and Storage backup to an isolated target, and rehearse N-1 application rollback. Record PITR as `BLOCKED` if unavailable.
-7. Resolve Android FCM `googleServicesFile` configuration. Google Play restricted-SMS approval is required only before a Play track uses `READ_SMS`.
+7. Obtain Google Play restricted-SMS approval only before a Play track uses `READ_SMS`; internal Android staging does not require store submission.
 
 ### P1 — make staging repeatable and governed
 
