@@ -28,3 +28,16 @@ a6423b0c93f9d4131dde35322153fdd929588b0e:apps/api/test/unit/reports/reports-conf
 
 # Known non-secret idempotency fixture introduced by Phase 11.
 5010a15ec674bda8b6e9c2434bef6f149236e2e2:apps/api/test/security/engagement/engagement-dto.security.spec.ts:generic-api-key:4
+
+# Historical non-secret storage key, test fixtures, idempotency keys, and prose.
+dafc462d0902c0a46b90a17bf475e2524ccd14ec:apps/mobile/src/services/pre-signup-reminder-service.ts:generic-api-key:8
+2ca8bd01a0aaf4a9190d74f665c2649b24cb4db8:apps/mobile/src/services/live/auth-service.test.ts:generic-api-key:430
+03cf010d792f9d42492b8183d70ed92dfafc7a2b:apps/admin-web/src/features/governance/repository.test.ts:generic-api-key:268
+03cf010d792f9d42492b8183d70ed92dfafc7a2b:apps/admin-web/src/features/governance/repository.test.ts:generic-api-key:386
+4ef25688c737d33227a4c3dca5bc853e792f25e6:apps/admin-web/src/core/config/server-runtime.test.ts:stripe-access-token:6
+db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:47
+db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:58
+db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:87
+db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:106
+db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:121
+c65efc62cdcdab0c25ccf2ca0801b505243df371:apps/api/specs/003-admin-rbac-security/spec.md:generic-api-key:950
