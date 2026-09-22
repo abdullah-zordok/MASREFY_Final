@@ -31,3 +31,6 @@ Thumbs.db
 .worktrees/
 .superpowers/brainstorm/
 .impeccable/
+.playwright-mcp/
+__pycache__/
+*.pyc
