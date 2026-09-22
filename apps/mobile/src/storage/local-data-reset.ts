@@ -2,6 +2,7 @@ import { openDatabase, runExclusiveDatabaseTransaction } from './database';
 import { clearAppShellUserData } from './app-shell-storage';
 import { resetRuntimeUserData } from './runtime-user-data-reset';
 import { clearPersistedPreferences } from './secure-preferences';
+import { clearLegacySmsImportQueue } from './sms-import-queue';
 
 type LocalDataDeletionResult = { deletedRows: number; operationId: string };
 type SqliteLike = {
@@ -37,7 +38,8 @@ export async function resetLocalUserData(operationId: string): Promise<LocalData
       });
     })(),
     clearAppShellUserData(),
-    clearPersistedPreferences()
+    clearPersistedPreferences(),
+    clearLegacySmsImportQueue()
   ]);
   await resetRuntimeUserData();
   const failure = outcomes.find(

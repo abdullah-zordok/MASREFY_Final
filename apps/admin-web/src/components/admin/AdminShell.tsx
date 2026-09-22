@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   Languages,
   Menu,
@@ -59,7 +60,7 @@ function Sidebar({
       role={mobile ? "dialog" : undefined}
     >
       <div className="brand">
-        <span className="brand-mark">م</span>
+        <Image className="brand-mark" src="/brand-icon.png" alt="" width={36} height={36} />
         {!compact && <div><strong>{translate("shell.appName")}</strong><small>{translate("shell.appSubtitle")}</small></div>}
         {mobile && <button className="icon-button sidebar-close" onClick={close} aria-label={translate("shell.mobileClose")}><X size={20} /></button>}
       </div>

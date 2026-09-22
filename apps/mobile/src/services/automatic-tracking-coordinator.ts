@@ -340,11 +340,12 @@ async function flush(
   for (const entry of pending) {
     let current: TrackingImportSession;
     if (entry.sessionId) {
-      current = await dependencies.tracking.getImportSession(entry.sessionId);
+      current = await dependencies.tracking.getImportSession(entry.sessionId, ownerId);
     } else {
       current = await dependencies.tracking.submitImport(
         entry.submission,
-        entry.idempotencyKey
+        entry.idempotencyKey,
+        ownerId
       );
       await dependencies.queue.markSubmitted(
         ownerId,

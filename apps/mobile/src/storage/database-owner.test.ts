@@ -224,6 +224,42 @@ test('rejects a requested owner that differs from the active database owner', as
   await expect(openDatabase('user_owner-a')).resolves.toBe(active);
 });
 
+test('discards the SMS queue and closes its owner before any waiting access can resume', async () => {
+  await configureDatabaseOwner('user_owner-a');
+  await openDatabase('user_owner-a');
+  const clearing = clearDatabaseOwner('user_owner-a');
+  const reopening = expect(openDatabase('user_owner-a')).rejects.toThrow(
+    'stale database owner'
+  );
+  await clearing;
+  await reopening;
+  expect(mockDatabase.runAsync).toHaveBeenCalledWith(
+    'DELETE FROM sms_import_queue'
+  );
+  expect(mockDatabase.closeAsync).toHaveBeenCalledTimes(1);
+});
+
+test('refuses a stale sign-out without deleting or closing the new owner database', async () => {
+  await configureDatabaseOwner('user_owner-b');
+  const current = await openDatabase('user_owner-b');
+  jest.mocked(mockDatabase.runAsync).mockClear();
+  await expect(clearDatabaseOwner('user_owner-a')).rejects.toThrow(
+    'stale database owner'
+  );
+  expect(mockDatabase.runAsync).not.toHaveBeenCalled();
+  expect(mockDatabase.closeAsync).not.toHaveBeenCalled();
+  expect(await openDatabase('user_owner-b')).toBe(current);
+});
+
+test('opens and closes the encrypted queue on sign-out even before this session reads it', async () => {
+  await configureDatabaseOwner('user_owner-a');
+  await clearDatabaseOwner('user_owner-a');
+  expect(mockDatabase.runAsync).toHaveBeenCalledWith(
+    'DELETE FROM sms_import_queue'
+  );
+  expect(mockDatabase.closeAsync).toHaveBeenCalledTimes(1);
+});
+
 test('finishes deleting a verified plaintext legacy store after an interrupted cleanup', async () => {
   const ownerHash = 'a'.repeat(64);
   migrationMarker = ownerHash;

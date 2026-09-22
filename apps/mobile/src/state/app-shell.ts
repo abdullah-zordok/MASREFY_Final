@@ -34,6 +34,7 @@ import {
   resetRuntimeIdentityData
 } from '@/storage/runtime-user-data-reset';
 import { clearDatabaseOwner, configureDatabaseOwner } from '@/storage/database';
+import { clearLegacySmsImportQueue } from '@/storage/sms-import-queue';
 
 interface AppShellState {
   hydrated: boolean;
@@ -240,6 +241,7 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
   },
 
   signOut: async () => {
+    const ownerId = get().session?.userId;
     set({
       hydrated: true,
       session: signedOutSession,
@@ -254,7 +256,15 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
     });
     await Promise.all([
       storage.clearSession(),
-      clearDatabaseOwner(),
+      (async () => {
+        try {
+          await clearDatabaseOwner(
+            ownerId && resolveClientMode() === 'live' ? ownerId : undefined
+          );
+        } finally {
+          await clearLegacySmsImportQueue();
+        }
+      })(),
       resetRuntimeIdentityData()
     ]);
     clearAppShellStorageOwner();

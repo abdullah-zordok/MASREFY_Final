@@ -26,6 +26,7 @@ import {
   type TrackingMutationResult
 } from '@/services/contracts/automatic-tracking-service';
 import type { CapabilityProviderHandle } from '@/services/contracts/capability-contract';
+import { captureLiveClerkIdentity } from './auth-service';
 
 type Json = Record<string, unknown>;
 type TokenProvider = () => Promise<string>;
@@ -195,12 +196,17 @@ export function createLiveAutomaticTrackingService({
     method: string,
     path: string,
     body?: unknown,
-    idempotencyKey?: string
+    { idempotencyKey, expectedOwnerId }: { idempotencyKey?: string; expectedOwnerId?: string } = {}
   ): Promise<unknown> => {
+    const identity = expectedOwnerId === undefined ? null : await captureLiveClerkIdentity();
+    if (identity && identity.userId !== expectedOwnerId)
+      throw new TrackingError('permission_required');
+    const accessToken = identity ? identity.token : await token();
+    await identity?.assertCurrent();
     const response = await request(`${baseUrl.replace(/\/$/, '')}${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${await token()}`,
+        Authorization: `Bearer ${accessToken}`,
         ...(method === 'GET'
           ? {}
           : { 'Idempotency-Key': idempotencyKey ?? randomUUID() }),
@@ -336,16 +342,16 @@ export function createLiveAutomaticTrackingService({
       kind: 'live',
       availability: 'available'
     },
-    async submitImport(input, idempotencyKey) {
+    async submitImport(input, idempotencyKey, expectedOwnerId) {
       return importSession(
         resource(
-          await send('POST', '/api/v1/imports', input, idempotencyKey)
+          await send('POST', '/api/v1/imports', input, { idempotencyKey, expectedOwnerId })
         )
       );
     },
-    getImportSession: async (id) =>
+    getImportSession: async (id, expectedOwnerId) =>
       importSession(
-        record(await get(`/api/v1/imports/${encodeURIComponent(id)}`))
+        record(await send('GET', `/api/v1/imports/${encodeURIComponent(id)}`, undefined, { expectedOwnerId }))
       ),
     async listImportItemIds(sessionId) {
       return (

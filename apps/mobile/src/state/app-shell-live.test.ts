@@ -4,6 +4,7 @@ import { registerRuntimeIdentityReset } from '@/storage/runtime-user-data-reset'
 import { usePreferenceStore } from './preferences';
 import * as database from '@/storage/database';
 import { waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AuthenticationSession,
   OnboardingProgress
@@ -57,6 +58,13 @@ test('rejects a synthetic authenticated session outside demo mode', async () => 
 });
 
 test('sign-out hides the previous owner view while preserving its stored data', async () => {
+  await AsyncStorage.setItem(
+    'masarifi.tracking.smsImportQueue.v1',
+    'private SMS'
+  );
+  const close = jest
+    .spyOn(database, 'clearDatabaseOwner')
+    .mockResolvedValue(undefined);
   const clearPrivateCache = jest.fn();
   const unregister = registerRuntimeIdentityReset(clearPrivateCache);
   useAppShellStore.setState({
@@ -69,9 +77,15 @@ test('sign-out hides the previous owner view while preserving its stored data', 
 
   try {
     await useAppShellStore.getState().signOut();
+    expect(close).toHaveBeenCalledWith(liveSession.userId);
   } finally {
     unregister();
+    close.mockRestore();
   }
+
+  expect(
+    await AsyncStorage.getItem('masarifi.tracking.smsImportQueue.v1')
+  ).toBeNull();
 
   expect(resetLocalUserData).not.toHaveBeenCalled();
   expect(clearPrivateCache).toHaveBeenCalledTimes(1);

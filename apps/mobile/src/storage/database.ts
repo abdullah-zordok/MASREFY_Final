@@ -13,7 +13,7 @@ import { File } from 'expo-file-system';
 import { resolveClientMode } from '@/config/client-runtime';
 
 const DATABASE_NAME = 'masarifi.db';
-const CURRENT_SCHEMA_VERSION = 12;
+const CURRENT_SCHEMA_VERSION = 13;
 const LEGACY_OWNER_KEY = 'masarifi.database.legacyOwnerHash';
 const DATABASE_KEY_PREFIX = 'masarifi.database.key.';
 const LEGACY_MIGRATION_TABLE = '_masarifi_migration_state';
@@ -39,11 +39,25 @@ export async function configureDatabaseOwner(userId: string): Promise<void> {
   });
 }
 
-export async function clearDatabaseOwner(): Promise<void> {
+/** Explicit sign-out discards ephemeral imports before releasing the owner. */
+export async function clearDatabaseOwner(discardSmsQueueFor?: string): Promise<void> {
   await enqueueDatabaseLifecycle(async () => {
-    await closeActiveDatabase();
-    databaseOwnerHash = null;
-    databaseName = DATABASE_NAME;
+    if (discardSmsQueueFor !== undefined &&
+      (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, discardSmsQueueFor)) !== databaseOwnerHash)
+      throw new Error('stale database owner');
+    try {
+      if (discardSmsQueueFor !== undefined) {
+        databasePromise ??= createAndMigrate();
+        activeDatabase = await databasePromise;
+        await activeDatabase.withExclusiveTransactionAsync(async (transaction) => {
+          await transaction.runAsync('DELETE FROM sms_import_queue');
+        });
+      }
+    } finally {
+      await closeActiveDatabase();
+      databaseOwnerHash = null;
+      databaseName = DATABASE_NAME;
+    }
   });
 }
 
@@ -897,6 +911,12 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_planning_payment_matches_status
       ON planning_payment_matches(status, updated_at DESC, id DESC);
+
+    -- migration:13
+    CREATE TABLE IF NOT EXISTS sms_import_queue (
+      id TEXT PRIMARY KEY CHECK (id = 'singleton'),
+      payload TEXT NOT NULL
+    );
 
   `);
 

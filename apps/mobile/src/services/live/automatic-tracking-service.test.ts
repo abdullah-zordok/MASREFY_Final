@@ -2,6 +2,21 @@ import {
   configureAutomaticTrackingTokenProvider,
   createLiveAutomaticTrackingService
 } from './automatic-tracking-service';
+import { registerLiveClerkBridge, type LiveClerkBridge } from './auth-service';
+
+function registerIdentity(
+  identity: Pick<LiveClerkBridge, 'getSession' | 'getToken'>
+) {
+  registerLiveClerkBridge({
+    ...identity,
+    startPhone: jest.fn(),
+    verifyPhone: jest.fn(),
+    resendPhone: jest.fn(),
+    signInWithGoogle: jest.fn(),
+    reverifyConflict: jest.fn(),
+    signOut: jest.fn()
+  });
+}
 
 jest.mock('expo-crypto', () => ({
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
@@ -17,6 +32,75 @@ function response(value: unknown, status = 200): Response {
 }
 
 describe('live automatic tracking adapter', () => {
+  it.each(['before capture', 'during token acquisition'])(
+    'rejects an owner A import or session poll after switching to B %s',
+    async (timing) => {
+      let owner = timing === 'before capture' ? 'owner-b' : 'owner-a';
+      registerIdentity({
+        getSession: async () => ({
+          id: `session-${owner}`,
+          userId: owner,
+          method: 'google',
+          issuedAt: 1,
+          expiresAt: 99
+        }),
+        getToken: async () => {
+          owner = 'owner-b';
+          return 'token-b';
+        }
+      });
+      const request = jest
+        .fn()
+        .mockResolvedValue(response({ resource: importSession('received') }));
+      const service = createLiveAutomaticTrackingService({ request });
+      await expect(
+        service.submitImport(
+          { schemaVersion: 1, sourceType: 'sms', events: [] },
+          'sms:owner-a',
+          'owner-a'
+        )
+      ).rejects.toThrow();
+      await expect(
+        service.getImportSession('session-a', 'owner-a')
+      ).rejects.toThrow();
+      expect(request).not.toHaveBeenCalled();
+    }
+  );
+
+  it('retries a same-owner import with its pinned token and original idempotency key', async () => {
+    registerIdentity({
+      getSession: async () => ({
+        id: 'session-a',
+        userId: 'owner-a',
+        method: 'google',
+        issuedAt: 1,
+        expiresAt: 99
+      }),
+      getToken: async () => 'token-a'
+    });
+    const request = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(response({ resource: importSession('received') }));
+    const service = createLiveAutomaticTrackingService({ request });
+    const input = {
+      schemaVersion: 1 as const,
+      sourceType: 'sms' as const,
+      events: []
+    };
+    await expect(
+      service.submitImport(input, 'sms:stable', 'owner-a')
+    ).rejects.toThrow('offline');
+    await expect(
+      service.submitImport(input, 'sms:stable', 'owner-a')
+    ).resolves.toMatchObject({ id: 'session-1' });
+    for (const [, options] of request.mock.calls)
+      expect(options.headers).toMatchObject({
+        Authorization: 'Bearer token-a',
+        'Idempotency-Key': 'sms:stable'
+      });
+  });
+
   const importSession = (status: string) => ({
     id: 'session-1',
     sourceType: 'sms',
@@ -40,7 +124,9 @@ describe('live automatic tracking adapter', () => {
   it('submits an SMS import with the caller idempotency key', async () => {
     const request = jest
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
-      .mockResolvedValue(response({ resource: importSession('received') }, 202));
+      .mockResolvedValue(
+        response({ resource: importSession('received') }, 202)
+      );
     const service = createLiveAutomaticTrackingService({
       baseUrl: 'https://api.example.test',
       token: async () => 'token',
@@ -63,7 +149,9 @@ describe('live automatic tracking adapter', () => {
       ]
     };
 
-    await expect(service.submitImport(input, 'sms:sha256:message')).resolves.toMatchObject({
+    await expect(
+      service.submitImport(input, 'sms:sha256:message')
+    ).resolves.toMatchObject({
       id: 'session-1',
       status: 'received',
       itemCount: 1
@@ -80,21 +168,25 @@ describe('live automatic tracking adapter', () => {
     );
   });
 
-  it.each(['received', 'processing', 'review', 'complete', 'failed', 'cancelled'])(
-    'maps the %s import session state',
-    async (status) => {
-      const service = createLiveAutomaticTrackingService({
-        token: async () => 'token',
-        request: jest.fn().mockResolvedValue(response(importSession(status)))
-      });
+  it.each([
+    'received',
+    'processing',
+    'review',
+    'complete',
+    'failed',
+    'cancelled'
+  ])('maps the %s import session state', async (status) => {
+    const service = createLiveAutomaticTrackingService({
+      token: async () => 'token',
+      request: jest.fn().mockResolvedValue(response(importSession(status)))
+    });
 
-      await expect(service.getImportSession('session-1')).resolves.toMatchObject({
-        id: 'session-1',
-        status,
-        updatedAt: Date.parse('2026-09-12T10:01:00.000Z')
-      });
-    }
-  );
+    await expect(service.getImportSession('session-1')).resolves.toMatchObject({
+      id: 'session-1',
+      status,
+      updatedAt: Date.parse('2026-09-12T10:01:00.000Z')
+    });
+  });
 
   it('lists every duplicate page and preserves backend IDs', async () => {
     const duplicate = {
@@ -110,7 +202,9 @@ describe('live automatic tracking adapter', () => {
     const request = jest
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
       .mockResolvedValueOnce(response({ items: [], nextCursor: 'next' }))
-      .mockResolvedValueOnce(response({ items: [duplicate], nextCursor: null }));
+      .mockResolvedValueOnce(
+        response({ items: [duplicate], nextCursor: null })
+      );
     const service = createLiveAutomaticTrackingService({
       token: async () => 'token',
       request
@@ -129,8 +223,12 @@ describe('live automatic tracking adapter', () => {
   it('lists import item IDs through the existing session-items endpoint', async () => {
     const request = jest
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
-      .mockResolvedValueOnce(response({ items: [{ id: 'item-1' }], nextCursor: 'next' }))
-      .mockResolvedValueOnce(response({ items: [{ id: 'item-2' }], nextCursor: null }));
+      .mockResolvedValueOnce(
+        response({ items: [{ id: 'item-1' }], nextCursor: 'next' })
+      )
+      .mockResolvedValueOnce(
+        response({ items: [{ id: 'item-2' }], nextCursor: null })
+      );
     const service = createLiveAutomaticTrackingService({
       token: async () => 'token',
       request
@@ -148,7 +246,11 @@ describe('live automatic tracking adapter', () => {
   it('rejects malformed import sessions', async () => {
     const service = createLiveAutomaticTrackingService({
       token: async () => 'token',
-      request: jest.fn().mockResolvedValue(response({ ...importSession('complete'), itemCount: -1 }))
+      request: jest
+        .fn()
+        .mockResolvedValue(
+          response({ ...importSession('complete'), itemCount: -1 })
+        )
     });
 
     await expect(service.getImportSession('session-1')).rejects.toMatchObject({

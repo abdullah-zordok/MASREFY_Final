@@ -1,4 +1,5 @@
 import { StatefulSqlite } from '@/test-utils/stateful-sqlite';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearAppShellUserData } from './app-shell-storage';
 import { resetLocalUserData } from './local-data-reset';
 import { clearPersistedPreferences } from './secure-preferences';
@@ -28,6 +29,7 @@ const clearedTables = [
   'support_tickets',
   'subscription_state',
   'tracking_events',
+  'sms_import_queue',
   'planning_obligation_payments',
   'planning_obligations',
   'finance_corrections',
@@ -46,12 +48,14 @@ beforeEach(async () => {
 });
 
 test('deletes every user-data table discovered from the authoritative schema', async () => {
+  await AsyncStorage.setItem('masarifi.tracking.smsImportQueue.v1', 'private SMS');
   const runtimeReset = jest.fn();
   const unregister = registerRuntimeUserDataReset(runtimeReset);
   const result = await resetLocalUserData('local-delete-1');
 
   expect(result).toEqual({ deletedRows: clearedTables.length, operationId: 'local-delete-1' });
   for (const table of clearedTables) expect(mockDatabase.read(table)).toEqual([]);
+  expect(await AsyncStorage.getItem('masarifi.tracking.smsImportQueue.v1')).toBeNull();
   expect(mockDatabase.read('schema_migrations')).toHaveLength(1);
   expect(clearShellData).toHaveBeenCalledTimes(1);
   expect(clearPreferences).toHaveBeenCalledTimes(1);

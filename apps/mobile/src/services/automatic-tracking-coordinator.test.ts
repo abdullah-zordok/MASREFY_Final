@@ -6,6 +6,21 @@ import type {
 import { permissionState } from './mocks/tracking-permission-service';
 import { SmsImportQueue } from '@/storage/sms-import-queue';
 import { createAutomaticTrackingCoordinator } from './automatic-tracking-coordinator';
+import { StatefulSqlite } from '@/test-utils/stateful-sqlite';
+
+let mockDatabase: StatefulSqlite;
+jest.mock('@/storage/database', () => ({
+  openDatabase: jest.fn(async () => mockDatabase),
+  runExclusiveDatabaseTransaction: jest.fn(
+    async (
+      db: StatefulSqlite,
+      operation: (tx: StatefulSqlite) => Promise<void>
+    ) => db.withExclusiveTransactionAsync(operation)
+  )
+}));
+beforeEach(() => {
+  mockDatabase = new StatefulSqlite(['sms_import_queue']);
+});
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -87,9 +102,11 @@ function setup(overrides: Record<string, unknown> = {}) {
   };
   const inbox = {
     available: true,
-    readRecent: jest.fn().mockResolvedValue([
-      { id: '1', sender: 'BANK', body: 'Paid 12 SAR', receivedAt: 100 }
-    ]),
+    readRecent: jest
+      .fn()
+      .mockResolvedValue([
+        { id: '1', sender: 'BANK', body: 'Paid 12 SAR', receivedAt: 100 }
+      ]),
     isNetworkAvailable: jest.fn(async () => online)
   };
   const prepare = jest.fn().mockResolvedValue({
@@ -149,9 +166,34 @@ describe('automatic tracking coordinator', () => {
   it.each([
     ['not live', { isLive: () => false }],
     ['signed out', { session: () => ({ status: 'signed_out', userId: null }) }],
-    ['paused', { tracking: { ...setup().tracking, getStatus: jest.fn().mockResolvedValue(status({ mode: 'paused' })) } }],
-    ['unavailable', { tracking: { ...setup().tracking, getStatus: jest.fn().mockResolvedValue(status({ serviceState: 'unavailable' })) } }],
-    ['permission denied', { permission: { getState: jest.fn().mockResolvedValue(permissionState('denied')) } }]
+    [
+      'paused',
+      {
+        tracking: {
+          ...setup().tracking,
+          getStatus: jest.fn().mockResolvedValue(status({ mode: 'paused' }))
+        }
+      }
+    ],
+    [
+      'unavailable',
+      {
+        tracking: {
+          ...setup().tracking,
+          getStatus: jest
+            .fn()
+            .mockResolvedValue(status({ serviceState: 'unavailable' }))
+        }
+      }
+    ],
+    [
+      'permission denied',
+      {
+        permission: {
+          getState: jest.fn().mockResolvedValue(permissionState('denied'))
+        }
+      }
+    ]
   ])('does not scan when %s', async (_label, override) => {
     const context = setup(override);
 
@@ -164,10 +206,16 @@ describe('automatic tracking coordinator', () => {
     const context = setup();
     context.setOnline(false);
 
-    await expect(context.coordinator.sync()).resolves.toMatchObject({ status: 'queued' });
+    await expect(context.coordinator.sync()).resolves.toMatchObject({
+      status: 'queued'
+    });
     expect(context.tracking.submitImport).not.toHaveBeenCalled();
     await expect(context.queue.load('owner-1')).resolves.toMatchObject({
-      pending: [expect.objectContaining({ idempotencyKey: expect.stringMatching(/^sms:/) })]
+      pending: [
+        expect.objectContaining({
+          idempotencyKey: expect.stringMatching(/^sms:/)
+        })
+      ]
     });
   });
 
@@ -256,14 +304,16 @@ describe('automatic tracking coordinator', () => {
     const context = setup();
     context.setOnline(false);
     await context.coordinator.sync();
-    const originalKey = (await context.queue.load('owner-1')).pending[0]?.idempotencyKey;
+    const originalKey = (await context.queue.load('owner-1')).pending[0]
+      ?.idempotencyKey;
     context.setOnline(true);
 
     await context.coordinator.sync();
 
     expect(context.tracking.submitImport).toHaveBeenCalledWith(
       expect.any(Object),
-      originalKey
+      originalKey,
+      'owner-1'
     );
   });
 
@@ -275,28 +325,47 @@ describe('automatic tracking coordinator', () => {
         schemaVersion: 1,
         sourceType: 'sms',
         sourceChannel: 'android_sms',
-        events: [{ sourceItemKey: 'sha256:one', amountMinor: -1200, currency: 'SAR', receivedAt: '2026-09-12T10:00:00Z' }]
+        events: [
+          {
+            sourceItemKey: 'sha256:one',
+            amountMinor: -1200,
+            currency: 'SAR',
+            receivedAt: '2026-09-12T10:00:00Z'
+          }
+        ]
       },
       cursor: 100,
       fingerprints: ['sha256:one']
     });
     await context.queue.markSubmitted('owner-1', 'sms:existing', 'session-1');
 
-    await expect(context.coordinator.sync()).resolves.toMatchObject({ status: 'processing' });
-    expect(context.tracking.getImportSession).toHaveBeenCalledWith('session-1');
+    await expect(context.coordinator.sync()).resolves.toMatchObject({
+      status: 'processing'
+    });
+    expect(context.tracking.getImportSession).toHaveBeenCalledWith(
+      'session-1',
+      'owner-1'
+    );
     expect(context.tracking.submitImport).not.toHaveBeenCalled();
   });
 
   it.each([
     ['complete', 'imported'],
     ['failed', 'error']
-  ] as const)('maps terminal backend state %s to %s', async (backend, expected) => {
-    const context = setup();
-    context.tracking.submitImport.mockResolvedValue(session(backend));
+  ] as const)(
+    'maps terminal backend state %s to %s',
+    async (backend, expected) => {
+      const context = setup();
+      context.tracking.submitImport.mockResolvedValue(session(backend));
 
-    await expect(context.coordinator.sync()).resolves.toMatchObject({ status: expected });
-    await expect(context.queue.load('owner-1')).resolves.toMatchObject({ pending: [] });
-  });
+      await expect(context.coordinator.sync()).resolves.toMatchObject({
+        status: expected
+      });
+      await expect(context.queue.load('owner-1')).resolves.toMatchObject({
+        pending: []
+      });
+    }
+  );
 
   it('uses real review and duplicate IDs from items in the current session', async () => {
     const review = {
@@ -315,7 +384,11 @@ describe('automatic tracking coordinator', () => {
     };
     const context = setup();
     context.tracking.submitImport.mockResolvedValue(session('review'));
-    context.tracking.listReviewItems.mockResolvedValue({ items: [review], nextCursor: null, total: 1 });
+    context.tracking.listReviewItems.mockResolvedValue({
+      items: [review],
+      nextCursor: null,
+      total: 1
+    });
     context.tracking.listDuplicates.mockResolvedValue([
       {
         id: 'duplicate-1',
@@ -378,7 +451,9 @@ describe('automatic tracking coordinator', () => {
 
   it('coalesces concurrent start and resume synchronization', async () => {
     let release!: (value: []) => void;
-    const pending = new Promise<[]>(resolve => { release = resolve; });
+    const pending = new Promise<[]>((resolve) => {
+      release = resolve;
+    });
     const context = setup();
     context.inbox.readRecent.mockReturnValue(pending);
 

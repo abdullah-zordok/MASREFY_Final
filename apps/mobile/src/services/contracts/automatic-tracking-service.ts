@@ -79,9 +79,10 @@ export type DuplicateResolution =
 export interface AutomaticTrackingService {
   submitImport(
     input: TrackingImportSubmission,
-    idempotencyKey: string
+    idempotencyKey: string,
+    expectedOwnerId?: string
   ): Promise<TrackingImportSession>;
-  getImportSession(id: string): Promise<TrackingImportSession>;
+  getImportSession(id: string, expectedOwnerId?: string): Promise<TrackingImportSession>;
   listImportItemIds(sessionId: string): Promise<string[]>;
   listDuplicates(): Promise<DuplicateCandidate[]>;
   getStatus(): Promise<TrackingStatusSnapshot>;
