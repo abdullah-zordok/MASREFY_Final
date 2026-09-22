@@ -301,6 +301,19 @@ jobs:
           cache: npm
           cache-dependency-path: apps/api/package-lock.json
       - run: npm --prefix apps/api ci --ignore-scripts
+      - name: Verify staging Compose contract
+        env:
+          MASARIFI_BACKEND_REPOSITORY: ghcr.io/example/masarifi-backend
+          MASARIFI_BACKEND_DIGEST: "0000000000000000000000000000000000000000000000000000000000000000"
+          MASARIFI_API_ENV_FILE: ${{ runner.temp }}/masarifi-api.env
+          MASARIFI_WORKER_ENV_FILE: ${{ runner.temp }}/masarifi-worker.env
+          MASARIFI_MIGRATION_ENV_FILE: ${{ runner.temp }}/masarifi-migration.env
+        run: |
+          printf 'COMPOSE_SENTINEL=api\n' > "$MASARIFI_API_ENV_FILE"
+          printf 'COMPOSE_SENTINEL=worker\n' > "$MASARIFI_WORKER_ENV_FILE"
+          printf 'COMPOSE_SENTINEL=migration\n' > "$MASARIFI_MIGRATION_ENV_FILE"
+          chmod 600 "$MASARIFI_API_ENV_FILE" "$MASARIFI_WORKER_ENV_FILE" "$MASARIFI_MIGRATION_ENV_FILE"
+          docker compose -f docker/staging/compose.backend.yml --profile migrate config --format json | node docker/staging/verify-compose.mjs
       - run: docker build --file docker/backend.Dockerfile --tag masarifi-backend:spec-be-001 --tag masarifi-backend:${{ github.sha }} .
       - run: npm --prefix apps/api run test:container
         env:

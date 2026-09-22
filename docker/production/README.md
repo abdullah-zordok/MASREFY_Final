@@ -20,3 +20,28 @@ Supabase CLI remains a development/CI dependency and is excluded from runtime.
 Release is blocked when the image runs as root, has a writable root filesystem,
 contains development dependencies/source maps/secrets/shell/package manager, or
 has an exploitable Critical/High vulnerability.
+
+## Staging Compose contract
+
+`docker/staging/compose.backend.yml` runs the accepted image digest as separate
+migration, API, and worker processes. Set `MASARIFI_BACKEND_REPOSITORY` to the
+registry/repository without a tag and `MASARIFI_BACKEND_DIGEST` to its 64-character
+SHA-256 digest. The rendered contract rejects mutable image tags. The API binds
+only to loopback; the worker and migration publish no ports. Keep the three environment files at
+`/etc/masarifi/{api,worker,migration}.env`, mode `0600`, or override their paths
+with the corresponding `MASARIFI_*_ENV_FILE` variables.
+
+The backend network publishes no provider/database ports while retaining the
+outbound access required for Supabase, Clerk, SMTP, Expo, and enabled AI routes.
+Run ClamAV on that private network or a private host address and set
+`MASARIFI_CLAMAV_HOST` only in the worker environment. Do not publish ClamAV
+port 3310. Admin hosting and TLS termination stay outside this manifest because
+the approved host is selected during staging inventory.
+
+Validate and run by digest:
+
+```bash
+docker compose -f docker/staging/compose.backend.yml config --quiet
+docker compose -f docker/staging/compose.backend.yml --profile migrate run --rm migration
+docker compose -f docker/staging/compose.backend.yml up -d api worker
+```

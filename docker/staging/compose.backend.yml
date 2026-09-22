@@ -1,0 +1,59 @@
+name: masarifi-staging
+
+x-backend: &backend
+  image: ${MASARIFI_BACKEND_REPOSITORY:?set the backend image repository without a tag}@sha256:${MASARIFI_BACKEND_DIGEST:?set the 64-character image digest}
+  user: "65532:65532"
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  mem_limit: 512m
+  cpus: 1
+  stop_grace_period: 30s
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+  networks: [backend]
+
+services:
+  migration:
+    <<: *backend
+    command: ["dist/src/migration.js"]
+    env_file:
+      - ${MASARIFI_MIGRATION_ENV_FILE:-/etc/masarifi/migration.env}
+    environment:
+      MASARIFI_PROCESS_KIND: migration
+    restart: "no"
+    profiles: [migrate]
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *backend
+    command: ["dist/src/main.js"]
+    env_file:
+      - ${MASARIFI_API_ENV_FILE:-/etc/masarifi/api.env}
+    environment:
+      MASARIFI_PROCESS_KIND: api
+    ports:
+      - 127.0.0.1:${MASARIFI_API_PORT:-3000}:3000
+
+  worker:
+    <<: *backend
+    command: ["dist/src/worker.js"]
+    env_file:
+      - ${MASARIFI_WORKER_ENV_FILE:-/etc/masarifi/worker.env}
+    environment:
+      MASARIFI_PROCESS_KIND: worker
+    healthcheck:
+      disable: true
+
+networks:
+  backend: {}
