@@ -1,5 +1,34 @@
 # Phase 14 Final Local Verification
 
+## 2026-09-21 staging-readiness refresh
+
+**Reviewed base**: `3960dbb29d00b45f1eb98a65656f8cb01ded7f91`
+
+**Candidate branch**: `codex/staging-readiness-review`
+
+**Accepted implementation SHA**: `88780d86f341c797b2a135c79d80270122db84c6`, verified by Backend Foundation run [`35597915147`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/35597915147). No deployment, image publication, signed build or production release was performed.
+
+This refresh supersedes the status of the 2026-09-11 evidence for the current candidate but preserves that evidence below as historical proof. The repository and CI gates are complete; genuine hosted-provider, signed-device and disaster-recovery acceptance remains conditional external evidence.
+
+| Area | Fresh result |
+|---|---|
+| Mobile clean CI reproduction | PASS: direct `expo-router` boundary mock and obligation-detail coverage; full clean npm Jest passed 445 suites / 2,273 tests. Typecheck, lint (0 errors / 78 existing warnings), 978-file frontend-quality check, Expo dependency alignment and Android prebuild passed. Targeted `--detectOpenHandles` passed 2 suites / 11 tests without reporting an open handle. High/Critical audit threshold passed; 28 Moderate transitive advisories remain. |
+| API configuration contract | PASS: all 102 runtime keys are represented in `.env.example`; environment schema tests passed 2 suites / 67 tests; typecheck and build passed. Worker/provider secrets remain commented and process-specific. |
+| API clean verification | PASS: `npm run verify` exited 0 with 124 unit suites / 934 tests, 79 contract suites / 233 tests, build, migration checksums, workflow-pin security and the High audit threshold. The Docker-backed rerun then passed 95 integration suites / 250 tests, 41 E2E suites / 71 tests and 43 security suites / 145 tests with live database coverage. One upstream Moderate `qs` advisory remains. |
+| Admin dependency/security gate | PASS after remediation: the existing Sites/Vite build chain was moved to supported versions; `npm audit --audit-level=high` reports zero vulnerabilities. |
+| Admin functional/build gate | PASS: typecheck, lint, 82 Vitest files / 873 tests, 82-route Next production build, Vinext/Sites production build, and desktop Playwright 109 passed / 9 intentional skips. The tracked Sites plugin replaces the ignored local-only module, and explicit Admin/API/TRPC middleware matchers preserve Clerk protection across both build systems. |
+| Local Supabase/database/container refresh | PASS: Docker Desktop's Linux engine ran the repository-local Supabase stack. Reset applied every migration through `20260915150000_ai_assistant_routing.sql`; lint returned zero errors; pgTAP passed 60 files / 1,823 assertions; migration/restore passed 5/5; queue/lease integration 4/4; foundation E2E 3/3; live integration 95/250; live E2E 41/71; security 43/145; and ledger/AI/engagement/report/tracking/planning/sync recovery gates passed. The pinned non-root image passed 10 container suites / 22 tests; Docker Scout found 0 Critical, High, Moderate or Low findings across 354 packages. |
+| Current remote workflow | PASS: Backend Foundation run [`35597915147`](https://github.com/abdullah-zordok/MASREFY_Final/actions/runs/35597915147) completed successfully for `88780d86f341c797b2a135c79d80270122db84c6`. Application, full database/performance/stress, Mobile, Admin, all five Admin browser viewports, secret scan, redaction, image runtime and Trivy jobs passed. The signing/provenance job was correctly skipped because the run was not an authorized `backend-v*` tag. |
+| Reachable external control-plane checks | CONDITIONAL: the maintained `admin-web` Vercel preview deployed successfully and is protected by Vercel authentication. Two duplicate 49-day-old Vercel projects fail closed because one enables production mocks and the other lacks a valid HTTPS API origin; they require hosting-owner cleanup, not a code bypass. EAS ownership is valid, but the only build is an expired development APK from an older SHA and the `preview` environment has no staging variables. Supabase CLI has no hosted access token. GitHub has no branch protection/ruleset or repository secrets configured. |
+
+Cross-system review traced Clerk identity and owner isolation; accounts/categories; integer-minor-unit ledger/planning/reporting; durable sync/idempotency/conflicts/tombstones; Android SMS/notification capture and review; AI gateway/privacy/quota/fallback; push/SMTP/reminders; private attachment/scanner boundaries; Admin RBAC/recent-auth/audit; and health/logging/worker lease paths across controllers, contracts, repositories, Mobile live services, migrations/RLS tests, workers and error mapping. No additional source defect was confirmed. Hosted identities, providers, signed devices and real staging infrastructure remain external proof, not local simulations.
+
+### Current verdict
+
+**READY WITH CONDITIONS** — the implementation, clean-install builds, local Supabase migrations/RLS/recovery, release image, vulnerability scan and complete remote CI are green. Before a real staging acceptance can be promoted to **READY**, the owners must supply the designated hosted Supabase/Clerk/API environment, EAS preview variables and current signed devices, provider sandboxes, backup/PITR and deployed rollback evidence, and either disconnect or correctly configure the two duplicate Vercel projects. The repository must not be presented as production-ready while those conditions remain open.
+
+---
+
 **Date**: 2026-09-11
 **Accepted Wave 9 base**: `86a64c4c3f70bd9f8cd2d388144be470f90c7ff7`
 **Environment**: Windows local checkout; repository-local Supabase project `MASREFY__Final` on loopback API/database ports 54321/54322. Hosted, device, provider and signing proof remains in `external-gates.md`.
