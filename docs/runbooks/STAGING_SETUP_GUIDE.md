@@ -74,8 +74,10 @@ npx --no-install supabase link --workdir ../.. --project-ref <STAGING_PROJECT_RE
 npx --no-install supabase migration list --workdir ../.. --linked
 npx --no-install supabase db push --workdir ../.. --dry-run --linked
 npx --no-install supabase db lint --workdir ../.. --linked --schema public,private,audit --level error --fail-on error
+npm run supabase:start
 npm run db:reset
 npm run test:db
+npm run supabase:stop
 ```
 
 `migration:checksums` must report no drift, `migration list` must show repository migrations in the same order as remote history, and the dry run must contain only the intended pending migrations. Local pgTAP asserts required extensions (including `pgcrypto` and `pgmq`), schemas, owners/grants, RLS, functions, fixed function search paths, triggers, constraints, and named indexes. Run mutating pgTAP cases only on a disposable database; use read-only structural queries and controlled owner-isolation tests on hosted staging. Retain the full output. Inspect Supabase Database → Extensions and Database → Tables/Policies for unexpected objects or disabled RLS; do not make dashboard-only schema edits.
@@ -319,7 +321,7 @@ Official references: [EAS environment variables](https://docs.expo.dev/eas/envir
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Plaintext, public key | **BLOCKING** — staging Clerk Production-instance publishable key |
 | `EXPO_PUBLIC_APP_ORIGIN` | Plaintext | **OPTIONAL** — approved staging app origin if the configured flow uses it |
 
-The preview profile currently relies on EAS's implicit environment selection. Bind it explicitly to `"environment": "preview"` before the first staging build so it cannot consume another environment by default.
+The preview profile explicitly selects the EAS `preview` environment. Verify that the Masarifi-owned Expo project has that environment and only staging values before building.
 
 The configured Expo project belongs to `@abdallazordok`, not the intended Masarifi staging owner. Create or select a Masarifi-owned project and verify its preview environment before building. A fresh signed preview build from the accepted SHA is **BLOCKING (P0)**.
 
@@ -426,12 +428,12 @@ Official Hostinger references: [VPS support](https://www.hostinger.com/support/v
 No production/VPS Compose file, reverse-proxy configuration, systemd unit, PM2 configuration, Admin Dockerfile, or deployment workflow exists in this repository. Do not describe one as already available. The minimum staging deployment is:
 
 1. **BLOCKING (P0):** Provision a dedicated supported Ubuntu VPS. Create a non-root deployment/service account, disable password/root SSH after confirming key access, apply security updates, and install Docker Engine/Compose, Node 24/npm, Nginx, and the TLS client only when absent. Record versions.
-2. **BLOCKING (P0):** Create DNS A/AAAA records for `<STAGING_API_HOST>` and `<STAGING_ADMIN_HOST>` pointing only to this VPS. Issue trusted TLS certificates. Redirect HTTP to HTTPS.
-3. **BLOCKING (P0):** Allow public 80/443 only. Restrict SSH to approved administrator IPs/VPN. Bind API/Admin upstream ports to `127.0.0.1`; never expose PostgreSQL, ClamAV, or `/health/ready` publicly.
-4. **BLOCKING (P0):** Create `/etc/masarifi/{api,worker,migration,admin}.env`, owner-readable only (`chmod 600`). Keep process contracts separate. Confirm no production hostname/project/credential appears.
+2. **BLOCKING (P0):** Create DNS A/AAAA records for `<STAGING_API_HOST>` pointing to this VPS; add `<STAGING_ADMIN_HOST>` only if Admin will be hosted here. Issue trusted TLS certificates. Redirect HTTP to HTTPS.
+3. **BLOCKING (P0):** Allow public 80/443 only. Restrict SSH to approved administrator IPs/VPN. Bind the API upstream port to `127.0.0.1` and the Admin upstream port only if hosted here; never expose PostgreSQL, ClamAV, or `/health/ready` publicly.
+4. **BLOCKING (P0):** Create `/etc/masarifi/{api,worker,migration}.env` and `/etc/masarifi/admin.env` only if Admin is VPS-hosted; make them owner-readable only (`chmod 600`). Keep process contracts separate. Confirm no production hostname/project/credential appears.
 5. **BLOCKING (P0):** Pull the backend image by immutable digest. Run the migration entrypoint once. Start API with the image default/API entrypoint. Start worker from the same image with `dist/src/worker.js` and override/disable the inherited Docker health check because the worker has no HTTP server.
 6. **BLOCKING (P0):** Run containers as the image non-root UID, read-only root filesystem where compatible, dropped Linux capabilities, no-new-privileges, bounded CPU/memory/PIDs, local/private networking, restart policy, and writable mounts only where proven necessary.
-7. **BLOCKING (P0):** Build Admin from the accepted SHA with its build-time env. Run `npm start` under a non-root systemd service on loopback. Proxy both hosts through Nginx and preserve forwarded protocol/host/IP handling expected by the apps.
+7. **BLOCKING (P0) if Admin uses this VPS:** Build Admin from the accepted SHA with its build-time env. Run `npm start` under a non-root systemd service on loopback. Proxy the Admin host through Nginx and preserve forwarded protocol/host/IP handling expected by the apps. Otherwise verify the separate permitted Admin host in Section 16.
 8. **REQUIRED (P1):** Configure journald/container log rotation, disk monitoring, OS security updates, service restart alerts, and encrypted off-host backups for VPS-only state. The database remains hosted Supabase.
 
 After the operator has verified the exact image digest and the `masarifi` private Docker network exists, the minimum backend command shape is:
@@ -467,19 +469,18 @@ docker run -d \
   <REGISTRY>/<IMAGE>@sha256:<DIGEST> dist/src/worker.js
 ```
 
-The resource limits are conservative starting values, not measured capacity. Raise them only from staging evidence. For Admin, install dependencies/build as the service account, then use a systemd unit with `EnvironmentFile=/etc/masarifi/admin.env` and an `ExecStart` equivalent to `npm --prefix <ADMIN_RELEASE_DIRECTORY>/apps/admin-web start -- --hostname 127.0.0.1 --port 3001`. Use an absolute release directory for each SHA; switch the service's release symlink only after a successful build. Nginx proxies the API hostname to `127.0.0.1:3000` and the Admin hostname to `127.0.0.1:3001`, preserves `Host` and `X-Forwarded-Proto`, sets conservative request/body timeouts, and exposes only the API routes intended by the application.
+The resource limits are conservative starting values, not measured capacity. Raise them only from staging evidence. If Admin is hosted on this VPS, install dependencies/build as the service account, then use a systemd unit with `EnvironmentFile=/etc/masarifi/admin.env` and an `ExecStart` equivalent to `npm --prefix <ADMIN_RELEASE_DIRECTORY>/apps/admin-web start -- --hostname 127.0.0.1 --port 3001`. Use an absolute release directory for each SHA; switch the service's release symlink only after a successful build. Nginx proxies the API hostname to `127.0.0.1:3000` and, only for VPS-hosted Admin, its hostname to `127.0.0.1:3001`. Preserve `Host` and `X-Forwarded-Proto`, set conservative request/body timeouts, and expose only the API routes intended by the application.
 
 Service checks:
 
 ```bash
 curl --fail --silent https://<STAGING_API_HOST>/health/live
 curl --fail --silent http://127.0.0.1:3000/health/ready
-systemctl is-active <ADMIN_SYSTEMD_UNIT>
 docker inspect --format '{{.Config.User}} {{.Image}}' <API_CONTAINER>
 docker inspect --format '{{.Config.User}} {{.Image}}' <WORKER_CONTAINER>
 ```
 
-Expected: public liveness 200; internal readiness 200 only when dependencies are ready and 503 when deliberately unavailable; Admin active; containers non-root and pinned to the recorded digest. Monitor worker process state, `platform.started`, queue age/depth, and job outcomes instead of an HTTP health endpoint.
+If Admin is VPS-hosted, also run `systemctl is-active <ADMIN_SYSTEMD_UNIT>`; otherwise verify its separate hosting deployment. Expected: public liveness 200; internal readiness 200 only when dependencies are ready and 503 when deliberately unavailable; Admin active; containers non-root and pinned to the recorded digest. Monitor worker process state, `platform.started`, queue age/depth, and job outcomes instead of an HTTP health endpoint.
 
 Rollback rehearsal is **BLOCKING (P0)** for staging verification: retain the N-1 API/worker digest and N-1 Admin artifact, stop traffic/worker safely, switch application artifacts, and repeat smoke checks. Schema rollback uses forward fixes or a verified hosted restore; do not run down migrations. Prove N-1 is compatible with the additive schema before the rehearsal.
 
@@ -531,32 +532,32 @@ Document an owner and response link for every alert. A dashboard without a teste
 
 ## 19. Final end-to-end staging acceptance matrix
 
-Run this matrix against the same immutable release after Sections 1–18 are configured. The status vocabulary is `PASS/FAIL/BLOCKED`; never convert a skipped check into a pass.
+Run this matrix against the same immutable release after Sections 1–18 are configured. As of 2026-09-22, every row is `BLOCKED` because the isolated hosted foundation and signed Android build are not available; repository CI is not a substitute for hosted/device evidence. Update each row to `PASS` or `FAIL` with dated evidence when exercised. The status vocabulary is `PASS/FAIL/BLOCKED`; never convert a skipped check into a pass.
 
 | Feature | Test | Expected result | Required evidence | Status | Blocking |
 | --- | --- | --- | --- | --- | --- |
-| Auth | Phone/Google sign-in; OTP expiry; refresh/revoke; MFA/recent-auth; create/update/delete webhook; disabled user; two-owner isolation | Valid staging identities work; invalid/expired/production tokens and cross-owner access fail closed; webhook is signed/idempotent | Clerk delivery/auth logs, API request IDs, denial responses, audit rows | `NOT RUN` | **P0** |
-| Onboarding | First login, locale/currency/profile steps, interruption/restart, completion | Progress resumes once and completed state is valid; no production identity/data | Device recording, profile/onboarding rows, API IDs | `NOT RUN` | **P0** |
-| Home | Fresh and returning user, empty/loading/error/populated/offline states, deep-link return | Totals/navigation use staging data and recover without duplicate fetch/mutation | Screen capture, request IDs, reconciled totals | `NOT RUN` | **P0** |
-| Transactions | Account/category/transaction create/update/delete/refund/transfer where supported; invalid/conflict/idempotent replay | Integer-minor-unit balances reconcile; validation/conflict contract holds; replay has one effect | API responses, ledger versions, SQL reconciliation | `NOT RUN` | **P0** |
-| Offline/sync | Queue mutations offline; reconnect; conflict/tombstone; duplicate; force-stop/restart; lease recovery; delta pagination/retention | Eventual single correct state with documented conflict result and no lost committed work | Device DB state, sync IDs, queue/lease rows, final API state | `NOT RUN` | **P0** |
-| Tracking review | Supported/unsupported/malformed/duplicate/transfer import; edit/reject/accept | Only accepted supported income/expense produces one reconciled ledger effect | Import/review IDs, parser result, ledger row | `NOT RUN` | **P0** |
-| Android SMS/listener | Consent and both capture paths independently; offline/restart; same event via both sources | Minimal data leaves device; one review item; retention/deletion works | Permission capture, redacted local/API records, dedupe key | `NOT RUN` | **P0 for Android scope** |
-| Notifications | Transaction/reminder/AI; Android; foreground/background/killed/denied; quiet hours; retry/receipt/deep link | One eligible notification, correct safe content and destination, no duplicate | Expo ticket/receipt, worker job ID, device recording | `NOT RUN` | **P0** |
-| Reminders | 3-day/7-day/financial-inactive; cooldown; re-evaluation; activity before dispatch; disabled notification | Eligible reminder once; stale/ineligible work canceled; correct Home/Tracking destination | Eligibility/job rows, notification ID, device recording | `NOT RUN` | **P0 for implemented scope** |
-| AI Chat | Domain/intent routing; deterministic/provider; tools/truth; multi-turn; injection; malformed; quota/token/budget; outage/timeout; action confirmation | Deterministic/unrelated paths use zero provider tokens; provider output is schema/privacy bounded; no unconfirmed mutation | OpenRouter Activity absence/presence, `ai_usage_events`, tool evidence, audit/action rows | `NOT RUN` | **P0 if enabled** |
-| Voice AI | Permission states; record/re-record/cancel; silent/unclear; expense/income/unsupported/multiple; expiry/retry/outage; confirm/replay | Private short-lived upload; structured proposal; no ledger change before confirm; one change after replayed confirm | Device recording, Storage/session/job/action IDs, ledger before/after | `NOT RUN` | **P0 if enabled** |
-| Budgets | Create/update/status/boundaries and concurrent/conflicting update | Valid remaining/used values reconcile with ledger; invalid version/amount rejected | Planning versions, API IDs, calculation sheet/output | `NOT RUN` | **P0** |
-| Savings | Create/update/contribution/progress/boundaries | Progress and balances reconcile in minor units; isolation holds | Planning/ledger rows and API IDs | `NOT RUN` | **P0** |
-| Obligations | Create/update/due/payment/upcoming/retry boundaries | Payment is idempotent, status/due calculations reconcile, reminder is correct | Obligation/payment versions, ledger/event IDs | `NOT RUN` | **P0** |
-| Reports/email | Generate/download/expire; SMTP accept/reject/timeout/retry; webhook signature | Report matches financial truth; private link expires; exactly one controlled email | Report/job IDs, checksum/counts, SMTP provider event, expiry response | `NOT RUN` | **P0** |
-| Support/files | Clean/EICAR/oversized/wrong-type; scan outage/recovery; cross-owner URL | Only clean in-policy private object becomes available; signed URL expires | Scan/object/job IDs, denial/expiry responses | `NOT RUN` | **P0** |
-| Admin | Bootstrap; roles; stale/fresh MFA; users; notifications; AI; monitoring; tracking; jobs; audits; incidents/maintenance | Least privilege and recent-auth hold; every sensitive action audited; staging API only | Admin recording, API/audit IDs, configured API origin | `NOT RUN` | **P0** |
-| API | CORS; body/validation/error limits; auth; liveness/readiness; SIGTERM; dependency outage | Contract-safe errors; foreign origins denied; liveness/readiness differ correctly; graceful drain | HTTP captures, structured logs, shutdown timing | `NOT RUN` | **P0** |
-| Worker | Outbox/sync/AI/report/security jobs; lease loss; provider failure; SIGTERM/restart | Jobs process once or retry/terminalize visibly; leases recover; no HTTP health dependency | Worker logs, queue rows, metrics/alerts | `NOT RUN` | **P0** |
-| Database | From-zero migrations; checksums/order; lint/pgTAP; RLS; constraints/indexes/functions/triggers; isolated restore; PITR only if available | Schema matches repository, isolation holds, restore reconciles | CLI output, migration history, pgTAP TAP output, restore comparison | `NOT RUN` | **P0** |
-| Release/rollback | Deploy immutable digest; smoke; switch to compatible N-1; switch forward | Release identity is traceable; both transitions preserve data and restore service within target | Digests/build IDs, timestamps, health/smoke output, RTO | `NOT RUN` | **P0** |
-| Accessibility/performance | Mobile screen reader/focus/text scale/contrast; Admin keyboard/focus/viewports; staging load | Agreed accessibility checks and p95 latency/error budget pass | Device/browser recordings and load summary | `NOT RUN` | **P1** |
+| Auth | Phone/Google sign-in; OTP expiry; refresh/revoke; MFA/recent-auth; create/update/delete webhook; disabled user; two-owner isolation | Valid staging identities work; invalid/expired/production tokens and cross-owner access fail closed; webhook is signed/idempotent | Clerk delivery/auth logs, API request IDs, denial responses, audit rows | `BLOCKED` | **P0** |
+| Onboarding | First login, locale/currency/profile steps, interruption/restart, completion | Progress resumes once and completed state is valid; no production identity/data | Device recording, profile/onboarding rows, API IDs | `BLOCKED` | **P0** |
+| Home | Fresh and returning user, empty/loading/error/populated/offline states, deep-link return | Totals/navigation use staging data and recover without duplicate fetch/mutation | Screen capture, request IDs, reconciled totals | `BLOCKED` | **P0** |
+| Transactions | Account/category/transaction create/update/delete/refund/transfer where supported; invalid/conflict/idempotent replay | Integer-minor-unit balances reconcile; validation/conflict contract holds; replay has one effect | API responses, ledger versions, SQL reconciliation | `BLOCKED` | **P0** |
+| Offline/sync | Queue mutations offline; reconnect; conflict/tombstone; duplicate; force-stop/restart; lease recovery; delta pagination/retention | Eventual single correct state with documented conflict result and no lost committed work | Device DB state, sync IDs, queue/lease rows, final API state | `BLOCKED` | **P0** |
+| Tracking review | Supported/unsupported/malformed/duplicate/transfer import; edit/reject/accept | Only accepted supported income/expense produces one reconciled ledger effect | Import/review IDs, parser result, ledger row | `BLOCKED` | **P0** |
+| Android SMS/listener | Consent and both capture paths independently; offline/restart; same event via both sources | Minimal data leaves device; one review item; retention/deletion works | Permission capture, redacted local/API records, dedupe key | `BLOCKED` | **P0 for Android scope** |
+| Notifications | Transaction/reminder/AI; Android; foreground/background/killed/denied; quiet hours; retry/receipt/deep link | One eligible notification, correct safe content and destination, no duplicate | Expo ticket/receipt, worker job ID, device recording | `BLOCKED` | **P0** |
+| Reminders | 3-day/7-day/financial-inactive; cooldown; re-evaluation; activity before dispatch; disabled notification | Eligible reminder once; stale/ineligible work canceled; correct Home/Tracking destination | Eligibility/job rows, notification ID, device recording | `BLOCKED` | **P0 for implemented scope** |
+| AI Chat | Domain/intent routing; deterministic/provider; tools/truth; multi-turn; injection; malformed; quota/token/budget; outage/timeout; action confirmation | Deterministic/unrelated paths use zero provider tokens; provider output is schema/privacy bounded; no unconfirmed mutation | OpenRouter Activity absence/presence, `ai_usage_events`, tool evidence, audit/action rows | `BLOCKED` | **P0 if enabled** |
+| Voice AI | Permission states; record/re-record/cancel; silent/unclear; expense/income/unsupported/multiple; expiry/retry/outage; confirm/replay | Private short-lived upload; structured proposal; no ledger change before confirm; one change after replayed confirm | Device recording, Storage/session/job/action IDs, ledger before/after | `BLOCKED` | **P0 if enabled** |
+| Budgets | Create/update/status/boundaries and concurrent/conflicting update | Valid remaining/used values reconcile with ledger; invalid version/amount rejected | Planning versions, API IDs, calculation sheet/output | `BLOCKED` | **P0** |
+| Savings | Create/update/contribution/progress/boundaries | Progress and balances reconcile in minor units; isolation holds | Planning/ledger rows and API IDs | `BLOCKED` | **P0** |
+| Obligations | Create/update/due/payment/upcoming/retry boundaries | Payment is idempotent, status/due calculations reconcile, reminder is correct | Obligation/payment versions, ledger/event IDs | `BLOCKED` | **P0** |
+| Reports/email | Generate/download/expire; SMTP accept/reject/timeout/retry; webhook signature | Report matches financial truth; private link expires; exactly one controlled email | Report/job IDs, checksum/counts, SMTP provider event, expiry response | `BLOCKED` | **P0** |
+| Support/files | Clean/EICAR/oversized/wrong-type; scan outage/recovery; cross-owner URL | Only clean in-policy private object becomes available; signed URL expires | Scan/object/job IDs, denial/expiry responses | `BLOCKED` | **P0** |
+| Admin | Bootstrap; roles; stale/fresh MFA; users; notifications; AI; monitoring; tracking; jobs; audits; incidents/maintenance | Least privilege and recent-auth hold; every sensitive action audited; staging API only | Admin recording, API/audit IDs, configured API origin | `BLOCKED` | **P0** |
+| API | CORS; body/validation/error limits; auth; liveness/readiness; SIGTERM; dependency outage | Contract-safe errors; foreign origins denied; liveness/readiness differ correctly; graceful drain | HTTP captures, structured logs, shutdown timing | `BLOCKED` | **P0** |
+| Worker | Outbox/sync/AI/report/security jobs; lease loss; provider failure; SIGTERM/restart | Jobs process once or retry/terminalize visibly; leases recover; no HTTP health dependency | Worker logs, queue rows, metrics/alerts | `BLOCKED` | **P0** |
+| Database | From-zero migrations; checksums/order; lint/pgTAP; RLS; constraints/indexes/functions/triggers; isolated restore; PITR only if available | Schema matches repository, isolation holds, restore reconciles | CLI output, migration history, pgTAP TAP output, restore comparison | `BLOCKED` | **P0** |
+| Release/rollback | Deploy immutable digest; smoke; switch to compatible N-1; switch forward | Release identity is traceable; both transitions preserve data and restore service within target | Digests/build IDs, timestamps, health/smoke output, RTO | `BLOCKED` | **P0** |
+| Accessibility/performance | Mobile screen reader/focus/text scale/contrast; Admin keyboard/focus/viewports; staging load | Agreed accessibility checks and p95 latency/error budget pass | Device/browser recordings and load summary | `BLOCKED` | **P1** |
 
 ### Evidence record template
 
