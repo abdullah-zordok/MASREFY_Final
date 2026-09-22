@@ -50,6 +50,8 @@ gh run view 35786882667 --repo masarifiratibi-spec/masarifi.ratibi_app
 
 Expected: clean worktree, the accepted SHA, and all repository release jobs passing. `signed-release-evidence` may be skipped because it is intentionally limited to authorized `backend-v*` tags.
 
+Run `35786882667` built CI-local image ID `sha256:472f37482caba6bd20ebd2a0697593d79acb6f7191f205686ac15812498099c8`, passed all 10 container suites, and passed Trivy with zero fixable High/Critical findings. The [image-evidence artifact](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/35786882667/artifacts/10721074659) records that local image ID. It is not a registry digest and must not be deployed until an authorized registry publish produces an immutable pullable digest.
+
 ## 2. Hosted Supabase staging project
 
 Official references: [environment management](https://supabase.com/docs/guides/deployment/managing-environments), [database migrations](https://supabase.com/docs/guides/deployment/database-migrations), [database connections](https://supabase.com/docs/guides/database/connecting-to-postgres), and [backups](https://supabase.com/docs/guides/platform/backups).
