@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "967022547895",
+    "project_id": "masarifi-staging",
+    "storage_bucket": "masarifi-staging.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967022547895:android:1c04631f1b55f79f38ce32",
+        "android_client_info": {
+          "package_name": "com.masarifi.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1cWr4Z_ZKiq7c19ZM6xv91-Ja9yp6TwI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
