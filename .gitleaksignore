@@ -41,3 +41,6 @@ db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.servic
 db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:106
 db5066edc9947b50d0124947f258f0d919dfe34d:apps/api/test/unit/ledger/ledger.service.spec.ts:generic-api-key:121
 c65efc62cdcdab0c25ccf2ca0801b505243df371:apps/api/specs/003-admin-rbac-security/spec.md:generic-api-key:950
+
+# Firebase-generated Android client key; public mobile identifier, not an FCM service-account secret.
+384f7c77a738a7bc6cab32af132f510ede38174c:apps/mobile/google-services.json:gcp-api-key:18
