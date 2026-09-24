@@ -32,7 +32,7 @@ describeLiveDatabase('AI budget reservation and hard stop', () => {
   beforeAll(async () => {
     await pool.query("insert into public.profiles(id,status) values($1,'active')", [userId]);
     await pool.query(
-      "update private.ai_feature_routes set limits=jsonb_set(limits,'{monthlyBudget}','0.041'::jsonb) where workload='transaction_classification'",
+      `update private.ai_feature_routes set max_price='{"prompt":"0.000002","completion":"0.000006"}',limits=jsonb_set(limits,'{monthlyBudget}','0.041'::jsonb) where workload='transaction_classification'`,
     );
   });
   afterAll(async () => {
@@ -41,7 +41,7 @@ describeLiveDatabase('AI budget reservation and hard stop', () => {
     ]);
     await pool.query('delete from private.ai_usage_events where user_id=$1', [userId]);
     await pool.query(
-      "update private.ai_feature_routes set enabled=false,limits=jsonb_set(limits,'{monthlyBudget}','25'::jsonb) where workload='transaction_classification'",
+      `update private.ai_feature_routes set enabled=false,max_price='{"prompt":"0","completion":"0"}',limits=jsonb_set(limits,'{monthlyBudget}','25'::jsonb) where workload='transaction_classification'`,
     );
     await pool.onModuleDestroy();
   });
