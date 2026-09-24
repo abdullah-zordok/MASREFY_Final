@@ -17,8 +17,17 @@ select is((select count(*) from private.ai_providers where key='openrouter'),1::
   'OpenRouter provider metadata is seeded once');
 select is((select count(*) from private.ai_models where model_id in
  ('openai/gpt-audio-mini','google/gemini-2.5-flash-lite','anthropic/claude-haiku-4.5',
-  'openai/gpt-5.2','anthropic/claude-sonnet-5','google/gemini-2.5-flash')),6::bigint,
+  'openai/gpt-5.2','anthropic/claude-sonnet-5','google/gemini-2.5-flash',
+  'qwen/qwen3.8-27b:free')),7::bigint,
   'reviewed model candidates are seeded');
+select is((select count(*) from private.ai_feature_routes r join private.ai_models m on m.id=r.primary_model_id
+  where r.workload<>'voice_transcription' and m.model_id='qwen/qwen3.8-27b:free'),5::bigint,
+  'all text routes use the reviewed free model');
+select is((select count(*) from private.ai_feature_routes
+  where workload<>'voice_transcription' and fallback_model_ids='{}'::uuid[]
+    and provider_allowlist=array['modelrun']::text[]
+    and max_price='{"prompt":"0","completion":"0"}'::jsonb),5::bigint,
+  'text routes cannot fall back to a paid model');
 select is((select m.model_id from private.ai_feature_routes r join private.ai_models m on m.id=r.primary_model_id
   where r.workload='voice_transcription'),'google/gemini-2.5-flash','voice primary uses a reviewed ZDR audio model');
 select is((select array_agg(m.model_id order by f.ordinality) from private.ai_feature_routes r
@@ -36,6 +45,14 @@ select ok((select bool_and(zdr_required) from private.ai_feature_routes),
 
 grant masarifi_migration to current_user with inherit true,set true;
 set local role masarifi_migration;
+insert into public.profiles(id,status) values('ai-route-admin','active');
+insert into public.admin_profiles(user_id,status) values('ai-route-admin','active');
+update private.ai_prompt_versions
+set status='approved',approved_by='ai-route-admin',published_at=clock_timestamp(),evaluation_passed=true
+where workload='financial_assistant';
+update private.ai_feature_routes set enabled=true where workload='financial_assistant';
+select is(private.get_effective_ai_route('financial_assistant')->'fallbacks','[]'::jsonb,
+  'a free-only route is effective without a paid fallback');
 insert into public.profiles(id,status) values('ai-command-owner','active');
 select ok((private.reserve_ai_quota('ai-command-owner','99000000-0000-4000-8000-000000000001')->>'allowed')::boolean,
   'first quota reservation succeeds');
