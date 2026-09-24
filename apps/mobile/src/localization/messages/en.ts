@@ -917,6 +917,12 @@ const en = {
   'tracking.status.unavailable': 'Unavailable',
   'tracking.source.bankNotifications': 'Bank notifications',
   'tracking.source.financialSms': 'Financial SMS',
+  'tracking.source.smsTracking': 'SMS tracking',
+  'tracking.source.smsTrackingDescription':
+    'Read financial SMS and match your tracking keywords',
+  'tracking.source.notificationTracking': 'Transaction notification tracking',
+  'tracking.source.notificationTrackingDescription':
+    'Read transaction alerts from banks, wallets, and payment apps',
   'tracking.status.demo': 'Demo tracking — not production data',
   'tracking.permission.warning':
     'Message permissions not granted. Tap to enable.',
@@ -1436,16 +1442,20 @@ const en = {
   'planning.obligation.lastPayment': 'Last payment',
   'planning.obligation.paymentHistory': 'Payment history',
   'planning.obligation.noPayments': 'No payments yet',
-  'planning.validation.currencyMismatch': 'The account and payment currencies must match.',
+  'planning.validation.currencyMismatch':
+    'The account and payment currencies must match.',
   'planning.paymentMatch.transaction': 'Detected transaction',
   'planning.paymentMatch.suggestedObligation': 'Suggested obligation',
   'planning.paymentMatch.confidenceStrong': 'Strong match',
   'planning.paymentMatch.confidenceReview': 'Review this match',
-  'planning.paymentMatch.reason.amount_match': 'The amount is close to the expected installment.',
-  'planning.paymentMatch.reason.keyword_match': 'The transaction description matches the provider.',
+  'planning.paymentMatch.reason.amount_match':
+    'The amount is close to the expected installment.',
+  'planning.paymentMatch.reason.keyword_match':
+    'The transaction description matches the provider.',
   'planning.paymentMatch.remainingBefore': 'Remaining now',
   'planning.paymentMatch.remainingAfter': 'After matching',
-  'planning.paymentMatch.refreshRequired': 'The match details changed or are incomplete. Refresh before confirming.',
+  'planning.paymentMatch.refreshRequired':
+    'The match details changed or are incomplete. Refresh before confirming.',
   'planning.paymentMatch.confirm': 'Match payment',
   'planning.paymentMatch.ignore': 'Ignore match',
   'planning.paymentMatch.status.clear': 'Clear match',

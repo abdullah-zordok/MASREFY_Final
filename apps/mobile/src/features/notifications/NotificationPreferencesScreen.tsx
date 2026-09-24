@@ -22,7 +22,15 @@ import {
   useSaveNotificationPreferences
 } from './notification-preferences-queries';
 
-const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const dayKeys = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday'
+];
 
 export function NotificationPreferencesScreen() {
   const theme = useTheme();
@@ -56,7 +64,12 @@ export function NotificationPreferencesScreen() {
   }, [refetchPermission]);
 
   if (preferences.isLoading) {
-    return <StateView state="loading" title={t('notifications.preferences.loading')} />;
+    return (
+      <StateView
+        state="loading"
+        title={t('notifications.preferences.loading')}
+      />
+    );
   }
   if (preferences.isError || !preferences.data) {
     return (
@@ -69,7 +82,12 @@ export function NotificationPreferencesScreen() {
     );
   }
   if (!input) {
-    return <StateView state="loading" title={t('notifications.preferences.loading')} />;
+    return (
+      <StateView
+        state="loading"
+        title={t('notifications.preferences.loading')}
+      />
+    );
   }
 
   const update = (patch: Partial<NotificationPreferencesInput>) =>
@@ -85,10 +103,13 @@ export function NotificationPreferencesScreen() {
       { onError: () => setError(t('notifications.preferences.saveError')) }
     );
   };
-  const quietDayLabels = dayKeys.map((day) => `${t('notifications.preferences.quietPrefix')} ${t(`notifications.preferences.day.${day}`)}`);
+  const quietDayLabels = dayKeys.map(
+    (day) =>
+      `${t('notifications.preferences.quietPrefix')} ${t(`notifications.preferences.day.${day}`)}`
+  );
   const permissionState = permission.data ?? 'unavailable';
   const changePhonePermission = () => {
-    if (permissionState === 'not_requested' || permissionState === 'denied') {
+    if (permissionState === 'not_requested') {
       request.mutate();
       return;
     }
@@ -97,7 +118,9 @@ export function NotificationPreferencesScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.stack}>
-      <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{t('notifications.preferences.title')}</Text>
+      <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+        {t('notifications.preferences.title')}
+      </Text>
       <SwitchRow
         label={t('notifications.preferences.phone')}
         value={permissionState === 'granted'}
@@ -112,7 +135,10 @@ export function NotificationPreferencesScreen() {
             value={input.categoryEnabled[category] ?? false}
             onValueChange={(enabled) =>
               update({
-                categoryEnabled: { ...input.categoryEnabled, [category]: enabled }
+                categoryEnabled: {
+                  ...input.categoryEnabled,
+                  [category]: enabled
+                }
               })
             }
           />
@@ -123,33 +149,45 @@ export function NotificationPreferencesScreen() {
         <SwitchRow
           label={t('notifications.preferences.quietHours')}
           value={input.quietHours.enabled}
-          onValueChange={(enabled) => update({ quietHours: { ...input.quietHours, enabled } })}
+          onValueChange={(enabled) =>
+            update({ quietHours: { ...input.quietHours, enabled } })
+          }
         />
         <FormField
           label={t('notifications.preferences.quietStart')}
           value={input.quietHours.start}
-          onChangeText={(start) => update({ quietHours: { ...input.quietHours, start } })}
+          onChangeText={(start) =>
+            update({ quietHours: { ...input.quietHours, start } })
+          }
         />
         <FormField
           label={t('notifications.preferences.quietEnd')}
           value={input.quietHours.end}
-          onChangeText={(end) => update({ quietHours: { ...input.quietHours, end } })}
+          onChangeText={(end) =>
+            update({ quietHours: { ...input.quietHours, end } })
+          }
         />
         <FormField
           label={t('notifications.preferences.quietTimezone')}
           value={input.quietHours.timeZone}
-          onChangeText={(timeZone) => update({ quietHours: { ...input.quietHours, timeZone } })}
+          onChangeText={(timeZone) =>
+            update({ quietHours: { ...input.quietHours, timeZone } })
+          }
         />
         <ChipSelector
           options={quietDayLabels}
-          selected={input.quietHours.weekdays.map((weekday) => quietDayLabels[weekday])}
+          selected={input.quietHours.weekdays.map(
+            (weekday) => quietDayLabels[weekday]
+          )}
           onToggle={(label) => {
             const weekday = quietDayLabels.indexOf(label);
             update({
               quietHours: {
                 ...input.quietHours,
                 weekdays: input.quietHours.weekdays.includes(weekday)
-                  ? input.quietHours.weekdays.filter((value) => value !== weekday)
+                  ? input.quietHours.weekdays.filter(
+                      (value) => value !== weekday
+                    )
                   : [...input.quietHours.weekdays, weekday].sort()
               }
             });
@@ -157,17 +195,36 @@ export function NotificationPreferencesScreen() {
         />
       </Section>
 
-      {error ? <Text accessibilityRole="alert" style={{ color: theme.colors.status.danger }}>{error}</Text> : null}
-      <ActionButton label={t('notifications.preferences.save')} loading={save.isPending} onPress={saveInput} />
+      {error ? (
+        <Text
+          accessibilityRole="alert"
+          style={{ color: theme.colors.status.danger }}
+        >
+          {error}
+        </Text>
+      ) : null}
+      <ActionButton
+        label={t('notifications.preferences.save')}
+        loading={save.isPending}
+        onPress={saveInput}
+      />
     </ScrollView>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   const theme = useTheme();
   return (
     <SurfaceCard style={styles.section}>
-      <Text style={[styles.heading, { color: theme.colors.textPrimary }]}>{title}</Text>
+      <Text style={[styles.heading, { color: theme.colors.textPrimary }]}>
+        {title}
+      </Text>
       {children}
     </SurfaceCard>
   );

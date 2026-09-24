@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 import { renderWithQueryData } from '@/test-utils/render';
@@ -46,10 +46,8 @@ describe('TrackingStatusJourney', () => {
     renderWithQueryData(<TrackingStatusScreen />, [
       [automaticTrackingKeys.status, status]
     ]);
-    expect(
-      (await screen.findAllByText(translate('tracking.status.unavailable')))
-        .length
-    ).toBeGreaterThan(0);
+    expect(await screen.findByTestId('tracking-sms-switch')).toBeDisabled();
+    expect(screen.getByTestId('tracking-notification-switch')).toBeDisabled();
     expect(
       screen.getByText(translate('tracking.permission.unavailableMessage'))
     ).toBeOnTheScreen();
@@ -81,9 +79,10 @@ describe('TrackingStatusJourney', () => {
     renderWithQueryData(<TrackingStatusScreen />, [
       [automaticTrackingKeys.status, status]
     ]);
-    expect(
-      await screen.findByText(translate('tracking.status.enabled'))
-    ).toBeOnTheScreen();
+    expect(await screen.findByTestId('tracking-sms-switch')).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ checked: false })
+    );
     expect(
       screen.getByTestId('tracking-permission-warning-banner')
     ).toBeOnTheScreen();
@@ -95,7 +94,7 @@ describe('TrackingStatusJourney', () => {
     ).toBeOnTheScreen();
   });
 
-  it('shows independent Android bank notification and SMS source controls', async () => {
+  it('shows independent Android SMS and transaction-notification switches', async () => {
     changeLocale('en');
     mockPermission('granted');
     jest
@@ -110,6 +109,8 @@ describe('TrackingStatusJourney', () => {
       permissionStatus: 'granted' as const,
       notificationAccessStatus: 'denied' as const,
       smsPermissionStatus: 'granted' as const,
+      smsTrackingEnabled: false,
+      notificationTrackingEnabled: false,
       serviceState: 'healthy' as const,
       lastDetectedAt: null,
       lastSuccessfulTransactionId: null,
@@ -124,12 +125,15 @@ describe('TrackingStatusJourney', () => {
       [automaticTrackingKeys.status, status]
     ]);
 
-    expect(await screen.findByText('Bank notifications')).toBeOnTheScreen();
-    expect(screen.getByText('Financial SMS')).toBeOnTheScreen();
-    expect(screen.getAllByText('Granted')).toHaveLength(1);
-    fireEvent.press(screen.getByTestId('tracking-bank-notifications-source'));
+    expect(await screen.findByText('SMS tracking')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Transaction notification tracking')
+    ).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('tracking-notification-switch'));
 
-    expect(openNotificationSettings).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(openNotificationSettings).toHaveBeenCalledTimes(1)
+    );
   });
 
   it('does not show Android source controls on iOS', async () => {
@@ -153,8 +157,10 @@ describe('TrackingStatusJourney', () => {
       [automaticTrackingKeys.status, status]
     ]);
 
-    expect(await screen.findByText(translate('tracking.status.enabled'))).toBeOnTheScreen();
-    expect(screen.queryByText('Bank notifications')).toBeNull();
-    expect(screen.queryByText('Financial SMS')).toBeNull();
+    expect(
+      await screen.findByText(translate('tracking.status.enabled'))
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('SMS tracking')).toBeNull();
+    expect(screen.queryByText('Transaction notification tracking')).toBeNull();
   });
 });

@@ -26,16 +26,19 @@ const otpPattern =
   /\botp\b|one[\s-]?time|verification\s*code|رمز\s*(?:التحقق|الأمان)|كود\s*التحقق/iu;
 const marketingPattern =
   /\boffer\b|\bpromo\b|\bdiscount\b|عرض|خصم\s+\d+\s*%|اشتر/iu;
-const kindPatterns: [
-  NonNullable<TrackingImportEvent['kind']>,
-  RegExp
-][] = [
+const kindPatterns: [NonNullable<TrackingImportEvent['kind']>, RegExp][] = [
   ['refund', /\brefund(?:ed)?\b|استرداد|مسترد/iu],
-  ['income', /\bsalary\b|\bcredited\b|\bdeposit(?:ed)?\b|\breceived\b|راتب|إيداع|ايداع|استلام/iu],
+  [
+    'income',
+    /\bsalary\b|\bcredited\b|\bdeposit(?:ed)?\b|\breceived\b|راتب|إيداع|ايداع|استلام/iu
+  ],
   ['transfer', /\btransfer(?:red)?\b|تحويل/iu],
   ['expense', /\bwithdraw(?:al|n)?\b|سحب/iu],
   ['fee', /\bfees?\b|رسوم/iu],
-  ['expense', /\bpaid\b|\bpurchase\b|\bspent\b|\bdebit(?:ed)?\b|\bcharged\b|شراء|دفع|خصم/iu]
+  [
+    'expense',
+    /\bpaid\b|\bpurchase\b|\bspent\b|\bdebit(?:ed)?\b|\bcharged\b|شراء|دفع|خصم/iu
+  ]
 ];
 const paymentRailPatterns: [string, RegExp][] = [
   ['apple_pay', /\bapple\s+pay\b/iu],
@@ -193,7 +196,7 @@ function normalizeMessage(
     sourceKey: message.key,
     sender: message.packageName,
     packageName: message.packageName,
-    body: `${message.title} ${message.text}`.trim(),
+    body: message.text || message.title,
     receivedAt: message.postedAt
   };
 }
@@ -204,7 +207,7 @@ async function fingerprintMessage(
 ): Promise<string> {
   const digest = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
-    `${message.packageName ?? 'sms'}\n${normalizeSender(message.sender)}\n${message.receivedAt}\n${normalizedBody}`
+    `${Math.floor(message.receivedAt / 300_000)}\n${normalizedBody}`
   );
   return `sha256:${digest}`;
 }
@@ -229,7 +232,9 @@ function detectKind(
     senderRules: readonly SenderRule[];
   }
 ): NonNullable<TrackingImportEvent['kind']> | null {
-  const structuredKind = kindPatterns.find(([, pattern]) => pattern.test(value))?.[0];
+  const structuredKind = kindPatterns.find(([, pattern]) =>
+    pattern.test(value)
+  )?.[0];
   if (structuredKind) return structuredKind;
   const normalizedSender = normalizeSender(sender);
   const trustedSender = options.senderRules.some(
@@ -246,7 +251,9 @@ function detectKind(
 }
 
 function detectPaymentRail(value: string): string | null {
-  return paymentRailPatterns.find(([, pattern]) => pattern.test(value))?.[0] ?? null;
+  return (
+    paymentRailPatterns.find(([, pattern]) => pattern.test(value))?.[0] ?? null
+  );
 }
 
 function extractMerchant(value: string): string | null {
@@ -285,7 +292,8 @@ function selectAccount(
 ): Account | null {
   const eligible = accounts.filter(
     (account) =>
-      account.currencyCode === currency && accountAllowsAutomaticTracking(account)
+      account.currencyCode === currency &&
+      accountAllowsAutomaticTracking(account)
   );
   const hinted = body.match(
     /(?:card|account|acct|ending|بطاقة|حساب)[^0-9]{0,20}([0-9]{4})(?![0-9])/iu
@@ -302,5 +310,7 @@ function selectAccount(
 
 function minimizedSender(value: string): string | null {
   const normalized = value.normalize('NFKC').trim();
-  return /https?:|\+?\d{4,}/iu.test(normalized) ? null : normalized.slice(0, 80);
+  return /https?:|\+?\d{4,}/iu.test(normalized)
+    ? null
+    : normalized.slice(0, 80);
 }

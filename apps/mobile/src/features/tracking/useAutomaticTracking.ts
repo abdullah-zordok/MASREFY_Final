@@ -1,6 +1,4 @@
-import {
-  useSyncExternalStore,
-} from 'react';
+import { useSyncExternalStore } from 'react';
 import {
   useMutation,
   useQuery,
@@ -19,22 +17,26 @@ import {
 } from '@/services/automatic-tracking-coordinator';
 import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
 import { bankNotificationService } from '@/services/platform/bank-notification-service';
+import { trackingSourcePreferences } from '@/services/tracking-source-preferences';
 import { automaticTrackingKeys } from '@/state/automatic-tracking-view-state';
 
 export function useTrackingStatus() {
   return useQuery({
     queryKey: automaticTrackingKeys.status,
     queryFn: async () => {
-      const [status, permission, notificationAccess] = await Promise.all([
-        automaticTrackingService.getStatus(),
-        createTrackingPermissionService().getState(),
-        bankNotificationService.getAccessState()
-      ]);
+      const [status, permission, notificationAccess, sources] =
+        await Promise.all([
+          automaticTrackingService.getStatus(),
+          createTrackingPermissionService().getState(),
+          bankNotificationService.getAccessState(),
+          trackingSourcePreferences.load()
+        ]);
       if (status.platform !== 'android') return status;
       const sourceGranted =
         permission.status === 'granted' || notificationAccess === 'granted';
       const sourcesUnavailable =
-        permission.status === 'unavailable' && notificationAccess === 'unavailable';
+        permission.status === 'unavailable' &&
+        notificationAccess === 'unavailable';
       return {
         ...status,
         permissionStatus: sourceGranted
@@ -44,10 +46,11 @@ export function useTrackingStatus() {
             : permission.status,
         smsPermissionStatus: permission.status,
         notificationAccessStatus: notificationAccess,
-        serviceState:
-          sourcesUnavailable
-            ? ('unavailable' as const)
-            : status.serviceState
+        smsTrackingEnabled: sources.smsEnabled,
+        notificationTrackingEnabled: sources.notificationEnabled,
+        serviceState: sourcesUnavailable
+          ? ('unavailable' as const)
+          : status.serviceState
       };
     },
     refetchOnMount: 'always'

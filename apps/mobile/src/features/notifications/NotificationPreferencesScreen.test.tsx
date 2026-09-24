@@ -40,11 +40,18 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockPermission = 'denied';
   changeLocale('en');
-  mockPreferences.mockReturnValue({ data: preferences, isLoading: false, isError: false, refetch: jest.fn() });
+  mockPreferences.mockReturnValue({
+    data: preferences,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn()
+  });
 });
 
 it('renders every preference section and preserves edited input after save errors', async () => {
-  mockSave.mutate.mockImplementation((_input, options) => options?.onError?.(new Error('offline')));
+  mockSave.mutate.mockImplementation((_input, options) =>
+    options?.onError?.(new Error('offline'))
+  );
   renderWithProviders(<NotificationPreferencesScreen />);
 
   [
@@ -69,7 +76,9 @@ it('renders every preference section and preserves edited input after save error
     'Quiet Saturday',
     'Phone notifications',
     'Quiet hours'
-  ].forEach((label) => expect(screen.getAllByText(label).length).toBeGreaterThan(0));
+  ].forEach((label) =>
+    expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+  );
 
   expect(screen.queryByText('Hide amounts on lock screen')).toBeNull();
   expect(screen.queryByText('Daily summary')).toBeNull();
@@ -116,15 +125,15 @@ it('saves reminder preferences separately from transaction alerts', () => {
       input: expect.objectContaining({
         categoryEnabled: expect.objectContaining({
           app_inactivity: false,
-          transaction: true,
-        }),
-      }),
+          transaction: true
+        })
+      })
     }),
-    expect.any(Object),
+    expect.any(Object)
   );
 });
 
-it.each(['not_requested', 'denied'])(
+it.each(['not_requested'])(
   'hides permission details and requests the OS permission directly when permission is %s',
   (permissionState) => {
     mockPermission = permissionState;
@@ -134,15 +143,18 @@ it.each(['not_requested', 'denied'])(
     expect(screen.queryByText(/Permission not requested/i)).toBeNull();
     expect(screen.queryByText('Request notification permission')).toBeNull();
     expect(screen.queryByText('Request permission')).toBeNull();
-    expect(screen.getByLabelText('Phone notifications').props.accessibilityState.checked).toBe(false);
+    expect(
+      screen.getByLabelText('Phone notifications').props.accessibilityState
+        .checked
+    ).toBe(false);
     fireEvent.press(screen.getByLabelText('Phone notifications'));
 
     expect(mockRequest.mutate).toHaveBeenCalledTimes(1);
     expect(mockOpenSettings.mutate).not.toHaveBeenCalled();
-  },
+  }
 );
 
-it.each(['permanently_denied', 'unavailable'])(
+it.each(['denied', 'permanently_denied', 'unavailable'])(
   'opens settings from the phone row when permission is %s',
   (permissionState) => {
     mockPermission = permissionState;
@@ -152,14 +164,17 @@ it.each(['permanently_denied', 'unavailable'])(
 
     expect(mockOpenSettings.mutate).toHaveBeenCalledTimes(1);
     expect(mockRequest.mutate).not.toHaveBeenCalled();
-  },
+  }
 );
 
 it('reflects granted permission and opens OS settings when the user tries to disable it', () => {
   mockPermission = 'granted';
   renderWithProviders(<NotificationPreferencesScreen />);
 
-  expect(screen.getByLabelText('Phone notifications').props.accessibilityState.checked).toBe(true);
+  expect(
+    screen.getByLabelText('Phone notifications').props.accessibilityState
+      .checked
+  ).toBe(true);
   fireEvent.press(screen.getByLabelText('Phone notifications'));
 
   expect(mockOpenSettings.mutate).toHaveBeenCalledTimes(1);
@@ -167,13 +182,23 @@ it('reflects granted permission and opens OS settings when the user tries to dis
 });
 
 it('shows loading and offline recovery states', () => {
-  mockPreferences.mockReturnValueOnce({ data: undefined, isLoading: true, isError: false, refetch: jest.fn() });
+  mockPreferences.mockReturnValueOnce({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+    refetch: jest.fn()
+  });
   const loading = renderWithProviders(<NotificationPreferencesScreen />);
   expect(screen.getByText('Loading notification preferences')).toBeTruthy();
   loading.unmount();
 
   const refetch = jest.fn();
-  mockPreferences.mockReturnValueOnce({ data: undefined, isLoading: false, isError: true, refetch });
+  mockPreferences.mockReturnValueOnce({
+    data: undefined,
+    isLoading: false,
+    isError: true,
+    refetch
+  });
   renderWithProviders(<NotificationPreferencesScreen />);
   fireEvent.press(screen.getByLabelText('Retry'));
   expect(refetch).toHaveBeenCalledTimes(1);

@@ -141,6 +141,12 @@ function setup(overrides: Record<string, unknown> = {}) {
     },
     inbox,
     bankNotifications,
+    sources: {
+      load: jest.fn().mockResolvedValue({
+        smsEnabled: true,
+        notificationEnabled: true
+      })
+    },
     listAccounts: jest.fn().mockResolvedValue([ownerAccount]),
     listCachedAccounts: jest.fn().mockResolvedValue([ownerAccount]),
     queue,
@@ -163,6 +169,38 @@ function setup(overrides: Record<string, unknown> = {}) {
 }
 
 describe('automatic tracking coordinator', () => {
+  it('does not read SMS when only notification tracking is enabled', async () => {
+    const context = setup({
+      sources: {
+        load: jest.fn().mockResolvedValue({
+          smsEnabled: false,
+          notificationEnabled: true
+        })
+      }
+    });
+
+    await context.coordinator.sync();
+
+    expect(context.inbox.readRecent).not.toHaveBeenCalled();
+  });
+
+  it('does not read notifications when only SMS tracking is enabled', async () => {
+    const context = setup({
+      sources: {
+        load: jest.fn().mockResolvedValue({
+          smsEnabled: true,
+          notificationEnabled: false
+        })
+      }
+    });
+    context.bankNotifications.getAccessState.mockResolvedValue('granted');
+
+    await context.coordinator.sync();
+
+    expect(context.bankNotifications.readRecent).not.toHaveBeenCalled();
+    expect(context.inbox.readRecent).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['not live', { isLive: () => false }],
     ['signed out', { session: () => ({ status: 'signed_out', userId: null }) }],

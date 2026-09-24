@@ -14,6 +14,7 @@ describe('bank notification platform service', () => {
     const native = {
       isNotificationAccessEnabled: jest.fn().mockResolvedValue(true),
       openNotificationAccessSettings: jest.fn().mockResolvedValue(undefined),
+      setNotificationCaptureEnabled: jest.fn().mockResolvedValue(undefined),
       readRecentNotifications: jest.fn().mockResolvedValue([
         {
           key: 'n-1',
@@ -40,16 +41,19 @@ describe('bank notification platform service', () => {
     ]);
     await service.acknowledge(['', 'n-1']);
     await service.openSettings();
+    await service.setCaptureEnabled(false);
 
     expect(native.readRecentNotifications).toHaveBeenCalledWith(100);
     expect(native.acknowledgeNotifications).toHaveBeenCalledWith(['n-1']);
     expect(native.openNotificationAccessSettings).toHaveBeenCalledTimes(1);
+    expect(native.setNotificationCaptureEnabled).toHaveBeenCalledWith(false);
   });
 
   it('maps disabled and missing native adapters without granting access', async () => {
     const native = {
       isNotificationAccessEnabled: jest.fn().mockResolvedValue(false),
       openNotificationAccessSettings: jest.fn(),
+      setNotificationCaptureEnabled: jest.fn(),
       readRecentNotifications: jest.fn(),
       acknowledgeNotifications: jest.fn()
     };

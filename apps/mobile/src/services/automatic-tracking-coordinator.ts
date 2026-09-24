@@ -34,6 +34,10 @@ import {
   bankNotificationService,
   type BankNotificationService
 } from './platform/bank-notification-service';
+import {
+  trackingSourcePreferences,
+  type TrackingSourcePreferences
+} from './tracking-source-preferences';
 
 export type AutomaticTrackingSyncStatus =
   | 'idle'
@@ -72,6 +76,7 @@ interface CoordinatorDependencies {
   permission: Pick<TrackingPermissionService, 'getState'>;
   inbox: SmsInboxService;
   bankNotifications: BankNotificationService;
+  sources: Pick<TrackingSourcePreferences, 'load'>;
   listAccounts: CoreFinanceService['listAccounts'];
   listCachedAccounts(): Promise<Account[]>;
   queue: SmsImportQueue;
@@ -121,19 +126,21 @@ export function createAutomaticTrackingCoordinator(
         status = await dependencies.tracking.getStatus();
         mode = status.mode;
       }
-      if (
-        mode === 'paused' ||
-        status?.serviceState === 'unavailable'
-      ) {
+      if (mode === 'paused' || status?.serviceState === 'unavailable') {
         return update('idle');
       }
+      const sources = await dependencies.sources.load();
+      if (!sources.smsEnabled && !sources.notificationEnabled)
+        return update('idle');
       const [permission, notificationAccess] = await Promise.all([
         dependencies.permission.getState(),
         dependencies.bankNotifications.getAccessState()
       ]);
       if (
-        (permission.status !== 'granted' || !dependencies.inbox.available) &&
-        notificationAccess !== 'granted'
+        (!sources.smsEnabled ||
+          permission.status !== 'granted' ||
+          !dependencies.inbox.available) &&
+        (!sources.notificationEnabled || notificationAccess !== 'granted')
       )
         return update('idle');
 
@@ -148,9 +155,11 @@ export function createAutomaticTrackingCoordinator(
         ? await dependencies.listAccounts()
         : await dependencies.listCachedAccounts();
       update('scanning');
-      const since = queue.cursor ?? Math.max(0, dependencies.now() - 7 * 86_400_000);
-      if (notificationAccess === 'granted') {
-        const notifications = await dependencies.bankNotifications.readRecent(100);
+      const since =
+        queue.cursor ?? Math.max(0, dependencies.now() - 7 * 86_400_000);
+      if (sources.notificationEnabled && notificationAccess === 'granted') {
+        const notifications =
+          await dependencies.bankNotifications.readRecent(100);
         if (notifications.length > 0) {
           const prepared = await dependencies.prepare(notifications, {
             ...rules,
@@ -196,9 +205,16 @@ export function createAutomaticTrackingCoordinator(
         }
       }
 
-      if (permission.status !== 'granted' || !dependencies.inbox.available)
+      if (
+        !sources.smsEnabled ||
+        permission.status !== 'granted' ||
+        !dependencies.inbox.available
+      )
         return update('idle');
-      const messages = await dependencies.inbox.readRecent({ since, limit: 100 });
+      const messages = await dependencies.inbox.readRecent({
+        since,
+        limit: 100
+      });
       const prepared = await dependencies.prepare(messages, {
         ...rules,
         accounts,
@@ -272,13 +288,11 @@ async function onlineRules(
   ]);
   await dependencies.queue.saveRules(ownerId, {
     keywords: keywordRules.map(({ value, enabled }) => ({ value, enabled })),
-    senders: senderRules.map(
-      ({ normalizedSender, enabled, trusted }) => ({
-        normalizedSender,
-        enabled,
-        trusted
-      })
-    )
+    senders: senderRules.map(({ normalizedSender, enabled, trusted }) => ({
+      normalizedSender,
+      enabled,
+      trusted
+    }))
   });
   await dependencies.queue.checkpoint(ownerId, 0, [], mode);
   return { keywordRules, senderRules };
@@ -340,7 +354,10 @@ async function flush(
   for (const entry of pending) {
     let current: TrackingImportSession;
     if (entry.sessionId) {
-      current = await dependencies.tracking.getImportSession(entry.sessionId, ownerId);
+      current = await dependencies.tracking.getImportSession(
+        entry.sessionId,
+        ownerId
+      );
     } else {
       current = await dependencies.tracking.submitImport(
         entry.submission,
@@ -424,6 +441,7 @@ const coordinator = createAutomaticTrackingCoordinator({
   permission: createTrackingPermissionService(),
   inbox: smsInboxService,
   bankNotifications: bankNotificationService,
+  sources: trackingSourcePreferences,
   listAccounts: (...args) => coreFinanceService.listAccounts(...args),
   async listCachedAccounts() {
     cachedAccountsReady ??= cachedAccounts.hydrate();

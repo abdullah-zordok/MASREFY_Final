@@ -87,6 +87,13 @@ class MasarifiSmsInboxModule : Module() {
       )
     }
 
+    AsyncFunction("setNotificationCaptureEnabled") { enabled: Boolean ->
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("notification_context_unavailable")
+      NotificationCaptureState.setEnabled(context, enabled)
+      if (!enabled) NotificationQueue(context).clear()
+    }
+
     AsyncFunction("readRecentNotifications") { requestedLimit: Int ->
       val context = appContext.reactContext
         ?: throw IllegalStateException("notification_context_unavailable")

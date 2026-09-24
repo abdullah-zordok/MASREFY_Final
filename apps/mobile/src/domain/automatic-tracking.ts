@@ -92,12 +92,7 @@ export interface TrackingImportSubmission {
 export interface TrackingImportSession {
   id: string;
   status:
-    | 'received'
-    | 'processing'
-    | 'review'
-    | 'complete'
-    | 'failed'
-    | 'cancelled';
+    'received' | 'processing' | 'review' | 'complete' | 'failed' | 'cancelled';
   itemCount: number;
   acceptedCount: number;
   rejectedCount: number;
@@ -274,6 +269,8 @@ export interface TrackingStatusSnapshot {
     | null;
   smsPermissionStatus?: TrackingStatusSnapshot['permissionStatus'];
   notificationAccessStatus?: 'granted' | 'denied' | 'unavailable' | null;
+  smsTrackingEnabled?: boolean;
+  notificationTrackingEnabled?: boolean;
   serviceState: TrackingServiceState;
   lastDetectedAt: number | null;
   lastSuccessfulTransactionId: string | null;

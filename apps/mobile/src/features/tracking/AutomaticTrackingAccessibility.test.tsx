@@ -27,9 +27,11 @@ describe('automatic tracking accessibility', () => {
       ]
     ]);
 
-    expect(
-      await screen.findByLabelText(translate('tracking.status.mode'))
-    ).toBeOnTheScreen();
+    const switches = screen.getAllByRole('switch');
+    expect(switches.length).toBeGreaterThan(0);
+    switches.forEach((control) =>
+      expect(control.props.accessibilityLabel).toBeTruthy()
+    );
     expect(
       screen.getByText(translate('tracking.howItWorks.detection'))
     ).toBeOnTheScreen();

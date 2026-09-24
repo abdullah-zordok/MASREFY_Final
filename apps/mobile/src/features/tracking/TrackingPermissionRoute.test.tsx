@@ -7,6 +7,7 @@ import { permissionState } from '@/services/mocks/tracking-permission-service';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { translate } from '@/localization/i18n';
 import { renderWithProviders } from '@/test-utils/render';
+import { trackingSourcePreferences } from '@/services/tracking-source-preferences';
 
 const mockPermissionService = {
   getState: jest.fn(),
@@ -38,6 +39,9 @@ describe('tracking permission route', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('requests only after education and enables the requested mode after grant', async () => {
+    const saveSource = jest
+      .spyOn(trackingSourcePreferences, 'set')
+      .mockResolvedValue({ smsEnabled: true, notificationEnabled: false });
     const setMode = jest
       .spyOn(automaticTrackingService, 'setMode')
       .mockResolvedValue({} as never);
@@ -48,7 +52,10 @@ describe('tracking permission route', () => {
     );
 
     await waitFor(() => {
-      expect(mockPermissionService.requestAfterEducation).toHaveBeenCalledTimes(1);
+      expect(mockPermissionService.requestAfterEducation).toHaveBeenCalledTimes(
+        1
+      );
+      expect(saveSource).toHaveBeenCalledWith('sms', true);
       expect(setMode).toHaveBeenCalledWith('review_all');
       expect(router.replace).toHaveBeenCalledWith('/tracking');
     });
@@ -62,7 +69,9 @@ describe('tracking permission route', () => {
     renderWithProviders(<PermissionRoute />);
 
     fireEvent.press(
-      await screen.findByLabelText(translate('appShell.permission.openSettings'))
+      await screen.findByLabelText(
+        translate('appShell.permission.openSettings')
+      )
     );
 
     await waitFor(() =>

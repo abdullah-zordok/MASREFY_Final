@@ -899,6 +899,12 @@ const ar: MessageCatalog = {
   'tracking.status.unavailable': 'غير متاح',
   'tracking.source.bankNotifications': 'إشعارات البنوك',
   'tracking.source.financialSms': 'الرسائل المالية',
+  'tracking.source.smsTracking': 'تتبع الرسائل النصية (\u2068SMS\u2069)',
+  'tracking.source.smsTrackingDescription':
+    'قراءة الرسائل المالية ومطابقتها مع كلمات التتبع',
+  'tracking.source.notificationTracking': 'تتبع إشعارات المعاملات',
+  'tracking.source.notificationTrackingDescription':
+    'قراءة إشعارات البنوك والمحافظ وتطبيقات الدفع',
   'tracking.status.demo': 'تتبّع تجريبي — ليست بيانات إنتاج',
   'tracking.permission.warning': 'لم يتم منح أذونات الرسائل. اضغط للتفعيل.',
   'tracking.permission.unavailableMessage':
@@ -1406,16 +1412,19 @@ const ar: MessageCatalog = {
   'planning.obligation.lastPayment': 'آخر دفعة',
   'planning.obligation.paymentHistory': 'سجل الدفعات',
   'planning.obligation.noPayments': 'لا توجد دفعات بعد',
-  'planning.validation.currencyMismatch': 'يجب أن تتطابق عملة الحساب مع عملة الدفعة.',
+  'planning.validation.currencyMismatch':
+    'يجب أن تتطابق عملة الحساب مع عملة الدفعة.',
   'planning.paymentMatch.transaction': 'المعاملة المكتشفة',
   'planning.paymentMatch.suggestedObligation': 'الالتزام المقترح',
   'planning.paymentMatch.confidenceStrong': 'تطابق قوي',
   'planning.paymentMatch.confidenceReview': 'راجع هذا التطابق',
-  'planning.paymentMatch.reason.amount_match': 'المبلغ قريب من قيمة القسط المتوقع.',
+  'planning.paymentMatch.reason.amount_match':
+    'المبلغ قريب من قيمة القسط المتوقع.',
   'planning.paymentMatch.reason.keyword_match': 'وصف العملية يتطابق مع الجهة.',
   'planning.paymentMatch.remainingBefore': 'المتبقي الآن',
   'planning.paymentMatch.remainingAfter': 'بعد المطابقة',
-  'planning.paymentMatch.refreshRequired': 'تفاصيل المطابقة تغيرت أو غير مكتملة. حدّث البيانات قبل التأكيد.',
+  'planning.paymentMatch.refreshRequired':
+    'تفاصيل المطابقة تغيرت أو غير مكتملة. حدّث البيانات قبل التأكيد.',
   'planning.paymentMatch.confirm': 'مطابقة الدفعة',
   'planning.paymentMatch.ignore': 'تجاهل المطابقة',
   'planning.paymentMatch.status.clear': 'مطابقة واضحة',

@@ -7,6 +7,7 @@ import type {
 interface NativeBankNotifications {
   isNotificationAccessEnabled(): Promise<unknown>;
   openNotificationAccessSettings(): Promise<void>;
+  setNotificationCaptureEnabled(enabled: boolean): Promise<void>;
   readRecentNotifications(limit: number): Promise<unknown>;
   acknowledgeNotifications(keys: readonly string[]): Promise<void>;
 }
@@ -27,6 +28,9 @@ export function createAndroidBankNotificationService(
     },
     async openSettings() {
       await native?.openNotificationAccessSettings();
+    },
+    async setCaptureEnabled(enabled) {
+      await native?.setNotificationCaptureEnabled(enabled);
     },
     async readRecent(limit) {
       if (!native) return [];
@@ -49,8 +53,7 @@ export function createAndroidBankNotificationService(
   };
 }
 
-export const bankNotificationService =
-  createAndroidBankNotificationService();
+export const bankNotificationService = createAndroidBankNotificationService();
 
 function parseNotification(value: unknown): RawBankNotification | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;

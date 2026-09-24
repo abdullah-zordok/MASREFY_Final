@@ -8,10 +8,12 @@ import { prepareFinancialMessageImport, prepareSmsImport } from './sms-import';
 jest.mock('expo-crypto', () => ({
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
   digestStringAsync: async (_algorithm: string, value: string) =>
-    Array.from(value).reduce(
-      (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
-      0
-    ).toString(16)
+    Array.from(value)
+      .reduce(
+        (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
+        0
+      )
+      .toString(16)
 }));
 
 const account = (patch: Partial<Account> = {}): Account => ({
@@ -75,7 +77,10 @@ describe('SMS import preparation', () => {
     const result = await prepareSmsImport(
       [
         message({ id: 'otp', body: 'رمز التحقق OTP هو 123456 ولا تشاركه' }),
-        message({ id: 'promo', body: 'عرض خصم 20% استخدم الرابط https://example.test' })
+        message({
+          id: 'promo',
+          body: 'عرض خصم 20% استخدم الرابط https://example.test'
+        })
       ],
       {
         keywordRules: [keyword('otp'), keyword('خصم')],
@@ -93,10 +98,29 @@ describe('SMS import preparation', () => {
     const result = await prepareSmsImport(
       [
         message({ id: 'sender', body: '12 SAR', receivedAt: 10 }),
-        message({ id: 'keyword', body: 'special activity 13 SAR', receivedAt: 11 }),
-        message({ id: 'pattern', sender: 'OTHER', body: 'Purchase 14 SAR', receivedAt: 12 }),
-        message({ id: 'disabled', sender: 'OTHER', body: 'disabled 15 SAR', receivedAt: 13 }),
-        message({ id: 'noise', sender: 'OTHER', body: 'Reference 16 SAR', receivedAt: 14 })
+        message({
+          id: 'keyword',
+          body: 'special activity 13 SAR',
+          receivedAt: 11
+        }),
+        message({
+          id: 'pattern',
+          sender: 'OTHER',
+          body: 'Purchase 14 SAR',
+          receivedAt: 12
+        }),
+        message({
+          id: 'disabled',
+          sender: 'OTHER',
+          body: 'disabled 15 SAR',
+          receivedAt: 13
+        }),
+        message({
+          id: 'noise',
+          sender: 'OTHER',
+          body: 'Reference 16 SAR',
+          receivedAt: 14
+        })
       ],
       {
         keywordRules: [keyword('special activity'), keyword('disabled', false)],
@@ -106,7 +130,9 @@ describe('SMS import preparation', () => {
       }
     );
 
-    expect(result.events.map((event) => event.amountMinor)).toEqual([-1300, -1400]);
+    expect(result.events.map((event) => event.amountMinor)).toEqual([
+      -1300, -1400
+    ]);
     expect(result.newestReceivedAt).toBe(14);
   });
 
@@ -272,11 +298,42 @@ describe('SMS import preparation', () => {
         ...options,
         knownFingerprints: new Set([fingerprint!])
       })
-    ).resolves.toMatchObject({ events: [], skippedFingerprints: [fingerprint] });
+    ).resolves.toMatchObject({
+      events: [],
+      skippedFingerprints: [fingerprint]
+    });
+  });
+
+  it('omits a transaction notification already imported from the matching SMS', async () => {
+    const options = {
+      keywordRules: [] as KeywordRule[],
+      senderRules: [] as SenderRule[],
+      accounts: [account()],
+      knownFingerprints: new Set<string>()
+    };
+    const sms = await prepareSmsImport([message()], options);
+    const notification = await prepareFinancialMessageImport(
+      [
+        {
+          key: 'notification-for-message-1',
+          packageName: 'com.android.messaging',
+          title: 'Example Bank app',
+          text: 'Paid 12.50 SAR with card 4242',
+          postedAt: message().receivedAt + 10_000
+        }
+      ],
+      {
+        ...options,
+        knownFingerprints: new Set([sms.events[0]!.sourceItemKey])
+      }
+    );
+
+    expect(notification.events).toEqual([]);
   });
 
   it('emits minimized structured data without sensitive source text', async () => {
-    const raw = 'Paid 12.50 SAR card 4242 OTP 987654 phone +966501234567 https://secret.test';
+    const raw =
+      'Paid 12.50 SAR card 4242 OTP 987654 phone +966501234567 https://secret.test';
     const result = await prepareSmsImport(
       [message({ body: raw.replace('OTP', 'reference') })],
       {
@@ -299,17 +356,44 @@ describe('SMS import preparation', () => {
     const exact = account({ id: 'exact', lastFour: '4242' });
     const other = account({ id: 'other', lastFour: '1111' });
     const exactResult = await prepareSmsImport([message()], {
-      keywordRules: [], senderRules: [], accounts: [other, exact], knownFingerprints: new Set()
+      keywordRules: [],
+      senderRules: [],
+      accounts: [other, exact],
+      knownFingerprints: new Set()
     });
-    const soleResult = await prepareSmsImport([message({ body: 'Paid 12 SAR' })], {
-      keywordRules: [], senderRules: [], accounts: [account({ id: 'sar' }), account({ id: 'usd', currencyCode: 'USD' })], knownFingerprints: new Set()
-    });
-    const defaultResult = await prepareSmsImport([message({ body: 'Paid 12 SAR' })], {
-      keywordRules: [], senderRules: [], accounts: [account({ id: 'first' }), account({ id: 'default', isDefault: true })], knownFingerprints: new Set()
-    });
-    const ambiguous = await prepareSmsImport([message({ body: 'Paid 12 SAR' })], {
-      keywordRules: [], senderRules: [], accounts: [account({ id: 'first' }), account({ id: 'second' })], knownFingerprints: new Set()
-    });
+    const soleResult = await prepareSmsImport(
+      [message({ body: 'Paid 12 SAR' })],
+      {
+        keywordRules: [],
+        senderRules: [],
+        accounts: [
+          account({ id: 'sar' }),
+          account({ id: 'usd', currencyCode: 'USD' })
+        ],
+        knownFingerprints: new Set()
+      }
+    );
+    const defaultResult = await prepareSmsImport(
+      [message({ body: 'Paid 12 SAR' })],
+      {
+        keywordRules: [],
+        senderRules: [],
+        accounts: [
+          account({ id: 'first' }),
+          account({ id: 'default', isDefault: true })
+        ],
+        knownFingerprints: new Set()
+      }
+    );
+    const ambiguous = await prepareSmsImport(
+      [message({ body: 'Paid 12 SAR' })],
+      {
+        keywordRules: [],
+        senderRules: [],
+        accounts: [account({ id: 'first' }), account({ id: 'second' })],
+        knownFingerprints: new Set()
+      }
+    );
 
     expect(exactResult.events[0]?.accountId).toBe('exact');
     expect(soleResult.events[0]?.accountId).toBe('sar');

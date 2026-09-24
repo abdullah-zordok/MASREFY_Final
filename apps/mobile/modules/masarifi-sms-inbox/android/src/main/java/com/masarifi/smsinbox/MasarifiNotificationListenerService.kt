@@ -16,6 +16,22 @@ data class CapturedNotification(
   val postedAt: Long
 )
 
+object NotificationCaptureState {
+  private const val PREFERENCES = "masarifi_notification_capture_v1"
+  private const val ENABLED = "enabled"
+
+  fun isEnabled(context: Context): Boolean =
+    context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+      .getBoolean(ENABLED, false)
+
+  fun setEnabled(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(ENABLED, enabled)
+      .apply()
+  }
+}
+
 object NotificationQueuePolicy {
   const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
   private const val MAX_RECORDS = 200
@@ -51,6 +67,10 @@ internal class NotificationQueue(context: Context) {
 
   fun acknowledge(keys: Set<String>) = synchronized(lock) {
     write(NotificationQueuePolicy.acknowledge(readStored(), keys))
+  }
+
+  fun clear() = synchronized(lock) {
+    write(emptyList())
   }
 
   private fun readStored(): List<CapturedNotification> {
@@ -99,6 +119,7 @@ internal class NotificationQueue(context: Context) {
 
 class MasarifiNotificationListenerService : NotificationListenerService() {
   override fun onNotificationPosted(notification: StatusBarNotification) {
+    if (!NotificationCaptureState.isEnabled(this)) return
     if (notification.packageName == packageName) return
     val extras = notification.notification.extras
     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()

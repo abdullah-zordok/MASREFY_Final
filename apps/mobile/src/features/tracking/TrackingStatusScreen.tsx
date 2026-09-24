@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import {
   AppState,
@@ -20,11 +20,12 @@ import {
   useAutomaticTrackingSyncState,
   useTrackingStatus
 } from './useAutomaticTracking';
-import { translate, translateDynamic } from '@/localization/i18n';
+import { translate } from '@/localization/i18n';
 import { usePreferenceStore } from '@/state/preferences';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
 import { bankNotificationService } from '@/services/platform/bank-notification-service';
+import { trackingSourcePreferences } from '@/services/tracking-source-preferences';
 import { colorTokens, radius, spacing } from '@/design-system/tokens';
 import type { KeywordRule } from '@/domain/app-shell';
 import { TrackingKeywordChips } from './components/TrackingKeywordChips';
@@ -46,6 +47,7 @@ export function TrackingStatusScreen() {
   const [updating, setUpdating] = useState(false);
   const [actionFailed, setActionFailed] = useState(false);
   const [keywordRules, setKeywordRules] = useState<KeywordRule[]>([]);
+  const awaitingNotificationAccess = useRef(false);
 
   useEffect(() => {
     void automaticTrackingService.listKeywordRules().then(setKeywordRules);
@@ -54,7 +56,21 @@ export function TrackingStatusScreen() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void refetchTrackingStatus();
+        void (async () => {
+          if (awaitingNotificationAccess.current) {
+            awaitingNotificationAccess.current = false;
+            if (
+              (await bankNotificationService.getAccessState()) === 'granted'
+            ) {
+              await bankNotificationService.setCaptureEnabled(true);
+              await trackingSourcePreferences.set('notification', true);
+              const current = await automaticTrackingService.getStatus();
+              if (current.mode === 'paused')
+                await automaticTrackingService.setMode('automatic_clear');
+            }
+          }
+          await refetchTrackingStatus();
+        })().catch(() => setActionFailed(true));
         void automaticTrackingService.listKeywordRules().then(setKeywordRules);
       }
     });
@@ -105,31 +121,82 @@ export function TrackingStatusScreen() {
     }
   }
 
-  async function openNotificationAccess() {
-    setActionFailed(false);
-    try {
-      await bankNotificationService.openSettings();
-    } catch {
-      setActionFailed(true);
-    }
-  }
-
-  async function handleToggle(nextValue: boolean) {
+  async function toggleSmsTracking(nextValue: boolean) {
     if (updating) return;
     setActionFailed(false);
     setUpdating(true);
     try {
       if (nextValue) {
-        if (query.data?.permissionStatus !== 'granted') {
-          router.push({
-            pathname: '/tracking/permission',
-            params: { mode: 'automatic_clear' }
-          });
+        const permissionStatus =
+          query.data?.smsPermissionStatus ?? query.data?.permissionStatus;
+        if (permissionStatus !== 'granted') {
+          if (permissionStatus === 'permanently_denied') {
+            await permissionService.openSettings();
+            return;
+          }
+          const permission = await permissionService.requestAfterEducation();
+          if (permission.status === 'permanently_denied') {
+            await permissionService.openSettings();
+            return;
+          }
+          if (permission.status !== 'granted') {
+            await query.refetch();
+            return;
+          }
+        }
+        await trackingSourcePreferences.set('sms', true);
+        if (query.data?.mode === 'paused')
+          await automaticTrackingService.setMode('automatic_clear');
+      } else {
+        await trackingSourcePreferences.set('sms', false);
+        if (!query.data?.notificationTrackingEnabled)
+          await automaticTrackingService.setMode('paused');
+      }
+      await query.refetch();
+    } catch {
+      setActionFailed(true);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function toggleTrackingMode(nextValue: boolean) {
+    if (updating) return;
+    setUpdating(true);
+    setActionFailed(false);
+    try {
+      await automaticTrackingService.setMode(
+        nextValue ? 'automatic_clear' : 'paused'
+      );
+      await query.refetch();
+    } catch {
+      setActionFailed(true);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function toggleNotificationTracking(nextValue: boolean) {
+    if (updating) return;
+    setActionFailed(false);
+    setUpdating(true);
+    try {
+      if (nextValue) {
+        const access = await bankNotificationService.getAccessState();
+        if (access !== 'granted') {
+          awaitingNotificationAccess.current = true;
+          await bankNotificationService.openSettings();
           return;
         }
-        await automaticTrackingService.setMode('automatic_clear');
+        await bankNotificationService.setCaptureEnabled(true);
+        await trackingSourcePreferences.set('notification', true);
+        if (query.data?.mode === 'paused')
+          await automaticTrackingService.setMode('automatic_clear');
       } else {
-        await automaticTrackingService.setMode('paused');
+        await bankNotificationService.setCaptureEnabled(false);
+        await trackingSourcePreferences.set('notification', false);
+        if (!query.data?.smsTrackingEnabled)
+          await automaticTrackingService.setMode('paused');
       }
       await query.refetch();
     } catch {
@@ -177,6 +244,15 @@ export function TrackingStatusScreen() {
   );
   const smsPermission = status.smsPermissionStatus ?? status.permissionStatus;
   const notificationAccess = status.notificationAccessStatus ?? 'denied';
+  const smsEnabled =
+    isEnabled &&
+    smsPermission === 'granted' &&
+    status.smsTrackingEnabled !== false;
+  const notificationEnabled =
+    isEnabled &&
+    notificationAccess === 'granted' &&
+    (status.notificationTrackingEnabled ?? true);
+  const isAndroid = status.platform === 'android';
 
   return (
     <View testID="tracking-status-screen" style={[styles.root, { direction }]}>
@@ -193,87 +269,97 @@ export function TrackingStatusScreen() {
       >
         {/* 2. Tracking Status Card */}
         <SurfaceCard style={styles.card}>
-          {/* Status Row: START = Status text (Right in RTL, Left in LTR), END = Switch (Left in RTL, Right in LTR) */}
-          <View
-            testID="tracking-status-row"
-            style={[
-              styles.statusRow,
-              styles.physicalLtr,
-              { flexDirection: isRtl ? 'row-reverse' : 'row' }
-            ]}
-          >
+          {!isAndroid ? (
             <View
-              testID="tracking-status-text"
+              testID="tracking-status-row"
               style={[
-                styles.statusTextGroup,
-                { alignItems: isRtl ? 'flex-end' : 'flex-start' }
+                styles.statusRow,
+                styles.physicalLtr,
+                { flexDirection: isRtl ? 'row-reverse' : 'row' }
               ]}
             >
-              <StyledText
-                variant="caption"
+              <View
+                testID="tracking-status-text"
                 style={[
-                  styles.statusLabel,
-                  {
-                    textAlign: isRtl ? 'right' : 'left',
-                    writingDirection: direction
-                  }
+                  styles.statusTextGroup,
+                  { alignItems: isRtl ? 'flex-end' : 'flex-start' }
                 ]}
               >
-                {translate('tracking.status.label')}
-              </StyledText>
-              <StyledText
-                variant="title"
-                style={[
-                  styles.statusValue,
-                  {
-                    textAlign: isRtl ? 'right' : 'left',
-                    writingDirection: direction
-                  }
-                ]}
-              >
-                {permissionUnavailable
-                  ? translate('tracking.status.unavailable')
-                  : isEnabled
-                    ? translate('tracking.status.enabled')
-                    : translate('tracking.status.disabled')}
-              </StyledText>
-            </View>
+                <StyledText
+                  variant="caption"
+                  style={[
+                    styles.statusLabel,
+                    {
+                      textAlign: isRtl ? 'right' : 'left',
+                      writingDirection: direction
+                    }
+                  ]}
+                >
+                  {translate('tracking.status.label')}
+                </StyledText>
+                <StyledText
+                  variant="title"
+                  style={[
+                    styles.statusValue,
+                    {
+                      textAlign: isRtl ? 'right' : 'left',
+                      writingDirection: direction
+                    }
+                  ]}
+                >
+                  {permissionUnavailable
+                    ? translate('tracking.status.unavailable')
+                    : isEnabled
+                      ? translate('tracking.status.enabled')
+                      : translate('tracking.status.disabled')}
+                </StyledText>
+              </View>
 
-            <View style={styles.toggleWrapper}>
-              <Toggle
-                testID="tracking-mode-switch"
-                value={isEnabled}
-                onValueChange={(val) => void handleToggle(val)}
-                disabled={updating || permissionUnavailable}
-                accessibilityLabel={translate('tracking.status.mode')}
+              <View style={styles.toggleWrapper}>
+                <Toggle
+                  testID="tracking-mode-switch"
+                  value={isEnabled}
+                  onValueChange={(value) => void toggleTrackingMode(value)}
+                  disabled={updating || permissionUnavailable}
+                  accessibilityLabel={translate('tracking.status.label')}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.sourceList}>
+              <TrackingSourceToggleRow
+                testID="tracking-sms-switch"
+                isRtl={isRtl}
+                label={translate('tracking.source.smsTracking')}
+                description={translate(
+                  'tracking.source.smsTrackingDescription'
+                )}
+                value={smsEnabled}
+                disabled={updating || smsPermission === 'unavailable'}
+                onValueChange={(value) => void toggleSmsTracking(value)}
+              />
+              <View style={styles.sourceDivider} />
+              <TrackingSourceToggleRow
+                testID="tracking-notification-switch"
+                isRtl={isRtl}
+                label={translate('tracking.source.notificationTracking')}
+                description={translate(
+                  'tracking.source.notificationTrackingDescription'
+                )}
+                value={notificationEnabled}
+                disabled={updating || notificationAccess === 'unavailable'}
+                onValueChange={(value) =>
+                  void toggleNotificationTracking(value)
+                }
               />
             </View>
-          </View>
+          )}
 
           <TrackingDemoNotice />
           <TrackingSyncPanel
             state={syncState}
             onRetry={() => void syncAutomaticTracking()}
           />
-
-          {status.platform === 'android' ? (
-            <View style={styles.sourceList}>
-              <TrackingSourceRow
-                testID="tracking-bank-notifications-source"
-                label={translate('tracking.source.bankNotifications')}
-                status={notificationAccess}
-                disabled={notificationAccess === 'unavailable'}
-                onPress={() => void openNotificationAccess()}
-              />
-              <TrackingSourceRow
-                testID="tracking-sms-source"
-                label={translate('tracking.source.financialSms')}
-                status={smsPermission ?? 'unavailable'}
-                disabled={smsPermission === 'unavailable'}
-                onPress={() => void recoverPermission(smsPermission)}
-              />
-            </View>
-          ) : null}
 
           {/* Actionable Permission Warning: START = Warning Icon, MIDDLE = Warning Text, END = Chevron */}
           {!hasPermission && (
@@ -467,7 +553,10 @@ export function TrackingStatusScreen() {
         </SurfaceCard>
 
         {/* 4. Keyword Management Card */}
-        <SurfaceCard style={styles.card}>
+        <SurfaceCard
+          testID="tracking-keywords-card"
+          style={[styles.card, styles.keywordCard]}
+        >
           <TrackingKeywordChips
             rules={keywordRules}
             onChange={(rules) => void handleKeywordsChange(rules)}
@@ -489,31 +578,72 @@ export function TrackingStatusScreen() {
   );
 }
 
-function TrackingSourceRow({
+function TrackingSourceToggleRow({
   testID,
+  isRtl,
   label,
-  status,
+  description,
+  value,
   disabled,
-  onPress
+  onValueChange
 }: {
   testID: string;
+  isRtl: boolean;
   label: string;
-  status: string;
+  description: string;
+  value: boolean;
   disabled: boolean;
-  onPress: () => void;
+  onValueChange: (value: boolean) => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={styles.sourceRow}
-      testID={testID}
+    <View
+      testID={`${testID}-row`}
+      style={[
+        styles.sourceRow,
+        styles.physicalLtr,
+        { flexDirection: isRtl ? 'row-reverse' : 'row' }
+      ]}
     >
-      <StyledText>{label}</StyledText>
-      <StyledText>{translateDynamic(`tracking.permission.${status}`)}</StyledText>
-    </Pressable>
+      <View
+        testID={`${testID}-text`}
+        style={[
+          styles.sourceText,
+          { alignItems: isRtl ? 'flex-end' : 'flex-start' }
+        ]}
+      >
+        <StyledText
+          variant="title"
+          style={[
+            styles.sourceTitle,
+            {
+              textAlign: isRtl ? 'right' : 'left',
+              writingDirection: isRtl ? 'rtl' : 'ltr'
+            }
+          ]}
+        >
+          {label}
+        </StyledText>
+        <StyledText
+          variant="caption"
+          style={[
+            styles.sourceDescription,
+            {
+              textAlign: isRtl ? 'right' : 'left',
+              writingDirection: isRtl ? 'rtl' : 'ltr'
+            }
+          ]}
+        >
+          {description}
+        </StyledText>
+      </View>
+      <Toggle
+        accessibilityLabel={label}
+        disabled={disabled}
+        onValueChange={onValueChange}
+        testID={testID}
+        value={value}
+      />
+    </View>
   );
 }
 
@@ -636,6 +766,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg
   },
+  keywordCard: {
+    marginHorizontal: -4,
+    padding: 18
+  },
   statusRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -645,11 +779,27 @@ const styles = StyleSheet.create({
   sourceList: {
     gap: spacing.sm
   },
+  sourceDivider: {
+    backgroundColor: colorTokens.sand['300'],
+    height: 1
+  },
   sourceRow: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: spacing.md,
     justifyContent: 'space-between',
-    minHeight: 44
+    minHeight: 64
+  },
+  sourceText: {
+    flex: 1,
+    gap: spacing.xs
+  },
+  sourceTitle: {
+    fontSize: 18,
+    fontWeight: '700'
+  },
+  sourceDescription: {
+    color: colorTokens.ink['500']
   },
   toggleWrapper: {
     alignItems: 'center',
@@ -661,13 +811,14 @@ const styles = StyleSheet.create({
     gap: 2
   },
   statusLabel: {
-    color: colorTokens.ink['500'],
-    fontSize: 13
+    color: colorTokens.ink['900'],
+    fontSize: 18,
+    fontWeight: '700'
   },
   statusValue: {
-    color: colorTokens.ink['900'],
-    fontSize: 22,
-    fontWeight: '700'
+    color: colorTokens.ink['500'],
+    fontSize: 13,
+    fontWeight: '600'
   },
   warningBanner: {
     alignItems: 'center',

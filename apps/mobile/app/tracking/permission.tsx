@@ -9,6 +9,7 @@ import { PermissionEducation } from '@/features/onboarding/PermissionEducation';
 import { translate } from '@/localization/i18n';
 import { automaticTrackingService } from '@/services/automatic-tracking-service';
 import { createTrackingPermissionService } from '@/services/platform/tracking-permission-service';
+import { trackingSourcePreferences } from '@/services/tracking-source-preferences';
 
 export default function TrackingPermissionRoute() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
@@ -41,6 +42,7 @@ export default function TrackingPermissionRoute() {
           : await service.requestAfterEducation();
       setPermission(result);
       if (result.status !== 'granted') return;
+      await trackingSourcePreferences.set('sms', true);
       await automaticTrackingService.setMode(selectedMode);
       router.replace('/tracking');
     } catch {

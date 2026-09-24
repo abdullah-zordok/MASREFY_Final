@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { AppState, Dimensions, StyleSheet } from 'react-native';
 
@@ -114,7 +114,7 @@ beforeEach(() => {
   mockSavePreferences.mockResolvedValue(undefined);
 });
 
-it('shows reference-sized notification and tracking cards in one horizontal setup rail', () => {
+it('shows reference-sized setup cards in one horizontal rail', () => {
   mockUseTrackingStatus.mockReturnValue({
     data: status(),
     isLoading: false,
@@ -124,7 +124,12 @@ it('shows reference-sized notification and tracking cards in one horizontal setu
   renderWithProviders(<TrackingHomeCard />);
 
   expect(screen.getByText('Turn on notifications')).toBeTruthy();
-  expect(screen.getByText(translate('tracking.home.enableTitle'))).toBeTruthy();
+  expect(
+    screen.getByText(translate('tracking.source.smsTracking'))
+  ).toBeTruthy();
+  expect(
+    screen.getByText(translate('tracking.source.notificationTracking'))
+  ).toBeTruthy();
   expect(screen.getByTestId('home-setup-cards-rail').props.horizontal).toBe(
     true
   );
@@ -140,16 +145,20 @@ it('shows reference-sized notification and tracking cards in one horizontal setu
   const notificationCardStyle = StyleSheet.flatten(
     screen.getByTestId('notification-home-card').props.style
   );
-  const trackingCardStyle = StyleSheet.flatten(
-    screen.getByTestId('tracking-home-card').props.style
+  const smsCardStyle = StyleSheet.flatten(
+    screen.getByTestId('sms-tracking-home-card').props.style
+  );
+  const transactionNotificationCardStyle = StyleSheet.flatten(
+    screen.getByTestId('notification-tracking-home-card').props.style
   );
   expect(notificationCardStyle).toMatchObject({
     borderRadius: 18 * 1.05,
     height: (168 + spacing.sm) * 1.05,
     padding: spacing.lg * 1.05,
-    width: trackingCardStyle.width
+    width: smsCardStyle.width
   });
-  expect(trackingCardStyle).toEqual(notificationCardStyle);
+  expect(smsCardStyle).toEqual(notificationCardStyle);
+  expect(transactionNotificationCardStyle).toEqual(notificationCardStyle);
 });
 
 it('keeps the notification card first and centered in the Arabic rail', () => {
@@ -187,31 +196,32 @@ it('requests OS permission directly from the Home notification card', () => {
   });
 
   renderWithProviders(<TrackingHomeCard />);
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Enable notifications' })
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Enable notifications' }));
 
   expect(mockRequestPermission).toHaveBeenCalledTimes(1);
   expect(router.push).not.toHaveBeenCalled();
   expect(mockSavePreferences).not.toHaveBeenCalled();
 });
 
-it('opens system settings when notification permission cannot be requested again', () => {
-  mockNotificationPermission = 'permanently_denied';
-  mockUseTrackingStatus.mockReturnValue({
-    data: status(),
-    isLoading: false,
-    isError: false
-  });
+it.each(['denied', 'permanently_denied'] as const)(
+  'opens system settings when notification permission is %s',
+  (permissionState) => {
+    mockNotificationPermission = permissionState;
+    mockUseTrackingStatus.mockReturnValue({
+      data: status(),
+      isLoading: false,
+      isError: false
+    });
 
-  renderWithProviders(<TrackingHomeCard />);
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Open notification settings' })
-  );
+    renderWithProviders(<TrackingHomeCard />);
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Open notification settings' })
+    );
 
-  expect(mockOpenSettings).toHaveBeenCalledTimes(1);
-  expect(mockRequestPermission).not.toHaveBeenCalled();
-});
+    expect(mockOpenSettings).toHaveBeenCalledTimes(1);
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+  }
+);
 
 it('refreshes notification and tracking permissions when the app becomes active', () => {
   const listeners: ((state: string) => void)[] = [];
@@ -233,7 +243,7 @@ it('refreshes notification and tracking permissions when the app becomes active'
   expect(mockRefetchTrackingStatus).toHaveBeenCalledTimes(1);
 });
 
-it('shows the onboarding card for an eligible authenticated user', () => {
+it('shows source-specific tracking cards for an eligible authenticated user', () => {
   mockUseTrackingStatus.mockReturnValue({
     data: status(),
     isLoading: false,
@@ -243,12 +253,17 @@ it('shows the onboarding card for an eligible authenticated user', () => {
   renderWithProviders(<TrackingHomeCard />);
 
   expect(screen.getByText("Let's get started.")).toBeTruthy();
-  expect(screen.getByText(translate('tracking.home.enableTitle'))).toBeTruthy();
-  expect(screen.getByText(translate('tracking.home.enableBody'))).toBeTruthy();
   expect(
-    screen.getByLabelText(translate('tracking.home.dismissAction'))
+    screen.getByText(translate('tracking.source.smsTracking'))
   ).toBeTruthy();
-  expect(screen.getByTestId('tracking-home-message-icon')).toBeTruthy();
+  expect(
+    screen.getByText(translate('tracking.source.notificationTracking'))
+  ).toBeTruthy();
+  expect(
+    screen.queryByLabelText(translate('tracking.home.dismissAction'))
+  ).toBeNull();
+  expect(screen.getByTestId('sms-tracking-home-icon')).toBeTruthy();
+  expect(screen.getByTestId('notification-tracking-home-icon')).toBeTruthy();
 });
 
 it('shows the tracking logo without a background badge', () => {
@@ -261,9 +276,7 @@ it('shows the tracking logo without a background badge', () => {
   renderWithProviders(<TrackingHomeCard />);
 
   expect(
-    StyleSheet.flatten(
-      screen.getByTestId('tracking-home-message-icon').props.style
-    )
+    StyleSheet.flatten(screen.getByTestId('sms-tracking-home-icon').props.style)
   ).toMatchObject({
     backgroundColor: 'transparent',
     height: 36 * 1.05,
@@ -271,7 +284,7 @@ it('shows the tracking logo without a background badge', () => {
   });
 });
 
-it('opens the existing tracking setup flow without enabling tracking directly', () => {
+it('opens the existing tracking setup flow from either source card', () => {
   mockUseTrackingStatus.mockReturnValue({
     data: status(),
     isLoading: false,
@@ -279,47 +292,22 @@ it('opens the existing tracking setup flow without enabling tracking directly', 
   });
 
   renderWithProviders(<TrackingHomeCard />);
+  const actionName = translate('tracking.home.enableAction');
   fireEvent.press(
-    screen.getByRole('button', {
-      name: translate('tracking.home.enableAction')
+    within(screen.getByTestId('sms-tracking-home-card')).getByRole('button', {
+      name: actionName
     })
   );
+  fireEvent.press(
+    within(screen.getByTestId('notification-tracking-home-card')).getByRole(
+      'button',
+      { name: actionName }
+    )
+  );
 
-  expect(router.push).toHaveBeenCalledWith('/tracking');
-});
-
-it('dismisses only the card and does not navigate', async () => {
-  mockUseTrackingStatus.mockReturnValue({
-    data: status(),
-    isLoading: false,
-    isError: false
-  });
-
-  renderWithProviders(<TrackingHomeCard />);
-  await act(async () => {
-    fireEvent.press(
-      screen.getByLabelText(translate('tracking.home.dismissAction'))
-    );
-  });
-
-  expect(screen.queryByTestId('tracking-home-card')).toBeNull();
-  expect(screen.getByTestId('notification-home-card')).toBeTruthy();
-  expect(useAppShellStore.getState().trackingHomeCardDismissed).toBe(true);
-  expect(router.push).not.toHaveBeenCalled();
-});
-
-it('stays hidden after the current user dismissed it', () => {
-  useAppShellStore.setState({ trackingHomeCardDismissed: true });
-  mockUseTrackingStatus.mockReturnValue({
-    data: status(),
-    isLoading: false,
-    isError: false
-  });
-
-  renderWithProviders(<TrackingHomeCard />);
-
-  expect(screen.queryByTestId('tracking-home-card')).toBeNull();
-  expect(screen.getByTestId('notification-home-card')).toBeTruthy();
+  expect(router.push).toHaveBeenCalledTimes(2);
+  expect(router.push).toHaveBeenNthCalledWith(1, '/tracking');
+  expect(router.push).toHaveBeenNthCalledWith(2, '/tracking');
 });
 
 it.each([
@@ -344,11 +332,7 @@ it.each([
   }
 );
 
-it.each([
-  'denied',
-  'permanently_denied',
-  'revoked'
-] as const)(
+it.each(['denied', 'permanently_denied', 'revoked'] as const)(
   'shows tracking setup while Android sources are %s',
   (permissionStatus) => {
     mockUseTrackingStatus.mockReturnValue({
@@ -363,7 +347,8 @@ it.each([
 
     renderWithProviders(<TrackingHomeCard />);
 
-    expect(screen.getByTestId('tracking-home-card')).toBeTruthy();
+    expect(screen.getByTestId('sms-tracking-home-card')).toBeTruthy();
+    expect(screen.getByTestId('notification-tracking-home-card')).toBeTruthy();
   }
 );
 
@@ -381,7 +366,8 @@ it('hides tracking setup when both Android sources are unavailable', () => {
 
   renderWithProviders(<TrackingHomeCard />);
 
-  expect(screen.queryByTestId('tracking-home-card')).toBeNull();
+  expect(screen.queryByTestId('sms-tracking-home-card')).toBeNull();
+  expect(screen.queryByTestId('notification-tracking-home-card')).toBeNull();
 });
 
 it('shows only tracking when push is enabled and tracking sources are disabled', () => {
@@ -399,7 +385,8 @@ it('shows only tracking when push is enabled and tracking sources are disabled',
   renderWithProviders(<TrackingHomeCard />);
 
   expect(screen.queryByTestId('notification-home-card')).toBeNull();
-  expect(screen.getByTestId('tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('sms-tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('notification-tracking-home-card')).toBeTruthy();
 });
 
 it('shows both cards when push and tracking sources are disabled', () => {
@@ -416,8 +403,94 @@ it('shows both cards when push and tracking sources are disabled', () => {
   renderWithProviders(<TrackingHomeCard />);
 
   expect(screen.getByTestId('notification-home-card')).toBeTruthy();
-  expect(screen.getByTestId('tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('sms-tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('notification-tracking-home-card')).toBeTruthy();
 });
+
+it('shows one setup card for each disabled notification and tracking source', () => {
+  mockUseTrackingStatus.mockReturnValue({
+    data: status({
+      permissionStatus: 'granted',
+      smsPermissionStatus: 'granted',
+      notificationAccessStatus: 'granted',
+      smsTrackingEnabled: false,
+      notificationTrackingEnabled: false
+    }),
+    isLoading: false,
+    isError: false
+  });
+
+  renderWithProviders(<TrackingHomeCard />);
+
+  expect(screen.getByTestId('notification-home-card')).toBeTruthy();
+  expect(screen.getByTestId('sms-tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('notification-tracking-home-card')).toBeTruthy();
+});
+
+it('restores only the affected source cards after Android permissions are revoked', () => {
+  mockNotificationPermission = 'granted';
+  useAppShellStore.setState({ trackingHomeCardDismissed: true });
+  mockUseTrackingStatus.mockReturnValue({
+    data: status({
+      permissionStatus: 'denied',
+      smsPermissionStatus: 'denied',
+      notificationAccessStatus: 'denied',
+      smsTrackingEnabled: true,
+      notificationTrackingEnabled: true
+    }),
+    isLoading: false,
+    isError: false
+  });
+
+  renderWithProviders(<TrackingHomeCard />);
+
+  expect(screen.queryByTestId('notification-home-card')).toBeNull();
+  expect(screen.getByTestId('sms-tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('notification-tracking-home-card')).toBeTruthy();
+});
+
+it.each([
+  [
+    'SMS',
+    {
+      smsPermissionStatus: 'granted' as const,
+      notificationAccessStatus: 'denied' as const,
+      smsTrackingEnabled: true,
+      notificationTrackingEnabled: true
+    },
+    'sms-tracking-home-card',
+    'notification-tracking-home-card'
+  ],
+  [
+    'transaction notifications',
+    {
+      smsPermissionStatus: 'denied' as const,
+      notificationAccessStatus: 'granted' as const,
+      smsTrackingEnabled: true,
+      notificationTrackingEnabled: true
+    },
+    'notification-tracking-home-card',
+    'sms-tracking-home-card'
+  ]
+] as const)(
+  'hides only the enabled %s source card',
+  (_source, sourceStatus, hiddenCard, visibleCard) => {
+    mockNotificationPermission = 'granted';
+    mockUseTrackingStatus.mockReturnValue({
+      data: status({
+        permissionStatus: 'granted',
+        ...sourceStatus
+      }),
+      isLoading: false,
+      isError: false
+    });
+
+    renderWithProviders(<TrackingHomeCard />);
+
+    expect(screen.queryByTestId(hiddenCard)).toBeNull();
+    expect(screen.getByTestId(visibleCard)).toBeTruthy();
+  }
+);
 
 it.each([
   { data: status({ platform: 'ios', permissionStatus: null }) },
@@ -432,7 +505,8 @@ it.each([
 
   renderWithProviders(<TrackingHomeCard />);
 
-  expect(screen.queryByTestId('tracking-home-card')).toBeNull();
+  expect(screen.queryByTestId('sms-tracking-home-card')).toBeNull();
+  expect(screen.queryByTestId('notification-tracking-home-card')).toBeNull();
 });
 
 it('hides the setup section when notifications and tracking are already enabled', () => {
@@ -441,7 +515,9 @@ it('hides the setup section when notifications and tracking are already enabled'
     data: status({
       permissionStatus: 'granted',
       smsPermissionStatus: 'granted',
-      notificationAccessStatus: 'denied'
+      notificationAccessStatus: 'granted',
+      smsTrackingEnabled: true,
+      notificationTrackingEnabled: true
     }),
     isLoading: false,
     isError: false
@@ -450,6 +526,26 @@ it('hides the setup section when notifications and tracking are already enabled'
   renderWithProviders(<TrackingHomeCard />);
 
   expect(screen.queryByTestId('tracking-home-onboarding')).toBeNull();
+});
+
+it('shows both tracking cards when permissions exist but both sources are off', () => {
+  mockNotificationPermission = 'granted';
+  mockUseTrackingStatus.mockReturnValue({
+    data: status({
+      permissionStatus: 'granted',
+      smsPermissionStatus: 'granted',
+      notificationAccessStatus: 'granted',
+      smsTrackingEnabled: false,
+      notificationTrackingEnabled: false
+    }),
+    isLoading: false,
+    isError: false
+  });
+
+  renderWithProviders(<TrackingHomeCard />);
+
+  expect(screen.getByTestId('sms-tracking-home-card')).toBeTruthy();
+  expect(screen.getByTestId('notification-tracking-home-card')).toBeTruthy();
 });
 
 it.each([
@@ -470,7 +566,7 @@ it.each([
 
     expect(
       StyleSheet.flatten(
-        screen.getByTestId('tracking-home-card-header').props.style
+        screen.getByTestId('sms-tracking-home-card-header').props.style
       )
     ).toMatchObject({ direction: 'ltr', flexDirection });
     expect(

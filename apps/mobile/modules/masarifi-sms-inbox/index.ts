@@ -5,10 +5,10 @@ export interface MasarifiSmsInboxModule {
   isNetworkAvailable(): Promise<unknown>;
   isNotificationAccessEnabled(): Promise<unknown>;
   openNotificationAccessSettings(): Promise<void>;
+  setNotificationCaptureEnabled(enabled: boolean): Promise<void>;
   readRecentNotifications(limit: number): Promise<unknown>;
   acknowledgeNotifications(keys: readonly string[]): Promise<void>;
 }
 
 export const MasarifiSmsInbox =
   requireOptionalNativeModule<MasarifiSmsInboxModule>('MasarifiSmsInbox');
-

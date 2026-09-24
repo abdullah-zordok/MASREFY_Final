@@ -1,7 +1,4 @@
-export type BankNotificationAccessState =
-  | 'granted'
-  | 'denied'
-  | 'unavailable';
+export type BankNotificationAccessState = 'granted' | 'denied' | 'unavailable';
 
 export interface RawBankNotification {
   key: string;
@@ -14,6 +11,7 @@ export interface RawBankNotification {
 export interface BankNotificationService {
   getAccessState(): Promise<BankNotificationAccessState>;
   openSettings(): Promise<void>;
+  setCaptureEnabled(enabled: boolean): Promise<void>;
   readRecent(limit: number): Promise<RawBankNotification[]>;
   acknowledge(keys: readonly string[]): Promise<void>;
 }
@@ -24,6 +22,7 @@ export function createBankNotificationService(): BankNotificationService {
       return 'unavailable';
     },
     async openSettings() {},
+    async setCaptureEnabled() {},
     async readRecent() {
       return [];
     },

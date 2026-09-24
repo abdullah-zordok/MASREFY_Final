@@ -36,7 +36,9 @@ export function TrackingKeywordChips({
   const isRtl = direction === 'rtl';
   const largeText = PixelRatio.getFontScale() >= 1.5;
 
-  const [languageFilter, setLanguageFilter] = useState<'all' | 'ar' | 'en'>('all');
+  const [languageFilter, setLanguageFilter] = useState<'all' | 'ar' | 'en'>(
+    'all'
+  );
   const [isAdding, setIsAdding] = useState(false);
   const [draftKeyword, setDraftKeyword] = useState('');
   const [draftLang, setDraftLang] = useState<'ar' | 'en'>(isRtl ? 'ar' : 'en');
@@ -111,10 +113,7 @@ export function TrackingKeywordChips({
         {/* START: Title */}
         <StyledText
           variant="subtitle"
-          style={[
-            styles.titleText,
-            { textAlign: isRtl ? 'right' : 'left' }
-          ]}
+          style={[styles.titleText, { textAlign: isRtl ? 'right' : 'left' }]}
         >
           {translate('tracking.keywords.sectionTitle')} ({activeCount})
         </StyledText>
@@ -315,7 +314,8 @@ export function TrackingKeywordChips({
       {/* Keyword Chips Grid: wraps naturally in reading direction */}
       <View style={styles.chipsContainer}>
         {visibleRules.map((rule) => {
-          const isArabicKeyword = rule.language === 'ar' || /[\u0600-\u06FF]/.test(rule.value);
+          const isArabicKeyword =
+            rule.language === 'ar' || /[\u0600-\u06FF]/.test(rule.value);
           return (
             <View
               key={rule.id}
@@ -572,9 +572,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 10,
-    paddingVertical: 6
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 7
   },
   chipText: {
     color: colorTokens.ink['900'],

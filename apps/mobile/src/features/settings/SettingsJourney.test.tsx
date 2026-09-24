@@ -75,6 +75,10 @@ test('profile preserves edits, validates owner fields, and redirects identity-ow
     screen.queryByText(t('settings.profile.completion.identity'))
   ).toBeNull();
   expect(screen.queryByText(t('settings.profile.googleOwner'))).toBeNull();
+  expect(screen.queryByText(t('settings.profile.planFree'))).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: t('settings.profile.goPro') })
+  ).toBeNull();
 
   fireEvent.changeText(
     screen.getByLabelText(t('settings.profile.name')),
