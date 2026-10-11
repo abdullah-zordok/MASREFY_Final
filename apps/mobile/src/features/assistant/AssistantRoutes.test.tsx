@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderWithProviders } from '@/test-utils/render';
 import { translate } from '@/localization/i18n';
+import { assistantService } from '@/services/assistant-service';
 
 const AssistantRoute = require('@app/assistant')
   .default as () => React.ReactElement;
@@ -43,6 +44,10 @@ jest.mock('@/config/demo-mode', () => ({
   isDemoModeEnabled: () => false
 }));
 
+jest.mock('@/services/assistant-service', () => ({
+  assistantService: { metadata: { availability: 'available' } }
+}));
+
 jest.mock('@/features/shell/ProtectedRouteGate', () => ({
   ProtectedRouteGate: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -51,6 +56,20 @@ jest.mock('@/features/shell/ProtectedRouteGate', () => ({
 
 afterEach(() => {
   mockStack.mockClear();
+  assistantService.metadata.availability = 'available';
+});
+
+test('opens the authenticated Assistant in a standalone release with a configured live service', () => {
+  const devGlobal = global as typeof globalThis & { __DEV__: boolean };
+  const originalDev = devGlobal.__DEV__;
+  try {
+    Object.defineProperty(global, '__DEV__', { configurable: true, value: false });
+    const screen = renderWithProviders(<AssistantLayout />);
+    expect(screen.queryByText(translate('assistant.backendUnavailable'))).toBeNull();
+    expect(mockStack).toHaveBeenCalled();
+  } finally {
+    Object.defineProperty(global, '__DEV__', { configurable: true, value: originalDev });
+  }
 });
 
 test('shows the assistant UI in development without enabling fixture mode', () => {
@@ -72,6 +91,7 @@ test('shows the assistant UI in development without enabling fixture mode', () =
 });
 
 test('keeps the assistant unavailable in production without a live provider', () => {
+  assistantService.metadata.availability = 'unavailable';
   const devGlobal = global as typeof globalThis & { __DEV__: boolean };
   const originalDev = devGlobal.__DEV__;
   try {
