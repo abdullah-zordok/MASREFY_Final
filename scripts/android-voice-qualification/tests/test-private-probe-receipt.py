@@ -12,7 +12,7 @@ class ReceiptTests(unittest.TestCase):
         self.values = {key:'0' for key in receipt.COUNTS}
         self.values.update({key:'true' for key in receipt.BOOLEANS})
         self.values.update({key:str(value) for key,value in self.expected.items()})
-        self.values.update(verdict='CLEAR', fingerprint='d'*64)
+        self.values.update(verdict='CLEAR', fingerprint='d'*64, workSummary='')
     def parse(self, values=None, code='-1', exit_code=0):
         values = self.values if values is None else values
         output = '\n'.join('INSTRUMENTATION_RESULT: '+key+'='+value for key,value in values.items())
@@ -21,8 +21,25 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(self.parse()['verdict'],'CLEAR')
         self.assertEqual(self.parse()['targetUid'],10304)
     def test_blocked_retains_counts(self):
-        self.values.update(verdict='BLOCKED',pending='2',audioOwned='1')
+        self.values.update(verdict='BLOCKED',rows='2',pending='2',audioOwned='1',workSummary='OWNER_BATCH:processing:1:0:0=1;OWNER_SINGLETON:captured:0:1:0=1')
         self.assertEqual(self.parse()['pending'],2)
+    def test_work_summary_rejects_untrusted_or_inconsistent_groups(self):
+        for summary in ('private-recording-path','OWNER_BATCH:secret:0:0:0=1',
+                        'OWNER_BATCH:completed:0:0:0=0','OWNER_BATCH:completed:0:0:0=01',
+                        'OWNER_BATCH:completed:0:0:0=524289','ASYNC:pending:0:0:0=1',
+                        'OWNER_SINGLETON:confirming:0:0:0=1',
+                        'OWNER_BATCH:completed:0:0:0=1;OWNER_BATCH:completed:0:0:0=1',
+                        'OWNER_SINGLETON:saved:0:0:0=1;OWNER_BATCH:completed:0:0:0=1'):
+            with self.subTest(summary=summary):
+                self.values['workSummary']=summary
+                self.assertEqual(self.parse(),{'verdict':'INDETERMINATE','failureCategory':'INVALID_WORK_SUMMARY'})
+    def test_work_summary_reconciles_each_count(self):
+        self.values.update(verdict='BLOCKED',rows='2',pending='1',terminal='1',audioOwned='1',confirmationOwned='1',
+                           workSummary='ASYNC:pending:1:0:0=1;OWNER_SINGLETON:saved:1:1:1=1')
+        self.assertEqual(self.parse()['workSummary'],self.values['workSummary'])
+        for key in ('rows','pending','terminal','audioOwned','confirmationOwned'):
+            values=dict(self.values);values[key]=str(int(values[key])+1)
+            self.assertEqual(self.parse(values)['failureCategory'],'INVALID_WORK_SUMMARY')
     def test_missing_every_field_fails_closed(self):
         for key in self.values:
             values=dict(self.values);values.pop(key)

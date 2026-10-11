@@ -6,6 +6,17 @@ import java.util.Set;
 
 /** Disposable-only Android Bundle transport test, with public synthetic poison values. */
 final class ReaderFailureRehearsal {
+    static void verifyWorkSummary(String actual,String expected) {
+        Bundle receipt=new Bundle();receipt.putString("workSummary",actual);
+        Parcel parcel=Parcel.obtain();
+        try {
+            parcel.writeBundle(receipt);parcel.setDataPosition(0);
+            Bundle decoded=parcel.readBundle(ReaderFailureRehearsal.class.getClassLoader());
+            if(decoded==null || !decoded.keySet().equals(Set.of("workSummary")) || expected==null ||
+                    !expected.equals(decoded.getString("workSummary")))
+                throw new IllegalStateException("WORK_SUMMARY_TRANSPORT_REJECTED");
+        } finally {parcel.recycle();}
+    }
     static int verify() {
         int cases=0;
         for(var stage:PrivateReaderFailure.Stage.values()) { verify(stage,stage.name());cases++; }
@@ -28,7 +39,7 @@ final class ReaderFailureRehearsal {
     private static void verify(PrivateReaderFailure.Stage stage,String expected) {
         Bundle receipt=new Bundle();
         receipt.putString("verdict","CLEAR");receipt.putString("fingerprint","SYNTHETIC_PRIVATE_VALUE");
-        receipt.putString("session","SYNTHETIC_PRIVATE_VALUE");receipt.putInt("pending",0);
+        receipt.putString("workSummary","SYNTHETIC_PRIVATE_VALUE");receipt.putString("session","SYNTHETIC_PRIVATE_VALUE");receipt.putInt("pending",0);
         try {
             var failure=new IllegalStateException("SYNTHETIC_PRIVATE_VALUE",new Error("SYNTHETIC_PRIVATE_CAUSE"));
             failure.addSuppressed(new Error("SYNTHETIC_PRIVATE_SUPPRESSED"));throw failure;

@@ -24,15 +24,23 @@ public final class VoiceStoreQualification {
     private static final String ROOT = "files/SQLite/", LEGACY = ROOT+"masarifi.db", ASYNC = "databases/RKStorage";
     public record Result(String verdict, int ownerDatabases, int legacyDatabases, int asyncDatabases,
                          int rows, int pending, int terminal, int audioOwned, int confirmationOwned,
-                         int committedFrames, String fingerprint) {}
+                         int committedFrames, String fingerprint, String workSummary) {}
     private static final class Counts {
         int owners,legacy,async,rows,pending,terminal,audio,confirmation,frames;
-        void add(VoiceJournalClassifier.Assessment assessment) {
+        final java.util.TreeMap<String,Integer> shapes=new java.util.TreeMap<>();
+        void add(String kind,VoiceJournalClassifier.Assessment assessment) {
             if (++rows > 524288) throw failure("JOURNAL_LIMIT");
             if(assessment.pending())pending++;
             if(assessment.terminal())terminal++;
             if(assessment.audioOwned())audio++;
             if(assessment.confirmationOwned())confirmation++;
+            String shape=kind+":"+assessment.phase()+":"+(assessment.sessionPresent()?1:0)+":"+
+                    (assessment.audioOwned()?1:0)+":"+(assessment.confirmationOwned()?1:0);
+            shapes.merge(shape,1,Integer::sum);
+        }
+        String workSummary() {
+            return shapes.entrySet().stream().map(entry -> entry.getKey()+"="+entry.getValue())
+                    .collect(java.util.stream.Collectors.joining(";"));
         }
     }
 
@@ -100,7 +108,7 @@ public final class VoiceStoreQualification {
                     each(reader,SnapshotReader.Query.LEGACY,2,row -> {
                         String key=text(row[0]),value=text(row[1]);
                         if(key.toLowerCase(java.util.Locale.ROOT).contains("masarifi.voice"))
-                            counts.add(VoiceJournalClassifier.legacy(key,value));
+                            counts.add("ASYNC",VoiceJournalClassifier.legacy(key,value));
                     });
                     counts.async++;progress.stage=Stage.ASYNC_RESOURCES_CLOSE;
                 }
@@ -110,7 +118,7 @@ public final class VoiceStoreQualification {
             progress.stage=Stage.RESULT;
             return new Result(counts.pending+counts.audio+counts.confirmation==0?"CLEAR":"BLOCKED",counts.owners,counts.legacy,
                     counts.async,counts.rows,counts.pending,counts.terminal,counts.audio,counts.confirmation,counts.frames,
-                    (String)snapshot.summary().get("fingerprint"));
+                    (String)snapshot.summary().get("fingerprint"),counts.workSummary());
         } catch(RuntimeException | LinkageError indeterminate) {
             // No provider/parser/SQL exception or private cause may cross this boundary.
             throw new QualificationFailure(progress.stage);
@@ -154,10 +162,10 @@ public final class VoiceStoreQualification {
         }
         progress.stage=Stage.MOBILE_BATCH_ROWS;
         if(coverage.batch())each(reader,SnapshotReader.Query.BATCH,3,row ->
-                counts.add(VoiceJournalClassifier.batch(text(row[0]),integer(row[1]),text(row[2]))));
+                counts.add(owner==null?"LEGACY_BATCH":"OWNER_BATCH",VoiceJournalClassifier.batch(text(row[0]),integer(row[1]),text(row[2]))));
         progress.stage=Stage.MOBILE_SINGLETON_ROWS;
         if(coverage.singleton())each(reader,SnapshotReader.Query.SINGLETON,4,row ->
-                counts.add(VoiceJournalClassifier.singleton(text(row[0]),text(row[1]),integer(row[2]),text(row[3]))));
+                counts.add(owner==null?"LEGACY_SINGLETON":"OWNER_SINGLETON",VoiceJournalClassifier.singleton(text(row[0]),text(row[1]),integer(row[2]),text(row[3]))));
         return coverage.migrationMarker();
     }
     private static List<VoiceDatabaseSchema.SchemaObject> schema(SnapshotReader reader) {

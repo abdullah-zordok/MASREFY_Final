@@ -29,6 +29,7 @@ public final class VoiceStoreQualificationTest {
         try { binder=Class.forName("com.masarifi.voicequalification.VoiceStoreQualification"); }
         catch (ClassNotFoundException missing) { throw new AssertionError("whole-store journal qualification is not implemented"); }
         schemas=Path.of(args[0]);
+        workSummaries();
         rollbackJournals();
         var empty = fixture();
         assertVerdict(empty,"CLEAR",0,0,0,0);
@@ -83,6 +84,24 @@ public final class VoiceStoreQualificationTest {
         missing=fixture();missing.throwLinkage=true;reject(missing,"OWNER_DATABASE_OPEN");
         missing=fixture();missing.throwClose=true;reject(missing,"OWNER_RESOURCES_CLOSE");
         System.out.println("PASS: "+checks+" whole-store synthetic journal checks; no device/private key accessed");
+    }
+
+    private static void workSummaries() throws Exception {
+        var value=fixture();value.owner(B,2);value.async();
+        value.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,batch("processing")}));
+        value.rows.get(2).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,batch("processing")}));
+        value.rows.get(1).put(SnapshotReader.Query.SINGLETON,List.<Object[]>of(new Object[]{"singleton",ID,2L,singleton("captured",true)}));
+        value.rows.get(4).put(SnapshotReader.Query.LEGACY,List.<Object[]>of(new Object[]{"masarifi.voice.pending."+B.substring(0,24),legacyPayload()}));
+        Object result=run(value);String summary;
+        try {summary=(String)result.getClass().getDeclaredMethod("workSummary").invoke(result);}
+        catch(NoSuchMethodException absent) {throw new AssertionError("bounded non-identifying work summary missing",absent);}
+        check(summary.equals("ASYNC:pending:1:0:0=1;OWNER_BATCH:processing:0:0:0=2;OWNER_SINGLETON:captured:0:1:1=1"),"groups phases and flags across owners without identifiers");
+        check(!summary.contains(ID)&&!summary.contains(A)&&!summary.contains("private"),"work summary redacts payload and identities");
+        value=fixture();
+        value.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,batch("created").replace("\"sessionId\":null","\"sessionId\":\""+ID+"\"")}));
+        value.rows.get(1).put(SnapshotReader.Query.SINGLETON,List.<Object[]>of(new Object[]{"singleton",ID,2L,singleton("created",false).replace("\"sessionId\":null","\"sessionId\":\""+ID+"\"")}));
+        String sessions=((VoiceStoreQualification.Result)run(value)).workSummary();
+        check(sessions.equals("OWNER_BATCH:created:1:0:0=1;OWNER_SINGLETON:created:1:0:0=1"),"existing sessions expose presence only");
     }
 
     private static void rollbackJournals() throws Exception {

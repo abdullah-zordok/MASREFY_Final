@@ -79,7 +79,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 stage=PrivateReaderFailure.Stage.IDENTITY_AFTER;requireIdentity(context);
                 stage=PrivateReaderFailure.Stage.PROCESS_AFTER;requireOnlyPrivateProcess(context);
                 stage=PrivateReaderFailure.Stage.RECEIPT_BUILD;
-                receipt.putString("verdict",result.verdict());receipt.putString("fingerprint",result.fingerprint());
+                receipt.putString("verdict",result.verdict());receipt.putString("workSummary",result.workSummary());receipt.putString("fingerprint",result.fingerprint());
                 receipt.putInt("owners",result.ownerDatabases());receipt.putInt("legacy",result.legacyDatabases());
                 receipt.putInt("async",result.asyncDatabases());receipt.putInt("rows",result.rows());
                 receipt.putInt("pending",result.pending());receipt.putInt("terminal",result.terminal());

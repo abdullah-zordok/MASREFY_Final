@@ -25,11 +25,11 @@ def quote(value):
 
 def batch(phase, audio=None):
     return dict(id=ID, revision=2, phase=phase, audioReference=audio, locale="ar", durationMs=1000,
-                recordedAt=0, timezoneOffsetMinutes=0, createBody=None, sessionId=None, version=None, processBody=None)
+                recordedAt=0, timezoneOffsetMinutes=0, createBody=None, sessionId=ID if phase == "created" else None, version=None, processBody=None)
 
 def singleton(phase, audio=None, confirmation=None):
     return dict(attemptId=ID, revision=2, phase=phase, createKey=ID, processKey=ID, cancelKey=ID,
-                createBody=None, sessionId=None, sessionVersion=None, processBody=None, proposalId=None,
+                createBody=None, sessionId=ID if phase == "created" else None, sessionVersion=None, processBody=None, proposalId=None,
                 proposalVersion=None, confirmationKey=None, confirmationBody=confirmation,
                 transactionId=ID if phase == "saved" else None, audioReference=audio, createdAt=0)
 
@@ -194,8 +194,26 @@ def main():
         elif kind == "short-header": journal.write_bytes(bytes(27))
         else: journal.write_bytes(bytes(27) + b"\x01" + bytes(484))
 
+    def work_summary(name):
+        # Independent expected shapes for the public fixtures above.
+        if name in ('empty-two-owners','legacy-empty-bound'): return ''
+        if name.startswith('batch-'): return 'OWNER_BATCH:'+name[6:]+':'+str(int(name[6:]=='created'))+':0:0=1'
+        if name.startswith('singleton-'):
+            phase=name[10:]
+            return 'OWNER_SINGLETON:'+phase+':'+str(int(phase=='created'))+':0:'+str(int(phase in ('confirming','confirmation_unknown')))+'=1'
+        if name=='retained-confirmation-audio': return 'OWNER_SINGLETON:saved:0:1:1=1'
+        if name=='second-owner-committed-wal': return 'OWNER_BATCH:processing:0:0:0=1'
+        if name=='legacy-committed-wal': return 'LEGACY_BATCH:processing:0:0:0=1'
+        if name=='legacy-rk-pending': return 'ASYNC:pending:1:0:0=1'
+        if name.startswith('rollback-'):
+            _,store,mode,outcome=name.split('-')
+            if store=='async': return 'ASYNC:pending:1:0:0=1' if outcome=='pending' else ''
+            return store.upper()+'_BATCH:'+('processing' if outcome=='pending' else 'completed')+':0:0:0=1'
+        raise AssertionError('MISSING_WORK_SUMMARY_ORACLE: '+name)
+
     qualification_stages = {'unknown-schema': 'MOBILE_SCHEMA', 'invalid-history': 'MOBILE_SCHEMA', 'wrong-marker-owner': 'MOBILE_MIGRATION_MARKER', 'empty-marker': 'MOBILE_MIGRATION_MARKER', 'unknown-marker-row': 'MOBILE_MIGRATION_MARKER', 'unknown-phase': 'MOBILE_BATCH_ROWS', 'bad-row-payload': 'MOBILE_BATCH_ROWS', 'key-missing': 'OWNER_KEY_DECRYPT', 'key-wrong': 'OWNER_DATABASE_OPEN', 'rollback-journal': 'OWNER_ROLLBACK_CHECK', 'hmac-corrupt-unrelated-page': 'OWNER_DATABASE_OPEN', 'truncated-wal': 'OWNER_WAL_RECONSTRUCT', 'unbound-legacy': 'LEGACY_DATABASE_BINDING', 'uppercase-legacy-claim': 'LEGACY_CLAIM', 'async-only-missing-owner': 'OWNER_DATABASE_REQUIRED', 'legacy-key-malformed': 'ASYNC_ROWS'}
     for root, want in cases:
+        if want["verdict"] != "INDETERMINATE": want["workSummary"] = work_summary(root.name)
         if want["verdict"] == "INDETERMINATE" and "qualificationStage" not in want: want["qualificationStage"] = qualification_stages[root.name]
         (root / "fixture.json").write_text(json.dumps(want, indent=2), encoding="utf-8")
     if args.jni_library:

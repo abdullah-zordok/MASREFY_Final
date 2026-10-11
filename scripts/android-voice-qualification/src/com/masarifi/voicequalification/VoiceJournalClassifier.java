@@ -22,8 +22,8 @@ public final class VoiceJournalClassifier {
     private static final Set<String> BATCH_PHASES = Set.of("captured","created","uploaded","processing","cancel_requested","completed","cancelled","failed");
     private static final Set<String> SINGLETON_PHASES = Set.of("captured","creating","created","uploaded","processing","reviewing","confirming","confirmation_unknown","saved","cancel_requested","cancelled","terminal");
 
-    /** Only booleans escape this layer; no row identifier, audio reference or payload. */
-    public record Assessment(boolean pending, boolean terminal, boolean audioOwned, boolean confirmationOwned) {
+    /** Only closed phases and presence flags escape; no identifiers or payload values. */
+    public record Assessment(boolean pending, boolean terminal, boolean audioOwned, boolean confirmationOwned, String phase, boolean sessionPresent) {
         public boolean blocksLaunch() { return pending || audioOwned || confirmationOwned; }
     }
 
@@ -35,7 +35,7 @@ public final class VoiceJournalClassifier {
         String phase = choice(row.get("phase"),BATCH_PHASES);
         validateBatchFields(row);
         boolean terminal = BATCH_TERMINAL.contains(phase);
-        return new Assessment(!terminal,terminal,row.get("audioReference") != null,false);
+        return new Assessment(!terminal,terminal,row.get("audioReference") != null,false,phase,row.get("sessionId") != null);
     }
     private static void validateBatchFields(Map<?,?> row) {
         choice(row.get("locale"),Set.of("ar","en"));
@@ -64,7 +64,7 @@ public final class VoiceJournalClassifier {
         boolean terminal = SINGLETON_TERMINAL.contains(phase);
         boolean confirmation = row.get("confirmationKey") != null || row.get("confirmationBody") != null ||
                 phase.equals("confirming") || phase.equals("confirmation_unknown");
-        return new Assessment(!terminal,terminal,row.get("audioReference") != null,confirmation);
+        return new Assessment(!terminal,terminal,row.get("audioReference") != null,confirmation,phase,row.get("sessionId") != null);
     }
     private static void validateSingletonFields(Map<?,?> row) {
         for (String name : new String[]{"createKey","processKey","cancelKey"}) identifier(row.get(name));
@@ -89,7 +89,7 @@ public final class VoiceJournalClassifier {
         // apply the newer capture's +/-840 constraint to preserved old rows.
         range(row.get("timezoneOffsetMinutes"),-SAFE_INTEGER,SAFE_INTEGER);
         range(row.get("createdAt"),0,SAFE_INTEGER);
-        return new Assessment(true,false,false,false);
+        return new Assessment(true,false,false,false,"pending",true);
     }
 
     private static void captureBody(Map<?,?> body) {

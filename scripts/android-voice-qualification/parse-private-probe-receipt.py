@@ -8,7 +8,7 @@ BOOLEANS = frozenset('unchanged plainApplication onlyPrivateProcess'.split())
 HASHES = frozenset('fingerprint targetApkSha256 probeApkSha256 certificateSha256'.split())
 READER_STAGES = frozenset('CONTEXT OBSERVED_BINDING MAIN_LOOP_BARRIER PLAIN_APPLICATION IDENTITY_BEFORE PROCESS_BEFORE DATA_ROOT INITIAL_STAMPS NATIVE_LOAD SNAPSHOT_CAPTURE NATIVE_FILE_IDENTITY SNAPSHOT_STAMPS PROCESS_BEFORE_QUALIFICATION KEYSTORE_OPEN QUALIFICATION SNAPSHOT_UNCHANGED FILE_STAMPS_UNCHANGED DIRECTORY_STAMPS_UNCHANGED IDENTITY_AFTER PROCESS_AFTER RECEIPT_BUILD SNAPSHOT_CLOSE FINISH UNEXPECTED'.split())
 QUALIFICATION_STAGES = frozenset('INPUT SNAPSHOT_STABILITY_BEFORE SECURESTORE_INDEX OWNER_DATABASE_INVENTORY OWNER_DATABASE_REQUIRED KEY_DATABASE_MATCH KEY_COVERAGE LEGACY_CLAIM OWNER_ROLLBACK_CHECK OWNER_KEY_DECRYPT OWNER_WAL_RECONSTRUCT OWNER_DATABASE_OPEN MOBILE_USER_VERSION MOBILE_MIGRATIONS MOBILE_SCHEMA MOBILE_MIGRATION_MARKER MOBILE_BATCH_ROWS MOBILE_SINGLETON_ROWS OWNER_RESOURCES_CLOSE LEGACY_OWNER_BINDING LEGACY_MIGRATION_STATE LEGACY_DATABASE_BINDING LEGACY_ROLLBACK_CHECK LEGACY_WAL_RECONSTRUCT LEGACY_DATABASE_OPEN LEGACY_MARKER_ABSENCE LEGACY_RESOURCES_CLOSE ASYNC_ROLLBACK_CHECK ASYNC_WAL_RECONSTRUCT ASYNC_DATABASE_OPEN ASYNC_SCHEMA ASYNC_ROWS ASYNC_RESOURCES_CLOSE SNAPSHOT_STABILITY_AFTER RESULT'.split())
-FIELDS = COUNTS | BOOLEANS | HASHES | {'verdict'}
+FIELDS = COUNTS | BOOLEANS | HASHES | {'verdict', 'workSummary'}
 PEER_ROLES = frozenset('TARGET_MAIN PRIVATE_PROCESS_NAME TARGET_AUXILIARY OTHER UNKNOWN_NAME INVALID_PID'.split())
 
 def decode_marker(text):
@@ -61,6 +61,37 @@ def parse_crash_metadata(output, start, end):
             stage,role=next(iter(markers));result['bootstrapStage']=stage
             if role is not None:result['peerRole']=role
     return result
+
+BATCH_PHASES = frozenset('captured created uploaded processing cancel_requested completed cancelled failed'.split())
+SINGLETON_PHASES = frozenset('captured creating created uploaded processing reviewing confirming confirmation_unknown saved cancel_requested cancelled terminal'.split())
+
+def valid_work_summary(text, receipt):
+    # Closed vocabulary only. Never retain an unrecognized group or partial summary.
+    if len(text)>32768:return False
+    groups=text.split(';') if text else []
+    if len(groups)>512:return False
+    totals=dict.fromkeys(('rows','pending','terminal','audioOwned','confirmationOwned'),0)
+    previous=''
+    for group in groups:
+        match=re.fullmatch(r'(OWNER_BATCH|LEGACY_BATCH|OWNER_SINGLETON|LEGACY_SINGLETON|ASYNC):([a-z_]+):([01]):([01]):([01])=([1-9][0-9]{0,5})',group)
+        if not match:return False
+        kind,phase,session,audio,confirmation,count=match.groups();count=int(count)
+        shape=group.split('=')[0]
+        if shape<=previous:return False
+        previous=shape
+        if kind=='ASYNC':
+            if (phase,session,audio,confirmation)!=('pending','1','0','0'):return False
+            terminal=False
+        elif kind.endswith('_BATCH'):
+            if phase not in BATCH_PHASES or confirmation!='0':return False
+            terminal=phase in ('completed','cancelled','failed')
+        else:
+            if phase not in SINGLETON_PHASES:return False
+            if phase in ('confirming','confirmation_unknown') and confirmation!='1':return False
+            terminal=phase in ('saved','cancelled','terminal')
+        totals['rows']+=count;totals['terminal' if terminal else 'pending']+=count
+        totals['audioOwned']+=int(audio)*count;totals['confirmationOwned']+=int(confirmation)*count
+    return totals['rows']<=524288 and all(receipt[key]==value for key,value in totals.items())
 
 def parse(output, exit_code, expected):
     if not isinstance(output, str) or len(output.encode('utf-8')) > 65536:
@@ -124,4 +155,6 @@ def parse(output, exit_code, expected):
     no_work = typed['pending'] + typed['audioOwned'] + typed['confirmationOwned'] == 0
     if (typed['verdict'] == 'CLEAR') != no_work:
         return indeterminate('INCONSISTENT_VERDICT')
+    if not valid_work_summary(values['workSummary'],typed):
+        return indeterminate('INVALID_WORK_SUMMARY')
     return typed

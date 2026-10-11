@@ -37,6 +37,7 @@ public final class NativeWholeStoreTest {
                         require(result.verdict().equals(wanted),"NATIVE_WHOLE_STORE_VERDICT");
                         for(String field:new String[]{"pending","terminal","audioOwned","confirmationOwned"})
                             require(((Integer)result.getClass().getDeclaredMethod(field).invoke(result)).longValue()==StrictJson.integer(expected.get(field)),"NATIVE_WHOLE_STORE_COUNTS");
+                        require(result.workSummary().equals(expected.get("workSummary")),"WORK_SUMMARY_MISMATCH");
                         if(Boolean.TRUE.equals(expected.get("wal")))require(result.committedFrames()>0,"COMMITTED_WAL_NOT_COVERED");
                         require(!result.toString().contains("11111111")&&!result.toString().contains("private"),"PRIVATE_RECEIPT");
                     } catch(IllegalStateException indeterminate) {
