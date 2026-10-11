@@ -1,0 +1,54 @@
+name: Staging Candidate Compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/voice-auto-save-restoration-2026-10-11]
+    paths: [.github/workflows/staging-candidate-compatibility.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  qualified-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      MASARIFI_RELEASE_VERSION: ci
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      MASARIFI_LIVE_DATABASE_TESTS: "1"
+      CROSS_FEATURE_DISPOSABLE_DATABASE_NAME: postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 093b5d0c42f3d68eb2de619aff94b44fbf088a02
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm --prefix apps/api ci --ignore-scripts --no-audit --no-fund
+      - name: Start disposable local Supabase
+        run: npm --prefix apps/api run supabase:start
+      - run: npm --prefix apps/api run db:reset
+      - name: Qualify exact candidate across feature boundaries
+        run: >-
+          node scripts/staging-voice/collect-compatibility.cjs
+          093b5d0c42f3d68eb2de619aff94b44fbf088a02
+          ghcr.io/masarifiratibi-spec/masarifi-backend@sha256:8ee5100f2f9de7b5930867eb7cf901c94344452ba8a3ed62954223bbc8fb2bab
+          .qualification/staging-candidate-093b5d0c
+      - name: Preserve source identity
+        if: always()
+        run: |
+          mkdir -p .qualification/staging-candidate-093b5d0c
+          git rev-parse HEAD > .qualification/staging-candidate-093b5d0c/source-sha.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: exact-candidate-093b5d0c-compatibility
+          path: .qualification/staging-candidate-093b5d0c
+          if-no-files-found: error
+      - name: Stop disposable local Supabase
+        if: always()
+        run: npm --prefix apps/api run supabase:stop
