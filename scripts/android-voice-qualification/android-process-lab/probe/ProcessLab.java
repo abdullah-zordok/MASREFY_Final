@@ -20,6 +20,7 @@ public final class ProcessLab extends Instrumentation {
     private static final String TARGET="com.masarifi.voicequalification.processfixture";
     private static final String EXPECTED=TARGET+":inspect";
     private final Bundle receipt=new Bundle();
+    private String stage="INITIAL_SURVEY";
     @Override public Application newApplication(ClassLoader loader,String name,Context context)
             throws InstantiationException,IllegalAccessException,ClassNotFoundException {
         if(!TARGET.equals(context.getPackageName()) || !EXPECTED.equals(Application.getProcessName()) ||
@@ -29,7 +30,13 @@ public final class ProcessLab extends Instrumentation {
             peer(context,"normal","Normal");
             peer(context,"isolated","Isolated");
             receipt.putString("verdict","PASS_DISPOSABLE_PROCESS_LAB");
-        } catch(Exception unavailable) {receipt.clear();receipt.putString("verdict","INDETERMINATE_PROCESS_LAB");}
+        } catch(Exception unavailable) {
+            String kind=unavailable.getMessage();
+            if(kind==null || !kind.matches("PEER_BIND_FALSE|PEER_READY_TIMEOUT|PEER_NULL_BINDER|PEER_IDENTITY_UNAVAILABLE|PEER_IDENTITY_INVALID|FRAMEWORK_UNAVAILABLE|FRAMEWORK_RECORD_INVALID|DUPLICATE_PEER|PEER_CLEANUP_UNPROVEN"))
+                kind=unavailable instanceof SecurityException?"SECURITY_EXCEPTION":unavailable instanceof IllegalStateException?"ILLEGAL_STATE_EXCEPTION":"OTHER_EXCEPTION";
+            receipt.clear();receipt.putString("verdict","INDETERMINATE_PROCESS_LAB");
+            receipt.putString("failureStage",stage);receipt.putString("failureKind",kind);
+        }
         // This synthetic target is already plain and has no startup/data implementation.
         return super.newApplication(loader,Application.class.getName(),context);
     }
@@ -50,11 +57,17 @@ public final class ProcessLab extends Instrumentation {
             @Override public void onServiceDisconnected(ComponentName component) {}
         };
         Intent intent=new Intent().setComponent(new ComponentName(TARGET,TARGET+".Peers$"+kind));
+        stage=label+"_BIND";
         boolean bound=context.bindService(intent,Context.BIND_AUTO_CREATE,Runnable::run,connection);
         receipt.putString(label+"Bound",Boolean.toString(bound));
         int peerPid=-1;
+        Exception firstFailure=null;String firstFailureStage=null;
         try {
-            if(!bound || !ready.await(5,TimeUnit.SECONDS) || endpoint[0]==null)throw new IllegalStateException("PEER_NOT_READY");
+            stage=label+"_READY";
+            if(!bound)throw new IllegalStateException("PEER_BIND_FALSE");
+            if(!ready.await(5,TimeUnit.SECONDS))throw new IllegalStateException("PEER_READY_TIMEOUT");
+            if(endpoint[0]==null)throw new IllegalStateException("PEER_NULL_BINDER");
+            stage=label+"_IDENTITY";
             Parcel request=Parcel.obtain(),reply=Parcel.obtain();
             try {
                 request.writeInterfaceToken("public.synthetic.processlab");
@@ -63,6 +76,7 @@ public final class ProcessLab extends Instrumentation {
                 if(peerPid<=0 || actualUid<10000)throw new IllegalStateException("PEER_IDENTITY_INVALID");
                 receipt.putString(label+"ActualUidMatches",Boolean.toString(actualUid==Process.myUid()));
             } finally {request.recycle();reply.recycle();}
+            stage=label+"_FRAMEWORK";
             var records=context.getSystemService(ActivityManager.class).getRunningAppProcesses();
             if(records==null)throw new IllegalStateException("FRAMEWORK_UNAVAILABLE");
             boolean visible=false,uidMatches=false;int others=0;
@@ -74,17 +88,24 @@ public final class ProcessLab extends Instrumentation {
             receipt.putString(label+"FrameworkVisible",Boolean.toString(visible));
             receipt.putString(label+"FrameworkUidMatches",Boolean.toString(uidMatches));
             if(label.equals("isolated"))receipt.putString("isolatedOtherSameUidPeers",Integer.toString(others));
-            receipt.putString(label+"Guard",survey(context));
-        } finally {
+            stage=label+"_GUARD";receipt.putString(label+"Guard",survey(context));
+        } catch(Exception failed) {firstFailure=failed;firstFailureStage=stage;}
+        finally {
+            stage=label+"_UNBIND";
             try {if(bound)context.unbindService(connection);}
-            finally {
+            catch(Exception failed) {if(firstFailure==null){firstFailure=failed;firstFailureStage=stage;}}
+            stage=label+"_STOP";
+            try {
                 if(endpoint[0]!=null) {
                     Parcel stop=Parcel.obtain();
                     try {stop.writeInterfaceToken("public.synthetic.processlab");endpoint[0].transact(IBinder.FIRST_CALL_TRANSACTION+1,stop,null,IBinder.FLAG_ONEWAY);}
                     finally {stop.recycle();}
                 }
             }
+            catch(Exception failed) {if(firstFailure==null){firstFailure=failed;firstFailureStage=stage;}}
+            if(firstFailure!=null){stage=firstFailureStage;throw firstFailure;}
         }
+        stage=label+"_CLEANUP";
         long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean gone=false;
         // Fixture cleanup only. The production guard is unchanged and never retries.
         while(System.nanoTime()<end) {
