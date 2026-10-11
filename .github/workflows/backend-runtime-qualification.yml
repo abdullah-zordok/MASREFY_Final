@@ -1,0 +1,138 @@
+name: Backend Runtime Qualification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/voice-auto-save-restoration-2026-10-11]
+    paths:
+      - docker/backend.Dockerfile
+      - apps/api/test/container/image-commands.spec.ts
+      - .github/workflows/backend-runtime-qualification.yml
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  runtime-image:
+    if: github.repository == 'masarifiratibi-spec/masarifi.ratibi_app' && github.ref == 'refs/heads/codex/voice-auto-save-restoration-2026-10-11'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Bind unchanged applications to the completed full qualification
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=e6def119b047c54fbaf36877fdd23b3bc367ad6a
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38137175993" > runtime-baseline-run.json
+          jq -e --arg baseline "$baseline" '.head_sha == $baseline and .conclusion == "success" and .name == "Backend Foundation"' runtime-baseline-run.json
+          git merge-base --is-ancestor "$baseline" HEAD
+          git diff --name-only "$baseline" HEAD -- apps packages supabase docker > runtime-application-diff.txt
+          while IFS= read -r path; do
+            case "$path" in
+              apps/api/test/container/image-commands.spec.ts|docker/backend.Dockerfile) ;;
+              *) printf 'Unqualified application or Docker change: %s\n' "$path"; exit 1 ;;
+            esac
+          done < runtime-application-diff.txt
+          git rev-parse HEAD > runtime-source-sha.txt
+          git ls-tree HEAD apps/api/src apps/mobile apps/admin-web packages supabase docker > runtime-qualified-trees.txt
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm --prefix apps/api ci --ignore-scripts --no-audit --no-fund
+      - name: Verify actual image regression types and lint
+        working-directory: apps/api
+        run: |
+          npm run typecheck
+          npx eslint test/container/image-commands.spec.ts
+      - name: Verify rendered Staging configuration
+        env:
+          MASARIFI_BACKEND_REPOSITORY: ghcr.io/example/masarifi-backend
+          MASARIFI_BACKEND_DIGEST: "0000000000000000000000000000000000000000000000000000000000000000"
+          MASARIFI_API_ENV_FILE: ${{ runner.temp }}/masarifi-api.env
+          MASARIFI_WORKER_ENV_FILE: ${{ runner.temp }}/masarifi-worker.env
+          MASARIFI_MIGRATION_ENV_FILE: ${{ runner.temp }}/masarifi-migration.env
+          MASARIFI_RELEASE_VERSION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          printf 'COMPOSE_SENTINEL=api\n' > "$MASARIFI_API_ENV_FILE"
+          printf 'COMPOSE_SENTINEL=worker\n' > "$MASARIFI_WORKER_ENV_FILE"
+          printf 'COMPOSE_SENTINEL=migration\n' > "$MASARIFI_MIGRATION_ENV_FILE"
+          chmod 600 "$MASARIFI_API_ENV_FILE" "$MASARIFI_WORKER_ENV_FILE" "$MASARIFI_MIGRATION_ENV_FILE"
+          docker compose -f docker/staging/compose.backend.yml --profile migrate config --format json | node docker/staging/verify-compose.mjs
+          node --test docker/staging/verify-analysis-compose.test.mjs
+          docker compose -f docker/staging/compose.backend.yml -f docker/staging/voice-analysis.yml config --format json | node docker/staging/verify-analysis-compose.mjs
+      - name: Configure public image cache on disposable runner
+        run: |
+          set -euo pipefail
+          if sudo test -s /etc/docker/daemon.json; then sudo cat /etc/docker/daemon.json; else printf '{}\n'; fi |
+            jq '.["registry-mirrors"] = ((.["registry-mirrors"] // []) + ["https://mirror.gcr.io"] | unique)' > "$RUNNER_TEMP/masarifi-docker-daemon.json"
+          sudo install -D -m 644 "$RUNNER_TEMP/masarifi-docker-daemon.json" /etc/docker/daemon.json
+          sudo systemctl restart docker
+      - name: Build exact-source patched image
+        run: docker build --file docker/backend.Dockerfile --label org.opencontainers.image.revision=${{ github.sha }} --tag masarifi-backend:${{ github.sha }} .
+      - name: Exercise all actual container contracts
+        env:
+          MASARIFI_IMAGE_UNDER_TEST: masarifi-backend:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          npm --prefix apps/api run test:container 2>&1 | tee runtime-container-tests.log
+          test "$(docker image inspect masarifi-backend:${{ github.sha }} --format '{{.Config.User}}')" = "65532:65532"
+          docker image inspect masarifi-backend:${{ github.sha }} > runtime-image-inspection.json
+      - name: Scan every severity without suppressing unfixed findings
+        env:
+          SCAN_IMAGE: masarifi-backend:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+            https://github.com/aquasecurity/trivy/releases/download/v0.75.0/trivy_0.75.0_Linux-64bit.tar.gz \
+            --output "$RUNNER_TEMP/trivy_0.75.0_Linux-64bit.tar.gz"
+          echo "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f  $RUNNER_TEMP/trivy_0.75.0_Linux-64bit.tar.gz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/masarifi-trivy"
+          tar -xzf "$RUNNER_TEMP/trivy_0.75.0_Linux-64bit.tar.gz" -C "$RUNNER_TEMP/masarifi-trivy" trivy
+          : > runtime-empty.trivyignore
+          "$RUNNER_TEMP/masarifi-trivy/trivy" --version > runtime-trivy-version.txt
+          "$RUNNER_TEMP/masarifi-trivy/trivy" image --image-src docker --cache-dir "$RUNNER_TEMP/masarifi-trivy-cache" \
+            --scanners vuln --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed=false \
+            --ignorefile runtime-empty.trivyignore --format json --output runtime-vulnerabilities.json "$SCAN_IMAGE"
+          jq -e '.Results | type == "array" and length > 0' runtime-vulnerabilities.json
+          jq -e --arg source "$GITHUB_SHA" '.Metadata.OS.Family == "debian" and .Metadata.ImageConfig.config.Labels["org.opencontainers.image.revision"] == $source' runtime-vulnerabilities.json
+          jq -e '[.Results[] | .Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0' runtime-vulnerabilities.json
+          jq -e '[.Results[] | .Vulnerabilities[]? | select(.PkgName == "libc6" and (.VulnerabilityID == "CVE-2026-5450" or .VulnerabilityID == "CVE-2026-5928"))] | length == 0' runtime-vulnerabilities.json
+          sha256sum "$RUNNER_TEMP/trivy_0.75.0_Linux-64bit.tar.gz" runtime-vulnerabilities.json > runtime-scan-sha256.txt
+      - name: Publish qualified immutable CI artifact
+        env:
+          IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/masarifi-backend
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag "masarifi-backend:$GITHUB_SHA" "$IMAGE_REPOSITORY:$GITHUB_SHA"
+          docker push "$IMAGE_REPOSITORY:$GITHUB_SHA"
+          docker image inspect "$IMAGE_REPOSITORY:$GITHUB_SHA" --format '{{index .RepoDigests 0}}' | sed 's/.*@//' > backend-image-digest.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: backend-runtime-${{ github.sha }}-evidence
+          path: |
+            runtime-*.json
+            runtime-*.txt
+            runtime-*.log
+            backend-image-digest.txt
+          if-no-files-found: error

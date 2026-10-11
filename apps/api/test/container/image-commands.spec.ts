@@ -8,6 +8,47 @@ import { dockerResult, imageUnderTest, inspectImage } from './docker-test.utils'
 jest.setTimeout(180_000);
 
 describe('same-image process commands', () => {
+  it('contains the patched glibc libraries and runs Node 24 as the protected user', () => {
+    // CVE-2026-5450/CVE-2026-5928: package metadata alone cannot prove patched library bytes.
+    const script = `
+      const assert = require('node:assert/strict');
+      const fs = require('node:fs');
+      const crypto = require('node:crypto');
+      assert.equal(process.versions.node.split('.')[0], '24');
+      assert.equal(process.getuid(), 65532);
+      assert.equal(process.getgid(), 65532);
+      const report = process.report.getReport();
+      assert.equal(report.header.glibcVersionRuntime, '2.41');
+      assert.ok(report.sharedObjects.some(path => path.endsWith('/libc.so.6')));
+      const prefix = '/var/lib/dpkg/status.d/libc6';
+      assert.match(fs.readFileSync(prefix, 'utf8'), /^Version: 2\\.41-12\\+deb13u4$/m);
+      const checksums = fs.readFileSync(prefix + '.md5sums', 'utf8').trim().split('\\n');
+      const libraryPaths = [];
+      for (const line of checksums) {
+        const [expected, path] = line.trim().split(/\\s+/);
+        if (!path.startsWith('usr/lib/')) continue;
+        const actual = crypto.createHash('md5').update(fs.readFileSync('/' + path)).digest('hex');
+        assert.equal(actual, expected, path);
+        libraryPaths.push(path);
+      }
+      assert.ok(libraryPaths.some(path => path.endsWith('/libc.so.6')));
+      assert.ok(libraryPaths.some(path => path.includes('/ld-linux-')));
+    `;
+    const result = dockerResult([
+      'run',
+      '--rm',
+      '--read-only',
+      '--network',
+      'none',
+      '--entrypoint',
+      '/nodejs/bin/node',
+      imageUnderTest,
+      '-e',
+      script,
+    ]);
+    expect(result.status).toBe(0);
+  });
+
   it('contains the patched OpenSSL packages and matching library files', () => {
     const script = `
       const assert = require('node:assert/strict');
