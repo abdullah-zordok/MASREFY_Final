@@ -1,6 +1,7 @@
 """Runtime startup-suppression test. Installs synthetic fixtures ONLY on a checked emulator."""
 import argparse
 import hashlib
+import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -218,12 +219,16 @@ def encrypted_journals(emulator, receipt):
     baseline_requests = LocalTripwireListener.requests
     seeded = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "seed", probe))
     receipt["encryptedJournals"] = {"seed": seeded, "runs": []}
-    if seeded.get("verdict") != "SEEDED_PUBLIC_SYNTHETIC_FIXTURES" or seeded.get("missingExistingAliasesFailClosed") != "true":
+    if (seeded.get("verdict") != "SEEDED_PUBLIC_SYNTHETIC_FIXTURES" or seeded.get("missingExistingAliasesFailClosed") != "true"
+            or seeded.get("packageState") != "0" or seeded.get("applicationEnabled") != "true"):
         raise RuntimeError("SYNTHETIC_JOURNAL_SEED_FAILED")
     fingerprint = None
-    for iteration in range(3):
+    def qualify(destination, state):
+        nonlocal fingerprint
         observed = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "qualify", probe))
-        receipt["encryptedJournals"]["runs"].append(observed)
+        receipt["encryptedJournals"].setdefault(destination, []).append(observed)
+        if observed.get("packageState") != str(state) or observed.get("applicationEnabled") != str(state != 3).lower():
+            raise RuntimeError("SYNTHETIC_PACKAGE_STATE_CHANGED")
         if observed.get("verdict") != "PASS_DISPOSABLE_ENCRYPTED_JOURNALS" or int(observed.get("cases", "0")) < 30:
             raise RuntimeError("ENCRYPTED_JOURNAL_QUALIFICATION_FAILED")
         if not re.fullmatch("[0-9a-f]{64}", observed.get("fixtureFingerprint", "")):
@@ -232,6 +237,22 @@ def encrypted_journals(emulator, receipt):
         fingerprint = observed["fixtureFingerprint"]
         if emulator.fixture_log() != baseline_log or LocalTripwireListener.requests != baseline_requests:
             raise RuntimeError("ENCRYPTED_DIAGNOSTIC_STARTUP_EFFECT")
+    for iteration in range(3):
+        qualify("runs", 0)
+    # Reuse the exact disposable recovery-window implementation, with this
+    # independently seeded encrypted target. No physical-device entry point.
+    spec = importlib.util.spec_from_file_location("broadcast_window", Path(__file__).resolve().parent.parent / "android-process-lab/test-broadcast-lab.py")
+    window = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(window)
+    def change(state):
+        command, expected = {0: ("default-state", "default"), 3: ("disable-user", "disabled-user")}[state]
+        response = emulator.command("shell", "pm", command, "--user", "0", TARGET)
+        if response.strip() != "Package " + TARGET + " new state: " + expected:
+            raise RuntimeError("SYNTHETIC_PACKAGE_STATE_CHANGED")
+    def disabled_runs():
+        for iteration in range(3): qualify("disabledRuns", 3)
+    window.package_window(0, change, lambda: emulator.command("shell", "am", "force-stop", TARGET), disabled_runs)
+    qualify("restoredRuns", 0)
 
 def main():
     parser = argparse.ArgumentParser()

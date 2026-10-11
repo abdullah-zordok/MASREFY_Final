@@ -23,6 +23,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
     private String mode;
     @Override public Application newApplication(ClassLoader loader,String name,Context context)
             throws InstantiationException,IllegalAccessException,ClassNotFoundException {
+        AndroidProcessSurvey.require(context,"com.masarifi.voicequalification.fixture:voicequalify");
         return super.newApplication(loader,Application.class.getName(),context);
     }
     @Override public void onCreate(Bundle arguments) {super.onCreate(arguments);mode=arguments.getString("mode");start();}
@@ -37,6 +38,9 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                     !"com.masarifi.voicequalification.fixture:voicequalify".equals(Application.getProcessName()) ||
                     target.getApplicationInfo().uid!=Process.myUid() || target.getApplicationContext().getClass()!=Application.class)
                 throw new IllegalStateException("SYNTHETIC_TARGET_ONLY");
+            AndroidProcessSurvey.require(target,"com.masarifi.voicequalification.fixture:voicequalify");
+            receipt.putString("packageState",Integer.toString(target.getPackageManager().getApplicationEnabledSetting(target.getPackageName())));
+            receipt.putString("applicationEnabled",Boolean.toString(target.getPackageManager().getApplicationInfo(target.getPackageName(),0).enabled));
             phase="RESOLVE_SYNTHETIC_ROOT";
             Path dataRoot=SyntheticRootResolver.canonicalRoot(Path.of(target.getApplicationInfo().dataDir),
                     Path.of("/data/user/0"),Path.of("/data/data"),path -> {

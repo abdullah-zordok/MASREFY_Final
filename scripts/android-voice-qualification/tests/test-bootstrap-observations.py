@@ -20,6 +20,46 @@ class FixtureEmulator:
     def command(self,*arguments): self.commands.append(arguments);return ""
 
 class ControlObservationsTest(unittest.TestCase):
+    def test_disabled_journal_window_preserves_fingerprint_and_restores_on_failure(self):
+        for drift in (False, True):
+            with self.subTest(drift=drift):
+                class JournalEmulator:
+                    state = 0
+                    stopped = False
+                    def fixture_log(self): return 'unchanged tripwires'
+                    def command(self, *args):
+                        if args[:3] == ('shell', 'pm', 'disable-user'):
+                            self.state = 3
+                            return 'Package ' + bootstrap.TARGET + ' new state: disabled-user'
+                        if args[:3] == ('shell', 'pm', 'default-state'):
+                            self.assert_stopped()
+                            self.state = 0
+                            return 'Package ' + bootstrap.TARGET + ' new state: default'
+                        if args[:3] == ('shell', 'am', 'force-stop'):
+                            self.stopped = True
+                            return ''
+                        if args[:3] != ('shell', 'am', 'instrument'):
+                            raise AssertionError('Unexpected device boundary')
+                        self.stopped = False
+                        result = {'packageState': str(self.state), 'applicationEnabled': str(self.state != 3).lower()}
+                        if 'seed' in args:
+                            result.update(verdict='SEEDED_PUBLIC_SYNTHETIC_FIXTURES', missingExistingAliasesFailClosed='true')
+                        else:
+                            result.update(verdict='PASS_DISPOSABLE_ENCRYPTED_JOURNALS', cases='42',
+                                          fixtureFingerprint=('b' if drift and self.state == 3 else 'a') * 64)
+                        return ''.join('INSTRUMENTATION_RESULT: ' + key + '=' + value + '\n' for key, value in result.items())
+                    def assert_stopped(self):
+                        if not self.stopped: raise AssertionError('Restore before stop')
+                emulator = JournalEmulator(); receipt = {}
+                if drift:
+                    with self.assertRaisesRegex(RuntimeError, 'SYNTHETIC_FILES_CHANGED'):
+                        bootstrap.encrypted_journals(emulator, receipt)
+                else:
+                    bootstrap.encrypted_journals(emulator, receipt)
+                    self.assertEqual(len(receipt['encryptedJournals'].get('disabledRuns', [])), 3)
+                    self.assertEqual(len(receipt['encryptedJournals'].get('restoredRuns', [])), 1)
+                self.assertEqual(emulator.state, 0)
+
     def test_process_survey_cannot_be_omitted_or_rejected_before_application(self):
         passed={"beforeApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS",
                 "afterApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS"}
