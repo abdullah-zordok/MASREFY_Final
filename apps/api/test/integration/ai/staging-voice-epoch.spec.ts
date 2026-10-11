@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { AiRepository } from '../../../src/ai/ai.repository';
 import { createLivePool, describeLiveDatabase } from '../../live-database';
+import { EngagementRepository } from '../../../src/engagement/engagement.repository';
 
 // This suite runs only against the disposable CI/local database, never hosted Staging.
 describeLiveDatabase('Staging Voice epoch financial boundary', () => {
@@ -15,6 +16,36 @@ describeLiveDatabase('Staging Voice epoch financial boundary', () => {
   let oldEnforced: boolean;
   let oldPosting: boolean;
   const repository = new AiRepository(pool);
+  const confirmations = new EngagementRepository(pool, {} as never);
+  it('restricts Voice confirmation claims to the worker role and refuses absent worker identity', async () => {
+    for (const role of ['masarifi_api', 'anon', 'authenticated', 'service_role']) {
+      const grants = row(
+        (
+          await query(
+            `select
+        has_function_privilege($1,'private.voice_confirmation_sources(uuid,integer)','execute') sources,
+        has_function_privilege($1,'private.claim_voice_notification_deliveries(uuid,text,integer,integer)','execute') deliveries`,
+            [role],
+          )
+        ).rows[0],
+      );
+      expect(grants).toEqual({ sources: false, deliveries: false });
+    }
+    await expect(
+      pool.withClient(async (client) => {
+        await client.query('begin');
+        try {
+          await client.query("select set_config('request.jwt.claims','{}',true)");
+          await client.query('set local role masarifi_worker');
+          await client.query('select * from private.voice_confirmation_sources($1,1)', [
+            randomUUID(),
+          ]);
+        } finally {
+          await client.query('rollback');
+        }
+      }),
+    ).rejects.toMatchObject({ code: '42501', message: 'VOICE_NOTIFICATION_CLAIM_FORBIDDEN' });
+  });
   function query(text: string, values: readonly unknown[] = []) {
     return pool.query<Record<string, unknown>>(text, values);
   }
@@ -202,6 +233,79 @@ describeLiveDatabase('Staging Voice epoch financial boundary', () => {
       ).rows[0],
     );
   }
+  it('projects only fresh committed operating Voice confirmations without changing the ledger or publishing history', async () => {
+    await prepare('operating');
+    const session = await create();
+    await commit(session);
+    const before = await ledgerState();
+    const sources = await confirmations.claimVoiceSourceEvents(epoch, 1);
+    expect(sources).toHaveLength(1);
+    const source = row(sources[0]);
+    expect(source).toMatchObject({ user_id: user, event_type: 'transaction.created' });
+    const deliveries = [
+      {
+        channel: 'in_app' as const,
+        provider: 'database' as const,
+        title: 'Saved',
+        body: 'Transaction saved',
+        status: 'queued' as const,
+        nextAttemptAt: new Date(),
+      },
+    ];
+    const results = await Promise.all([
+      confirmations.createNotificationFromSource(source, deliveries),
+      confirmations.createNotificationFromSource(source, deliveries),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(await confirmations.claimVoiceSourceEvents(epoch, 10)).toEqual([]);
+    const claims = await confirmations.claimVoiceNotificationDeliveries(
+      epoch,
+      'voice-confirmation-test',
+      10,
+    );
+    expect(claims).toHaveLength(1);
+    const claimed = row(claims[0]);
+    expect(await confirmations.claimVoiceNotificationDeliveries(epoch, 'other-worker', 10)).toEqual(
+      [],
+    );
+    await query(
+      "update private.notification_deliveries set lease_until=clock_timestamp()-interval '1 second' where id=$1",
+      [claimed.id],
+    );
+    const recovered = await confirmations.claimVoiceNotificationDeliveries(
+      epoch,
+      'replacement-worker',
+      10,
+    );
+    expect(recovered).toHaveLength(1);
+    expect(row(recovered[0]).id).toBe(claimed.id);
+    expect(row(recovered[0]).claim_token).not.toBe(claimed.claim_token);
+    await query("select private.close_staging_voice_epoch($1,'notification_test_done')", [epoch]);
+    expect(
+      await confirmations.claimVoiceNotificationDeliveries(epoch, 'replacement-worker', 10),
+    ).toEqual([]);
+    expect(await ledgerState()).toEqual(before);
+    expect(
+      row(
+        (
+          await query('select published_at from private.outbox_events where id=$1', [
+            source.source_event_id,
+          ])
+        ).rows[0],
+      ).published_at,
+    ).toBeNull();
+  });
+
+  it('never consumes the one-event canary or a prior operating generation as universal confirmation work', async () => {
+    await prepare('canary', true, 2);
+    const session = await create('ar');
+    await commit(session, { amountMinor: 1000 });
+    const canary = epoch;
+    expect(await confirmations.claimVoiceSourceEvents(canary, 10)).toEqual([]);
+    await prepare('operating');
+    expect(await confirmations.claimVoiceSourceEvents(canary, 10)).toEqual([]);
+    expect(await confirmations.claimVoiceSourceEvents(epoch, 10)).toEqual([]);
+  });
   it.each([1, 2])(
     'version %i preparation keeps Posting disabled and financial admission closed',
     async (version) => {

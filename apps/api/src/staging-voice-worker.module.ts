@@ -7,18 +7,21 @@ import { AiWorker } from './ai/ai.worker';
 import { StagingVoiceWorker } from './ai/staging-voice.worker';
 import { PlatformConfigModule } from './platform/config/platform-config.module';
 import { PlatformConfigService } from './platform/config/platform-config.service';
+import { EngagementWorkerModule } from './engagement/engagement.module';
+import { EngagementWorker } from './engagement/engagement.worker';
 
 @Module({
-  imports: [PlatformConfigModule, AiWorkerModule],
+  imports: [PlatformConfigModule, AiWorkerModule, EngagementWorkerModule],
   providers: [
     {
       provide: StagingVoiceWorker,
-      inject: [AiRepository, AiWorker, AiStorage, PlatformConfigService],
+      inject: [AiRepository, AiWorker, AiStorage, PlatformConfigService, EngagementWorker],
       useFactory: (
         repository: AiRepository,
         engine: AiWorker,
         storage: AiStorage,
         config: PlatformConfigService,
+        confirmations: EngagementWorker,
       ) => {
         const epoch = config.get('MASARIFI_STAGING_VOICE_EPOCH_ID');
         const source = config.get('MASARIFI_RELEASE_VERSION');
@@ -46,6 +49,7 @@ import { PlatformConfigService } from './platform/config/platform-config.service
             writeFileSync('/tmp/staging-voice-health.next', JSON.stringify(state), { mode: 0o600 });
             renameSync('/tmp/staging-voice-health.next', '/tmp/staging-voice-health.json');
           },
+          (epoch) => confirmations.processVoiceConfirmations(epoch),
         );
       },
     },

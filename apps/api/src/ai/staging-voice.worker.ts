@@ -21,6 +21,7 @@ export class StagingVoiceWorker {
     private readonly workerId: string,
     private readonly sourceSha: string,
     private readonly observe: (state: Record<string, unknown>) => void = () => undefined,
+    private readonly confirm: (epoch: string) => Promise<void> = () => Promise.resolve(),
   ) {}
 
   start(): void {
@@ -65,6 +66,22 @@ export class StagingVoiceWorker {
         return;
       // Bounded captures are retained as acceptance evidence; ordinary retention is scoped.
       if (state.mode === 'canary') return;
+      // Delivery failures must not invalidate a committed financial receipt.
+      // The confirmation adapter claims only fresh transactions in this operating epoch.
+      try {
+        await this.confirm(this.epoch);
+      } catch (error) {
+        try {
+          new PlatformLogger().error('VOICE_CONFIRMATION_FAILED', {
+            context: 'StagingVoiceWorker',
+            failureStage: 'confirmation',
+            ...workerErrorFields(error),
+          });
+        } catch {
+          // A logging failure must not turn a saved transaction into a financial failure.
+        }
+      }
+      if (this.isStopping()) return;
       stage = 'purge';
       const purges = await this.repository.claimVoiceEpochPurges(this.epoch, this.workerId, 1, 120);
       for (const claim of purges) {

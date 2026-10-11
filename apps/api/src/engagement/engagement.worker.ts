@@ -97,6 +97,18 @@ export class EngagementWorker implements OnModuleDestroy {
     return this.cleanupAttachments();
   }
 
+  async processVoiceConfirmations(epoch: string): Promise<void> {
+    // This is invoked by the dedicated operating Voice lifecycle, never its broad scheduler.
+    const sources = await this.repository.claimVoiceSourceEvents(epoch, 1);
+    for (const source of sources) await this.ingest(source);
+    const deliveries = await this.repository.claimVoiceNotificationDeliveries(
+      epoch,
+      this.workerId,
+      1,
+    );
+    for (const delivery of deliveries) await this.deliver(delivery);
+  }
+
   private async evaluateReminders(): Promise<number> {
     const candidates = await this.repository.listReminderCandidates(
       this.config.getRequired('MASARIFI_NOTIFICATION_BATCH_SIZE'),

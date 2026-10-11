@@ -267,6 +267,16 @@ export class EngagementRepository {
     });
   }
 
+  async claimVoiceSourceEvents(epoch: string, limit: number): Promise<SourceNotificationClaim[]> {
+    return this.worker(async (client) => {
+      const result = await client.query<SourceNotificationClaim>(
+        'select * from private.voice_confirmation_sources($1::uuid,$2)',
+        [epoch, limit],
+      );
+      return result.rows;
+    });
+  }
+
   async listReminderCandidates(limit: number): Promise<ReminderCandidate[]> {
     return this.worker(async (client) => {
       const result = await client.query<{
@@ -372,21 +382,49 @@ export class EngagementRepository {
     limit: number,
   ): Promise<NotificationDeliveryClaim[]> {
     return this.worker(async (client) => {
-      const claims = await client.query<NotificationDeliveryClaim>(
-        `select d.id,d.claim_token,d.user_id,d.channel,d.provider,d.attempt_count,d.event_id,e.type event_type,
+      return this.readNotificationDeliveryClaims(
+        client,
+        'private.claim_notification_deliveries($1,$2,60)',
+        [workerId, limit],
+      );
+    });
+  }
+
+  async claimVoiceNotificationDeliveries(
+    epoch: string,
+    workerId: string,
+    limit: number,
+  ): Promise<NotificationDeliveryClaim[]> {
+    return this.worker((client) =>
+      this.readNotificationDeliveryClaims(
+        client,
+        'private.claim_voice_notification_deliveries($1::uuid,$2,$3,60)',
+        [epoch, workerId, limit],
+      ),
+    );
+  }
+
+  private async readNotificationDeliveryClaims(
+    client: PoolClient,
+    claim:
+      | 'private.claim_notification_deliveries($1,$2,60)'
+      | 'private.claim_voice_notification_deliveries($1::uuid,$2,$3,60)',
+    values: readonly unknown[],
+  ): Promise<NotificationDeliveryClaim[]> {
+    const claims = await client.query<NotificationDeliveryClaim>(
+      `select d.id,d.claim_token,d.user_id,d.channel,d.provider,d.attempt_count,d.event_id,e.type event_type,
           coalesce(d.rendered_title,e.title,t.subject,'Masarifi') title,coalesce(d.rendered_body,e.body_safe,t.body) body_safe,
            coalesce(e.data,'{}'::jsonb)||coalesce(d.rendered_data,jsonb_build_object('route','notification_detail')) data,
           p.token_ciphertext,p.device_id token_device_id,p.provider token_provider
-         from private.claim_notification_deliveries($1,$2,60) d
+         from ${claim} d
          left join public.notification_events e on e.id=d.event_id
          left join public.notification_campaigns c on c.id=d.campaign_id
          left join public.notification_templates t on t.id=c.template_id and t.status='published'
          left join lateral (select token_ciphertext,device_id,provider from public.push_tokens
            where user_id=d.user_id and revoked_at is null order by updated_at desc limit 1) p on d.channel='push'`,
-        [workerId, limit],
-      );
-      return claims.rows;
-    });
+      [...values],
+    );
+    return claims.rows;
   }
 
   async reminderDeliveryEligible(eventId: string, userId: string): Promise<boolean> {
