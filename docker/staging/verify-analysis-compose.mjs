@@ -9,7 +9,8 @@ export function verifyAnalysisCompose(config) {
     throw new Error('ANALYSIS_SCOPE_INVALID');
   }
   const health = worker.healthcheck;
-  if (health?.disable !== false ||
+  // Compose omits the default false boolean when serializing resolved JSON.
+  if (health?.disable === true ||
       JSON.stringify(health.test) !== JSON.stringify(['CMD', '/nodejs/bin/node', 'dist/src/platform/health/container-healthcheck.js']) ||
       !['310s', '5m10s'].includes(health.start_period)) {
     throw new Error('ANALYSIS_HEALTH_DISABLED_OR_INVALID');

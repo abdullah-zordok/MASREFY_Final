@@ -10,6 +10,9 @@ const candidate = () => ({ services: { 'analysis-worker': {
 
 test('accepts scoped health and rejects inherited disable, missing writable state and inadequate startup', () => {
   assert.doesNotThrow(() => verifyAnalysisCompose(candidate()));
+  const normalized = candidate();
+  delete normalized.services['analysis-worker'].healthcheck.disable;
+  assert.doesNotThrow(() => verifyAnalysisCompose(normalized));
   for (const alter of [
     worker => { worker.healthcheck.disable = true; },
     worker => { worker.healthcheck.start_period = '10s'; },
