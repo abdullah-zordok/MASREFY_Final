@@ -79,7 +79,7 @@ jobs:
           vendor_dir=apps/mobile/node_modules/expo-sqlite/vendor/sqlcipher
           echo "8fdf08e15777a45386fe4b2fc7604f125eb9ec57d0aaa8bde11ec8d8115ed915  $vendor_dir/sqlite3.c" | sha256sum -c -
           echo "3c6356d8cf67ed92522114559cdcba1b38b39eab05e9f5989c1758b8eacef5b9  $vendor_dir/sqlite3.h" | sha256sum -c -
-          gcc -shared -fPIC -O2 -DSQLITE_THREADSAFE=1 \
+          gcc -shared -fPIC -O2 -include stdint.h -DSQLITE_THREADSAFE=1 \
             -DSQLITE_ENABLE_BYTECODE_VTAB=1 -DSQLITE_TEMP_STORE=2 \
             -DSQLITE_ENABLE_SESSION=1 -DSQLITE_ENABLE_PREUPDATE_HOOK=1 \
             -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -DSQLITE_ENABLE_FTS4=1 \
