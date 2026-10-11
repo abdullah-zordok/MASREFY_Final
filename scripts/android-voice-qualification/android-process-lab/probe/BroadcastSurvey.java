@@ -2,7 +2,6 @@ package com.masarifi.voicequalification.processlab;
 
 import android.app.Application;
 import android.app.Instrumentation;
-import android.content.ComponentName;
 import android.content.Context;
 import android.os.Bundle;
 import com.masarifi.voicequalification.AndroidProcessSurvey;
@@ -28,10 +27,8 @@ public final class BroadcastSurvey extends Instrumentation {
     @Override public void onStart() {
         try {
             Context context = getTargetContext();
-            receipt.putString("componentState", Integer.toString(context.getPackageManager().getComponentEnabledSetting(
-                    new ComponentName(TARGET, TARGET + ".BootReceiver"))));
-            receipt.putString("secondComponentState", Integer.toString(context.getPackageManager().getComponentEnabledSetting(
-                    new ComponentName(TARGET, TARGET + ".SecondBootReceiver"))));
+            receipt.putString("packageState", Integer.toString(context.getPackageManager().getApplicationEnabledSetting(TARGET)));
+            receipt.putString("applicationEnabled", Boolean.toString(context.getPackageManager().getApplicationInfo(TARGET, 0).enabled));
             int peers = MAIN.equals(receipt.getString("initialSurvey")) ? 1 : 0;
             // Fixed observation interval, never a retry-until-PASS and never journal access.
             for (int sample = 0; sample < 25; sample++) {

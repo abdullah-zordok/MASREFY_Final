@@ -87,9 +87,13 @@ jobs:
           python3 scripts/android-voice-qualification/android-process-lab/test-process-lab.py \
             --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
             --build "$fixture_root/process-lab-build" --output "$fixture_root/process-lab-runtime"
+          python3 scripts/android-voice-qualification/android-rehearsal/build-fixtures.py \
+            --output "$fixture_root/broadcast-lab-build" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --core-aar "$fixture_root/core-1.17.0.aar" --process-lab --broadcast-lab \
+            --fixture-keystore "$fixture_root/process-lab-build/disposable-fixture.keystore"
           python3 scripts/android-voice-qualification/android-process-lab/test-broadcast-lab.py \
             --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
-            --build "$fixture_root/process-lab-build" --output "$fixture_root/broadcast-lab-runtime"
+            --build "$fixture_root/broadcast-lab-build" --output "$fixture_root/broadcast-lab-runtime"
       - name: Retain synthetic fixture identities and runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -102,4 +106,5 @@ jobs:
             ${{ runner.temp }}/vqs-android15/process-lab-build
             ${{ runner.temp }}/vqs-android15/process-lab-runtime
             ${{ runner.temp }}/vqs-android15/broadcast-lab-runtime
+            ${{ runner.temp }}/vqs-android15/broadcast-lab-build
           if-no-files-found: error

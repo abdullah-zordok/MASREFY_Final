@@ -11,31 +11,31 @@ process_lab = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(process_lab)
 bootstrap = process_lab.bootstrap
 TARGET = process_lab.TARGET
-COMPONENT = TARGET + '/' + TARGET + '.BootReceiver'
-SECOND = TARGET + '/' + TARGET + '.SecondBootReceiver'
 PROBE = 'com.masarifi.voicequalification.processlab/.BroadcastSurvey'
 PASS = 'PASS_ONLY_PRIVATE_PROCESS'
 MAIN = 'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=TARGET_MAIN'
 
-def receiver_window(original, change, operation):
-    if type(original) is not int or original not in (0, 1, 2):
-        raise RuntimeError('RECEIVER_PRIOR_STATE_UNKNOWN')
+def package_window(original, change, stop, operation):
+    if type(original) is not int or original not in (0, 1):
+        raise RuntimeError('PACKAGE_PRIOR_STATE_UNKNOWN')
     try:
-        change(2)
+        change(3)
         return operation()
     finally:
+        # Never re-enable components if stopping the synthetic package failed.
+        stop()
         change(original)
 
-def validate(value, protected, first_state='1'):
-    require(set(value) == {'initialSurvey', 'finalSurvey', 'peerSamples', 'componentState', 'secondComponentState', 'verdict'})
+def validate(value, protected):
+    require(set(value) == {'initialSurvey', 'finalSurvey', 'peerSamples', 'packageState', 'applicationEnabled', 'verdict'})
     require(value['verdict'] == 'PASS_BROADCAST_OBSERVATION')
     require(value['initialSurvey'] in (PASS, MAIN) and value['finalSurvey'] in (PASS, MAIN))
     require(re.fullmatch(r'0|[1-9]|1[0-9]|2[0-6]', value['peerSamples']) is not None)
     if protected:
-        require(value['componentState'] == '2' and value['secondComponentState'] == '2' and value['initialSurvey'] == PASS and
+        require(value['packageState'] == '3' and value['applicationEnabled'] == 'false' and value['initialSurvey'] == PASS and
                 value['finalSurvey'] == PASS and value['peerSamples'] == '0')
     else:
-        require(value['componentState'] == first_state and value['secondComponentState'] == '1' and
+        require(value['packageState'] in ('0', '1') and value['applicationEnabled'] == 'true' and
                 value['finalSurvey'] == MAIN and int(value['peerSamples']) > 0)
     return value
 
@@ -56,23 +56,22 @@ def parse(output):
     require(len(pairs) == len(dict(pairs)) and codes == ['-1'])
     return dict(pairs)
 
-def change_receiver(emulator, state, component=COMPONENT):
-    command, expected = {0: ('default-state', 'default'), 1: ('enable', 'enabled'), 2: ('disable', 'disabled')}[state]
-    require(component in (COMPONENT, SECOND))
-    response = emulator.command('shell', 'pm', command, '--user', '0', component)
-    require(response.strip() == 'Component {' + component + '} new state: ' + expected)
+def change_package(emulator, state):
+    command, expected = {0: ('default-state', 'default'), 1: ('enable', 'enabled'), 3: ('disable-user', 'disabled-user')}[state]
+    response = emulator.command('shell', 'pm', command, '--user', '0', TARGET)
+    require(response.strip() == 'Package ' + TARGET + ' new state: ' + expected)
 
 def boot_count(emulator):
     output = emulator.command('logcat', '-d', '-v', 'raw', '-s', 'VQSBroadcastLab:I', '*:S')
     require(len(output.encode()) <= 16384 and 'UNEXPECTED_ACTION' not in output)
     return output.count('BOOT_RECEIVER_DELIVERED')
 
-def observe(emulator, protected, first_state='1'):
+def observe(emulator, protected):
     before = boot_count(emulator)
     emulator.command('shell', 'am', 'force-stop', TARGET)
-    result = validate(parse(emulator.command('shell', 'am', 'instrument', '-w', '-r', PROBE)), protected, first_state)
+    result = validate(parse(emulator.command('shell', 'am', 'instrument', '-w', '-r', PROBE)), protected)
     delta = boot_count(emulator) - before
-    require(delta == (0 if protected else 1 if first_state == '2' else 2))
+    require(delta == (0 if protected else 2))
     return {**result, 'bootDeliveries': delta}
 
 def main():
@@ -85,6 +84,7 @@ def main():
     receipt = {'fixtureOnly': True, 'realRedmiQualification': False, 'noJournalOrKeyAccess': True,
                'runs': [], 'result': 'FAIL'}
     build = json.loads((args.build / 'build-receipt.json').read_text())
+    require(build.get('broadcastLab') is True)
     expected = {str(p.relative_to(HERE)): bootstrap.hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in HERE.rglob('*') if p.is_file() and p.suffix in ('.py', '.java', '.xml')}
     require(build['processLabSourceHashes'] == expected)
@@ -96,24 +96,21 @@ def main():
         emulator = bootstrap.Emulator(args, log)
         try:
             bootstrap.install_fixtures(emulator, bootstrap.fixture_apks(args))
-            for iteration in range(3):
-                change_receiver(emulator, 1)
-                change_receiver(emulator, 1, SECOND)
+            for original in (0, 1, 0):
+                change_package(emulator, original)
                 before = observe(emulator, protected=False)
-                incomplete = receiver_window(int(before['componentState']), lambda state: change_receiver(emulator, state),
-                                             lambda: observe(emulator, protected=False, first_state='2'))
-                fixed = receiver_window(int(before['componentState']), lambda state: change_receiver(emulator, state),
-                                        lambda: receiver_window(int(before['secondComponentState']),
-                                                                lambda state: change_receiver(emulator, state, SECOND),
-                                                                lambda: observe(emulator, protected=True)))
+                require(before['packageState'] == str(original))
+                fixed = package_window(original, lambda state: change_package(emulator, state),
+                                       lambda: emulator.command('shell', 'am', 'force-stop', TARGET),
+                                       lambda: observe(emulator, protected=True))
                 restored = observe(emulator, protected=False)
-                receipt['runs'].append({'enabled': before, 'onlyFirstDisabled': incomplete, 'protected': fixed, 'restored': restored})
+                require(restored['packageState'] == str(original))
+                receipt['runs'].append({'enabled': before, 'protected': fixed, 'restored': restored})
             receipt['result'] = 'PASS_DISPOSABLE_BROADCAST_WINDOW'
         finally:
             try:
                 emulator.command('shell', 'am', 'force-stop', TARGET)
-                try: change_receiver(emulator, 0)
-                finally: change_receiver(emulator, 0, SECOND)
+                change_package(emulator, 0)
             except Exception:
                 receipt['result'] = 'FAIL_FIXTURE_CLEANUP'
                 raise

@@ -71,6 +71,16 @@ def build_apk(kind, arguments, factory, log):
                      "--android-jar",arguments.runtime_android_jar,"--dex",entry],log)
     unsigned = output / "unsigned.apk"
     manifest_source = SOURCE / "journal/AndroidManifest.xml" if kind == "probe" and arguments.journal_fixtures else source_directory / "AndroidManifest.xml"
+    if kind == "target" and arguments.broadcast_lab:
+        # Only this separate disposable variant enables the two boot receivers.
+        # It remains non-debuggable and non-testOnly, matching the real permission boundary.
+        manifest = manifest_source.read_text(encoding="utf-8")
+        for name in ("BootReceiver", "SecondBootReceiver"):
+            old = 'android:name=".' + name + '" android:enabled="false"'
+            if manifest.count(old) != 1: raise RuntimeError("BROADCAST_FIXTURE_MANIFEST_MISMATCH")
+            manifest = manifest.replace(old, old.replace('"false"', '"true"'))
+        manifest_source = output / "broadcast-AndroidManifest.xml"
+        manifest_source.write_text(manifest, encoding="utf-8")
     checked([executable(tools,"aapt2"),"link","-I",android_jar,"--manifest",manifest_source,
              "-o",unsigned],log)
     with zipfile.ZipFile(unsigned,"a",compression=zipfile.ZIP_DEFLATED) as archive:
@@ -103,7 +113,10 @@ def main():
     parser.add_argument("--journal-abi",choices=["arm64-v8a","x86_64"])
     parser.add_argument("--runtime-android-jar",type=Path)
     parser.add_argument("--process-lab",action="store_true")
+    parser.add_argument("--broadcast-lab",action="store_true")
     arguments = parser.parse_args()
+    if arguments.broadcast_lab and not arguments.process_lab:
+        raise RuntimeError("BROADCAST_LAB_REQUIRES_PROCESS_FIXTURE")
     if arguments.process_lab and any((arguments.journal_fixtures,arguments.journal_native,arguments.journal_abi)):
         raise RuntimeError("PROCESS_LAB_MUST_NOT_INCLUDE_JOURNAL_OR_NATIVE_CODE")
     if any((arguments.journal_fixtures, arguments.journal_native, arguments.journal_abi)):
@@ -136,7 +149,7 @@ def main():
                      "-storepass","public-synthetic-fixture","-keypass","public-synthetic-fixture","-alias","fixture",
                      "-keyalg","RSA","-keysize","2048","-validity","30","-dname","CN=Disposable Synthetic Bootstrap Fixture"],log)
         factory = core_factory(arguments.core_aar,arguments.output)
-        receipt = {"realDeviceOrMasarifiArtifact":False,"coreAarSha256":digest(arguments.core_aar),
+        receipt = {"realDeviceOrMasarifiArtifact":False,"broadcastLab":arguments.broadcast_lab,"coreAarSha256":digest(arguments.core_aar),
                    "sourceHashes":{str(path.relative_to(SOURCE)):digest(path) for path in sorted(SOURCE.rglob("*"))
                                    if path.is_file() and path.suffix in (".java",".xml",".py")}}
         if arguments.process_lab:
