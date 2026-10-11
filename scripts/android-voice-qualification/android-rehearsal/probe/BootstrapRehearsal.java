@@ -16,6 +16,12 @@ import java.util.concurrent.TimeUnit;
 public final class BootstrapRehearsal extends Instrumentation {
     private int expectedMarks;
     private String expectedHash;
+    @Override public Application newApplication(ClassLoader loader,String targetClassName,Context targetContext)
+            throws InstantiationException,IllegalAccessException,ClassNotFoundException {
+        // Retain Android's target Context and component factory while avoiding
+        // construction/class initialization of the target Application subclass.
+        return super.newApplication(loader,Application.class.getName(),targetContext);
+    }
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         expectedMarks = Integer.parseInt(arguments.getString("expectedMarks"));
