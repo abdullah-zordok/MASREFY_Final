@@ -42,6 +42,7 @@ jobs:
           cat "$build_dir/platform-test.log"
           "$JAVA_HOME_17_X64/bin/java" -Xmx96m -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.CommittedWalSnapshotTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.ExistingDatabaseKeyTest
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           if grep -q 'UNEXECUTED_PLATFORM_CASE' "$build_dir/platform-test.log"; then
             echo 'Every Linux platform protection case must execute.' >&2

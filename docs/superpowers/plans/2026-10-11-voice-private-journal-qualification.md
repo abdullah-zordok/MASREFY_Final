@@ -61,6 +61,8 @@
 - [ ] Reject incomplete/unknown schema, malformed payloads, recovery-owned audio, frozen confirmations and pending legacy records. Never export key or payload material.
 - [ ] Verify the SQLCipher build/crypto configuration matches the deployed app, and that reader opens only the in-memory reconstructed snapshot.
 
+Partial Task3 preparation: the existing-only AES-GCM primitive has22 host checks using public synthetic keys. It rejects unsupported/authenticated envelopes before key lookup, sanitizes provider failures, validates plaintext key format and clears buffers. No AndroidKeyStore read, XML ownership mapping, native VFS or complete journal classification has been executed. The primitive alone cannot satisfy Task3.
+
 ### Task4: Native bootstrap rehearsal and device proposal
 
 **Files:** Minimal probe manifest/instrumentation, disposable target with startup tripwires, build/integrity receipts and exact proposed device approval packet.

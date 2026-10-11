@@ -17,5 +17,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Portable reader tests failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Bounded snapshot verification failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.CommittedWalSnapshotTest
 if ($LASTEXITCODE -ne 0) { throw 'Committed WAL reconstruction failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.ExistingDatabaseKeyTest
+if ($LASTEXITCODE -ne 0) { throw 'Existing-only key decryption failed.' }
 & python "$testRoot/real-wal-fixtures.py" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Disposable SQLite WAL fixture failed.' }
