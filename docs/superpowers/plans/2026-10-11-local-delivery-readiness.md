@@ -56,6 +56,7 @@
 - [x] Capture fresh complete lockfile audits with advisory provenance.
 - [x] Apply minimum compatible updates/overrides; record residual upstream exposures accurately.
 - [x] Install locked dependencies without scripts and verify targeted package/toolchain compatibility.
+- [ ] Qualify the compatible pinned libc6 security point update in the actual CI image, retain all-severity findings and exact immutable digest.
 
 ### Task 4: Sanitized extraction reliability and combined verification
 
