@@ -46,7 +46,9 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.StrictJsonTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SecureStoreKeyIndexTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceJournalClassifierTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.NativeSnapshotReaderTest
           python3 scripts/android-voice-qualification/tests/schema-fixtures.py --output "$build_dir/schema-fixtures" --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreQualificationTest "$build_dir/schema-fixtures"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           if grep -q 'UNEXECUTED_PLATFORM_CASE' "$build_dir/platform-test.log"; then
             echo 'Every Linux platform protection case must execute.' >&2
@@ -127,6 +129,21 @@ jobs:
             --sqlcipher-library "$build_dir/libfixture-sqlcipher.so" \
             --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java" \
             --output "$build_dir/native-schema-fixtures"
+          gcc "${native_flags[@]}" -Wall -Wextra -Werror \
+            -I "$JAVA_HOME_17_X64/include" -I "$JAVA_HOME_17_X64/include/linux" \
+            -c scripts/android-voice-qualification/native/voice_memory_jni.c -o "$build_dir/native-jni.o"
+          gcc -shared -Wl,-Bsymbolic "$build_dir/native-cipher.o" "$build_dir/native-wrapper-production.o" "$build_dir/native-jni.o" \
+            -lcrypto -lpthread -lm -o "$build_dir/libvoice-private-jni.so"
+          python3 scripts/android-voice-qualification/tests/whole-store-fixtures.py \
+            --output "$build_dir/whole-store-fixtures" --sqlcipher-library "$build_dir/libfixture-sqlcipher.so" \
+            --jni-library "$build_dir/libvoice-private-jni.so" --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
+          echo "VQS_CIPHER_BUILD=$build_dir" >> "$GITHUB_ENV"
+      - name: Retain the exact public synthetic Android input fixtures
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: voice-whole-store-fixtures-${{ github.sha }}
+          path: ${{ env.VQS_CIPHER_BUILD }}/whole-store-fixtures
+          if-no-files-found: error
       - name: Retain encrypted fixture qualification log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -135,4 +152,91 @@ jobs:
           path: |
             ${{ runner.temp }}/voice-encrypted-wal-test.log
             ${{ runner.temp }}/voice-encrypted-wal.*/native-schema-fixtures/**
+            ${{ runner.temp }}/voice-encrypted-wal.*/whole-store-fixtures/**
+          if-no-files-found: error
+  disposable-android-encrypted-journals:
+    needs: encrypted-wal-fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+        with:
+          name: voice-whole-store-fixtures-${{ github.sha }}
+          path: ${{ runner.temp }}/vqs-android-encrypted-input
+      - name: Install checksum-pinned Android compilation source
+        working-directory: apps/mobile
+        run: npm ci --ignore-scripts
+      - name: Exercise encrypted full-store diagnostic only on disposable Android15
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_root="$RUNNER_TEMP/vqs-android15-encrypted"
+          mkdir "$fixture_root"
+          exec > >(tee "$fixture_root/rehearsal.log") 2>&1
+          export ANDROID_USER_HOME="$fixture_root/user"
+          export ANDROID_AVD_HOME="$fixture_root/avd"
+          export ANDROID_EMULATOR_HOME="$fixture_root/user"
+          export ANDROID_ADB_SERVER_PORT=15040
+          export ADB_SERVER_SOCKET=tcp:localhost:15040
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          mkdir "$ANDROID_USER_HOME" "$ANDROID_AVD_HOME"
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          test -n "$sdk_root"
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          timeout 300 "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --channel=0 \
+            emulator platform-tools 'system-images;android-35;default;x86_64' \
+            'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.1.12297006' < /dev/null
+          "$sdk_root/emulator/emulator" -accel-check
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.aar \
+            --output "$fixture_root/core-1.17.0.aar"
+          echo "e1bd22bbcf5cee3a992dedb7d2d3c3b31c9f761c01e56d00ea443c8aaa981182  $fixture_root/core-1.17.0.aar" | sha256sum -c -
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            https://repo.maven.apache.org/maven2/io/github/ronickg/openssl/3.3.2-1/openssl-3.3.2-1.aar \
+            --output "$fixture_root/openssl-3.3.2-1.aar"
+          echo "bdd7fdc6d5534b0c3d1d1b233de4c7a688086aa8b13dcee70699a178a89ee298  $fixture_root/openssl-3.3.2-1.aar" | sha256sum -c -
+          python3 scripts/android-voice-qualification/android-rehearsal/build-native.py \
+            --output "$fixture_root/native" --ndk "$sdk_root/ndk/27.1.12297006" --abi x86_64 \
+            --openssl-aar "$fixture_root/openssl-3.3.2-1.aar" --vendor apps/mobile/node_modules/expo-sqlite/vendor/sqlcipher
+          python3 scripts/android-voice-qualification/android-rehearsal/build-fixtures.py \
+            --output "$fixture_root/build" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --core-aar "$fixture_root/core-1.17.0.aar" --journal-native "$fixture_root/native" \
+            --journal-abi x86_64 --journal-fixtures "$RUNNER_TEMP/vqs-android-encrypted-input"
+          "$sdk_root/cmdline-tools/latest/bin/avdmanager" create avd \
+            -n vqs_disposable_android15 -k 'system-images;android-35;default;x86_64' \
+            -d pixel_7 -p "$ANDROID_AVD_HOME/vqs_disposable_android15.avd" < /dev/null
+          "$sdk_root/platform-tools/adb" -P 15040 --one-device VQS_DISPOSABLE_NO_USB_DEVICE start-server
+          "$sdk_root/emulator/emulator" -avd vqs_disposable_android15 -port 5580 \
+            -accel on -gpu swiftshader -no-window -no-snapshot -no-audio -no-boot-anim \
+            -no-metrics -crash-report-mode disabled > "$fixture_root/emulator.log" 2>&1 &
+          emulator_pid=$!
+          trap '"$sdk_root/platform-tools/adb" -P 15040 -s emulator-5580 emu kill || true; wait "$emulator_pid" || true' EXIT
+          booted=0
+          for attempt in $(seq 1 180); do
+            kill -0 "$emulator_pid" || { cat "$fixture_root/emulator.log"; exit 1; }
+            if [[ $("$sdk_root/platform-tools/adb" -P 15040 -s emulator-5580 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; then
+              booted=1
+              break
+            fi
+            sleep 2
+          done
+          test "$booted" -eq 1 || { cat "$fixture_root/emulator.log"; exit 1; }
+          python3 scripts/android-voice-qualification/android-rehearsal/test-bootstrap.py \
+            --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
+            --build "$fixture_root/build" --output "$fixture_root/runtime" --encrypted-journals
+      - name: Retain complete disposable encrypted Android qualification
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: disposable-encrypted-android-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/vqs-android15-encrypted
+            ${{ runner.temp }}/vqs-android-encrypted-input
           if-no-files-found: error

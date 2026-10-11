@@ -1,0 +1,45 @@
+# Retained operating monitor — local qualification only
+
+Worktree: `D:/Masarifi-integration-2026-10-10`, recovery baseline `68e198e0e689a406b439d13e6d82f96e9a9f9312`. Controller changes are confined to candidate source. Historical containers, outbox, journals, worktrees and financial evidence were not touched. No SSH, Docker daemon, network/database, device, Staging or Production operation was performed by this implementation task. Root owns candidate commits, CI and artifact preparation; Integration/main ref updates remain prohibited.
+
+## Local result and safety boundary
+
+The old controller executed `docker run --rm` for every database status observation. Removing `--rm` alone would leave about 17,000 new containers daily per five-second polling path; normal monitoring can query status more than once each cycle. The new path creates one retained control helper and a separately retained closure helper per generation, then executes each bounded database script against the exact helper ID. It never creates replacement generations, removes containers or prunes evidence.
+
+Both helpers require the loaded digest's source revision and actual image ID, complete pinned environment hash, nonroot UID/GID 65532, explicit Node entrypoint/idle command, Staging network, readonly filesystem, all capabilities dropped, no-new-privileges, IPC isolation, fixed PID/memory/CPU/log bounds and one readonly CA mount. Additional mounts, credentials, privileges or identities block execution. Environment bytes are rehashed at read time and environment/CA pins are checked again before exec. Credential-bearing values stay in memory; the journal contains only their hash.
+
+Root-owned 0600 journals record creation intent before create and exact identities before start/exec. Concurrent callers use separate nonblocking control/closure locks. A timed-out create can reconcile the one exact container without creating another. A missing recorded container blocks replacement. Durable `executing` state prevents a restarted monitor from blindly retrying a possibly still-running operation. An exec failure stops its exact helper and retains an unconfirmed journal. Closure first checks/stops/confirms the exact owned financial writer with at most ten seconds per Docker boundary, then independently attempts SQL closure with the separate helper even when writer stop failed. All shutdown command boundaries share a monotonic 150-second deadline, within systemd's 180 seconds; an expired startup deadline cannot suppress closure. Budget exhaustion records an unconfirmed fence, preserves the pending journal and never reports Posting OFF. Terminal helper cleanup is independent of mutable environment pins. Containers and logs remain retained after stopping.
+
+The generated systemd unit independently invokes `close` on monitor stop/failure. Graceful shutdown/reboot therefore closes financial admission; reopening a closed generation requires a separately approved fresh generation. Existing guarded writer recovery covers an interrupted monitor whose old epoch is still open, but is not permission to reopen a generation closed by the shutdown hook. Shared API/Assistant ingress is preserved. Shared API and Analysis restoration still require separate exact approval and unchanged cohort identities.
+
+No historical outbox query/drain or general-worker start was added. Status uses the existing read-only transaction. Prepare/activate/close use existing migration/ownership/epoch checks; the controller has no mechanism to replay the consumed canary or old recordings.
+
+## Verification evidence
+
+Retained machine output and manifests: `scripts/staging-voice/evidence/2026-10-11-local-delivery-readiness/`. `controller-red.log` runs the two lifecycle regressions against a retained local copy of the exact baseline controller: two intended assertion failures for disposable execution and absent independent systemd closure. `red-manifest.json` identifies that baseline fixture and test hash. The fixture was never connected to Docker or Staging.
+
+| Local command | Cases | Result |
+| --- | ---: | --- |
+| `python scripts/staging-voice/customer-operating-cohort.test.py` | 65 | GREEN |
+| `python -O scripts/staging-voice/customer-operating-cohort.test.py` | 65 | GREEN |
+| `python scripts/staging-voice/operating-host.test.py` | 8 | GREEN |
+| `python scripts/staging-voice/test_redmi_voice_rollback_watchdog.py` | 23 | GREEN |
+| `python -O scripts/staging-voice/test_redmi_voice_rollback_watchdog.py` | 23 | GREEN |
+
+Total: 184 successful case executions, including 19 added controller cases. Docker, pg and OS boundaries are controlled local fixtures; the actual controller, CLI closure dispatch and Node database script run. The tests include 50 status observations producing one create/50 execs, exact-ID restart, interrupted create/exec, missing-container refusal, collision preservation, image revision/environment/isolation drift, malformed inspection containment, independent close, sanitized SQLSTATE errors and pin-independent terminal helper stop. The independent-review slow-boundary RED reproduced a writer stop at 240 seconds; the correction stops it first within 30 seconds and ends command execution by 150 seconds while preserving an unconfirmed SQL fence. `closure-budget-red.log` and its manifest retain that reproduction. A separate RED/GREEN covers expired startup deadlines blocking shutdown. Global application/CI/build qualification is owned by the coordinating agent and is not claimed here.
+
+## Prepared OFF rehearsal scope; not executed
+
+The exact local control/test hashes and allowed/forbidden operations are recorded in `scripts/staging-voice/off-rehearsal-review-packet.json`. It is an inert review packet, not an operating approval or executable deployment packet. Final combined source/image qualification and a fresh protected inventory must replace unresolved fields and freeze a newly reviewed packet before direct human approval. Historical 11 October IDs/hash baselines are context; they cannot substitute for current pins or a current verified backup.
+
+The approval scope must remain Posting OFF and zero active financial epochs throughout. It may install only an exact-source OFF rehearsal guard and its two bounded migration helpers into the recorded new root, observe read-only status, exercise idle helper/monitor failure/restart/closure and stop those exact helpers. It must not call the operating `apply` action, invoke database `activate`, start any financial/general worker, switch the API into financial mode, replay a recording, drain outbox work or operate a phone. The existing controller's operating approval gate must not be relabeled as an OFF approval. A separately reviewed OFF-only invocation/guard and direct OFF approval remain required before running host commands.
+
+Before/after evidence must include current source/digest/config/control pins, exact retained service/helper IDs, Posting OFF/zero active epochs, no financial/general writer running, no new Voice admission, unchanged historical pending jobs/outbox, matched accounts/transactions/postings/balance digests, process/container counts, bounded helper logs, close/stop receipts and unchanged shared API/Analysis/Assistant identities. Rehearsal failure must preserve failed containers/evidence, stop exact owned rehearsal helpers and alarm on any unconfirmed fence. If API/Analysis replacement is proposed to qualify candidate health, that is an additional explicitly pinned deployment/rollback scope; no such replacement is included in this packet.
+
+## Analysis/Assistant health acceptance remains open
+
+The handoff's running `ac7bc92` Analysis and Assistant workers had no Docker healthcheck; running/zero restarts cannot prove successful claim/query/provider processing. The coordinating agent is preparing successful-poll telemetry in `/tmp/ai-worker-health.json` and the scoped worker healthcheck in the final candidate. Qualification must reject startup/no receipt, failed or stopped polls, future/stale timestamps, wrong source/scope, and inconsistent Analysis/Assistant flags. The exact candidate's real freshness interval must match its bounded provider/poll deadline, and provider budget/consent/error counts remain separate acceptance signals.
+
+An approved candidate rollout must verify a fresh successful-poll receipt from each exact Analysis/Assistant container, source/scope/ownership and configured deadlines; use fresh separately permitted nonposting Analysis and Assistant jobs for actual processing, provider error/reset/quota/budget telemetry and bilingual response acceptance. Do not consume the historical four uploaded Voice rows or 497071 unpublished outbox items to prove health. Prepared local tests cannot establish these deployed runtime results.
+
+Remaining external blocker: direct exact-scope approval and an actual Posting-OFF Staging monitor/closure/rollback rehearsal with retained before/after evidence. That rehearsal is unperformed. Persistent financial activation, device rollout and financial/customer acceptance remain separately blocked.

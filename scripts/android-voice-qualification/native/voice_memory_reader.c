@@ -432,8 +432,9 @@ static const char *query_sql(enum VqsQuery query) {
         case VQS_MIGRATIONS: return "SELECT version FROM schema_migrations ORDER BY version";
         case VQS_BATCH: return "SELECT id,revision,payload FROM voice_batch_operations ORDER BY id";
         case VQS_SINGLETON: return "SELECT id,attempt_id,revision,payload FROM voice_operation_journal ORDER BY id";
-        case VQS_LEGACY: return "SELECT key,value FROM catalystLocalStorage WHERE key LIKE 'masarifi.voice.pending.%' ORDER BY key";
+        case VQS_LEGACY: return "SELECT key,value FROM catalystLocalStorage ORDER BY key";
         case VQS_USER_VERSION: return "PRAGMA user_version";
+        case VQS_MARKER: return "SELECT key,value FROM _masarifi_migration_state ORDER BY key";
         default: return NULL;
     }
 }

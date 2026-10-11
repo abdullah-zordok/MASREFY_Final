@@ -1,0 +1,39 @@
+{
+  "fixtureOnly": true,
+  "controlHash": "395433c7cf5442d80a5a65a68caad63901ed78435b78dbfdc5a7fc7faeae6638",
+  "baseline": "68e198e0e689a406b439d13e6d82f96e9a9f9312",
+  "commands": [
+    {
+      "tests": 65,
+      "command": "python scripts/staging-voice/customer-operating-cohort.test.py",
+      "exitCode": 0,
+      "name": "controller-green"
+    },
+    {
+      "tests": 65,
+      "command": "python -O scripts/staging-voice/customer-operating-cohort.test.py",
+      "exitCode": 0,
+      "name": "controller-optimized-green"
+    },
+    {
+      "tests": 8,
+      "command": "python scripts/staging-voice/operating-host.test.py",
+      "exitCode": 0,
+      "name": "legacy-controller-green"
+    },
+    {
+      "tests": 23,
+      "command": "python scripts/staging-voice/test_redmi_voice_rollback_watchdog.py",
+      "exitCode": 0,
+      "name": "watchdog-green"
+    },
+    {
+      "tests": 23,
+      "command": "python -O scripts/staging-voice/test_redmi_voice_rollback_watchdog.py",
+      "exitCode": 0,
+      "name": "watchdog-optimized-green"
+    }
+  ],
+  "liveStagingRun": false,
+  "testHash": "935615ec556f4592be84b8c923c4c9e028db17bd690a650299d3139e612cff8b"
+}

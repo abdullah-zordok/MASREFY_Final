@@ -92,6 +92,27 @@ def exercise(emulator,marks,receipt):
             raise RuntimeError("BOOTSTRAP_CLASS_OR_COMPONENT_TRIPWIRE_FIRED")
         expected_hash = observed["fixtureSha256"]
 
+def encrypted_journals(emulator, receipt):
+    probe = "com.masarifi.voicequalification.rehearsal/com.masarifi.voicequalification.EncryptedJournalRehearsal"
+    baseline_log = emulator.fixture_log()
+    baseline_requests = LocalTripwireListener.requests
+    seeded = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "seed", probe))
+    if seeded.get("verdict") != "SEEDED_PUBLIC_SYNTHETIC_FIXTURES" or seeded.get("missingExistingAliasesFailClosed") != "true":
+        raise RuntimeError("SYNTHETIC_JOURNAL_SEED_FAILED")
+    receipt["encryptedJournals"] = {"seed": seeded, "runs": []}
+    fingerprint = None
+    for iteration in range(3):
+        observed = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "qualify", probe))
+        receipt["encryptedJournals"]["runs"].append(observed)
+        if observed.get("verdict") != "PASS_DISPOSABLE_ENCRYPTED_JOURNALS" or int(observed.get("cases", "0")) < 30:
+            raise RuntimeError("ENCRYPTED_JOURNAL_QUALIFICATION_FAILED")
+        if not re.fullmatch("[0-9a-f]{64}", observed.get("fixtureFingerprint", "")):
+            raise RuntimeError("SYNTHETIC_FINGERPRINT_MISSING")
+        if fingerprint and fingerprint != observed["fixtureFingerprint"]: raise RuntimeError("SYNTHETIC_FILES_CHANGED")
+        fingerprint = observed["fixtureFingerprint"]
+        if emulator.fixture_log() != baseline_log or LocalTripwireListener.requests != baseline_requests:
+            raise RuntimeError("ENCRYPTED_DIAGNOSTIC_STARTUP_EFFECT")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--adb",type=Path,required=True)
@@ -99,6 +120,7 @@ def main():
     parser.add_argument("--serial",required=True)
     parser.add_argument("--build",type=Path,required=True)
     parser.add_argument("--output",type=Path,required=True)
+    parser.add_argument("--encrypted-journals",action="store_true")
     arguments = parser.parse_args()
     arguments.output.mkdir(parents=True,exist_ok=False)
     receipt = {"realRedmiQualification":False,"fixtureOnly":True,"runs":[],"result":"FAIL"}
@@ -114,6 +136,8 @@ def main():
                 marks = positive_control(emulator)
                 receipt["positiveControl"] = {"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True}
                 exercise(emulator,marks,receipt)
+                if arguments.encrypted_journals:
+                    encrypted_journals(emulator,receipt)
                 receipt["result"] = "PASS_DISPOSABLE_ANDROID15_BOOTSTRAP"
                 listener.shutdown()
         finally:

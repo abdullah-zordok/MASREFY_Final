@@ -41,6 +41,9 @@ def build_apk(kind, arguments, factory, log):
     classes = output / "classes"
     classes.mkdir()
     sources = sorted((SOURCE / kind).glob("*.java"))
+    if kind == "probe" and arguments.journal_fixtures:
+        sources += sorted((SOURCE / "journal").glob("*.java"))
+        sources += sorted((SOURCE.parent / "src").rglob("*.java"))
     android_jar = arguments.sdk / "platforms/android-36/android.jar"
     tools = arguments.sdk / "build-tools/35.0.0"
     checked([executable(arguments.java / "bin","javac"),"-encoding","UTF-8","-source","17","-target","17",
@@ -52,10 +55,16 @@ def build_apk(kind, arguments, factory, log):
     checked([executable(arguments.java / "bin","java"),"-cp",tools / "lib/d8.jar","com.android.tools.r8.D8",
              "--min-api","35","--lib",android_jar,"--output",dex,*dex_inputs],log)
     unsigned = output / "unsigned.apk"
-    checked([executable(tools,"aapt2"),"link","-I",android_jar,"--manifest",SOURCE / kind / "AndroidManifest.xml",
+    manifest_source = SOURCE / ("journal" if kind == "probe" and arguments.journal_fixtures else kind) / "AndroidManifest.xml"
+    checked([executable(tools,"aapt2"),"link","-I",android_jar,"--manifest",manifest_source,
              "-o",unsigned],log)
     with zipfile.ZipFile(unsigned,"a",compression=zipfile.ZIP_DEFLATED) as archive:
         for entry in sorted(dex.glob("*.dex")): archive.write(entry,entry.name)
+        if kind == "probe" and arguments.journal_fixtures:
+            for entry in sorted(arguments.journal_fixtures.rglob("*")):
+                if entry.is_file(): archive.write(entry,"assets/journals/" + entry.relative_to(arguments.journal_fixtures).as_posix())
+            for name in ("libcrypto.so", "libvoice_private_reader.so"):
+                archive.write(arguments.journal_native / name,"lib/" + arguments.journal_abi + "/" + name)
     aligned = output / "aligned.apk"
     checked([executable(tools,"zipalign"),"-p","4",unsigned,aligned],log)
     apk = output / "fixture.apk"
@@ -74,7 +83,24 @@ def main():
     parser.add_argument("--java",type=Path,required=True)
     parser.add_argument("--core-aar",type=Path,required=True)
     parser.add_argument("--fixture-keystore",type=Path)
+    parser.add_argument("--journal-fixtures",type=Path)
+    parser.add_argument("--journal-native",type=Path)
+    parser.add_argument("--journal-abi",choices=["arm64-v8a","x86_64"])
     arguments = parser.parse_args()
+    if any((arguments.journal_fixtures, arguments.journal_native, arguments.journal_abi)):
+        if not all((arguments.journal_fixtures, arguments.journal_native, arguments.journal_abi)):
+            raise RuntimeError("COMPLETE_JOURNAL_BUILD_INPUTS_REQUIRED")
+        if len(list(arguments.journal_fixtures.glob("*/fixture.json"))) < 30:
+            raise RuntimeError("FULL_SYNTHETIC_JOURNAL_FIXTURES_REQUIRED")
+        native = json.loads((arguments.journal_native / "build-receipt.json").read_text(encoding="utf-8"))
+        if native["abi"] != arguments.journal_abi:
+            raise RuntimeError("NATIVE_ABI_MISMATCH")
+        for name, expected in native["sources"].items():
+            if digest(SOURCE.parent / "native" / name) != expected:
+                raise RuntimeError("NATIVE_SOURCE_CHANGED_AFTER_COMPILE")
+        for name, expected in native["libraries"].items():
+            if digest(arguments.journal_native / name) != expected:
+                raise RuntimeError("NATIVE_LIBRARY_CHANGED_AFTER_COMPILE")
     for required in (arguments.sdk / "platforms/android-36/android.jar",executable(arguments.sdk / "build-tools/35.0.0","aapt2"),arguments.core_aar):
         if not required.is_file(): raise RuntimeError("REQUIRED_EXISTING_BUILD_INPUT_MISSING")
     # Existing artifacts are evidence; every build gets a fresh owned directory.
@@ -94,6 +120,12 @@ def main():
                                    if path.is_file() and path.suffix in (".java",".xml",".py")}}
         receipt["target"] = build_apk("target",arguments,factory,log)
         receipt["probe"] = build_apk("probe",arguments,factory,log)
+        if arguments.journal_fixtures:
+            receipt["diagnosticSourceHashes"] = {str(path.relative_to(SOURCE.parent)):digest(path)
+                                                 for path in sorted((SOURCE.parent / "src").rglob("*.java"))}
+            receipt["journalFixtureHashes"] = {str(path.relative_to(arguments.journal_fixtures)):digest(path)
+                                               for path in sorted(arguments.journal_fixtures.rglob("*")) if path.is_file()}
+            receipt["nativeBuild"] = json.loads((arguments.journal_native / "build-receipt.json").read_text(encoding="utf-8"))
         (arguments.output / "build-receipt.json").write_text(json.dumps(receipt,indent=2),encoding="utf-8")
     print(json.dumps({"result":"BUILT_SYNTHETIC_FIXTURES","receipt":str(arguments.output / "build-receipt.json")}))
 

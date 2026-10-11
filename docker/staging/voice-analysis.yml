@@ -7,6 +7,13 @@ services:
     extends:
       file: compose.backend.yml
       service: worker
+    healthcheck:
+      disable: false
+      test: ["CMD", "/nodejs/bin/node", "dist/src/platform/health/container-healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 310s
     environment:
       MASARIFI_RELEASE_VERSION: ${MASARIFI_RELEASE_VERSION:?pin the cohort release SHA}
       MASARIFI_VOICE_ANALYSIS_ONLY: "true"

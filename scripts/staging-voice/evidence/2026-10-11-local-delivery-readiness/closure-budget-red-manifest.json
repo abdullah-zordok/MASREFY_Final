@@ -1,0 +1,6 @@
+{
+  "controlHash": "a01b907730afb1d6d724fbcf15a38ae8e87c9ab5e6c9e003dc2b64c577a42072",
+  "testHash": "5b03355466e743c84a9fee9747a38e27eb60dc7cfbe72811e4b129e764df06bd",
+  "test": "MonitorShutdown.test_slow_helper_setup_cannot_delay_owned_writer_stop_past_service_budget",
+  "exitCode": 1
+}

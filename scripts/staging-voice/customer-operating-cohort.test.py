@@ -122,6 +122,9 @@ class FakeHost:
         self.image_source = packet['sourceSha']
         self.pause_count = 0
         self.unhealthy_after = None
+        self.closure_deadline = None
+        self.closure_command_timeout = None
+        self.readiness_deadline = None
         self.dbstate = {'posting': False, 'activeEpochs': 0, 'analysisJobs': 0,
                         'migrations': MIGRATIONS, 'epoch': None, 'committed': 0}
         self.containers = {}
@@ -184,6 +187,9 @@ class FakeHost:
         approve(packet)
 
     def now(self): return self.clock
+    def monotonic(self): return self.clock
+    def stop_database_runners(self, state):
+        self.calls.append(('stop-database-runners',))
     def target(self, generation, incident=False):
         if generation != GENERATION: raise adapter.GuardError('ROOT_SCOPE_MISMATCH')
 
@@ -404,7 +410,7 @@ class HostSafety(unittest.TestCase):
         self.assertTrue(receipt['workerStoppedConfirmed'])
         self.assertFalse(host.containers['b' * 64]['State']['Running'])
         self.assertTrue(host.containers['a' * 64]['State']['Running'])
-        self.assertLess(host.calls.index(('db', 'close')), host.calls.index(('docker', 'stop', '--time', '5', 'b' * 64)))
+        self.assertLess(host.calls.index(('docker', 'stop', '--time', '5', 'b' * 64)), host.calls.index(('db', 'close')))
 
     def test_sql_failure_never_leaves_owned_writer_running_or_restores_shared_api(self):
         _packet, host = self.active()
@@ -599,6 +605,78 @@ class HostSafety(unittest.TestCase):
         self.assertTrue(host.containers['4' * 64]['State']['Running'])
 
 
+class MonitorShutdown(unittest.TestCase):
+    def test_expired_startup_deadline_cannot_disable_independent_closure_stop(self):
+        host = FakeHost(approved_packet())
+        adapter.apply(host.packet, host)
+        host.readiness_deadline = host.now() - 1
+        startup_deadline = host.readiness_deadline
+        host.run = adapter.LocalHost.run.__get__(host)
+        def process(command, **options):
+            if command[:2] == ['docker', 'stop']:
+                host.containers[command[-1]]['State']['Running'] = False
+            return types.SimpleNamespace(returncode=0, stdout='{}', stderr='')
+        with patch.object(adapter.subprocess, 'run', side_effect=process):
+            receipt = adapter.incident_close(host)
+        self.assertTrue(receipt['workerStoppedConfirmed'])
+        self.assertTrue(receipt['postingOffConfirmed'])
+        self.assertEqual(host.readiness_deadline, startup_deadline)
+
+    def test_slow_helper_setup_cannot_delay_owned_writer_stop_past_service_budget(self):
+        host = FakeHost(approved_packet())
+        adapter.apply(host.packet, host)
+        started = host.clock
+        stop_times = []
+        database_attempts = []
+        original_db = host.db
+        host.run = adapter.LocalHost.run.__get__(host)
+        def slow_process(command, **options):
+            # Model a successful Docker boundary consuming its entire timeout.
+            # No real process, daemon or database is contacted.
+            host.clock += options['timeout']
+            if command[:2] == ['docker', 'stop']:
+                identity = command[-1]
+                host.containers[identity]['State']['Running'] = False
+                stop_times.append((identity, host.clock - started))
+            return types.SimpleNamespace(returncode=0, stdout='{}', stderr='')
+        def slow_database(packet, action, state=None):
+            database_attempts.append((action, host.clock - started))
+            # A fresh helper's sequential image/name/create/inspect/start/
+            # inspect/exec boundaries must share one closure deadline.
+            for _ in range(7):
+                host.run(['docker', 'image', 'inspect', IMAGE_PREFIX + 'b' * 64])
+            return original_db(packet, action, state)
+        host.db = slow_database
+        with patch.object(adapter.subprocess, 'run', side_effect=slow_process):
+            receipt = adapter.incident_close(host)
+        self.assertEqual([identity for identity, _elapsed in stop_times], ['b' * 64])
+        self.assertLessEqual(stop_times[0][1], 30)
+        self.assertTrue(receipt['workerStoppedConfirmed'])
+        self.assertFalse(host.containers['b' * 64]['State']['Running'])
+        self.assertTrue(host.containers['a' * 64]['State']['Running'])
+        self.assertEqual(database_attempts[0][0], 'close')
+        self.assertLessEqual(host.clock - started, 150)
+        self.assertFalse(receipt['postingOffConfirmed'])
+        self.assertIn('DATABASE_OFF_UNCONFIRMED:OPERATING_CLOSURE_DEADLINE', receipt['blockers'])
+
+    def test_systemd_shutdown_command_independently_closes_and_stops_owned_writer(self):
+        host = FakeHost(approved_packet())
+        adapter.apply(host.packet, host)
+        # Consume the generated unit's shutdown command as systemd would, then
+        # run its actual CLI dispatch against the existing inert host boundary.
+        service = dict(line.split('=', 1) for line in adapter.monitor_unit(host.packet, host).splitlines()
+                       if '=' in line)
+        shutdown = service.get('ExecStopPost')
+        self.assertIsNotNone(shutdown, 'Monitor shutdown has no independent closure command')
+        self.assertEqual(shutdown.split()[-1], 'close')
+        with patch.object(sys, 'argv', ['customer-operating-cohort.py', shutdown.split()[-1]]), \
+                patch.object(adapter, 'LocalHost', return_value=host), patch('builtins.print'):
+            self.assertEqual(adapter.main(), 0)
+        self.assertFalse(host.dbstate['posting'])
+        self.assertFalse(host.containers['b' * 64]['State']['Running'])
+        self.assertTrue(host.containers['a' * 64]['State']['Running'])
+
+
 class NativeBoundaries(unittest.TestCase):
     def database(self, action, options=None):
         packet = approved_packet()
@@ -703,13 +781,10 @@ setImmediate(()=>process.stdout.write(JSON.stringify({result,errors,queries,exit
                  'sourceSha': packet['sourceSha'], 'imageDigest': packet['imageDigest']}
         for action in ('status', 'prepare', 'activate', 'close'):
             with self.subTest(action=action):
-                command = adapter.database_command(None if action == 'close' else packet, action, state)
-                self.assertEqual(command[:3], ['docker', 'run', '--rm'])
-                self.assertIn(IMAGE_PREFIX + packet['imageDigest'], command)
+                command = adapter.database_command(None if action == 'close' else packet, action, state, '5' * 64)
+                self.assertEqual(command[:2], ['docker', 'exec'])
+                self.assertIn('5' * 64, command)
                 self.assertIn('OPERATING_ACTION=' + action, command)
-                self.assertIn('MASARIFI_PROCESS_KIND=migration', command)
-                self.assertIn('--read-only', command)
-                self.assertIn('--cap-drop=ALL', command)
                 self.assertNotIn('--privileged', command)
                 control = json.loads(next(value for value in command if value.startswith('OPERATING_CONTROL='))[18:])
                 self.assertEqual(control['project'], PROJECT)
@@ -796,6 +871,284 @@ class PacketSafety(unittest.TestCase):
 
     def test_stale_approval_cannot_start_a_new_writer(self):
         self.assertEqual(observed_guard(approved_packet(), NOW + 86400 * 2), 'ACTIVATION_APPROVAL_STALE')
+
+
+class RetainedDockerHost(FakeHost):
+    """Only the Docker/OS boundary is inert; the database lifecycle is real."""
+    db = adapter.LocalHost.db
+
+    def __init__(self):
+        super().__init__(approved_packet())
+        self.runners = {}
+        self.journals = {}
+        self.commands = []
+        self.readiness_deadline = None
+        self.fail_exec = False
+        self.fail_create_receipt = False
+
+    @contextlib.contextmanager
+    def runner_lock(self, role):
+        yield
+
+    def read_runner(self, role):
+        return copy.deepcopy(self.journals.get(role))
+
+    def write_runner(self, role, journal, initial=False):
+        if initial and role in self.journals:
+            raise adapter.GuardError('RUNNER_ALREADY_JOURNALED')
+        self.journals[role] = copy.deepcopy(journal)
+
+    def database_environment(self, image, identity):
+        return {'MASARIFI_PROCESS_KIND': 'migration', 'MASARIFI_RELEASE_VERSION': 'a' * 40,
+                'SUPABASE_URL': 'https://' + PROJECT + '.supabase.co'}
+
+    def inspect(self, identity):
+        matches = [entry for entry in self.runners.values()
+                   if identity in (entry['Id'], entry['Name'][1:])]
+        if matches:
+            return copy.deepcopy(matches[0])
+        try:
+            return super().inspect(identity)
+        except StopIteration:
+            raise adapter.GuardError('CONTAINER_MISSING') from None
+
+    def run(self, command, timeout=30, environment=None):
+        self.commands.append(command)
+        if command[:3] == ['docker', 'image', 'inspect']:
+            return json.dumps([{'Id': 'sha256:' + '7' * 64,
+                'RepoDigests': [IMAGE_PREFIX + 'b' * 64],
+                'Config': {'Labels': {'org.opencontainers.image.revision': 'a' * 40}}}])
+        if command[:2] == ['docker', 'ps']:
+            name = command[command.index('--filter') + 1][7:-1]
+            return name if name in self.runners else ''
+        if command[:2] == ['docker', 'create']:
+            name = command[command.index('--name') + 1]
+            identity = ('5' if name.endswith('-control') else '6') * 64
+            labels = dict(value.split('=', 1) for index, value in enumerate(command)
+                          if index and command[index - 1] == '--label')
+            self.runners[name] = {'Id': identity, 'Name': '/' + name,
+                'Image': 'sha256:' + '7' * 64,
+                'Config': {'Image': IMAGE_PREFIX + 'b' * 64, 'User': '65532:65532',
+                    'Entrypoint': ['/nodejs/bin/node'], 'Cmd': ['-e', 'setInterval(()=>{},2147483647)'],
+                    'Labels': labels, 'Env': ['MASARIFI_PROCESS_KIND=migration',
+                        'MASARIFI_RELEASE_VERSION=' + 'a' * 40,
+                        'SUPABASE_URL=https://' + PROJECT + '.supabase.co']},
+                'HostConfig': {'NetworkMode': 'masarifi-staging_backend', 'ReadonlyRootfs': True,
+                    'Privileged': False, 'CapAdd': None, 'CapDrop': ['ALL'],
+                    'SecurityOpt': ['no-new-privileges'], 'PidsLimit': 128,
+                    'Memory': 536870912, 'NanoCpus': 1000000000, 'AutoRemove': False,
+                    'RestartPolicy': {'Name': 'no', 'MaximumRetryCount': 0},
+                    'Binds': ['/etc/masarifi/supabase-ca.crt:/etc/ssl/certs/masarifi-database-ca.crt:ro'],
+                    'Tmpfs': {}, 'IpcMode': 'none', 'PidMode': '', 'LogConfig': {'Type': 'json-file',
+                        'Config': {'max-size': '1m', 'max-file': '2'}}},
+                'Mounts': [{'Type': 'bind', 'Source': '/etc/masarifi/supabase-ca.crt',
+                    'Destination': '/etc/ssl/certs/masarifi-database-ca.crt', 'RW': False}],
+                'State': {'Running': False}}
+            if self.fail_create_receipt:
+                self.fail_create_receipt = False
+                raise adapter.GuardError('HOST_COMMAND_TIMEOUT')
+            return identity
+        if command[:2] == ['docker', 'start']:
+            name = next(name for name, entry in self.runners.items() if entry['Id'] == command[-1])
+            self.runners[name]['State']['Running'] = True
+            return command[-1]
+        if command[:2] == ['docker', 'stop']:
+            name = next(name for name, entry in self.runners.items() if entry['Id'] == command[-1])
+            self.runners[name]['State']['Running'] = False
+            return command[-1]
+        if command[:2] == ['docker', 'exec']:
+            if self.fail_exec:
+                raise adapter.GuardError('HOST_COMMAND_TIMEOUT')
+            action = next(entry[17:] for entry in command if entry.startswith('OPERATING_ACTION='))
+            return json.dumps({'posting': False, 'state': 'closed'} if action == 'close' else {'posting': False})
+        raise AssertionError('Unreviewed Docker operation: ' + command[1])
+
+
+class RetainedDatabaseLifecycle(unittest.TestCase):
+    def close_state(self, host):
+        return {'generation': GENERATION, 'epochId': '20000000-0000-4000-8000-000000000001',
+            'manifestHash': 'd' * 64, 'sourceSha': 'a' * 40, 'imageDigest': 'b' * 64,
+            'migrationEnvHash': host.packet['rollback']['envHashes']['migration.env'],
+            'databaseCAHash': host.packet['rollback']['databaseCAHash']}
+
+    def test_many_status_polls_reuse_one_retained_container_and_never_remove_evidence(self):
+        host = RetainedDockerHost()
+        for _ in range(50):
+            self.assertFalse(host.db(host.packet, 'status')['posting'])
+        self.assertEqual(sum(cmd[:2] == ['docker', 'create'] for cmd in host.commands), 1)
+        self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 50)
+        self.assertFalse(any(cmd[1] in ('run', 'rm', 'prune') for cmd in host.commands))
+
+    def test_process_restart_and_stopped_runner_reuse_exact_journaled_id(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        name = next(iter(host.runners))
+        host.runners[name]['State']['Running'] = False
+        host.db(host.packet, 'status')
+        self.assertEqual(sum(cmd[:2] == ['docker', 'create'] for cmd in host.commands), 1)
+        self.assertEqual([cmd[-1] for cmd in host.commands if cmd[:2] == ['docker', 'start']], ['5' * 64] * 2)
+
+    def test_interrupted_create_recovers_without_a_second_container(self):
+        host = RetainedDockerHost()
+        host.fail_create_receipt = True
+        with self.assertRaisesRegex(adapter.GuardError, 'HOST_COMMAND_TIMEOUT'):
+            host.db(host.packet, 'status')
+        host.db(host.packet, 'status')
+        self.assertEqual(sum(cmd[:2] == ['docker', 'create'] for cmd in host.commands), 1)
+
+    def test_lost_journaled_container_refuses_recreation(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        host.runners.clear()
+        with self.assertRaisesRegex(adapter.GuardError, 'RUNNER_MISSING'):
+            host.db(host.packet, 'status')
+        self.assertEqual(sum(cmd[:2] == ['docker', 'create'] for cmd in host.commands), 1)
+
+    def test_changed_identity_or_isolation_is_rejected_before_database_exec(self):
+        mutations = [('Id', '8' * 64), ('Image', 'sha256:' + '8' * 64),
+                     ('Config.User', '0:0'), ('HostConfig.Privileged', True),
+                     ('HostConfig.AutoRemove', True), ('HostConfig.NetworkMode', 'host'),
+                     ('HostConfig.ReadonlyRootfs', False), ('HostConfig.CapAdd', ['SYS_ADMIN']),
+                     ('HostConfig.Tmpfs', {'/tmp': 'rw'}),
+                     ('Config.Env', ['MASARIFI_PROCESS_KIND=worker'])]
+        for path, value in mutations:
+            with self.subTest(path=path):
+                host = RetainedDockerHost()
+                host.db(host.packet, 'status')
+                target = next(iter(host.runners.values()))
+                keys = path.split('.')
+                for key in keys[:-1]: target = target[key]
+                target[keys[-1]] = value
+                with self.assertRaises(adapter.GuardError): host.db(host.packet, 'status')
+                self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 1)
+
+    def test_close_has_independent_retained_runner_when_status_identity_is_lost(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        next(iter(host.runners.values()))['Id'] = '8' * 64
+        state = self.close_state(host)
+        host.runtime = state
+        self.assertEqual(host.db(None, 'close', state), {'posting': False, 'state': 'closed'})
+        self.assertEqual(len(host.runners), 2)
+        self.assertEqual(host.commands[-1][host.commands[-1].index('/nodejs/bin/node') - 1], '6' * 64)
+
+    def test_timeout_stops_exact_runner_and_later_poll_cannot_overlap_or_replace_it(self):
+        host = RetainedDockerHost()
+        host.fail_exec = True
+        with self.assertRaisesRegex(adapter.GuardError, '^HOST_COMMAND_TIMEOUT$'):
+            host.db(host.packet, 'status')
+        self.assertFalse(next(iter(host.runners.values()))['State']['Running'])
+        for _ in range(2):
+            with self.assertRaisesRegex(adapter.GuardError, '^DATABASE_RUNNER_EXECUTION_UNCONFIRMED$'):
+                host.db(host.packet, 'status')
+        self.assertEqual(len(host.runners), 1)
+        self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 1)
+        self.assertEqual([cmd[-1] for cmd in host.commands if cmd[:2] == ['docker', 'stop']], ['5' * 64])
+
+    def test_interrupted_exec_is_not_retried_after_monitor_process_restart(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        host.journals['control']['phase'] = 'executing'
+        with self.assertRaisesRegex(adapter.GuardError, '^DATABASE_RUNNER_EXECUTION_UNCONFIRMED$'):
+            host.db(host.packet, 'status')
+        self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 1)
+
+    def test_unjournaled_existing_name_is_preserved_and_not_adopted(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        host.journals.clear()
+        with self.assertRaisesRegex(adapter.GuardError, '^DATABASE_RUNNER_NAME_ALREADY_OWNED$'):
+            host.db(host.packet, 'status')
+        self.assertEqual(sum(cmd[:2] == ['docker', 'create'] for cmd in host.commands), 1)
+        self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 1)
+
+    def test_database_credentials_and_extra_mount_cannot_drift_after_creation(self):
+        for drift in ('environment', 'mount'):
+            with self.subTest(drift=drift):
+                host = RetainedDockerHost()
+                host.db(host.packet, 'status')
+                runner = next(iter(host.runners.values()))
+                if drift == 'environment': runner['Config']['Env'].append('DATABASE_URL=postgres://foreign/secret')
+                else: runner['Mounts'].append({'Type': 'bind', 'Source': '/var/run/docker.sock'})
+                with self.assertRaises(adapter.GuardError): host.db(host.packet, 'status')
+                self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 1)
+
+    def test_unreviewed_loaded_image_source_blocks_runner_creation(self):
+        host = RetainedDockerHost()
+        original = host.run
+        def changed_image(command, **kwargs):
+            content = original(command, **kwargs)
+            if command[:3] == ['docker', 'image', 'inspect']:
+                image = json.loads(content)
+                image[0]['Config']['Labels']['org.opencontainers.image.revision'] = 'f' * 40
+                return json.dumps(image)
+            return content
+        host.run = changed_image
+        with self.assertRaisesRegex(adapter.GuardError, '^DATABASE_RUNNER_IMAGE_SOURCE_MISMATCH$'):
+            host.db(host.packet, 'status')
+        self.assertEqual(host.runners, {})
+        self.assertEqual(host.journals, {})
+
+    def test_env_file_parser_preserves_literal_values_and_refuses_runtime_injection(self):
+        host = adapter.LocalHost('/not-a-live-scope')
+        content = b'# reviewed\nDATABASE_URL=postgres://local/a=b\n'
+        identity = {'sourceSha': 'a' * 40, 'migrationEnvHash': digest(content)}
+        image = {'Config': {'Env': ['PATH=/usr/bin', 'MASARIFI_PROCESS_KIND=api']}}
+        with patch.object(pathlib.Path, 'read_bytes', return_value=content):
+            values = host.database_environment(image, identity)
+        self.assertEqual(values, {'PATH': '/usr/bin', 'MASARIFI_PROCESS_KIND': 'migration',
+            'MASARIFI_RELEASE_VERSION': 'a' * 40, 'DATABASE_URL': 'postgres://local/a=b'})
+        for content in ('NODE_OPTIONS=--require=bad\n', 'OPERATING_ACTION=activate\n',
+                        'DATABASE_URL=a\nDATABASE_URL=b\n', 'DATABASE_URL\n'):
+            identity['migrationEnvHash'] = digest(content.encode())
+            with self.subTest(content=content), patch.object(pathlib.Path, 'read_bytes', return_value=content.encode()), \
+                    self.assertRaises(adapter.GuardError):
+                host.database_environment(image, identity)
+
+    def test_env_replacement_between_pin_and_environment_read_is_refused(self):
+        host = adapter.LocalHost('/not-a-live-scope')
+        identity = {'sourceSha': 'a' * 40, 'migrationEnvHash': digest(b'DATABASE_URL=reviewed\n')}
+        with patch.object(pathlib.Path, 'read_text', return_value='DATABASE_URL=changed\n'), \
+                patch.object(pathlib.Path, 'read_bytes', return_value=b'DATABASE_URL=changed\n'), \
+                self.assertRaisesRegex(adapter.GuardError, '^DATABASE_ENV_PIN_CHANGED$'):
+            host.database_environment({'Config': {}}, identity)
+
+    def test_terminal_cleanup_stops_only_owned_helpers_without_removal_or_env_pins(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        state = self.close_state(host)
+        host.runtime = state
+        host.db(None, 'close', state)
+        host.files['/etc/masarifi/migration.env'] = b'changed'
+        cleanup = getattr(adapter.LocalHost, 'stop_database_runners', None)
+        self.assertTrue(callable(cleanup), 'Terminal helper cleanup is unavailable')
+        cleanup(host, state)
+        self.assertFalse(any(runner['State']['Running'] for runner in host.runners.values()))
+        self.assertEqual([cmd[-1] for cmd in host.commands if cmd[:2] == ['docker', 'stop']], ['5' * 64, '6' * 64])
+        self.assertFalse(any(cmd[1] == 'rm' for cmd in host.commands))
+
+    def test_terminal_cleanup_preserves_replaced_helper_identity(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        next(iter(host.runners.values()))['Id'] = '8' * 64
+        cleanup = getattr(adapter.LocalHost, 'stop_database_runners', None)
+        self.assertTrue(callable(cleanup), 'Terminal helper cleanup is unavailable')
+        with self.assertRaises(adapter.GuardError): cleanup(host, self.close_state(host))
+        self.assertFalse(any(cmd[:2] == ['docker', 'stop'] for cmd in host.commands))
+
+    def test_malformed_inspection_is_sanitized_and_independent_closure_remains_available(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        next(iter(host.runners.values()))['Config'] = None
+        try:
+            host.db(host.packet, 'status')
+            reason = 'ACCEPTED'
+        except Exception as error:
+            reason = adapter.safe_reason(error)
+        self.assertEqual(reason, 'DATABASE_RUNNER_INSPECTION_INVALID')
+        state = self.close_state(host)
+        host.runtime = state
+        self.assertFalse(host.db(None, 'close', state)['posting'])
 
 
 if __name__ == '__main__':

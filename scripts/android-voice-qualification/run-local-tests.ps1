@@ -25,7 +25,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Bounded strict JSON parsing failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Existing owner-key mapping failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.VoiceJournalClassifierTest
 if ($LASTEXITCODE -ne 0) { throw 'Pinned Voice journal classification failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.NativeSnapshotReaderTest
+if ($LASTEXITCODE -ne 0) { throw 'Strict JNI row boundary failed.' }
 & python "$testRoot/schema-fixtures.py" --output "$outputRoot/schema-fixtures" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Complete database schema recognition failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.VoiceStoreQualificationTest "$outputRoot/schema-fixtures"
+if ($LASTEXITCODE -ne 0) { throw 'Complete-store journal binding failed.' }
 & python "$testRoot/real-wal-fixtures.py" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Disposable SQLite WAL fixture failed.' }

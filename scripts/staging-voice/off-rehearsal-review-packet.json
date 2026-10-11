@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "kind": "review-only-posting-off-monitor-rehearsal",
+  "executable": false,
+  "approval": null,
+  "baselineSourceSha": "68e198e0e689a406b439d13e6d82f96e9a9f9312",
+  "finalSourceSha": null,
+  "finalImageDigest": null,
+  "host": "srv2006836",
+  "project": "qcffvfbpzvpwcwxwjyro",
+  "generation": "b8d4429f-8d53-4f0a-a86b-973e05c779d1",
+  "proposedRoot": "/opt/masarifi/customer-voice-operating-b8d4429f-8d53-4f0a-a86b-973e05c779d1",
+  "controlFiles": [
+    {
+      "sha256": "395433c7cf5442d80a5a65a68caad63901ed78435b78dbfdc5a7fc7faeae6638",
+      "path": "scripts/staging-voice/customer-operating-cohort.py"
+    },
+    {
+      "sha256": "935615ec556f4592be84b8c923c4c9e028db17bd690a650299d3139e612cff8b",
+      "path": "scripts/staging-voice/customer-operating-cohort.test.py"
+    }
+  ],
+  "proposedHelpers": [
+    {
+      "retained": true,
+      "expectedID": null,
+      "name": "masarifi-staging-voice-database-b8d4429f-8d53-4f0a-a86b-973e05c779d1-control"
+    },
+    {
+      "retained": true,
+      "expectedID": null,
+      "name": "masarifi-staging-voice-database-b8d4429f-8d53-4f0a-a86b-973e05c779d1-close"
+    }
+  ],
+  "historicalContext": {
+    "apiID": "98cb120092a0685a003b42f3854523d775905451696ad0b93241706c1cb15fd7",
+    "assistantID": "fe86e4ed35d461495e293bb5f01f15a9f3562f35bd44de4f0c0c7fe17b83e4f2",
+    "generalID": "a9c03b8c0d5fff02ce67013767c62ca1b422b6880654b674c5f50cbe4208637d",
+    "imageDigest": "a4f6c1ad71621b645d09880e943b5c15d27a8d8a4bd038ef4913fd3aebf3d383",
+    "activeEpochs": 0,
+    "observedAt": "2026-10-11T10:59:50Z",
+    "analysisID": "53ece64ce47252042e4d9462096079a9966c4f09098356ce269601d16b4e681c",
+    "financialID": "a4608d59bba916f086d199965ea7fbac6a8023eff84a1c6ebf61ed5d16f4e51c",
+    "sourceSha": "ac7bc92ab2e6e6c2e50a969de6c69463688febae",
+    "posting": false,
+    "notCurrentEvidence": true,
+    "unpublishedOutbox": 497071
+  },
+  "currentProtectedPins": {
+    "databaseCAHash": null,
+    "currentFinancialDigests": null,
+    "composeFiles": null,
+    "currentServiceIDs": null,
+    "verifiedBackupHash": null,
+    "envHashes": null
+  },
+  "affectedServices": [
+    "new OFF rehearsal guard",
+    "new control migration helper",
+    "new independent closure migration helper"
+  ],
+  "maximumNewRetainedContainers": 2,
+  "maximumHelperMemoryBytes": 1073741824,
+  "maximumHelperLogsBytes": 4194304,
+  "requiredInvariants": [
+    "Posting OFF throughout",
+    "zero active financial epochs",
+    "financial and general writers remain stopped",
+    "no new Voice admission or financial effect",
+    "unchanged accounts transactions postings balances",
+    "historical journals jobs outbox and containers preserved",
+    "shared API Analysis Assistant identities unchanged"
+  ],
+  "allowedOperationsAfterSeparateApproval": [
+    "copy exact pinned local controls to proposed root",
+    "install only separately reviewed OFF-only invocation guard",
+    "read-only database status on exact helpers",
+    "idle helper/monitor failure and interruption rehearsal",
+    "independent owned closure path with Posting remaining OFF",
+    "stop exact owned helper IDs; retain containers and receipts"
+  ],
+  "forbiddenOperations": [
+    "customer-operating-cohort.py apply",
+    "database activate",
+    "start any financial or general worker",
+    "financial API mode switch",
+    "new recording or historical Voice replay",
+    "historical outbox drain",
+    "phone or ADB operation",
+    "API Analysis Assistant replacement without another exact approval",
+    "Production operation",
+    "Integration/main merge or ref update",
+    "remove historical or rehearsal evidence"
+  ],
+  "requiredReceipts": [
+    "fresh protected current inventory and pins",
+    "exact candidate CI/control/source/image qualification",
+    "successful-poll health readiness for each relevant exact candidate worker",
+    "financial and historical-work before/after digests",
+    "helper identity isolation and bounded container count",
+    "monitor failure restart shutdown and independent closure/stop receipts",
+    "unchanged shared-service identities and Posting OFF confirmation"
+  ],
+  "rollback": {
+    "uncertainExec": "retain journal and block reuse/replacement",
+    "financialPostingMustRemainOff": true,
+    "preserveHelpersAndLogs": true,
+    "automaticWorkerRestart": "no",
+    "sharedServiceChanges": "excluded; any proposed restoration needs separate exact cohort approval",
+    "stopOnlyExactOwnedHelpers": true,
+    "closureBudgetSeconds": 150,
+    "ownedWriterStopFirst": true,
+    "writerBoundaryTimeoutSeconds": 10,
+    "systemdShutdownBudgetSeconds": 180
+  },
+  "blockers": [
+    "FINAL_COMBINED_SOURCE_IMAGE_QUALIFICATION_REQUIRED",
+    "FRESH_PROTECTED_COHORT_PINS_AND_BACKUP_REQUIRED",
+    "OFF_ONLY_INVOCATION_REVIEW_REQUIRED",
+    "DIRECT_HUMAN_OFF_REHEARSAL_APPROVAL_REQUIRED",
+    "ACTUAL_POSTING_OFF_STAGING_REHEARSAL_UNPERFORMED",
+    "DEPLOYED_ANALYSIS_ASSISTANT_PROCESSING_HEALTH_UNVERIFIED"
+  ]
+}

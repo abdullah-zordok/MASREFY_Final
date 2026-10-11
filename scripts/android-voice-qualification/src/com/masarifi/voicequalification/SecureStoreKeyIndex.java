@@ -22,12 +22,44 @@ import org.xml.sax.helpers.DefaultHandler;
 /** Bounded preference index. Holds encrypted envelopes only; never opens AndroidKeyStore. */
 final class SecureStoreKeyIndex {
     private static final String KEY_PREFIX = "masarifi.database.key.";
+    private static final String LEGACY_OWNER = "masarifi.database.legacyOwnerHash";
     private static final Set<String> ENVELOPE_FIELDS = Set.of(
             "scheme", "ct", "iv", "tlen", "keystoreAlias", "usesKeystoreSuffix", "requireAuthentication");
     private final List<Entry> entries;
     private record Entry(String fullOwnerHash, String encryptedEnvelope) {}
 
     private SecureStoreKeyIndex(List<Entry> entries) { this.entries = List.copyOf(entries); }
+
+    static SecureStoreKeyIndex combine(byte[] first, byte[] second) {
+        List<Entry> combined = new ArrayList<>();
+        if (first != null) combined.addAll(parse(first).entries);
+        if (second != null) combined.addAll(parse(second).entries);
+        return new SecureStoreKeyIndex(combined);
+    }
+
+    /** Validate the entire key inventory, including forms in both preference files. */
+    Set<String> ownerHashes() {
+        Set<String> hashes = new HashSet<>(), prefixes = new HashSet<>();
+        int legacy = 0;
+        for (Entry entry : entries) {
+            if (LEGACY_OWNER.equals(entry.fullOwnerHash)) {
+                if (++legacy > 1) throw failure("KEY_AMBIGUOUS");
+                continue;
+            }
+            if (!hashes.add(entry.fullOwnerHash) || !prefixes.add(entry.fullOwnerHash.substring(0,24)))
+                throw failure("KEY_AMBIGUOUS");
+        }
+        return Set.copyOf(hashes);
+    }
+
+    ExistingDatabaseKey.Envelope legacyOwner() {
+        Entry selected = null;
+        for (Entry entry : entries) if (LEGACY_OWNER.equals(entry.fullOwnerHash)) {
+            if (selected != null) throw failure("KEY_AMBIGUOUS");
+            selected = entry;
+        }
+        return selected == null ? null : envelope(selected.encryptedEnvelope);
+    }
 
     static SecureStoreKeyIndex parse(byte[] xml) {
         if (xml == null || xml.length > 4 * 1024 * 1024) throw failure("XML_LIMIT");
@@ -65,6 +97,7 @@ final class SecureStoreKeyIndex {
         if (prefix == null || !prefix.matches("[0-9a-f]{24}")) throw failure("OWNER_FORMAT");
         Entry selected = null;
         for (Entry entry : entries) {
+            if (LEGACY_OWNER.equals(entry.fullOwnerHash)) continue;
             if (!entry.fullOwnerHash.startsWith(prefix)) continue;
             if (selected != null) throw failure("KEY_AMBIGUOUS");
             selected = entry;
@@ -141,11 +174,17 @@ final class SecureStoreKeyIndex {
             entryTag = local;
             ownerHash = null;
             encryptedEnvelope = null;
-            if (name.contains("masarifi.database.key")) encryptedPreference(name, local, attributes);
+            if (name.contains("masarifi.database")) encryptedPreference(name, local, attributes);
             else if (!Set.of("string", "int", "long", "float", "boolean", "set").contains(local))
                 throw new Rejected("XML_SHAPE");
         }
         private void encryptedPreference(String name, String local, Attributes attributes) throws Rejected {
+            if (name.equals(LEGACY_OWNER) || name.equals("key_v1-" + LEGACY_OWNER)) {
+                if (!local.equals("string") || attributes.getLength() != 1) throw new Rejected("XML_SHAPE");
+                ownerHash = LEGACY_OWNER;
+                encryptedEnvelope = new StringBuilder();
+                return;
+            }
             String suffix = name.startsWith("key_v1-" + KEY_PREFIX)
                     ? name.substring(("key_v1-" + KEY_PREFIX).length())
                     : name.startsWith(KEY_PREFIX) ? name.substring(KEY_PREFIX.length()) : null;

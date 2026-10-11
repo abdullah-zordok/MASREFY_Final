@@ -1,0 +1,10 @@
+{
+  "fixturePath": "C:\\Users\\DELL\\AppData\\Local\\Temp\\masarifi-monitor-red-876b73b0-6402-4540-9492-89e059c615ce",
+  "testHash": "daf48c866b42647346f71d0a6f9bc6ba4c123be5959773fca6e76b92f0f55159",
+  "testSelection": [
+    "RetainedDatabaseLifecycle.test_many_status_polls_reuse_one_retained_container_and_never_remove_evidence",
+    "MonitorShutdown"
+  ],
+  "baseline": "68e198e0e689a406b439d13e6d82f96e9a9f9312",
+  "redExitCode": 1
+}

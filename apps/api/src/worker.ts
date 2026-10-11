@@ -10,6 +10,7 @@ import { workerErrorFields } from './platform/observability/worker-error';
 import { startTelemetry } from './platform/observability/telemetry';
 import { OperationsWorker } from './operations/operations.worker';
 import { AiWorker } from './ai/ai.worker';
+import { publishAiWorkerHealth } from './ai/ai-worker-health';
 
 export async function bootstrapWorker(): Promise<INestApplicationContext> {
   const { WorkerModule } = await import('./worker.module');
@@ -26,6 +27,12 @@ export async function bootstrapWorker(): Promise<INestApplicationContext> {
       ? app.get(AiWorker)
       : app.get(OperationsWorker);
   app.useLogger(logger);
+  if (operationsWorker instanceof AiWorker) {
+    operationsWorker.observeHealth((state) => {
+      if (!publishAiWorkerHealth(state))
+        logger.error('AI_WORKER_HEALTH_UNAVAILABLE', { context: 'AiWorker' });
+    });
+  }
 
   process.once('SIGTERM', () => {
     void (async () => {

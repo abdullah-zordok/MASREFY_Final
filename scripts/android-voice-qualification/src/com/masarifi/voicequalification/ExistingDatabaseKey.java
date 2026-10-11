@@ -20,6 +20,15 @@ public final class ExistingDatabaseKey implements AutoCloseable {
     private ExistingDatabaseKey(byte[] key) { this.key = key; }
 
     public static ExistingDatabaseKey decrypt(Envelope envelope, ExistingKeySource source) {
+        return decrypt(envelope, source, false);
+    }
+
+    /** Legacy owner claims are exact lowercase hashes, unlike case-insensitive database keys. */
+    static ExistingDatabaseKey decryptOwnerHash(Envelope envelope, ExistingKeySource source) {
+        return decrypt(envelope, source, true);
+    }
+
+    private static ExistingDatabaseKey decrypt(Envelope envelope, ExistingKeySource source, boolean lowercaseOnly) {
         if (envelope == null) throw failure("KEY_ENVELOPE");
         if (envelope.requireAuthentication()) throw failure("KEY_AUTHENTICATION_REQUIRED");
         if (!"aes".equals(envelope.scheme()) || !"key_v1".equals(envelope.keychainService()) ||
@@ -48,6 +57,9 @@ public final class ExistingDatabaseKey implements AutoCloseable {
                 plaintext = cipher.doFinal(ciphertext);
             } catch (GeneralSecurityException | RuntimeException unavailable) { throw failure("KEY_DECRYPTION"); }
             if (plaintext.length != 64) throw failure("KEY_FORMAT");
+            if (lowercaseOnly) for (byte octet : plaintext)
+                if (!((octet >= '0' && octet <= '9') || (octet >= 'a' && octet <= 'f')))
+                    throw failure("KEY_FORMAT");
             decoded = new byte[32];
             for (int index = 0; index < decoded.length; index++) {
                 int high = hex(plaintext[index * 2]), low = hex(plaintext[index * 2 + 1]);

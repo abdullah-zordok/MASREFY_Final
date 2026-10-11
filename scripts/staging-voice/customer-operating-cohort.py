@@ -339,7 +339,9 @@ def writer_command(packet, state):
 def monitor_unit(packet, host):
     return ('[Unit]\nDescription=Masarifi customer Voice operating guard\nAfter=docker.service network-online.target\n'
             'Requires=docker.service\n[Service]\nType=simple\nUser=root\nExecStart=/usr/bin/python3 ' +
-            str(host.root / 'customer-operating-cohort.py') + ' monitor\nRestart=on-failure\nRestartSec=5\n'
+            str(host.root / 'customer-operating-cohort.py') + ' monitor\nExecStopPost=/usr/bin/python3 ' +
+            str(host.root / 'customer-operating-cohort.py') + ' close\nTimeoutStopSec=180\n'
+            'Restart=on-failure\nRestartSec=5\n'
             '[Install]\nWantedBy=multi-user.target\n')
 
 
@@ -530,14 +532,28 @@ def incident_close(host):
             valid_hash(state.get('packetHash')) and valid_hash(state.get('imageDigest')) and
             SHA.fullmatch(state.get('sourceSha', '')), 'INCIDENT_JOURNAL_SCOPE_INVALID')
     host.target(state['generation'], incident=True)
+    previous_deadline = host.closure_deadline
+    previous_timeout = host.closure_command_timeout
+    previous_readiness = host.readiness_deadline
+    host.readiness_deadline = None
+    # The service permits 180s for shutdown. Share a monotonic 150s budget
+    # across every Docker boundary, leaving time to persist the final receipt.
+    host.closure_deadline = min(previous_deadline if previous_deadline is not None else float('inf'),
+                                host.monotonic() + 150)
+    try:
+        return close_owned_scope(host, state)
+    finally:
+        host.closure_deadline = previous_deadline
+        host.closure_command_timeout = previous_timeout
+        host.readiness_deadline = previous_readiness
+
+
+def close_owned_scope(host, state):
     receipt = {'postingOffConfirmed': False, 'workerStoppedConfirmed': False,
                'sharedApi': 'preserved', 'blockers': []}
-    try:
-        closed = host.db(None, 'close', state)
-        require(closed.get('posting') is False and closed.get('state') == 'closed', 'DATABASE_OFF_UNCONFIRMED')
-        receipt['postingOffConfirmed'] = True
-    except (GuardError, RuntimeError, OSError, KeyError, ValueError) as error:
-        receipt['blockers'].append('DATABASE_OFF_UNCONFIRMED:' + safe_reason(error))
+    # Stop the sole owned financial writer before fresh SQL-helper setup: a
+    # slow/unavailable daemon or database must never consume its stop window.
+    host.closure_command_timeout = 10
     try:
         if state.get('workerID'):
             writer = checked_writer(host, state, require_name=False)
@@ -545,8 +561,22 @@ def incident_close(host):
                 host.run(['docker', 'stop', '--time', '5', state['workerID']])
             require(host.inspect(state['workerID'])['State']['Running'] is False, 'WRITER_STOP_UNCONFIRMED')
         receipt['workerStoppedConfirmed'] = True
-    except (GuardError, RuntimeError, OSError, KeyError, ValueError) as error:
+    except (GuardError, RuntimeError, OSError, KeyError, ValueError, TypeError, AttributeError) as error:
         receipt['blockers'].append('OWNED_WRITER_STOP_UNCONFIRMED:' + safe_reason(error))
+    host.closure_command_timeout = 30
+    try:
+        closed = host.db(None, 'close', state)
+        require(closed.get('posting') is False and closed.get('state') == 'closed', 'DATABASE_OFF_UNCONFIRMED')
+        receipt['postingOffConfirmed'] = True
+    except (GuardError, RuntimeError, OSError, KeyError, ValueError, TypeError, AttributeError) as error:
+        receipt['blockers'].append('DATABASE_OFF_UNCONFIRMED:' + safe_reason(error))
+    host.closure_command_timeout = 10
+    try:
+        host.stop_database_runners(state)
+        receipt['databaseRunnersStoppedConfirmed'] = True
+    except (GuardError, RuntimeError, OSError, KeyError, ValueError, TypeError, AttributeError) as error:
+        receipt['databaseRunnersStoppedConfirmed'] = False
+        receipt['blockers'].append('DATABASE_RUNNER_STOP_UNCONFIRMED:' + safe_reason(error))
     state['phase'] = 'closed' if receipt['postingOffConfirmed'] and receipt['workerStoppedConfirmed'] else 'closure-pending'
     host.write_state(state)
     return receipt
@@ -723,7 +753,7 @@ stage='connection';const db=await pool.connect();try{
 """
 
 
-def database_command(packet, action, state=None):
+def database_control(packet, action, state=None):
     require(action in ('status', 'prepare', 'activate', 'close'), 'DATABASE_ACTION_INVALID')
     require(action != 'close' or state is not None, 'INCIDENT_IDENTITY_REQUIRED')
     control = {'project': PROJECT}
@@ -736,13 +766,121 @@ def database_command(packet, action, state=None):
     if state:
         control.update({key: state[key] for key in ('epochId', 'manifestHash', 'sourceSha', 'imageDigest')})
         require(UUID.fullmatch(control['epochId']) and valid_hash(control['manifestHash']), 'DATABASE_SCOPE_INVALID')
-    return ['docker', 'run', '--rm', '--pull=never', '--user', '0:0', '--network', NETWORK, '--read-only',
-            '--cap-drop=ALL', '--security-opt=no-new-privileges', '--pids-limit', '128', '--memory', '512m',
-            '--env-file', '/etc/masarifi/migration.env', '-e', 'MASARIFI_PROCESS_KIND=migration',
-            '-e', 'MASARIFI_RELEASE_VERSION=' + source, '-e', 'OPERATING_ACTION=' + action,
+    return control
+
+
+DATABASE_IDLE = 'setInterval(()=>{},2147483647)'
+DATABASE_CA_BIND = '/etc/masarifi/supabase-ca.crt:/etc/ssl/certs/masarifi-database-ca.crt:ro'
+
+
+def database_command(packet, action, state=None, runner_id=None):
+    control = database_control(packet, action, state)
+    require(valid_hash(runner_id), 'DATABASE_RUNNER_ID_REQUIRED')
+    return ['docker', 'exec', '-e', 'OPERATING_ACTION=' + action,
             '-e', 'OPERATING_CONTROL=' + json.dumps(control, separators=(',', ':')),
-            '-v', '/etc/masarifi/supabase-ca.crt:/etc/ssl/certs/masarifi-database-ca.crt:ro',
-            IMAGE_PREFIX + image, '-e', DB_SCRIPT]
+            runner_id, '/nodejs/bin/node', '-e', DB_SCRIPT]
+
+
+def database_runner_command(identity, role):
+    require(role in ('control', 'close') and UUID.fullmatch(identity.get('generation', '')) and
+            valid_hash(identity.get('imageDigest')) and SHA.fullmatch(identity.get('sourceSha', '')),
+            'DATABASE_RUNNER_SCOPE_INVALID')
+    name = 'masarifi-staging-voice-database-' + identity['generation'] + '-' + role
+    return ['docker', 'create', '--pull=never', '--name', name, '--user', '65532:65532',
+            '--entrypoint', '/nodejs/bin/node', '--network', NETWORK, '--ipc=none', '--read-only',
+            '--cap-drop=ALL', '--security-opt=no-new-privileges', '--pids-limit', '128', '--memory', '512m',
+            '--cpus', '1', '--restart', 'no', '--log-driver', 'json-file',
+            '--log-opt', 'max-size=1m', '--log-opt', 'max-file=2',
+            '--label', 'org.masarifi.scope=' + scope_name(identity),
+            '--label', 'org.masarifi.database-role=' + role,
+            '--env-file', '/etc/masarifi/migration.env', '-e', 'MASARIFI_PROCESS_KIND=migration',
+            '-e', 'MASARIFI_RELEASE_VERSION=' + identity['sourceSha'],
+            '-v', DATABASE_CA_BIND, IMAGE_PREFIX + identity['imageDigest'], '-e', DATABASE_IDLE]
+
+
+def checked_database_runner(host, journal):
+    runner = host.inspect(journal['id'] or journal['name'])
+    require(isinstance(runner, dict) and all(isinstance(runner.get(key), dict)
+            for key in ('Config', 'HostConfig', 'State')), 'DATABASE_RUNNER_INSPECTION_INVALID')
+    require(valid_hash(runner.get('Id')) and (journal['id'] is None or runner['Id'] == journal['id']) and
+            runner.get('Name') == '/' + journal['name'] and runner.get('Image') == journal['imageID'],
+            'DATABASE_RUNNER_IDENTITY_CHANGED')
+    config, isolation = runner['Config'], runner['HostConfig']
+    require(isinstance(config.get('Labels'), dict) and isinstance(config.get('Env'), list) and
+            all(isinstance(entry, str) and '=' in entry for entry in config['Env']),
+            'DATABASE_RUNNER_INSPECTION_INVALID')
+    require(config.get('Image') == journal['image'] and config.get('User') == '65532:65532' and
+            config.get('Entrypoint') == ['/nodejs/bin/node'] and config.get('Cmd') == ['-e', DATABASE_IDLE] and
+            config.get('Labels', {}).get('org.masarifi.scope') == journal['scope'] and
+            config.get('Labels', {}).get('org.masarifi.database-role') == journal['role'],
+            'DATABASE_RUNNER_CONFIGURATION_CHANGED')
+    require(canonical_hash(environment(runner)) == journal['environmentHash'] and
+            len(config['Env']) == len(environment(runner)), 'DATABASE_RUNNER_ENV_CHANGED')
+    require(isolation.get('NetworkMode') == NETWORK and isolation.get('ReadonlyRootfs') is True and
+            isolation.get('Privileged') is False and not isolation.get('CapAdd') and
+            isolation.get('CapDrop') == ['ALL'] and isolation.get('SecurityOpt') == ['no-new-privileges'] and
+            isolation.get('PidsLimit') == 128 and isolation.get('Memory') == 536870912 and
+            isolation.get('NanoCpus') == 1000000000 and isolation.get('AutoRemove') is False and
+            isolation.get('RestartPolicy') == {'Name': 'no', 'MaximumRetryCount': 0} and
+            isolation.get('Binds') == [DATABASE_CA_BIND] and not isolation.get('Tmpfs') and
+            isolation.get('IpcMode') == 'none' and not isolation.get('PidMode') and
+            not any(isolation.get(key) for key in ('Devices', 'DeviceRequests', 'VolumesFrom', 'PortBindings')) and
+            isolation.get('LogConfig') == {'Type': 'json-file', 'Config': {'max-size': '1m', 'max-file': '2'}},
+            'DATABASE_RUNNER_ISOLATION_CHANGED')
+    mounts = runner.get('Mounts', [])
+    require(isinstance(mounts, list) and len(mounts) == 1 and isinstance(mounts[0], dict) and mounts[0].get('Type') == 'bind' and
+            mounts[0].get('Source') == '/etc/masarifi/supabase-ca.crt' and
+            mounts[0].get('Destination') == '/etc/ssl/certs/masarifi-database-ca.crt' and
+            mounts[0].get('RW') is False, 'DATABASE_RUNNER_MOUNT_CHANGED')
+    return runner
+
+
+def retained_database_runner(host, identity, role):
+    # A generation has one reusable control runner and one independent closure
+    # runner. Never delete, replace, or create a new name on a polling failure.
+    command = database_runner_command(identity, role)
+    name = command[command.index('--name') + 1]
+    image = IMAGE_PREFIX + identity['imageDigest']
+    images = parse_json(host.run(['docker', 'image', 'inspect', image]))
+    require(isinstance(images, list) and len(images) == 1 and
+            isinstance(images[0], dict) and isinstance(images[0].get('Config'), dict) and
+            isinstance(images[0]['Config'].get('Labels'), dict) and
+            image in images[0].get('RepoDigests', []) and
+            re.fullmatch(r'sha256:[a-f0-9]{64}', images[0].get('Id', '')) and
+            images[0].get('Config', {}).get('Labels', {}).get('org.opencontainers.image.revision') == identity['sourceSha'],
+            'DATABASE_RUNNER_IMAGE_SOURCE_MISMATCH')
+    expected_environment = host.database_environment(images[0], identity)
+    expected = {'version': 1, 'name': name, 'scope': scope_name(identity), 'role': role,
+                'image': image, 'imageID': images[0]['Id'], 'commandHash': canonical_hash(command),
+                'environmentHash': canonical_hash(expected_environment)}
+    journal = host.read_runner(role)
+    present = host.run(['docker', 'ps', '-a', '--filter', 'name=^/' + name + '$', '--format', '{{.Names}}'])
+    if journal is None:
+        require(not present, 'DATABASE_RUNNER_NAME_ALREADY_OWNED')
+        journal = {**expected, 'id': None, 'phase': 'idle'}
+        # Persist intent before create: a timeout can leave a container even if
+        # Docker did not return its ID. Reconcile only this exact specification.
+        host.write_runner(role, journal, initial=True)
+        identity_id = host.run(command)
+        require(valid_hash(identity_id), 'DATABASE_RUNNER_CREATE_UNCONFIRMED')
+        present = name
+    else:
+        require(isinstance(journal, dict) and set(journal) == set(expected) | {'id', 'phase'} and
+                all(journal.get(key) == value for key, value in expected.items()) and
+                (journal['id'] is None or valid_hash(journal['id'])), 'DATABASE_RUNNER_JOURNAL_CHANGED')
+        require(journal['phase'] == 'idle', 'DATABASE_RUNNER_EXECUTION_UNCONFIRMED')
+        require(present == name, 'DATABASE_RUNNER_MISSING')
+        identity_id = journal['id']
+    runner = checked_database_runner(host, journal)
+    require(identity_id is None or runner['Id'] == identity_id, 'DATABASE_RUNNER_CREATE_ID_CHANGED')
+    if journal['id'] is None:
+        journal['id'] = runner['Id']
+        host.write_runner(role, journal)
+    if runner['State']['Running'] is False:
+        host.run(['docker', 'start', journal['id']])
+        runner = checked_database_runner(host, journal)
+    require(runner['State']['Running'] is True, 'DATABASE_RUNNER_NOT_RUNNING')
+    return journal['id']
 
 
 def parse_json(content):
@@ -773,9 +911,14 @@ class LocalHost:
     def __init__(self, root):
         self.root = pathlib.Path(root)
         self.readiness_deadline = None
+        self.closure_deadline = None
+        self.closure_command_timeout = None
 
     def now(self):
         return time.time()
+
+    def monotonic(self):
+        return time.monotonic()
 
     def pause(self, seconds):
         time.sleep(seconds)
@@ -809,6 +952,10 @@ class LocalHost:
         return parse_json(filename.read_text(encoding='utf-8'))
 
     def run(self, command, timeout=30, environment=None):
+        if self.closure_deadline is not None:
+            remaining = self.closure_deadline - self.monotonic()
+            require(remaining > 0, 'OPERATING_CLOSURE_DEADLINE')
+            timeout = min(timeout, remaining, self.closure_command_timeout or timeout)
         if self.readiness_deadline is not None:
             require(self.now() < self.readiness_deadline, 'OPERATING_READINESS_DEADLINE')
             timeout = min(timeout, self.readiness_deadline - self.now())
@@ -921,9 +1068,135 @@ class LocalHost:
             migration_hash, ca_hash = packet['rollback']['envHashes']['migration.env'], packet['rollback']['databaseCAHash']
         self.pin('/etc/masarifi/migration.env', migration_hash)
         self.pin('/etc/masarifi/supabase-ca.crt', ca_hash)
-        result = parse_json(self.run(database_command(packet, action, state), timeout=30))
+        role = 'close' if action == 'close' else 'control'
+        with self.runner_lock(role):
+            runner_id = retained_database_runner(self, state if action == 'close' else packet, role)
+            self.pin('/etc/masarifi/migration.env', migration_hash)
+            self.pin('/etc/masarifi/supabase-ca.crt', ca_hash)
+            journal = self.read_runner(role)
+            journal['phase'] = 'executing'
+            self.write_runner(role, journal)
+            try:
+                result = parse_json(self.run(database_command(packet, action, state, runner_id), timeout=30))
+                require(isinstance(result, dict), 'DATABASE_RECEIPT_INVALID')
+            except (GuardError, RuntimeError, OSError, KeyError, ValueError, TypeError):
+                # A timed-out Docker client does not prove the exec process has
+                # stopped. Preserve an uncertain journal and stop only the
+                # already-checked exact runner ID. The separate close runner
+                # and writer stop remain available without this lock/journal.
+                previous_deadline = self.readiness_deadline
+                self.readiness_deadline = None
+                try:
+                    self.run(['docker', 'stop', '--time', '1', runner_id], timeout=10)
+                except (GuardError, RuntimeError, OSError):
+                    pass
+                finally:
+                    self.readiness_deadline = previous_deadline
+                raise
+            journal['phase'] = 'idle'
+            self.write_runner(role, journal)
         require(isinstance(result, dict), 'DATABASE_RECEIPT_INVALID')
         return result
+
+    def database_environment(self, image, identity):
+        values = dict(entry.split('=', 1) for entry in image.get('Config', {}).get('Env', []))
+        content = pathlib.Path('/etc/masarifi/migration.env').read_bytes()
+        pinned = identity['migrationEnvHash'] if 'migrationEnvHash' in identity else identity['rollback']['envHashes']['migration.env']
+        require(hashlib.sha256(content).hexdigest() == pinned, 'DATABASE_ENV_PIN_CHANGED')
+        entries = set()
+        for line in content.decode('utf-8').splitlines():
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+            require('=' in line and not line.startswith((' ', '\t')), 'DATABASE_ENV_FILE_INVALID')
+            key, value = line.split('=', 1)
+            require(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key) and key not in entries,
+                    'DATABASE_ENV_FILE_INVALID')
+            entries.add(key)
+            values[key] = value
+        values.update(MASARIFI_PROCESS_KIND='migration', MASARIFI_RELEASE_VERSION=identity['sourceSha'])
+        require(not any(values.get(key) for key in ('NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH')) and
+                not any(key in values for key in ('OPERATING_ACTION', 'OPERATING_CONTROL')),
+                'DATABASE_ENV_UNSAFE')
+        return values
+
+    @contextlib.contextmanager
+    def runner_lock(self, role):
+        import fcntl
+        require(role in ('control', 'close'), 'DATABASE_RUNNER_ROLE_INVALID')
+        descriptor = os.open(self.root / ('.database-' + role + '.lock'),
+                             os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            require(metadata.st_uid == 0 and stat.S_ISREG(metadata.st_mode) and
+                    stat.S_IMODE(metadata.st_mode) == 0o600, 'DATABASE_RUNNER_LOCK_INVALID')
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise GuardError('DATABASE_RUNNER_BUSY') from None
+            yield
+        finally:
+            os.close(descriptor)
+
+    def read_runner(self, role):
+        require(role in ('control', 'close'), 'DATABASE_RUNNER_ROLE_INVALID')
+        filename = self.root / ('database-' + role + '.json')
+        if not filename.exists():
+            require(not filename.is_symlink(), 'DATABASE_RUNNER_JOURNAL_INVALID')
+            return None
+        metadata = filename.lstat()
+        require(stat.S_ISREG(metadata.st_mode) and metadata.st_uid == 0 and
+                stat.S_IMODE(metadata.st_mode) == 0o600, 'DATABASE_RUNNER_JOURNAL_INVALID')
+        return self.read_json(filename.name)
+
+    def write_runner(self, role, journal, initial=False):
+        import tempfile
+        require(role in ('control', 'close'), 'DATABASE_RUNNER_ROLE_INVALID')
+        filename = self.root / ('database-' + role + '.json')
+        encoded = (json.dumps(journal, sort_keys=True) + '\n').encode('utf-8')
+        if initial:
+            descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, 'wb') as output:
+                output.write(encoded)
+                output.flush()
+                os.fsync(output.fileno())
+        else:
+            require(self.read_runner(role) is not None, 'DATABASE_RUNNER_JOURNAL_MISSING')
+            descriptor, temporary = tempfile.mkstemp(prefix='.database-' + role + '-', dir=self.root)
+            try:
+                os.fchmod(descriptor, 0o600)
+                with os.fdopen(descriptor, 'wb') as output:
+                    output.write(encoded)
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.replace(temporary, filename)
+            finally:
+                if os.path.exists(temporary): os.unlink(temporary)
+        directory = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+    def stop_database_runners(self, state):
+        failures = []
+        for role in ('control', 'close'):
+            try:
+                journal = self.read_runner(role)
+                if journal is None:
+                    continue
+                require(isinstance(journal, dict), 'DATABASE_RUNNER_JOURNAL_CHANGED')
+                command = database_runner_command(state, role)
+                require(journal.get('name') == command[command.index('--name') + 1] and
+                        journal.get('scope') == scope_name(state) and journal.get('role') == role and
+                        journal.get('image') == IMAGE_PREFIX + state['imageDigest'] and
+                        journal.get('commandHash') == canonical_hash(command), 'DATABASE_RUNNER_JOURNAL_CHANGED')
+                runner = checked_database_runner(self, journal)
+                if runner['State']['Running']:
+                    self.run(['docker', 'stop', '--time', '1', runner['Id']], timeout=10)
+                require(self.inspect(runner['Id'])['State']['Running'] is False, 'DATABASE_RUNNER_STOP_UNCONFIRMED')
+            except (GuardError, RuntimeError, OSError, KeyError, ValueError, TypeError):
+                failures.append(role)
+        require(not failures, 'DATABASE_RUNNER_STOP_UNCONFIRMED')
 
 
 def main():

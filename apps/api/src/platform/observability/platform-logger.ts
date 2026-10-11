@@ -27,6 +27,10 @@ export interface SafeLogFields {
   providerRequestIdHash?: string;
   rejectedFields?: string[];
   rejectedKeywords?: string[];
+  extractedEventCount?: number;
+  eligibleEventCount?: number;
+  skippedEventCount?: number;
+  skipReasonCounts?: Record<string, number>;
 }
 
 const levels: Record<LogLevel, number> = {

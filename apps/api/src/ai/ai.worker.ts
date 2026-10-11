@@ -4,6 +4,7 @@ import {
   VOICE_BATCH_POLICY,
   parseVoiceBatchProviderOutput,
   decideVoiceBatch,
+  type SkipReason,
 } from './voice-batch';
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { createHash } from 'node:crypto';
@@ -30,6 +31,7 @@ import {
   type VoiceProposalOutput,
 } from './ai.schemas';
 import { AiStorage } from './ai.storage';
+import type { AiWorkerHealthState } from './ai-worker-health';
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -346,6 +348,7 @@ export class AiWorker implements OnModuleDestroy {
   private timer: NodeJS.Timeout | undefined;
   private running = false;
   private abortController: AbortController | undefined;
+  private healthObserver: ((state: AiWorkerHealthState) => void) | undefined;
 
   constructor(
     private readonly repository: AiRepository,
@@ -354,8 +357,22 @@ export class AiWorker implements OnModuleDestroy {
     private readonly config: PlatformConfigService,
   ) {}
 
+  observeHealth(observer: (state: AiWorkerHealthState) => void): void {
+    this.healthObserver = observer;
+    this.reportHealth('starting');
+  }
+
+  private reportHealth(state: AiWorkerHealthState): void {
+    try {
+      this.healthObserver?.(state);
+    } catch {
+      new PlatformLogger().error('AI_WORKER_HEALTH_UNAVAILABLE', { context: 'AiWorker' });
+    }
+  }
+
   start(): void {
     if (this.timer) return;
+    this.reportHealth('starting');
     this.timer = setInterval(() => {
       void this.runOnce().catch(() => {
         recordAiJob('ai.worker', 'failure');
@@ -376,6 +393,7 @@ export class AiWorker implements OnModuleDestroy {
     this.timer = undefined;
     this.abortController?.abort();
     while (this.running) await new Promise((resolve) => setTimeout(resolve, 10));
+    this.reportHealth('stopped');
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -387,6 +405,7 @@ export class AiWorker implements OnModuleDestroy {
     this.running = true;
     this.abortController = new AbortController();
     let stage = 'scope';
+    let healthFailed = false;
     try {
       if (this.config.get('MASARIFI_AI_ASSISTANT_ONLY')) {
         if (this.config.get('MASARIFI_VOICE_ANALYSIS_ONLY'))
@@ -415,6 +434,8 @@ export class AiWorker implements OnModuleDestroy {
         await this.runJob(job);
       }
     } catch (error) {
+      healthFailed = true;
+      this.reportHealth('failed');
       new PlatformLogger().error('AI_WORKER_RUNTIME_FAILED', {
         context: 'AiWorker',
         failureStage: stage,
@@ -424,6 +445,7 @@ export class AiWorker implements OnModuleDestroy {
     } finally {
       this.abortController = undefined;
       this.running = false;
+      if (!healthFailed) this.reportHealth('ready');
     }
   }
 
@@ -709,6 +731,28 @@ export class AiWorker implements OnModuleDestroy {
           typeof input.defaultAccountId === 'string' ? input.defaultAccountId : null,
         references,
       });
+      // Decisions are bounded by the parsed envelope and reasons are server enums.
+      // Never log command bodies or infer silence from a provider's empty array.
+      const skipReasonCounts: Partial<Record<SkipReason, number>> = {};
+      let eligibleEventCount = 0;
+      for (const decision of decisions) {
+        if (decision.status === 'eligible') eligibleEventCount++;
+        else skipReasonCounts[decision.reason] = (skipReasonCounts[decision.reason] ?? 0) + 1;
+      }
+      const diagnosticCounts = {
+        extractedEventCount: decisions.length,
+        eligibleEventCount,
+        skippedEventCount: decisions.length - eligibleEventCount,
+        skipReasonCounts,
+      };
+      const logger = new PlatformLogger();
+      logger.info('VOICE_EXTRACTION_DECIDED', {
+        context: 'AiWorker',
+        eventName: 'voice.extraction_decided',
+        state:
+          decisions.length === 0 ? 'empty' : eligibleEventCount === 0 ? 'all_skipped' : 'eligible',
+        ...diagnosticCounts,
+      });
       signal.throwIfAborted();
       const acceptance = await this.repository.acceptVoiceBatch(
         claim.id,
@@ -717,6 +761,12 @@ export class AiWorker implements OnModuleDestroy {
         VOICE_BATCH_POLICY,
       );
       if (acceptance.accepted !== true) throw new Error('VOICE_SCOPE_INVALID');
+      logger.info('VOICE_BATCH_ACCEPTED', {
+        context: 'AiWorker',
+        eventName: 'voice.batch_accepted',
+        state: 'accepted',
+        ...diagnosticCounts,
+      });
       if (input.retainAcceptanceEvidence !== true) {
         try {
           await this.storage.delete(String(input.storageRef));

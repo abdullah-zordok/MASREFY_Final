@@ -1,0 +1,9 @@
+# Independent source review
+
+Recovery base: `68e198e0e689a406b439d13e6d82f96e9a9f9312`. Read-only review covered retained operational helpers, count diagnostics, worker health, manifest/lockfile compatibility, whole-store ownership/schema/key/WAL binding, JNI validation and encrypted fixture workflows. No critical code defect was found.
+
+Two important implementation findings were corrected and independently rechecked: shutdown formerly allowed SQL/helper setup to delay writer stop past the service budget; the Analysis overlay formerly inherited the general worker's disabled healthcheck. Shutdown now attempts exact writer stop first with bounded commands and a global 150-second deadline within systemd's 180 seconds. Analysis explicitly invokes scoped health with a 310-second start period and rendered Compose CI verification. Atomic health publication also closes the partial-record observation recommendation.
+
+Reviewer independently ran 17 retained-helper/shutdown cases, the rendered configuration verifier fixture (1 case), and the three new shutdown regressions normally and under optimized Python (6 executions). Source review found no additional blocking private-journal defect. The complete application and encrypted Android runtime results require final exact-source CI, independently of these lightweight checks.
+
+Residual dependency security findings remain release blockers. No physical journal clearance, live provider acceptance, persistent monitor/OFF rehearsal, Assistant rollout, iOS acceptance, Staging deployment or merge is established or authorized by this source review.
