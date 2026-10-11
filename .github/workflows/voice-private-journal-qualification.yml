@@ -96,6 +96,29 @@ jobs:
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py \
             --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java" \
             --sqlcipher-library "$build_dir/libfixture-sqlcipher.so"
+          native_flags=(
+            -std=c11 -fPIC -O2 -fvisibility=hidden -D_GNU_SOURCE -include stdint.h
+            -DSQLITE_THREADSAFE=1 -DSQLITE_MUTEX_PTHREADS=1 -DSQLITE_TEMP_STORE=2
+            -DSQLITE_ENABLE_BYTECODE_VTAB=1 -DSQLITE_ENABLE_SESSION=1 -DSQLITE_ENABLE_PREUPDATE_HOOK=1
+            -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -DSQLITE_ENABLE_FTS4=1 -DSQLITE_ENABLE_FTS3_PARENTHESIS=1 -DSQLITE_ENABLE_FTS5=1
+            -DSQLITE_HAS_CODEC=1 -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown
+            -DSQLCIPHER_CRYPTO_OPENSSL -DSQLITE_OS_OTHER=1 -DSQLITE_OMIT_LOAD_EXTENSION=1
+            -DSQLITE_OMIT_DESERIALIZE=1 -DSQLCIPHER_OMIT_DEFAULT_LOGGING=1 -I "$vendor_dir"
+          )
+          gcc "${native_flags[@]}" -c "$vendor_dir/sqlite3.c" -o "$build_dir/native-cipher.o"
+          for mode in production test; do
+            wrapper_flags=()
+            if [[ "$mode" == test ]]; then wrapper_flags=(-DVQS_TEST=1); fi
+            gcc "${native_flags[@]}" -Wall -Wextra -Werror "${wrapper_flags[@]}" \
+              -c scripts/android-voice-qualification/native/voice_memory_reader.c -o "$build_dir/native-wrapper-$mode.o"
+            gcc -shared -Wl,-Bsymbolic "$build_dir/native-cipher.o" "$build_dir/native-wrapper-$mode.o" \
+              -lcrypto -lpthread -lm -o "$build_dir/libvoice-ram-$mode.so"
+          done
+          python3 scripts/android-voice-qualification/tests/memory-vfs-fixtures.py \
+            --reader-library "$build_dir/libvoice-ram-production.so" \
+            --test-reader-library "$build_dir/libvoice-ram-test.so" \
+            --sqlcipher-library "$build_dir/libfixture-sqlcipher.so" \
+            --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
       - name: Retain encrypted fixture qualification log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
