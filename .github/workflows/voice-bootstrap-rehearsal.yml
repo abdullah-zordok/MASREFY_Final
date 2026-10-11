@@ -12,6 +12,7 @@ on:
       - scripts/android-voice-qualification/src/com/masarifi/voicequalification/PrivateProbeProcessPolicy.java
       - scripts/android-voice-qualification/tests/test-process-lab-receipt.py
       - scripts/android-voice-qualification/tests/test-process-lab-cleanup.py
+      - scripts/android-voice-qualification/tests/test-broadcast-window.py
       - .github/workflows/voice-bootstrap-rehearsal.yml
 
 permissions:
@@ -31,6 +32,8 @@ jobs:
           python3 -O scripts/android-voice-qualification/tests/test-process-lab-receipt.py
           python3 scripts/android-voice-qualification/tests/test-process-lab-cleanup.py
           python3 -O scripts/android-voice-qualification/tests/test-process-lab-cleanup.py
+          python3 scripts/android-voice-qualification/tests/test-broadcast-window.py
+          python3 -O scripts/android-voice-qualification/tests/test-broadcast-window.py
           fixture_root="$RUNNER_TEMP/vqs-android15"
           mkdir "$fixture_root"
           exec > >(tee "$fixture_root/rehearsal.log") 2>&1
@@ -84,6 +87,9 @@ jobs:
           python3 scripts/android-voice-qualification/android-process-lab/test-process-lab.py \
             --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
             --build "$fixture_root/process-lab-build" --output "$fixture_root/process-lab-runtime"
+          python3 scripts/android-voice-qualification/android-process-lab/test-broadcast-lab.py \
+            --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
+            --build "$fixture_root/process-lab-build" --output "$fixture_root/broadcast-lab-runtime"
       - name: Retain synthetic fixture identities and runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -95,4 +101,5 @@ jobs:
             ${{ runner.temp }}/vqs-android15/runtime
             ${{ runner.temp }}/vqs-android15/process-lab-build
             ${{ runner.temp }}/vqs-android15/process-lab-runtime
+            ${{ runner.temp }}/vqs-android15/broadcast-lab-runtime
           if-no-files-found: error
