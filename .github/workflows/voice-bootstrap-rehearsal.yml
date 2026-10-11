@@ -1,0 +1,80 @@
+name: Disposable Voice Bootstrap Rehearsal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/voice-auto-save-restoration-2026-10-11]
+    paths:
+      - scripts/android-voice-qualification/android-rehearsal/**
+      - .github/workflows/voice-bootstrap-rehearsal.yml
+
+permissions:
+  contents: read
+
+jobs:
+  android15-startup-suppression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Prepare and exercise synthetic non-debuggable Android15 packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_root="$RUNNER_TEMP/vqs-android15"
+          mkdir "$fixture_root"
+          exec > >(tee "$fixture_root/rehearsal.log") 2>&1
+          export ANDROID_USER_HOME="$fixture_root/user"
+          export ANDROID_AVD_HOME="$fixture_root/avd"
+          export ANDROID_EMULATOR_HOME="$fixture_root/user"
+          export ANDROID_ADB_SERVER_PORT=15040
+          export ADB_SERVER_SOCKET=tcp:localhost:15040
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          mkdir "$ANDROID_USER_HOME" "$ANDROID_AVD_HOME"
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          test -n "$sdk_root"
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          timeout 300 "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --channel=0 \
+            emulator platform-tools 'system-images;android-35;default;x86_64' \
+            'platforms;android-36' 'build-tools;35.0.0' < /dev/null
+          "$sdk_root/emulator/emulator" -accel-check
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.aar \
+            --output "$fixture_root/core-1.17.0.aar"
+          echo "e1bd22bbcf5cee3a992dedb7d2d3c3b31c9f761c01e56d00ea443c8aaa981182  $fixture_root/core-1.17.0.aar" | sha256sum -c -
+          "$sdk_root/cmdline-tools/latest/bin/avdmanager" create avd \
+            -n vqs_disposable_android15 -k 'system-images;android-35;default;x86_64' \
+            -d pixel_7 -p "$ANDROID_AVD_HOME/vqs_disposable_android15.avd" < /dev/null
+          "$sdk_root/platform-tools/adb" -P 15040 --one-device VQS_DISPOSABLE_NO_USB_DEVICE start-server
+          "$sdk_root/emulator/emulator" -avd vqs_disposable_android15 -port 5580 \
+            -accel on -gpu swiftshader -no-window -no-snapshot -no-audio -no-boot-anim \
+            -no-metrics -crash-report-mode disabled > "$fixture_root/emulator.log" 2>&1 &
+          emulator_pid=$!
+          trap '"$sdk_root/platform-tools/adb" -P 15040 -s emulator-5580 emu kill || true; wait "$emulator_pid" || true' EXIT
+          booted=0
+          for attempt in $(seq 1 180); do
+            kill -0 "$emulator_pid" || { cat "$fixture_root/emulator.log"; exit 1; }
+            if [[ $("$sdk_root/platform-tools/adb" -P 15040 -s emulator-5580 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; then
+              booted=1
+              break
+            fi
+            sleep 2
+          done
+          test "$booted" -eq 1 || { cat "$fixture_root/emulator.log"; exit 1; }
+          python3 scripts/android-voice-qualification/android-rehearsal/build-fixtures.py \
+            --output "$fixture_root/build" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --core-aar "$fixture_root/core-1.17.0.aar"
+          python3 scripts/android-voice-qualification/android-rehearsal/test-bootstrap.py \
+            --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
+            --build "$fixture_root/build" --output "$fixture_root/runtime"
+      - name: Retain synthetic fixture identities and runtime evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: disposable-bootstrap-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/vqs-android15/*.log
+            ${{ runner.temp }}/vqs-android15/build
+            ${{ runner.temp }}/vqs-android15/runtime
+          if-no-files-found: error

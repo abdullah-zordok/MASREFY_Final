@@ -31,9 +31,9 @@ jobs:
           build_dir=$(mktemp -d "$RUNNER_TEMP/voice-private-reader.XXXXXX")
           source_list="$build_dir/sources.list"
           if command -v rg >/dev/null 2>&1; then
-            rg --files -0 scripts/android-voice-qualification -g '*.java' > "$source_list"
+            rg --files -0 scripts/android-voice-qualification/src scripts/android-voice-qualification/tests -g '*.java' > "$source_list"
           else
-            find scripts/android-voice-qualification -type f -name '*.java' -print0 > "$source_list"
+            find scripts/android-voice-qualification/src scripts/android-voice-qualification/tests -type f -name '*.java' -print0 > "$source_list"
           fi
           mapfile -d '' -t sources < "$source_list"
           test "${#sources[@]}" -gt 0
@@ -91,7 +91,7 @@ jobs:
             -DSQLITE_HAS_CODEC=1 -DSQLITE_EXTRA_INIT=sqlcipher_extra_init \
             -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -DSQLCIPHER_CRYPTO_OPENSSL \
             "$vendor_dir/sqlite3.c" -lcrypto -ldl -lpthread -lm -o "$build_dir/libfixture-sqlcipher.so"
-          find scripts/android-voice-qualification -type f -name '*.java' -print0 > "$build_dir/sources.list"
+          find scripts/android-voice-qualification/src scripts/android-voice-qualification/tests -type f -name '*.java' -print0 > "$build_dir/sources.list"
           mapfile -d '' -t sources < "$build_dir/sources.list"
           "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py \

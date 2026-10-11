@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.masarifi.voicequalification.fixture" android:versionCode="1" android:versionName="bootstrap-fixture-1">
+  <uses-sdk android:minSdkVersion="35" android:targetSdkVersion="35" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <application android:name=".TargetApplication" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:debuggable="false" android:allowBackup="false" android:usesCleartextTraffic="true" android:label="Disposable bootstrap fixture">
+    <activity android:name=".TargetActivity" android:exported="true" />
+    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.first" android:exported="false" />
+    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.second" android:exported="false" />
+    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.third" android:exported="false" />
+    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.fourth" android:exported="false" />
+  </application>
+</manifest>
