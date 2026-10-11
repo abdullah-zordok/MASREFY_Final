@@ -10,7 +10,9 @@
 #define VQS_EXPORT
 #endif
 
-/* Ownership is native and exclusive. No path, SQL or app handle is an input. */
+/* Ownership is native and exclusive per handle (including stats and close).
+ * Independent owners are serialized through this diagnostic engine. No path,
+ * SQL or app handle is an input. The caller must not alias a freed handle. */
 typedef struct VqsReader VqsReader;
 typedef struct {
     const unsigned char *bytes;

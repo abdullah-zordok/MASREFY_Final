@@ -46,6 +46,7 @@ typedef struct {
     int dynamic;
 } ReaderMutex;
 static ReaderMutex static_mutexes[12];
+static ReaderMutex engine_gate;
 static pthread_once_t mutex_once = PTHREAD_ONCE_INIT;
 static pthread_once_t engine_once = PTHREAD_ONCE_INIT;
 static _Thread_local unsigned char thread_identity;
@@ -62,6 +63,7 @@ static int initialize_mutex(ReaderMutex *mutex, int recursive) {
     return status ? SQLITE_ERROR : SQLITE_OK;
 }
 static void initialize_static_mutexes(void) {
+    if (initialize_mutex(&engine_gate, 1)) return;
     for (size_t index = 0; index < 12; index++)
         if (initialize_mutex(&static_mutexes[index], 1)) return;
     mutex_status = SQLITE_OK;
@@ -364,7 +366,7 @@ static int validate_database(VqsReader *reader, int encrypted) {
     return integrity_query(reader, 0);
 }
 
-int vqs_open(const VqsInput *input, VqsReader **out) {
+static int open_snapshot(const VqsInput *input, VqsReader **out) {
     if (!out) return VQS_INPUT;
     *out = NULL;
     if (!input || !input->bytes || input->length < 512 || input->length > SNAPSHOT_LIMIT) return VQS_INPUT;
@@ -406,7 +408,7 @@ failure:
     return status;
 }
 
-int vqs_close(VqsReader *reader) {
+static int close_snapshot(VqsReader *reader) {
     if (!reader) return VQS_INPUT;
     if (reader->active_visits) return VQS_BUSY;
     if (reader->database && exsqlite3_close(reader->database) != SQLITE_OK) return VQS_BUSY;
@@ -448,7 +450,7 @@ static int visit_row(exsqlite3_stmt *statement, VqsVisitor visitor, void *contex
     VqsRow row = {(size_t)columns, cells};
     return visitor(context, &row) ? VQS_VISITOR : VQS_OK;
 }
-int vqs_visit(VqsReader *reader, enum VqsQuery query, VqsVisitor visitor, void *context) {
+static int visit_snapshot(VqsReader *reader, enum VqsQuery query, VqsVisitor visitor, void *context) {
     if (!reader || !visitor) return VQS_INPUT;
     if (reader->active_visits) return VQS_BUSY;
     const char *sql = query_sql(query);
@@ -479,10 +481,45 @@ done:
     reader->active_visits = 0;
     return status;
 }
-int vqs_stats(const VqsReader *reader, VqsStats *out) {
+static int snapshot_stats(const VqsReader *reader, VqsStats *out) {
     if (!reader || !out) return VQS_INPUT;
     *out = reader->counters;
     return VQS_OK;
+}
+
+/* SQLCipher 4.7 also has process-global allocator/security flags. A connection's
+ * FULLMUTEX does not protect those flags. Diagnostic entries share this gate;
+ * recursion allows a visitor's close attempt to return BUSY without deadlock. */
+static int enter_engine(void) {
+    if (mutex_init() != SQLITE_OK) return VQS_ENGINE;
+    mutex_enter((exsqlite3_mutex *)&engine_gate);
+    return VQS_OK;
+}
+int vqs_open(const VqsInput *input, VqsReader **out) {
+    if (!out) return VQS_INPUT;
+    *out = NULL;
+    if (enter_engine()) return VQS_ENGINE;
+    int status = open_snapshot(input, out);
+    mutex_leave((exsqlite3_mutex *)&engine_gate);
+    return status;
+}
+int vqs_close(VqsReader *reader) {
+    if (enter_engine()) return VQS_ENGINE;
+    int status = close_snapshot(reader);
+    mutex_leave((exsqlite3_mutex *)&engine_gate);
+    return status;
+}
+int vqs_visit(VqsReader *reader, enum VqsQuery query, VqsVisitor visitor, void *context) {
+    if (enter_engine()) return VQS_ENGINE;
+    int status = visit_snapshot(reader, query, visitor, context);
+    mutex_leave((exsqlite3_mutex *)&engine_gate);
+    return status;
+}
+int vqs_stats(const VqsReader *reader, VqsStats *out) {
+    if (enter_engine()) return VQS_ENGINE;
+    int status = snapshot_stats(reader, out);
+    mutex_leave((exsqlite3_mutex *)&engine_gate);
+    return status;
 }
 const char *vqs_error_name(int status) {
     static const char *names[] = {"OK", "SNAPSHOT_INPUT", "SNAPSHOT_KEY", "SNAPSHOT_ENGINE", "SNAPSHOT_MEMORY",
