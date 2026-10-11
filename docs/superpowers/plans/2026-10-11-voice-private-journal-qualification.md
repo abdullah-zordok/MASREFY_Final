@@ -34,10 +34,10 @@
 
 **Interfaces:** `VoiceStoreSnapshot.capture(Path)` returns an AutoCloseable snapshot; package-private byte access supports the later reader; `summary()` returns sanitized counts/hash; `verifyUnchanged()` rechecks original inventory and bytes.
 
-- [ ] Write and run failing tests for owner/legacy/RKStorage/key-store coverage, sidecars, unknown names, size limits, mutation/inventory drift and sanitized output.
-- [ ] Implement bounded allowlisted memory reads using no-follow file access, stable before/after inventories and zeroing on close. Never create a file in the target tree.
-- [ ] Run portable tests and a Linux symlink case; record any unavailable platform check honestly.
-- [ ] Review and commit the component without changing application code or qualified binaries.
+- [x] Write and run failing tests for owner/legacy/RKStorage/key-store coverage, sidecars, unknown names, size limits, mutation/inventory drift and sanitized output.
+- [x] Implement bounded allowlisted memory reads using no-follow file access, stable before/after inventories and zeroing on close. Never create a file in the target tree.
+- [x] Run portable tests and a Linux symlink case; record any unavailable platform check honestly. Linux run38125448594 passed31 checks plus the64MiB/96MiB-heap test on42565f8e; Windows passed30 and explicitly lacked POSIX/native identity checks.
+- [x] Review and commit the component without changing application code or qualified binaries. Commits1620d5b9 and42565f8e; the first CI failure (runner lacked ripgrep) remains preserved.
 
 ### Task2: WAL commit reconstruction
 
@@ -45,8 +45,8 @@
 
 **Interfaces:** `reconstruct(byte[] database, byte[] wal)` returns a bounded materialized raw database snapshot and committed-frame count; invalid headers, checksum/salt mismatches, bounds and unclassified hot journals fail closed.
 
-- [ ] Write failing fixtures with a committed pending row represented only by WAL, valid uncommitted tails, repeated pages, commit truncation, both checksum byte orders and corrupt/truncated input.
-- [ ] Verify the SQLite WAL algorithm against the deployed amalgamation; reconstruct only through the last valid commit without changing originals.
+- [x] Write failing fixtures with a committed pending row represented only by WAL, valid uncommitted tails, repeated pages, commit truncation, both checksum byte orders and corrupt/truncated input. Missing component failed first;35 synthetic checks and a genuine disposable SQLite fixture passed locally.
+- [x] Verify the SQLite WAL algorithm against the deployed amalgamation; reconstruct only through the last valid commit without changing originals. Invalid/stale tails fail closed rather than being silently dropped. Commit growth cannot resurrect truncated pages or manufacture missing pages.
 - [ ] Run fixtures plus real disposable SQLite/SQLCipher WAL tests before declaring the algorithm qualified.
 - [ ] Commit separately; a portable raw-page test alone is not encrypted reader acceptance.
 
@@ -73,3 +73,10 @@
 - [ ] Present exact installation/execution scope, target force-stop/process start and sensitive-memory key access for separate approval. Do not execute it while approval is pending.
 
 The operating financial OFF-monitor rehearsal remains a separate exact Staging approval scope. Neither this diagnostic nor a synthetic receipt authorizes persistent financial activation.
+
+## Execution rulings and preserved evidence
+
+- The user requires all evidence retained, so disposable fixture directories and plan evidence will not be deleted when the skill normally suggests cleanup.
+- `reconstruct(database, wal)` has no rollback-journal argument. The later native caller must reject or explicitly classify any original rollback journal before reconstruction; portable WAL success cannot bypass that prerequisite.
+- Windows file identity and permission coverage is weaker than Linux and Android. It is reported unavailable rather than equated to native inode/UID checks. Linux must execute every platform protection case.
+- Separate read-only fixture files are permitted only in the test harness's fresh synthetic directory. They are never a substitute for the planned native in-memory reader of original private data.

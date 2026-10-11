@@ -7,10 +7,12 @@ on:
     paths:
       - scripts/android-voice-qualification/**
       - .github/workflows/voice-private-journal-qualification.yml
+      - apps/mobile/package-lock.json
   pull_request:
     paths:
       - scripts/android-voice-qualification/**
       - .github/workflows/voice-private-journal-qualification.yml
+      - apps/mobile/package-lock.json
 
 permissions:
   contents: read
@@ -39,6 +41,8 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotTest > "$build_dir/platform-test.log" 2>&1 || { cat "$build_dir/platform-test.log"; exit 1; }
           cat "$build_dir/platform-test.log"
           "$JAVA_HOME_17_X64/bin/java" -Xmx96m -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.CommittedWalSnapshotTest
+          python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           if grep -q 'UNEXECUTED_PLATFORM_CASE' "$build_dir/platform-test.log"; then
             echo 'Every Linux platform protection case must execute.' >&2
             exit 1
@@ -49,4 +53,47 @@ jobs:
         with:
           name: voice-private-reader-preparation-${{ github.sha }}
           path: ${{ runner.temp }}/voice-private-reader-test.log
+          if-no-files-found: error
+  encrypted-wal-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked mobile dependencies without scripts
+        working-directory: apps/mobile
+        run: npm ci --ignore-scripts
+      - name: Qualify committed WAL pages using the deployed SQLCipher source
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/voice-encrypted-wal-test.log") 2>&1
+          build_dir=$(mktemp -d "$RUNNER_TEMP/voice-encrypted-wal.XXXXXX")
+          vendor_dir=apps/mobile/node_modules/expo-sqlite/vendor/sqlcipher
+          echo "8fdf08e15777a45386fe4b2fc7604f125eb9ec57d0aaa8bde11ec8d8115ed915  $vendor_dir/sqlite3.c" | sha256sum -c -
+          echo "3c6356d8cf67ed92522114559cdcba1b38b39eab05e9f5989c1758b8eacef5b9  $vendor_dir/sqlite3.h" | sha256sum -c -
+          gcc -shared -fPIC -O2 -DSQLITE_THREADSAFE=1 \
+            -DSQLITE_ENABLE_BYTECODE_VTAB=1 -DSQLITE_TEMP_STORE=2 \
+            -DSQLITE_ENABLE_SESSION=1 -DSQLITE_ENABLE_PREUPDATE_HOOK=1 \
+            -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -DSQLITE_ENABLE_FTS4=1 \
+            -DSQLITE_ENABLE_FTS3_PARENTHESIS=1 -DSQLITE_ENABLE_FTS5=1 \
+            -DSQLITE_HAS_CODEC=1 -DSQLITE_EXTRA_INIT=sqlcipher_extra_init \
+            -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -DSQLCIPHER_CRYPTO_OPENSSL \
+            "$vendor_dir/sqlite3.c" -lcrypto -ldl -lpthread -lm -o "$build_dir/libfixture-sqlcipher.so"
+          find scripts/android-voice-qualification -type f -name '*.java' -print0 > "$build_dir/sources.list"
+          mapfile -d '' -t sources < "$build_dir/sources.list"
+          "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
+          python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py \
+            --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java" \
+            --sqlcipher-library "$build_dir/libfixture-sqlcipher.so"
+      - name: Retain encrypted fixture qualification log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: voice-encrypted-wal-preparation-${{ github.sha }}
+          path: ${{ runner.temp }}/voice-encrypted-wal-test.log
           if-no-files-found: error

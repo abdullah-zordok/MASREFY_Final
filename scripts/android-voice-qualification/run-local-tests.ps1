@@ -15,3 +15,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Portable reader compilation failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Portable reader tests failed.' }
 & java -Xmx96m -cp $outputRoot com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest
 if ($LASTEXITCODE -ne 0) { throw 'Bounded snapshot verification failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.CommittedWalSnapshotTest
+if ($LASTEXITCODE -ne 0) { throw 'Committed WAL reconstruction failed.' }
+& python "$testRoot/real-wal-fixtures.py" --classes $outputRoot
+if ($LASTEXITCODE -ne 0) { throw 'Disposable SQLite WAL fixture failed.' }
