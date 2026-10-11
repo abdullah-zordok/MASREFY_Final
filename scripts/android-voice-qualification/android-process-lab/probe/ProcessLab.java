@@ -3,6 +3,7 @@ package com.masarifi.voicequalification.processlab;
 import android.app.ActivityManager;
 import android.app.Application;
 import android.app.Instrumentation;
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -27,6 +28,11 @@ public final class ProcessLab extends Instrumentation {
                 !"android.app.Application".equals(name))throw new ClassNotFoundException("FIXTURE_ONLY");
         try {
             receipt.putString("initialSurvey",survey(context));
+            stage="LISTENER_PERMISSION";
+            NotificationManager notifications=context.getSystemService(NotificationManager.class);
+            if(notifications==null)throw new IllegalStateException("FRAMEWORK_UNAVAILABLE");
+            receipt.putString("listenerAccessGranted",Boolean.toString(notifications.isNotificationListenerAccessGranted(
+                new ComponentName(TARGET,TARGET+".Peers$Listener"))));
             peer(context,"normal","Normal");
             peer(context,"isolated","Isolated");
             receipt.putString("verdict","PASS_DISPOSABLE_PROCESS_LAB");

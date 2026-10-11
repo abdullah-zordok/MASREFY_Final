@@ -18,7 +18,7 @@ class ProcessLabEvidenceTests(unittest.TestCase):
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         return module.parse(value)
     def evidence(self):
-        return {'verdict':'PASS_DISPOSABLE_PROCESS_LAB','initialSurvey':'PASS_ONLY_PRIVATE_PROCESS',
+        return {'verdict':'PASS_DISPOSABLE_PROCESS_LAB','initialSurvey':'PASS_ONLY_PRIVATE_PROCESS','listenerAccessGranted':'false',
                 'normalBound':'true','normalActualUidMatches':'true','normalFrameworkVisible':'true',
                 'normalFrameworkUidMatches':'true','normalGuard':'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=TARGET_AUXILIARY',
                 'normalGone':'true','normalCachedAliveBeforePing':'true','isolatedBound':'true','isolatedActualUidMatches':'false',
@@ -36,7 +36,7 @@ class ProcessLabEvidenceTests(unittest.TestCase):
         for field in ('pid','uid','processName','cause'):
             with self.subTest(field=field),self.assertRaises(RuntimeError):self.validate(dict(self.evidence(),**{field:'PRIVATE'}))
     def test_unknown_or_contradictory_isolated_metadata_rejects(self):
-        for field,value in (('isolatedActualUidMatches','true'),('isolatedGone','false'),('initialSurvey','UNKNOWN'),('isolatedFrameworkUidMatches','true')):
+        for field,value in (('isolatedActualUidMatches','true'),('isolatedGone','false'),('initialSurvey','UNKNOWN'),('isolatedFrameworkUidMatches','true'),('listenerAccessGranted','TRUE'),('listenerAccessGranted','UNKNOWN')):
             with self.subTest(field=field),self.assertRaises(RuntimeError):self.validate(dict(self.evidence(),**{field:value}))
 
     def test_malformed_duplicate_or_extra_envelope_lines_reject(self):
@@ -100,7 +100,7 @@ class ProcessLabEvidenceTests(unittest.TestCase):
                 self.assertNotEqual(expand(module.LISTENER),module.LISTENER)
                 self.assertEqual(expand(args[-2]),module.LISTENER)
 
-    def test_all_listener_setup_and_cleanup_commands_preserve_component(self):
+    def run_mock_main(self,failure_mode=None):
         spec=importlib.util.spec_from_file_location('process_lab_commands',path)
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         commands=[];state={'enabled':False,'connections':0}
@@ -116,7 +116,9 @@ class ProcessLabEvidenceTests(unittest.TestCase):
                     if state['enabled']:state['connections']+=1
                 if args[0]=='logcat':return 'LISTENER_CONNECTED\n'*state['connections']
                 if args[:2]==('shell','settings'):return module.LISTENER if state['enabled'] else 'null'
-                if args[:3]==('shell','am','instrument'):return valid
+                if args[:3]==('shell','am','instrument'):
+                    observed=not state['enabled'] if failure_mode is state['enabled'] else state['enabled']
+                    return valid.replace('listenerAccessGranted=false','listenerAccessGranted='+str(observed).lower())
                 return ''
         with tempfile.TemporaryDirectory(prefix='vqs-public-host-test-') as temporary:
             root=Path(temporary);build=root/'build';build.mkdir()
@@ -131,12 +133,30 @@ class ProcessLabEvidenceTests(unittest.TestCase):
                   '--build',str(build),'--output',str(root/'output')]
             with patch('sys.argv',argv),patch.object(module.bootstrap,'Emulator',FakeEmulator),\
                     patch.object(module.bootstrap,'fixture_apks',return_value=[]),patch.object(module.bootstrap,'install_fixtures'),patch('builtins.print'):
-                module.main()
-            self.assertEqual(json.loads((root/'output/runtime-receipt.json').read_text())['result'],'PASS_DISPOSABLE_PROCESS_LAB')
+                if failure_mode is None:module.main()
+                else:
+                    with self.assertRaises(RuntimeError):module.main()
+            result=json.loads((root/'output/runtime-receipt.json').read_text())['result']
+        return commands,state,result
+
+    def test_all_listener_setup_and_cleanup_commands_preserve_component(self):
+        commands,state,result=self.run_mock_main()
+        self.assertEqual(result,'PASS_DISPOSABLE_PROCESS_LAB')
+        spec=importlib.util.spec_from_file_location('process_lab_expected_component',path)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         notifications=[args for args in commands if args[:3]==('shell','cmd','notification')]
         self.assertEqual(len(notifications),10)
         self.assertEqual(sum(args[3]=='allow_listener' for args in notifications),3)
         self.assertTrue(all(args[-2]==shlex.quote(module.LISTENER) for args in notifications))
         self.assertFalse(state['enabled'])
+
+    def test_opposite_authoritative_permission_rejects_and_cleans_up(self):
+        for failure_mode in (False,True):
+            with self.subTest(mode=failure_mode):
+                commands,state,result=self.run_mock_main(failure_mode)
+                self.assertEqual(result,'FAIL')
+                self.assertFalse(state['enabled'])
+                self.assertEqual(commands[-2][3],'disallow_listener')
+                self.assertEqual(commands[-1][:3],('shell','am','force-stop'))
 
 if __name__=='__main__':unittest.main()

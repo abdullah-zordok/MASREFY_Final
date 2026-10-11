@@ -9,7 +9,7 @@ TARGET='com.masarifi.voicequalification.processfixture'
 PROBE='com.masarifi.voicequalification.processlab/.ProcessLab'
 LISTENER=TARGET+'/'+TARGET+'.Peers$Listener'
 REJECTION=r'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=(TARGET_MAIN|PRIVATE_PROCESS_NAME|TARGET_AUXILIARY|OTHER|UNKNOWN_NAME|INVALID_PID)'
-FIELDS={'verdict','initialSurvey','isolatedOtherSameUidPeers'}|{kind+suffix for kind in ('normal','isolated')
+FIELDS={'verdict','initialSurvey','isolatedOtherSameUidPeers','listenerAccessGranted'}|{kind+suffix for kind in ('normal','isolated')
     for suffix in ('Bound','ActualUidMatches','FrameworkVisible','FrameworkUidMatches','Guard','Gone','CachedAliveBeforePing')}
 
 def reject(condition):
@@ -19,6 +19,7 @@ def is_rejection(value):return re.fullmatch(REJECTION,value) is not None
 
 def validate(value):
     reject(set(value)==FIELDS and value['verdict']=='PASS_DISPOSABLE_PROCESS_LAB')
+    reject(value['listenerAccessGranted'] in ('true','false'))
     reject(value['initialSurvey']=='PASS_ONLY_PRIVATE_PROCESS' or is_rejection(value['initialSurvey']))
     for kind in ('normal','isolated'):
         reject(value[kind+'Bound']=='true' and value[kind+'Gone']=='true')
@@ -94,12 +95,10 @@ def main():
                     connected=False
                     if listener_enabled:
                         configure_listener(emulator,True)
-                    configured=emulator.command('shell','settings','--user','0','get','secure','enabled_notification_listeners',retain_output=False).strip().split(':')
-                    enabled=any(item in (LISTENER,TARGET+'/.Peers$Listener') for item in configured)
-                    reject(enabled==listener_enabled)
                     if listener_enabled:wait_listener(emulator,before);connected=True
                     emulator.command('shell','am','force-stop',TARGET)
                     observed=parse(emulator.command('shell','am','instrument','-w','-r',PROBE))
+                    reject(observed['listenerAccessGranted']==str(listener_enabled).lower())
                     receipt['runs'].append({'listenerEnabled':listener_enabled,'listenerBoundBeforeControlledForceStop':connected,**observed})
                     if not listener_enabled:reject(observed['initialSurvey']=='PASS_ONLY_PRIVATE_PROCESS')
             receipt['result']='PASS_DISPOSABLE_PROCESS_LAB'
