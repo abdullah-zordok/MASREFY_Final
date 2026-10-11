@@ -33,11 +33,12 @@ jobs:
         run: npm --prefix apps/api run supabase:start
       - run: npm --prefix apps/api run db:reset
       - name: Qualify exact candidate across feature boundaries
-        run: >-
-          node scripts/staging-voice/collect-compatibility.cjs
-          093b5d0c42f3d68eb2de619aff94b44fbf088a02
-          ghcr.io/masarifiratibi-spec/masarifi-backend@sha256:8ee5100f2f9de7b5930867eb7cf901c94344452ba8a3ed62954223bbc8fb2bab
-          .qualification/staging-candidate-093b5d0c
+        run: |
+          mkdir -p .qualification
+          node scripts/staging-voice/collect-compatibility.cjs \
+            093b5d0c42f3d68eb2de619aff94b44fbf088a02 \
+            ghcr.io/masarifiratibi-spec/masarifi-backend@sha256:8ee5100f2f9de7b5930867eb7cf901c94344452ba8a3ed62954223bbc8fb2bab \
+            .qualification/staging-candidate-093b5d0c
       - name: Preserve source identity
         if: always()
         run: |
