@@ -307,14 +307,14 @@ done:
     if (exsqlite3_finalize(statement) != SQLITE_OK) status = VQS_ENGINE;
     return status;
 }
-static int cipher_hmac(sqlite3 *database) {
+static int text_result_matches(sqlite3 *database, const char *sql, const char *expected) {
     exsqlite3_stmt *statement = NULL;
     int status = VQS_ENGINE;
-    if (exsqlite3_prepare_v2(database, "PRAGMA cipher_use_hmac", -1, &statement, NULL) != SQLITE_OK) goto done;
+    if (exsqlite3_prepare_v2(database, sql, -1, &statement, NULL) != SQLITE_OK) goto done;
     if (exsqlite3_step(statement) != SQLITE_ROW || exsqlite3_column_type(statement, 0) != SQLITE_TEXT ||
-            exsqlite3_column_bytes(statement, 0) != 1) goto done;
+            exsqlite3_column_bytes(statement, 0) != (int)strlen(expected)) goto done;
     const unsigned char *flag = exsqlite3_column_text(statement, 0);
-    if (!flag || flag[0] != '1') goto done;
+    if (!flag || memcmp(flag, expected, strlen(expected))) goto done;
     if (exsqlite3_step(statement) == SQLITE_DONE) status = VQS_OK;
 done:
     if (exsqlite3_finalize(statement) != SQLITE_OK) status = VQS_ENGINE;
@@ -353,15 +353,19 @@ done:
     return status;
 }
 static int validate_database(VqsReader *reader, int encrypted) {
-    sqlite3_int64 tables, page_size, page_count;
+    sqlite3_int64 tables, page_size = 4096, page_count;
+    /* SQLCipher 4.7 returns a TEXT cipher_page_size for encrypted handles;
+     * unencrypted SQLite returns an INTEGER page_size. Do not coerce either. */
+    int size_status = encrypted ? text_result_matches(reader->database, "PRAGMA cipher_page_size", "4096") :
+            integer_result(reader->database, "PRAGMA page_size", &page_size);
     if (cipher_version(reader->database) ||
             integer_result(reader->database, "SELECT count(*) FROM sqlite_master", &tables) ||
-            integer_result(reader->database, "PRAGMA page_size", &page_size) ||
+            size_status ||
             integer_result(reader->database, "PRAGMA page_count", &page_count)) return VQS_OPEN;
     if (page_size < 512 || page_size > 65536 || (page_size & (page_size - 1)) ||
             page_count <= 0 || (uint64_t)page_count != reader->length / (uint64_t)page_size ||
             reader->length % (size_t)page_size) return VQS_INPUT;
-    if (encrypted && (cipher_hmac(reader->database) || page_size != 4096)) return VQS_ENGINE;
+    if (encrypted && text_result_matches(reader->database, "PRAGMA cipher_use_hmac", "1")) return VQS_ENGINE;
     if (encrypted && integrity_query(reader, 1)) return VQS_INTEGRITY;
     return integrity_query(reader, 0);
 }
