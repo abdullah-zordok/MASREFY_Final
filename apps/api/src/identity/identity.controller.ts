@@ -54,6 +54,26 @@ function principal(request: ClerkPrincipalRequest) {
   return request.clerkPrincipal;
 }
 
+function projectPreferences(
+  request: ClerkPrincipalRequest,
+  preferences: PreferencesDto,
+): PreferencesDto {
+  const preferencesProjection: PreferencesDto = {
+    defaultCurrency: preferences.defaultCurrency,
+    language: preferences.language,
+    theme: preferences.theme,
+    calendar: preferences.calendar,
+    weekStart: preferences.weekStart,
+    privacySettings: preferences.privacySettings,
+    version: preferences.version,
+    currencySelectionRequired: preferences.currencySelectionRequired,
+  };
+  // Older mobile releases strictly reject unknown preference response fields.
+  if (!request.headers.accept?.includes('currency-onboarding=1'))
+    delete preferencesProjection.currencySelectionRequired;
+  return preferencesProjection;
+}
+
 @ApiTags('Identity')
 @ApiBearerAuth('ClerkBearer')
 @UseGuards(ClerkAuthGuard)
@@ -94,8 +114,8 @@ export class IdentityController {
   @ApiResponse({ status: 401, type: SafeErrorDto })
   @ApiResponse({ status: 403, type: SafeErrorDto })
   @ApiResponse({ status: 503, type: SafeErrorDto })
-  getPreferences(@Req() request: ClerkPrincipalRequest): Promise<PreferencesDto> {
-    return this.identity.getPreferences(principal(request));
+  async getPreferences(@Req() request: ClerkPrincipalRequest): Promise<PreferencesDto> {
+    return projectPreferences(request, await this.identity.getPreferences(principal(request)));
   }
 
   @Put('preferences')
@@ -107,12 +127,15 @@ export class IdentityController {
   @ApiResponse({ status: 403, type: SafeErrorDto })
   @ApiResponse({ status: 409, type: SafeErrorDto })
   @ApiResponse({ status: 503, type: SafeErrorDto })
-  replacePreferences(
+  async replacePreferences(
     @Req() request: ClerkPrincipalRequest,
     @Body() input: PreferencesReplaceDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
   ): Promise<PreferencesDto> {
-    return this.identity.replacePreferences(principal(request), input, idempotencyKey);
+    return projectPreferences(
+      request,
+      await this.identity.replacePreferences(principal(request), input, idempotencyKey),
+    );
   }
 
   @Get('onboarding')

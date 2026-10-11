@@ -317,6 +317,7 @@ const ar: MessageCatalog = {
   'profileSetup.nameHelper': 'من حسابك، ويمكنك تعديله في أي وقت.',
   'profileSetup.nameRequired': 'اكتب اسمك للمتابعة.',
   'profileSetup.currencyLabel': 'العملة الأساسية',
+  'profileSetup.currencyChoose': 'اختر عملتك',
   'profileSetup.currencyHelper': 'اختر العملة اللي تستخدمها غالبًا.',
   'profileSetup.continue': 'متابعة',
   'profileSetup.retry': 'إعادة المحاولة',

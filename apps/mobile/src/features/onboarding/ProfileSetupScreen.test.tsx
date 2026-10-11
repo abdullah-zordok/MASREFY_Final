@@ -124,6 +124,7 @@ const snapshot: ProfileSetupSnapshot = {
   },
   preferences: {
     defaultCurrency: 'SAR',
+    currencySelectionRequired: false,
     language: 'ar',
     theme: 'system',
     calendar: 'gregorian',
@@ -149,6 +150,81 @@ beforeEach(() => {
     profileSetupStatus: 'incomplete',
     profileSetupSnapshot: snapshot
   });
+});
+
+test('requires an explicit currency choice for a new customer before onboarding can save', async () => {
+  useAppShellStore.setState({
+    profileSetupSnapshot: {
+      ...snapshot,
+      preferences: {
+        ...snapshot.preferences,
+        version: 3,
+        currencySelectionRequired: true
+      },
+      onboarding: {
+        ...snapshot.onboarding,
+        completedSteps: ['welcome'],
+        step: 'tracking_intro'
+      }
+    }
+  });
+  const saveProfileSetup = jest.fn();
+  renderWithProviders(
+    <ProfileSetupScreen service={service({ saveProfileSetup })} />
+  );
+  expect(screen.queryByText('SAR')).not.toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('متابعة'));
+  expect(saveProfileSetup).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: /العملة الأساسية/ }));
+  const sessionId = mockPush.mock.calls[0]?.[0]?.params?.sessionId as string;
+  act(() => completeSelectionSession(sessionId, 'AED'));
+  fireEvent.press(screen.getByLabelText('متابعة'));
+  await waitFor(() =>
+    expect(saveProfileSetup).toHaveBeenCalledWith(
+      { name: 'Backend Name', currency: 'AED' },
+      expect.anything(),
+      expect.any(String)
+    )
+  );
+});
+
+test('requires a picker choice when an older API omits currency provenance despite completed welcome', () => {
+  useAppShellStore.setState({
+    profileSetupSnapshot: {
+      ...snapshot,
+      preferences: {
+        ...snapshot.preferences,
+        currencySelectionRequired: undefined
+      },
+      onboarding: {
+        ...snapshot.onboarding,
+        step: 'tracking_intro',
+        completedSteps: ['welcome']
+      }
+    }
+  });
+  const saveProfileSetup = jest.fn();
+  renderWithProviders(
+    <ProfileSetupScreen service={service({ saveProfileSetup })} />
+  );
+  expect(screen.queryByText('SAR')).not.toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('متابعة'));
+  expect(saveProfileSetup).not.toHaveBeenCalled();
+});
+
+test('does not preselect a fallback when the confirmed backend currency is unsupported', () => {
+  useAppShellStore.setState({
+    profileSetupSnapshot: {
+      ...snapshot,
+      preferences: {
+        ...snapshot.preferences,
+        defaultCurrency: 'XXX',
+        currencySelectionRequired: false
+      }
+    }
+  });
+  renderWithProviders(<ProfileSetupScreen service={service()} />);
+  expect(screen.queryByText('SAR')).not.toBeOnTheScreen();
 });
 
 test('matches the Arabic reference and keeps the saved name ahead of Clerk prefill', () => {

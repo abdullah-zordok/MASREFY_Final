@@ -595,7 +595,11 @@ describe('live profile setup', () => {
           path === '/api/v1/me'
             ? profile
             : path.endsWith('/preferences')
-              ? { ...preferences, defaultCurrency: 'SAR' }
+              ? {
+                  ...preferences,
+                  defaultCurrency: 'SAR',
+                  currencySelectionRequired: false
+                }
               : onboarding
       });
       if (operation === 'saveProfileSetup') {
@@ -733,6 +737,153 @@ describe('live profile setup', () => {
     });
   });
 
+  test('reopens legacy completed welcome when the server requires currency selection', async () => {
+    const service = createLiveIdentityService({
+      request: async (path) =>
+        path === '/api/v1/me'
+          ? profile
+          : path.endsWith('/preferences')
+            ? {
+                ...preferences,
+                defaultCurrency: 'SAR',
+                currencySelectionRequired: true
+              }
+            : {
+                ...onboarding,
+                step: 'tracking_intro',
+                completedSteps: ['welcome']
+              }
+    });
+    await expect(service.getProfileSetup()).resolves.toMatchObject({
+      complete: false,
+      preferences: { currencySelectionRequired: true }
+    });
+  });
+
+  test('keeps completed welcome incomplete when an old API omits currency provenance', async () => {
+    const service = createLiveIdentityService({
+      request: async (path) =>
+        path === '/api/v1/me'
+          ? profile
+          : path.endsWith('/preferences')
+            ? { ...preferences, defaultCurrency: 'SAR' }
+            : {
+                ...onboarding,
+                step: 'complete',
+                completedSteps: ['welcome', 'complete'],
+                completedAt: '2026-10-10T00:00:00.000Z'
+              }
+    });
+    await expect(service.getProfileSetup()).resolves.toMatchObject({
+      complete: false
+    });
+  });
+
+  test('preserves completed welcome when the negotiated server proves configured currency', async () => {
+    const service = createLiveIdentityService({
+      request: async (path) =>
+        path === '/api/v1/me'
+          ? profile
+          : path.endsWith('/preferences')
+            ? {
+                ...preferences,
+                defaultCurrency: 'SAR',
+                currencySelectionRequired: false
+              }
+            : {
+                ...onboarding,
+                step: 'tracking_intro',
+                completedSteps: ['welcome']
+              }
+    });
+    await expect(service.getProfileSetup()).resolves.toMatchObject({
+      complete: true
+    });
+  });
+
+  test('rejects missing server currency confirmation before completing welcome or saving local setup', async () => {
+    const writes: string[] = [];
+    const localSaves: UserProfile[] = [];
+    const service = createLiveIdentityService({
+      saveLocalProfile: async (value) => {
+        localSaves.push(value);
+      },
+      request: async (path, options) => {
+        if (options?.method) writes.push(path);
+        return path === '/api/v1/me'
+          ? { ...profile, displayName: 'New customer' }
+          : path.endsWith('/preferences')
+            ? { ...preferences, defaultCurrency: 'AED' }
+            : {
+                ...onboarding,
+                step: 'tracking_intro',
+                completedSteps: ['welcome']
+              };
+      }
+    });
+    const snapshot = await service.getProfileSetup();
+    localSaves.length = 0;
+    await expect(
+      service.saveProfileSetup(
+        { name: 'New customer', currency: 'AED' },
+        snapshot,
+        'legacy-no-proof'
+      )
+    ).rejects.toMatchObject({ code: 'contract_mismatch' });
+    expect(writes).toEqual(['/api/v1/me', '/api/v1/me/preferences']);
+    expect(localSaves).toEqual([]);
+  });
+
+  test('opts into currency onboarding status when the preference server preserves legacy clients', async () => {
+    const service = createLiveIdentityService({
+      request: async (path, options) => {
+        if (path === '/api/v1/me') return profile;
+        if (path.endsWith('/preferences')) {
+          const current =
+            (options?.headers as Record<string, string> | undefined)?.Accept ===
+            'application/json; currency-onboarding=1';
+          return {
+            ...preferences,
+            defaultCurrency: 'SAR',
+            ...(current ? { currencySelectionRequired: true } : {})
+          };
+        }
+        return {
+          ...onboarding,
+          step: 'tracking_intro',
+          completedSteps: ['welcome']
+        };
+      }
+    });
+    await expect(service.getProfileSetup()).resolves.toMatchObject({
+      complete: false,
+      preferences: { currencySelectionRequired: true }
+    });
+  });
+
+  test('keeps onboarding incomplete when a selected currency is unavailable on the server', async () => {
+    const service = createLiveIdentityService({
+      request: async (path, options) =>
+        path === '/api/v1/me'
+          ? profile
+          : path.endsWith('/preferences')
+            ? {
+                ...preferences,
+                defaultCurrency: options?.method ? 'AED' : 'SAR',
+                currencySelectionRequired: true
+              }
+            : onboarding
+    });
+    const snapshot = await service.getProfileSetup();
+    await expect(
+      service.saveProfileSetup(
+        { name: 'New customer', currency: 'AED' },
+        snapshot,
+        'disabled-currency'
+      )
+    ).rejects.toMatchObject({ code: 'validation_error' });
+  });
+
   test('saves name and currency before marking welcome complete', async () => {
     const calls: { path: string; options: Record<string, unknown> }[] = [];
     const request = jest.fn(
@@ -747,7 +898,12 @@ describe('live profile setup', () => {
         if (path === '/api/v1/me')
           return { ...profile, displayName: 'Adel Mohamed', version: 3 };
         if (path === '/api/v1/me/preferences')
-          return { ...preferences, defaultCurrency: 'AED', version: 4 };
+          return {
+            ...preferences,
+            defaultCurrency: 'AED',
+            version: 4,
+            currencySelectionRequired: false
+          };
         if (path === '/api/v1/me/onboarding')
           return {
             step: 'tracking_intro',
@@ -794,6 +950,7 @@ describe('live profile setup', () => {
       headers: { 'Idempotency-Key': 'profile-setup-123-preferences' },
       body: {
         defaultCurrency: 'AED',
+        currencySelectionConfirmed: true,
         language: 'ar',
         theme: 'system',
         calendar: 'gregorian',

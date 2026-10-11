@@ -38,6 +38,7 @@ export interface ProfileRecord {
 
 export interface PreferencesRecord {
   defaultCurrency: string;
+  currencySelectionRequired?: boolean;
   language: Locale;
   theme: Theme;
   calendar: Calendar;
@@ -108,6 +109,7 @@ interface ProfileRow {
 
 interface PreferencesRow {
   default_currency: string;
+  currency_selected: boolean;
   language: Locale;
   theme: Theme;
   calendar: Calendar;
@@ -160,6 +162,7 @@ function profile(row: ProfileRow): ProfileRecord {
 function preferences(row: PreferencesRow): PreferencesRecord {
   return {
     defaultCurrency: row.default_currency,
+    currencySelectionRequired: !row.currency_selected,
     language: row.language,
     theme: row.theme,
     calendar: row.calendar,
@@ -587,6 +590,7 @@ export class IdentityRepository {
 
   async getProfile(principal: ClerkPrincipal): Promise<ProfileRecord | null> {
     return this.withCustomerTransaction(principal, async (client) => {
+      await client.query('select private.ensure_default_cash_account($1)', [principal.userId]);
       const result = await client.query<ProfileRow>(
         `with touched as (
            update public.profiles
@@ -680,7 +684,12 @@ export class IdentityRepository {
   async getPreferences(principal: ClerkPrincipal): Promise<PreferencesRecord> {
     return this.withCustomerTransaction(principal, async (client) => {
       const result = await client.query<PreferencesRow>(
-        `select default_currency, language, theme, calendar, week_start, privacy_settings, version
+        `select default_currency,
+           ((currency_selected or exists(select 1 from public.accounts a
+             where a.user_id=$1 and a.currency_code=user_preferences.default_currency
+               and a.is_default and a.status='active' and a.deleted_at is null))
+             and exists(select 1 from public.currencies c where c.code=default_currency and c.enabled)) currency_selected,
+           language, theme, calendar, week_start, privacy_settings, version
          from public.user_preferences where user_id = $1`,
         [principal.userId],
       );
@@ -688,6 +697,7 @@ export class IdentityRepository {
         ? preferences(result.rows[0])
         : {
             defaultCurrency: 'SAR',
+            currencySelectionRequired: true,
             language: 'ar',
             theme: 'system',
             calendar: 'gregorian',
@@ -705,20 +715,26 @@ export class IdentityRepository {
     return this.withCustomerTransaction(principal, async (client) => {
       const result = await client.query<PreferencesRow>(
         `insert into public.user_preferences (
-           user_id, default_currency, language, theme, calendar, week_start, privacy_settings
+           user_id, default_currency, language, theme, calendar, week_start, privacy_settings, currency_selected
          )
-         select $1, $2, $3, $4, $5, $6, $7::jsonb
+         select $1, $2, $3, $4, $5, $6, $7::jsonb, $9::boolean
          where $8::bigint = 1
             or exists (select 1 from public.user_preferences where user_id = $1)
          on conflict (user_id) do update
          set default_currency = excluded.default_currency,
+             currency_selected = $9::boolean or (user_preferences.currency_selected and user_preferences.default_currency=excluded.default_currency),
              language = excluded.language,
              theme = excluded.theme,
              calendar = excluded.calendar,
              week_start = excluded.week_start,
              privacy_settings = excluded.privacy_settings
          where user_preferences.version = $8
-         returning default_currency, language, theme, calendar, week_start, privacy_settings, version`,
+         returning default_currency,
+           ((currency_selected or exists(select 1 from public.accounts a
+             where a.user_id=$1 and a.currency_code=$2
+               and a.is_default and a.status='active' and a.deleted_at is null))
+             and exists(select 1 from public.currencies c where c.code=$2 and c.enabled)) currency_selected,
+           language, theme, calendar, week_start, privacy_settings, version`,
         [
           principal.userId,
           input.defaultCurrency,
@@ -728,9 +744,12 @@ export class IdentityRepository {
           input.weekStart,
           JSON.stringify(input.privacySettings),
           input.expectedVersion,
+          input.currencySelectionConfirmed === true,
         ],
       );
-      return result.rows[0] ? preferences(result.rows[0]) : null;
+      if (!result.rows[0]) return null;
+      await client.query('select private.ensure_default_cash_account($1)', [principal.userId]);
+      return preferences(result.rows[0]);
     });
   }
 

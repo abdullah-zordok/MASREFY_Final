@@ -557,6 +557,8 @@ components:
       additionalProperties: false
       required: [defaultCurrency, language, theme, calendar, weekStart, privacySettings, version]
       properties:
+        currencySelectionRequired:
+          type: boolean
         defaultCurrency:
           type: string
           pattern: '^[A-Z]{3}$'
@@ -584,6 +586,9 @@ components:
       additionalProperties: false
       required: [defaultCurrency, language, theme, calendar, weekStart, privacySettings, expectedVersion]
       properties:
+        currencySelectionConfirmed:
+          type: boolean
+          description: Explicit confirmation after the customer chooses an onboarding currency.
         defaultCurrency:
           type: string
           pattern: '^[A-Z]{3}$'

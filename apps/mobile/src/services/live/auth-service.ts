@@ -83,6 +83,7 @@ const profileSchema = z
   .strict();
 const preferencesSchema = z
   .object({
+    currencySelectionRequired: z.boolean().optional(),
     defaultCurrency: z.string().regex(/^[A-Z]{3}$/),
     language: z.enum(['ar', 'en']),
     theme: z.enum(['light', 'dark', 'system']),
@@ -289,7 +290,9 @@ export function createLiveIdentityService({
     ]);
     if (getOwnerId() !== ownerId) throw new HttpError('session_expired', 401);
     onboardingVersion = onboarding.version;
-    profileSetupComplete = onboarding.completedSteps.includes('welcome');
+    profileSetupComplete =
+      onboarding.completedSteps.includes('welcome') &&
+      preferences.currencySelectionRequired === false;
     const profile = mergeProfile(
       remote,
       preferences,
@@ -412,6 +415,7 @@ export function createLiveIdentityService({
           headers: { 'Idempotency-Key': `${operationId}-preferences` },
           body: {
             defaultCurrency: currency,
+            currencySelectionConfirmed: true,
             language: snapshot.preferences.language,
             theme: snapshot.preferences.theme,
             calendar: snapshot.preferences.calendar,
@@ -422,6 +426,10 @@ export function createLiveIdentityService({
         }
       );
       if (getOwnerId() !== ownerId) throw new HttpError('session_expired', 401);
+      if (remotePreferences.currencySelectionRequired === undefined)
+        throw new HttpError('contract_mismatch', 502);
+      if (remotePreferences.currencySelectionRequired !== false)
+        throw new HttpError('validation_error', 400);
       const step =
         snapshot.onboarding.step === 'welcome'
           ? 'tracking_intro'
@@ -569,6 +577,15 @@ async function parsedRequest<T>(
   schema: z.ZodType<T>,
   options?: Omit<RequestInit, 'body'> & { body?: unknown; emptyValue?: unknown }
 ): Promise<T> {
+  if (path === '/api/v1/me/preferences') {
+    options = {
+      ...options,
+      headers: {
+        ...(options?.headers as Record<string, string> | undefined),
+        Accept: 'application/json; currency-onboarding=1'
+      }
+    };
+  }
   const parsed = schema.safeParse(await request(path, options));
   if (!parsed.success) throw new HttpError('contract_mismatch', 502);
   return parsed.data;

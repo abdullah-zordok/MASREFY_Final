@@ -87,9 +87,13 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
     await app.close();
     await asMigration(async (client) => {
       await client.query(
-        `delete from private.outbox_events where payload->>'profileId' in ($1,$2)`,
+        `delete from private.outbox_events where payload->>'profileId' in ($1,$2) or payload->>'userId' in ($1,$2)`,
         [owner.userId, other.userId],
       );
+      await client.query('delete from public.accounts where user_id in ($1,$2)', [
+        owner.userId,
+        other.userId,
+      ]);
       await client.query('delete from public.user_preferences where user_id in ($1,$2)', [
         owner.userId,
         other.userId,
@@ -150,6 +154,7 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
     active = owner;
     const replacement = {
       defaultCurrency: 'EGP',
+      currencySelectionConfirmed: true,
       language: 'en',
       theme: 'dark',
       calendar: 'hijri',
@@ -159,12 +164,14 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
     };
     await request(server)
       .put('/api/v1/me/preferences')
+      .set('Accept', 'application/json; currency-onboarding=1')
       .set('Idempotency-Key', 'preferences-e2e-replace')
       .send(replacement)
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual({
           defaultCurrency: 'EGP',
+          currencySelectionRequired: false,
           language: 'en',
           theme: 'dark',
           calendar: 'hijri',
@@ -190,5 +197,17 @@ describeLiveDatabase('profile and preferences owner HTTP flow', () => {
           version: 1,
         });
       });
+  });
+
+  it('keeps legacy strict preference clients compatible while exposing onboarding selection to new clients', async () => {
+    active = other;
+    const server = app.getHttpServer() as Parameters<typeof request>[0];
+    const legacy = await request(server).get('/api/v1/me/preferences').expect(200);
+    expect(legacy.body).not.toHaveProperty('currencySelectionRequired');
+    const current = await request(server)
+      .get('/api/v1/me/preferences')
+      .set('Accept', 'application/json; currency-onboarding=1')
+      .expect(200);
+    expect(current.body).toMatchObject({ currencySelectionRequired: true });
   });
 });

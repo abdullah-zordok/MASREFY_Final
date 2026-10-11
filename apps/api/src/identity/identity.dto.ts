@@ -114,6 +114,13 @@ export class PrivacySettingsDto implements PrivacySettings {
 
 @ApiSchema({ name: 'PreferencesReplace' })
 export class PreferencesReplaceDto {
+  @ApiPropertyOptional({
+    description: 'Explicit confirmation after the customer chooses an onboarding currency.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  currencySelectionConfirmed?: boolean;
+
   @ApiProperty({ pattern: '^[A-Z]{3}$' })
   @Matches(/^[A-Z]{3}$/)
   defaultCurrency!: string;
@@ -163,6 +170,7 @@ export class ProfileDto {
 @ApiSchema({ name: 'Preferences' })
 export class PreferencesDto {
   @ApiProperty({ pattern: '^[A-Z]{3}$' }) defaultCurrency!: string;
+  @ApiPropertyOptional() currencySelectionRequired?: boolean;
   @ApiProperty({ enum: ['ar', 'en'] }) language!: Locale;
   @ApiProperty({ enum: ['light', 'dark', 'system'] }) theme!: Theme;
   @ApiProperty({ enum: ['gregorian', 'hijri'] }) calendar!: Calendar;

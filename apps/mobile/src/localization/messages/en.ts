@@ -335,6 +335,7 @@ const en = {
   'profileSetup.nameHelper': 'From your account. You can edit it anytime.',
   'profileSetup.nameRequired': 'Enter your name to continue.',
   'profileSetup.currencyLabel': 'Base currency',
+  'profileSetup.currencyChoose': 'Select your currency',
   'profileSetup.currencyHelper': 'Choose the currency you use most.',
   'profileSetup.continue': 'Continue',
   'profileSetup.retry': 'Try again',

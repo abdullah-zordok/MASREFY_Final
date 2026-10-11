@@ -7,6 +7,7 @@ export const userProfileSchema = z.object({ name: z.string().max(120).nullable()
 export type UserProfile = z.infer<typeof userProfileSchema>; export type UserProfileInput = Omit<UserProfile, 'version'>;
 export type OwnerPreferences = {
   defaultCurrency: string;
+  currencySelectionRequired?: boolean;
   language: 'ar' | 'en';
   theme: 'light' | 'dark' | 'system';
   calendar: 'gregorian' | 'hijri';

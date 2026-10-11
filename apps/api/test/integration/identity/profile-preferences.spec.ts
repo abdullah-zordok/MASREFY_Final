@@ -49,8 +49,10 @@ describeLiveDatabase('profile and preferences repository', () => {
     await asRole('masarifi_migration', (client) =>
       client.query(`
         delete from private.outbox_events
-        where aggregate_type = 'profile'
-          and payload ->> 'profileId' in ('profile_preferences_owner', 'profile_preferences_other');
+        where payload ->> 'profileId' in ('profile_preferences_owner', 'profile_preferences_other')
+           or payload ->> 'userId' in ('profile_preferences_owner', 'profile_preferences_other');
+        delete from public.accounts
+        where user_id in ('profile_preferences_owner', 'profile_preferences_other');
         delete from public.user_preferences
         where user_id in ('profile_preferences_owner', 'profile_preferences_other');
         delete from public.profiles

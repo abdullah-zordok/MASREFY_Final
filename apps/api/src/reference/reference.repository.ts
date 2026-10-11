@@ -339,6 +339,9 @@ export class ReferenceRepository {
         return this.account(row);
       }
       case 'createAccount': {
+        await client.query('select pg_advisory_xact_lock(hashtextextended($1,0))', [
+          `account-default:${user}`,
+        ]);
         if (b.isDefault) await this.clearDefault(client, user);
         const row = (
           await client.query<ReferenceRow>(
@@ -725,6 +728,12 @@ export class ReferenceRepository {
     };
   }
   private async updateAccount(client: PoolClient, input: ReferenceOperation): Promise<unknown> {
+    if (input.body.isDefault) {
+      // Provisioning and default changes must take the owner lock before any account row.
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1,0))', [
+        `account-default:${input.principal.userId}`,
+      ]);
+    }
     const before = await this.locked(
       client,
       'accounts',
