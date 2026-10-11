@@ -25,13 +25,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/voice-private-reader-test.log") 2>&1
           build_dir=$(mktemp -d "$RUNNER_TEMP/voice-private-reader.XXXXXX")
-          mapfile -d '' -t sources < <(rg --files -0 scripts/android-voice-qualification -g '*.java')
+          source_list="$build_dir/sources.list"
+          if command -v rg >/dev/null 2>&1; then
+            rg --files -0 scripts/android-voice-qualification -g '*.java' > "$source_list"
+          else
+            find scripts/android-voice-qualification -type f -name '*.java' -print0 > "$source_list"
+          fi
+          mapfile -d '' -t sources < "$source_list"
+          test "${#sources[@]}" -gt 0
           "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
-          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotTest | tee "$RUNNER_TEMP/voice-private-reader-test.log"
-          "$JAVA_HOME_17_X64/bin/java" -Xmx96m -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest | tee -a "$RUNNER_TEMP/voice-private-reader-test.log"
-          if rg -q 'UNEXECUTED_PLATFORM_CASE' "$RUNNER_TEMP/voice-private-reader-test.log"; then
-            echo 'Linux symlink protection case must execute.' >&2
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotTest > "$build_dir/platform-test.log" 2>&1 || { cat "$build_dir/platform-test.log"; exit 1; }
+          cat "$build_dir/platform-test.log"
+          "$JAVA_HOME_17_X64/bin/java" -Xmx96m -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest
+          if grep -q 'UNEXECUTED_PLATFORM_CASE' "$build_dir/platform-test.log"; then
+            echo 'Every Linux platform protection case must execute.' >&2
             exit 1
           fi
       - name: Retain the test log
