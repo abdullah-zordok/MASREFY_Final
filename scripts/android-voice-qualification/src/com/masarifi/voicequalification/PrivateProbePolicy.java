@@ -13,6 +13,10 @@ final class PrivateProbePolicy {
     record Identity(String packageName,String process,int api,int uid,int targetUid,String targetApk,
                     String certificate,String probeCertificate,String application,String factory,
                     boolean debuggable,int splits,List<String> providers,List<String> components,String dataRoot) {}
+    static void requireNoSplits(String[] splitNames) {
+        // API35 PackageInfo may use an empty array for a base-only installation.
+        if(splitNames!=null && splitNames.length!=0)throw failure();
+    }
     static void requireIdentity(Identity value) {
         if(value==null || !TARGET.equals(value.packageName) || !PROCESS.equals(value.process) || value.api!=35 ||
             value.uid<10000 || value.uid!=value.targetUid || !HISTORICAL_APK.equals(value.targetApk) ||

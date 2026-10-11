@@ -28,7 +28,8 @@ def digest(path):
     return value.hexdigest()
 
 def source_hashes():
-    return {path.relative_to(ROOT).as_posix():digest(path) for path in sorted((ROOT/"src").rglob("*.java"))}
+    sources=sorted((ROOT/"src").rglob("*.java"))+[HERE/"PrivateJournalDiagnostic.java"]
+    return {path.relative_to(ROOT).as_posix():digest(path) for path in sources}
 
 def rehearsal_hashes():
     rehearsal=ROOT/"android-rehearsal"

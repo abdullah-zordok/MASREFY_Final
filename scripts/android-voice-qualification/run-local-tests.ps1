@@ -30,6 +30,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Pinned Voice journal classification failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.NativeSnapshotReaderTest
 if ($LASTEXITCODE -ne 0) { throw 'Strict JNI row boundary failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.PrivateProbePolicyTest
+if ($LASTEXITCODE -ne 0) { throw 'Private probe identity tests failed' }
+& java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeFailureTest
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe guard failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeRootTest
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe path resolution failed.' }

@@ -9,6 +9,19 @@ build=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
 
 class ProbeBuildGates(unittest.TestCase):
+    def test_runtime_provenance_binds_the_actual_target_wrapper(self):
+        wrapper="android-probe/PrivateJournalDiagnostic.java"
+        self.assertIn(wrapper,build.source_hashes())
+        native=build.native_contract("arm64-v8a")
+        native["libraries"]={"libcrypto.so":"a"*64,"libvoice_private_reader.so":"b"*64}
+        runtime_native=build.native_contract("x86_64")
+        runtime_native["libraries"]=dict(native["libraries"])
+        evidence={"sourceHashes":build.rehearsal_hashes(),"diagnosticSourceHashes":build.source_hashes(),"nativeBuild":runtime_native,
+                  "runtimeAndroidJarSha256":build.ANDROID35_JAR_SHA,"platformDescriptorCheckerSha256":build.digest(build.ROOT/"tests/test-android-buffer-descriptors.py")}
+        evidence["diagnosticSourceHashes"][wrapper]="0"*64
+        with self.assertRaisesRegex(RuntimeError,"PROBE_BUILD_GATE"):
+            build.validate_provenance(native,evidence)
+
     def test_exact_native_and_rehearsal_provenance_is_required(self):
         native=build.native_contract("arm64-v8a")
         native["libraries"]={"libcrypto.so":"a"*64,"libvoice_private_reader.so":"b"*64}

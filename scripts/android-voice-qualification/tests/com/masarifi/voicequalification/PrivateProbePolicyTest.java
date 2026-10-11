@@ -7,6 +7,11 @@ import java.util.List;
 public final class PrivateProbePolicyTest {
     private static int checks;
     public static void main(String[] args) {
+        PrivateProbePolicy.requireNoSplits(null);checks++;
+        PrivateProbePolicy.requireNoSplits(new String[0]);checks++;
+        rejected(() -> PrivateProbePolicy.requireNoSplits(new String[]{"feature"}));
+        rejected(() -> PrivateProbePolicy.requireNoSplits(new String[]{null}));
+        rejected(() -> PrivateProbePolicy.requireNoSplits(new String[]{""}));
         valid(identity(null,null,35,10123,10123,null,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
         valid(identity(null,null,35,10123,10123,null,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),"/data/data/com.masarifi.mobile"));
         invalid(identity("com.other",null,35,10123,10123,null,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));

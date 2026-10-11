@@ -84,3 +84,20 @@ Open gates: successful exact-source disposable encrypted Android runtime;
 independent review of this actual-target wrapper; final signed arm64 artifact and
 identity packet; fresh approved installed-target observation; separate exact
 installation/execution approval. A local/CI success is never Redmi acceptance.
+
+The 11 October approved physical attempt installed the diagnostic successfully
+after the human accepted the phone's installation confirmation. Its sole
+instrumentation invocation rejected bootstrap in the dedicated process before
+journal qualification. The original client remains installed and stopped; the
+journal gate is INDETERMINATE. The authorization for that invocation is consumed.
+
+Bootstrap rejection now includes only a closed enum stage (public package
+metadata, APK/certificate, directory ownership, identity policy, process survey,
+or Application class). Original exception messages, causes and private values
+remain suppressed. Every previous identity/startup/store guard remains required.
+The runtime build inventory now binds the actual wrapper source as well as the
+portable reader; this binding does not claim the wrapper has passed on Redmi.
+A changed signed probe requires fresh qualification and a new exact approval.
+API35 can represent a base-only probe's split names as an empty array. The probe
+accepts null or zero-length metadata and still rejects every actual split,
+including malformed nonempty arrays. The exact APK/certificate/UID guards remain.

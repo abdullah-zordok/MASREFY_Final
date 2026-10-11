@@ -136,7 +136,8 @@ def main():
             receipt["runtimeAndroidJarSha256"]=digest(arguments.runtime_android_jar)
             receipt["platformDescriptorCheckerSha256"]=digest(SOURCE.parent/"tests/test-android-buffer-descriptors.py")
             receipt["diagnosticSourceHashes"] = {str(path.relative_to(SOURCE.parent)):digest(path)
-                                                 for path in sorted((SOURCE.parent / "src").rglob("*.java"))}
+                                                 for path in sorted((SOURCE.parent / "src").rglob("*.java"))+
+                                                 [SOURCE.parent / "android-probe/PrivateJournalDiagnostic.java"]}
             receipt["journalFixtureHashes"] = {str(path.relative_to(arguments.journal_fixtures)):digest(path)
                                                for path in sorted(arguments.journal_fixtures.rglob("*")) if path.is_file()}
             receipt["nativeBuild"] = json.loads((arguments.journal_native / "build-receipt.json").read_text(encoding="utf-8"))

@@ -30,13 +30,16 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
     private String observedUid,approvedProbeHash;
     @Override public Application newApplication(ClassLoader loader,String name,Context context)
             throws InstantiationException,IllegalAccessException,ClassNotFoundException {
+        PrivateProbeFailure.Stage stage=PrivateProbeFailure.Stage.UNEXPECTED;
         try {
             // Android installs matching providers before onCreate. Reject manifest/process
             // collisions and the wrong archived target BEFORE returning any Application.
-            requireIdentity(context);requireOnlyPrivateProcess(context);
+            requireIdentity(context);
+            stage=PrivateProbeFailure.Stage.PROCESS_SURVEY;requireOnlyPrivateProcess(context);
+            stage=PrivateProbeFailure.Stage.APPLICATION_CLASS;
             if(!"com.masarifi.mobile.MainApplication".equals(name))throw failure();
             return super.newApplication(loader,Application.class.getName(),context);
-        } catch(Throwable rejected) {throw new ClassNotFoundException("PROBE_IDENTITY_INDETERMINATE");}
+        } catch(Throwable rejected) {throw PrivateProbeFailure.bootstrap(stage,rejected);}
     }
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
@@ -74,19 +77,30 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
         } catch(Throwable rejected) {receipt.clear();receipt.putString("verdict","INDETERMINATE");finish(0,receipt);}
     }
     private void requireIdentity(Context context) throws Exception {
+        PrivateProbeFailure.Stage stage=PrivateProbeFailure.Stage.TARGET_METADATA;
+        try {
         PackageManager manager=context.getPackageManager();
         PackageInfo target=manager.getPackageInfo(PrivateProbePolicy.TARGET,PackageManager.GET_PROVIDERS|PackageManager.GET_ACTIVITIES|
                 PackageManager.GET_RECEIVERS|PackageManager.GET_SERVICES|PackageManager.GET_SIGNING_CERTIFICATES|PackageManager.MATCH_DISABLED_COMPONENTS);
+        stage=PrivateProbeFailure.Stage.PROBE_METADATA;
         PackageInfo probe=manager.getPackageInfo(PrivateProbePolicy.PROBE,PackageManager.GET_SIGNING_CERTIFICATES);
+        stage=PrivateProbeFailure.Stage.TARGET_DECLARATION;
+        PrivateProbePolicy.requireNoSplits(probe.splitNames);
         if(target.applicationInfo==null || probe.applicationInfo==null || target.sharedUserId!=null || !PrivateProbePolicy.PROBE.equals(getContext().getPackageName()) ||
                 !PrivateProbePolicy.TARGET.equals(target.applicationInfo.processName) || target.getLongVersionCode()!=1 || !"0.0.1".equals(target.versionName) ||
-                (probe.applicationInfo.flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0 || probe.splitNames!=null)throw failure();
+                (probe.applicationInfo.flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0)throw failure();
         List<String> providers=processes(target.providers);List<String> components=new ArrayList<>();
         components.addAll(processes(target.activities));components.addAll(processes(target.services));components.addAll(processes(target.receivers));
         var app=target.applicationInfo;
+        stage=PrivateProbeFailure.Stage.TARGET_APK;String targetHash=hash(Path.of(app.sourceDir));
+        stage=PrivateProbeFailure.Stage.TARGET_CERTIFICATE;String targetCertificate=certificate(target);
+        stage=PrivateProbeFailure.Stage.PROBE_CERTIFICATE;String probeCertificate=certificate(probe);
+        stage=PrivateProbeFailure.Stage.DATA_ROOT;String root=dataRoot(context).toString();
+        stage=PrivateProbeFailure.Stage.IDENTITY_POLICY;
         PrivateProbePolicy.requireIdentity(new PrivateProbePolicy.Identity(context.getPackageName(),Application.getProcessName(),Build.VERSION.SDK_INT,
-                Process.myUid(),app.uid,hash(Path.of(app.sourceDir)),certificate(target),certificate(probe),app.className,app.appComponentFactory,
-                (app.flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,target.splitNames==null?0:target.splitNames.length,providers,components,dataRoot(context).toString()));
+                Process.myUid(),app.uid,targetHash,targetCertificate,probeCertificate,app.className,app.appComponentFactory,
+                (app.flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,target.splitNames==null?0:target.splitNames.length,providers,components,root));
+        } catch(Throwable rejected) {throw PrivateProbeFailure.reject(stage);}
     }
     private static List<String> processes(ComponentInfo[] components) {
         List<String> result=new ArrayList<>();if(components!=null)for(ComponentInfo component:components){if(component==null)throw failure();result.add(component.processName);}return result;
