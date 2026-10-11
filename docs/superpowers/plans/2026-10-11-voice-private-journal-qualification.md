@@ -47,8 +47,8 @@
 
 - [x] Write failing fixtures with a committed pending row represented only by WAL, valid uncommitted tails, repeated pages, commit truncation, both checksum byte orders and corrupt/truncated input. Missing component failed first;35 synthetic checks and a genuine disposable SQLite fixture passed locally.
 - [x] Verify the SQLite WAL algorithm against the deployed amalgamation; reconstruct only through the last valid commit without changing originals. Invalid/stale tails fail closed rather than being silently dropped. Commit growth cannot resurrect truncated pages or manufacture missing pages.
-- [ ] Run fixtures plus real disposable SQLite/SQLCipher WAL tests before declaring the algorithm qualified.
-- [ ] Commit separately; a portable raw-page test alone is not encrypted reader acceptance.
+- [x] Run fixtures plus real disposable SQLite/SQLCipher WAL tests. Exact6c485109 CI38126229230 passed both Linux portable checks and the checksum-pinned SQLCipher encrypted-WAL fixture. This qualifies raw-page reconstruction on disposable data, not the complete native reader.
+- [x] Commit separately; WAL implementationc9558415 and independently reviewed changes were preserved. Subsequent CI environment corrections are separate retained commits; a portable raw-page test alone is not encrypted reader acceptance.
 
 ### Task3: Existing-only key and independent SQLCipher reader
 
@@ -61,7 +61,9 @@
 - [ ] Reject incomplete/unknown schema, malformed payloads, recovery-owned audio, frozen confirmations and pending legacy records. Never export key or payload material.
 - [ ] Verify the SQLCipher build/crypto configuration matches the deployed app, and that reader opens only the in-memory reconstructed snapshot.
 
-Partial Task3 preparation: the existing-only AES-GCM primitive has22 host checks using public synthetic keys. It rejects unsupported/authenticated envelopes before key lookup, sanitizes provider failures, validates plaintext key format and clears buffers. No AndroidKeyStore read, XML ownership mapping, native VFS or complete journal classification has been executed. The primitive alone cannot satisfy Task3.
+Partial Task3 preparation: the existing-only AES-GCM primitive has22 host checks using public synthetic keys. It rejects unsupported/authenticated envelopes before key lookup, sanitizes provider failures, validates plaintext key format and clears buffers. The bounded strict-JSON parser has35 host checks; the bounded streaming XML owner-key index has48 host checks, including actual synthetic AES256-GCM decryption through both current and older aliases and sanitized XML-provider failures. Ownership mapping derives from installed91213b4 and qualified7967007 database naming plus the locked Expo SecureStore source. Missing entries, duplicate forms, owner-prefix collisions, unsupported mapping names and malformed envelopes fail closed. No AndroidKeyStore read, native VFS or complete journal classification has been executed. These preparation components alone cannot satisfy Task3.
+
+Static Task4 evidence: the preserved APK pulled from the installed91213b4 release was rehashed as0c0dd12035bd22eeb6f45b1597731462b967533cb394a23d3f9430a0d7a78685 and its binary merged manifest decoded read-only. All four providers have no explicit process assignment; the application has no explicit process assignment and usesMainApplication/CoreComponentFactory. No `:voicequalify` collision was found in that archived manifest. This is not a fresh package-state check or a runtime startup-suppression rehearsal; Task4 remains open.
 
 ### Task4: Native bootstrap rehearsal and device proposal
 

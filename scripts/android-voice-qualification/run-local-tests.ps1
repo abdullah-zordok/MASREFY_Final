@@ -19,5 +19,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Bounded snapshot verification failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Committed WAL reconstruction failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.ExistingDatabaseKeyTest
 if ($LASTEXITCODE -ne 0) { throw 'Existing-only key decryption failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.StrictJsonTest
+if ($LASTEXITCODE -ne 0) { throw 'Bounded strict JSON parsing failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.SecureStoreKeyIndexTest
+if ($LASTEXITCODE -ne 0) { throw 'Existing owner-key mapping failed.' }
 & python "$testRoot/real-wal-fixtures.py" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Disposable SQLite WAL fixture failed.' }
