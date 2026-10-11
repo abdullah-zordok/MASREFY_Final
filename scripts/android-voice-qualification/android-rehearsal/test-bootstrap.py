@@ -97,9 +97,9 @@ def encrypted_journals(emulator, receipt):
     baseline_log = emulator.fixture_log()
     baseline_requests = LocalTripwireListener.requests
     seeded = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "seed", probe))
+    receipt["encryptedJournals"] = {"seed": seeded, "runs": []}
     if seeded.get("verdict") != "SEEDED_PUBLIC_SYNTHETIC_FIXTURES" or seeded.get("missingExistingAliasesFailClosed") != "true":
         raise RuntimeError("SYNTHETIC_JOURNAL_SEED_FAILED")
-    receipt["encryptedJournals"] = {"seed": seeded, "runs": []}
     fingerprint = None
     for iteration in range(3):
         observed = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "qualify", probe))

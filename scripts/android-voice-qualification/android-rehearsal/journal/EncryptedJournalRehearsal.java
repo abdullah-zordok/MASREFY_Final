@@ -28,6 +28,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
     @Override public void onCreate(Bundle arguments) {super.onCreate(arguments);mode=arguments.getString("mode");start();}
     @Override public void onStart() {
         Bundle receipt=new Bundle();
+        String phase="BOOTSTRAP_GUARDS";
         try {
             CountDownLatch barrier=new CountDownLatch(1);getTargetContext().getMainExecutor().execute(barrier::countDown);
             if(!barrier.await(5,TimeUnit.SECONDS))throw new IllegalStateException("BARRIER");
@@ -38,20 +39,25 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 throw new IllegalStateException("SYNTHETIC_TARGET_ONLY");
             Path fixtures=Path.of(target.getFilesDir().getAbsolutePath(),"vqs-synthetic-journals");
             if("seed".equals(mode)) {
+                phase="COPY_PUBLIC_FIXTURES";
                 if(Files.exists(fixtures))throw new IllegalStateException("PRESERVE_FIXTURE_EVIDENCE");
                 Files.createDirectory(fixtures);copyAssetTree("journals",fixtures);
+                phase="KEYSTORE_ABSENCE";
                 KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);
                 for(String alias:new String[]{"AES/GCM/NoPadding:key_v1","AES/GCM/NoPadding:key_v1:keystoreUnauthenticated"}) {
                     if(store.containsAlias(alias))throw new IllegalStateException("PRESERVE_EXISTING_SYNTHETIC_ALIAS");
                 }
                 // Genuine existing-only AndroidKeyStore absence before the fixture imports.
                 // The read must fail closed and leave files/aliases absent and unchanged.
+                phase="CAPTURE_MISSING_ALIAS_FIXTURE";
                 try(var snapshot=VoiceStoreSnapshot.capture(fixtures.resolve("empty-two-owners/input"))) {
+                    phase="QUALIFY_MISSING_ALIAS_FIXTURE";
                     boolean rejected=false;
                     try {VoiceStoreQualification.qualify(snapshot,ExistingDatabaseKey.androidExistingOnly(),NativeSnapshotReader::open);}
                     catch(IllegalStateException invalid) {rejected="STORE_INDETERMINATE".equals(invalid.getMessage())&&invalid.getCause()==null;}
                     require(rejected&&snapshot.verifyUnchanged());
                 }
+                phase="IMPORT_PUBLIC_SYNTHETIC_KEYS";
                 for(String alias:new String[]{"AES/GCM/NoPadding:key_v1","AES/GCM/NoPadding:key_v1:keystoreUnauthenticated"}) {
                     if(store.containsAlias(alias))throw new IllegalStateException("KEY_LOOKUP_CREATED_ALIAS");
                     // This intentionally writes public fixture keys, only inside the guarded synthetic UID.
@@ -62,7 +68,9 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 receipt.putBoolean("missingExistingAliasesFailClosed",true);
                 receipt.putString("verdict","SEEDED_PUBLIC_SYNTHETIC_FIXTURES");
             } else if("qualify".equals(mode)) {
+                phase="LOAD_RAM_READER";
                 NativeSnapshotReader.loadLibrary();
+                phase="QUALIFY_ENCRYPTED_FIXTURES";
                 var existing=ExistingDatabaseKey.androidExistingOnly();MessageDigest aggregate=MessageDigest.getInstance("SHA-256");
                 int cases=0;
                 try(var directories=Files.list(fixtures)) {
@@ -93,7 +101,14 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 receipt.putString("verdict","PASS_DISPOSABLE_ENCRYPTED_JOURNALS");
             } else throw new IllegalStateException("MODE");
             finish(-1,receipt);
-        } catch(Throwable failure) {receipt.clear();receipt.putString("verdict","INDETERMINATE_SYNTHETIC_JOURNALS");finish(0,receipt);}
+        } catch(Throwable failure) {
+            receipt.clear();receipt.putString("verdict","INDETERMINATE_SYNTHETIC_JOURNALS");receipt.putString("phase",phase);
+            receipt.putString("failureCategory",failure instanceof NoSuchMethodError?"MISSING_PLATFORM_METHOD":
+                    failure instanceof UnsatisfiedLinkError?"NATIVE_NOT_LOADED":failure instanceof OutOfMemoryError?"MEMORY_LIMIT":
+                    failure instanceof LinkageError?"PLATFORM_LINKAGE":failure instanceof IllegalStateException?"FAIL_CLOSED":
+                    failure instanceof java.io.IOException?"SYNTHETIC_IO":"PLATFORM_REJECTION");
+            finish(0,receipt);
+        }
     }
     private void copyAssetTree(String asset,Path destination) throws Exception {
         String[] names=getContext().getAssets().list(asset);
