@@ -46,6 +46,7 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.StrictJsonTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SecureStoreKeyIndexTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceJournalClassifierTest
+          python3 scripts/android-voice-qualification/tests/schema-fixtures.py --output "$build_dir/schema-fixtures" --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           if grep -q 'UNEXECUTED_PLATFORM_CASE' "$build_dir/platform-test.log"; then
             echo 'Every Linux platform protection case must execute.' >&2
@@ -121,10 +122,17 @@ jobs:
             --test-reader-library "$build_dir/libvoice-ram-test.so" \
             --sqlcipher-library "$build_dir/libfixture-sqlcipher.so" \
             --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
+          python3 scripts/android-voice-qualification/tests/native-schema-fixtures.py \
+            --reader-library "$build_dir/libvoice-ram-production.so" \
+            --sqlcipher-library "$build_dir/libfixture-sqlcipher.so" \
+            --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java" \
+            --output "$build_dir/native-schema-fixtures"
       - name: Retain encrypted fixture qualification log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: voice-encrypted-wal-preparation-${{ github.sha }}
-          path: ${{ runner.temp }}/voice-encrypted-wal-test.log
+          path: |
+            ${{ runner.temp }}/voice-encrypted-wal-test.log
+            ${{ runner.temp }}/voice-encrypted-wal.*/native-schema-fixtures/**
           if-no-files-found: error
