@@ -211,6 +211,7 @@ def main():
         blocked_sql = ["INSERT INTO voice_batch_operations VALUES('forbidden',1,'{}')", "DELETE FROM voice_batch_operations",
                        "CREATE TEMP TABLE forbidden(x)", "ATTACH ':memory:' AS other", "VACUUM",
                        "PRAGMA journal_mode=WAL", "PRAGMA cipher_use_hmac=OFF", "PRAGMA cipher_log='" + str(root/'forbidden.log') + "'",
+                       "PRAGMA user_version=2", "PRAGMA user_version(2)",
                        "SELECT load_extension('forbidden')", "SELECT sqlcipher_export('other')"]
         for sql in blocked_sql:
             checked(test_reader.library.vqs_test_sql(reader.handle, sql.encode()) != 0, "mutating/unsafe SQL rejected")

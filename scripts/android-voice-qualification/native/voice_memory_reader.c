@@ -276,7 +276,7 @@ static int authorize(void *context, int action, const char *first, const char *s
     if (action == SQLITE_FUNCTION && second && (!strcmp(second, "count") || !strcmp(second, "like"))) return SQLITE_OK;
     if (action == SQLITE_PRAGMA && !second && first &&
             (!strcmp(first, "integrity_check") || !strcmp(first, "cipher_integrity_check") ||
-             !strcmp(first, "page_size") || !strcmp(first, "page_count"))) return SQLITE_OK;
+             !strcmp(first, "page_size") || !strcmp(first, "page_count") || !strcmp(first, "user_version"))) return SQLITE_OK;
     return SQLITE_DENY;
 }
 static int progress(void *context) { return ++((VqsReader *)context)->ticks > 10000; }
@@ -433,6 +433,7 @@ static const char *query_sql(enum VqsQuery query) {
         case VQS_BATCH: return "SELECT id,revision,payload FROM voice_batch_operations ORDER BY id";
         case VQS_SINGLETON: return "SELECT id,attempt_id,revision,payload FROM voice_operation_journal ORDER BY id";
         case VQS_LEGACY: return "SELECT key,value FROM catalystLocalStorage WHERE key LIKE 'masarifi.voice.pending.%' ORDER BY key";
+        case VQS_USER_VERSION: return "PRAGMA user_version";
         default: return NULL;
     }
 }
