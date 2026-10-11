@@ -8,11 +8,15 @@ on:
       - scripts/android-voice-qualification/**
       - .github/workflows/voice-private-journal-qualification.yml
       - apps/mobile/package-lock.json
+      - apps/mobile/package.json
+      - apps/mobile/scripts/dependency-security.test.cjs
   pull_request:
     paths:
       - scripts/android-voice-qualification/**
       - .github/workflows/voice-private-journal-qualification.yml
       - apps/mobile/package-lock.json
+      - apps/mobile/package.json
+      - apps/mobile/scripts/dependency-security.test.cjs
 
 permissions:
   contents: read
@@ -93,6 +97,9 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --ignore-scripts 2>&1 | tee "$RUNNER_TEMP/voice-encrypted-wal-test.log"
+      - name: Verify build dependency security and CommonJS compatibility
+        working-directory: apps/mobile
+        run: npm run test:dependency-security
       - name: Qualify committed WAL pages using the deployed SQLCipher source
         shell: bash
         run: |
