@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -110,7 +111,10 @@ def main():
     sources=sorted((ROOT/"src").rglob("*.java"))+[HERE/"PrivateJournalDiagnostic.java"]
     with (args.output/"build.log").open("w",encoding="utf-8") as log:
         checked([args.java/"bin"/("javac"+suffix),"-encoding","UTF-8","-source","17","-target","17","-classpath",android_jar,"-d",classes,*sources],log)
+        checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",android_jar,"--classes",classes],log)
         checked([java,"-Djava.io.tmpdir="+str(args.output),"-cp",tools/"lib/d8.jar","com.android.tools.r8.D8","--min-api","35","--lib",android_jar,"--output",dex,*sorted(classes.rglob("*.class"))],log)
+        for entry in sorted(dex.glob("*.dex")):
+            checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",android_jar,"--dex",entry],log)
         unsigned=args.output/"unsigned-probe.apk"
         checked([tools/("aapt2"+suffix),"link","-I",android_jar,"--manifest",HERE/"AndroidManifest.xml","-o",unsigned],log)
         with zipfile.ZipFile(unsigned,"a",compression=zipfile.ZIP_DEFLATED) as archive:

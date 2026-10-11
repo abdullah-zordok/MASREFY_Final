@@ -32,15 +32,22 @@ class Emulator:
             raise RuntimeError("NOT_A_DISPOSABLE_EMULATOR")
         if self.command("shell","getprop","ro.build.version.sdk").strip() != "35":
             raise RuntimeError("ANDROID15_REQUIRED")
-    def command(self,*arguments):
+    def command(self,*arguments,retain_output=True):
         completed = subprocess.run([str(self.arguments.adb),"-P","15040","-s",self.arguments.serial,*map(str,arguments)],
                                    capture_output=True,text=True,timeout=45)
-        self.log.write("COMMAND "+" ".join(map(str,arguments))+"\n"+completed.stdout+completed.stderr)
+        self.log.write("COMMAND "+" ".join(map(str,arguments))+"\n"+(completed.stdout+completed.stderr if retain_output else ""))
         self.log.flush()
         if completed.returncode: raise RuntimeError("EMULATOR_COMMAND_FAILED")
         return completed.stdout
     def fixture_log(self):
         return self.command("logcat","-d","-v","raw","-s","VQSFixture:I","*:S")
+    def framework_diagnostics(self):
+        output=self.command("logcat","-d","-t","400","-v","threadtime","-s",
+                            "ActivityTaskManager:I","ActivityManager:I","WindowManager:I","VQSFixture:I","*:S",retain_output=False)
+        # Public synthetic package only. No unrelated framework records or Bundle/configuration contents.
+        selected=[line for line in output.splitlines() if TARGET in line or "VQSFixture" in line]
+        self.log.write("SYNTHETIC_LIFECYCLE_DIAGNOSTICS\n"+"\n".join(selected[-120:])[:32768]+"\n")
+        self.log.flush()
 
 def parse_receipt(output):
     pairs = re.findall(r"^INSTRUMENTATION_RESULT: ([A-Za-z0-9]+)=(.*)$",output,re.MULTILINE)
@@ -60,7 +67,7 @@ def fixture_apks(arguments):
         raise RuntimeError("SYNTHETIC_SAME_SIGNATURE_REQUIRED")
     return apks
 
-def positive_control(emulator):
+def positive_control(emulator,receipt):
     before = emulator.fixture_log()
     emulator.command("shell","am","force-stop",TARGET)
     emulator.command("shell","am","start","-W","-n",TARGET+"/.TargetActivity")
@@ -68,6 +75,9 @@ def positive_control(emulator):
     after = emulator.fixture_log()
     delta = after[len(before):] if after.startswith(before) else ""
     marks = [int(number) for number in re.findall(r"MARK=(\d+)",delta)]
+    receipt["positiveControlObserved"]={"componentWrites":len(marks),"localRequests":LocalTripwireListener.requests,
+                                       "applicationConstructions":delta.count("TARGET_APPLICATION_CONSTRUCTED"),
+                                       "activityCreates":len(re.findall(r"COMPONENT=ACTIVITY\b",delta))}
     if len(marks) != 6 or "TARGET_APPLICATION_CONSTRUCTED" not in delta or LocalTripwireListener.requests != 6:
         raise RuntimeError("APPLICATION_PROVIDER_ACTIVITY_NETWORK_POSITIVE_CONTROL_FAILED")
     return marks[-1]
@@ -124,6 +134,7 @@ def main():
     arguments = parser.parse_args()
     arguments.output.mkdir(parents=True,exist_ok=False)
     receipt = {"realRedmiQualification":False,"fixtureOnly":True,"runs":[],"result":"FAIL"}
+    emulator=None
     with (arguments.output / "runtime.log").open("w",encoding="utf-8") as log:
         try:
             emulator = Emulator(arguments,log)
@@ -133,13 +144,18 @@ def main():
                 for apk in apks:
                     if not re.search(r"^Success$",emulator.command("install","-r",apk),re.MULTILINE):
                         raise RuntimeError("FIXTURE_INSTALL_FAILED")
-                marks = positive_control(emulator)
+                marks = positive_control(emulator,receipt)
                 receipt["positiveControl"] = {"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True}
                 exercise(emulator,marks,receipt)
                 if arguments.encrypted_journals:
                     encrypted_journals(emulator,receipt)
                 receipt["result"] = "PASS_DISPOSABLE_ANDROID15_BOOTSTRAP"
                 listener.shutdown()
+        except Exception:
+            if emulator is not None:
+                try: emulator.framework_diagnostics()
+                except Exception: log.write("SYNTHETIC_FRAMEWORK_DIAGNOSTICS_UNAVAILABLE\n")
+            raise
         finally:
             (arguments.output / "runtime-receipt.json").write_text(json.dumps(receipt,indent=2),encoding="utf-8")
     print(json.dumps(receipt))

@@ -37,7 +37,15 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                     !"com.masarifi.voicequalification.fixture:voicequalify".equals(Application.getProcessName()) ||
                     target.getApplicationInfo().uid!=Process.myUid() || target.getApplicationContext().getClass()!=Application.class)
                 throw new IllegalStateException("SYNTHETIC_TARGET_ONLY");
-            Path fixtures=Path.of(target.getFilesDir().getAbsolutePath(),"vqs-synthetic-journals");
+            phase="RESOLVE_SYNTHETIC_ROOT";
+            Path dataRoot=SyntheticRootResolver.canonicalRoot(Path.of(target.getApplicationInfo().dataDir),
+                    Path.of("/data/user/0"),Path.of("/data/data"),path -> {
+                        var stamp=Os.lstat(path.toString());
+                        return stamp.st_uid==Process.myUid() && android.system.OsConstants.S_ISDIR(stamp.st_mode);
+                    });
+            Path fixtures=dataRoot.resolve("files/vqs-synthetic-journals");
+            // Descendant links remain forbidden; only the system user0 root alias is normalized.
+            require(dataRoot.resolve("files").equals(Path.of(target.getFilesDir().getAbsolutePath()).toRealPath()));
             if("seed".equals(mode)) {
                 phase="COPY_PUBLIC_FIXTURES";
                 if(Files.exists(fixtures))throw new IllegalStateException("PRESERVE_FIXTURE_EVIDENCE");

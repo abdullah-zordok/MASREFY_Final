@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import zipfile
 
 SOURCE = Path(__file__).resolve().parent
@@ -48,12 +49,19 @@ def build_apk(kind, arguments, factory, log):
     tools = arguments.sdk / "build-tools/35.0.0"
     checked([executable(arguments.java / "bin","javac"),"-encoding","UTF-8","-source","17","-target","17",
              "-classpath",android_jar,"-d",classes,*sources],log)
+    if kind == "probe" and arguments.journal_fixtures:
+        checked([sys.executable,SOURCE.parent / "tests/test-android-buffer-descriptors.py",
+                 "--android-jar",android_jar,"--classes",classes],log)
     dex = output / "dex"
     dex.mkdir()
     dex_inputs = sorted(classes.rglob("*.class"))
     if kind == "target": dex_inputs.append(factory)
     checked([executable(arguments.java / "bin","java"),"-cp",tools / "lib/d8.jar","com.android.tools.r8.D8",
              "--min-api","35","--lib",android_jar,"--output",dex,*dex_inputs],log)
+    if kind == "probe" and arguments.journal_fixtures:
+        for entry in sorted(dex.glob("*.dex")):
+            checked([sys.executable,SOURCE.parent / "tests/test-android-buffer-descriptors.py",
+                     "--android-jar",android_jar,"--dex",entry],log)
     unsigned = output / "unsigned.apk"
     manifest_source = SOURCE / ("journal" if kind == "probe" and arguments.journal_fixtures else kind) / "AndroidManifest.xml"
     checked([executable(tools,"aapt2"),"link","-I",android_jar,"--manifest",manifest_source,

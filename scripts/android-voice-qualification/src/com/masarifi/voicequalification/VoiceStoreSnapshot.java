@@ -263,7 +263,7 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
                 read += count;
                 if (read > expected.size) throw failure("STATE_CHANGED");
                 hash.update(bytes, 0, count);
-                buffer.clear();
+                ((java.nio.Buffer) buffer).clear();
             }
             if (read != expected.size || !expected.equals(stamp(path))) throw failure("STATE_CHANGED");
             return hash.digest();

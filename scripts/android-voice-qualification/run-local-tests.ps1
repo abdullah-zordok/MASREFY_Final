@@ -6,6 +6,7 @@ if (Test-Path -LiteralPath $OutputDirectory) { throw 'Use a new output directory
 $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $outputRoot | Out-Null
 $sources = @(Get-ChildItem -LiteralPath $testRoot -Recurse -Filter '*.java' | ForEach-Object FullName)
+$sources += Join-Path $PSScriptRoot 'android-rehearsal/journal/SyntheticRootResolver.java'
 if (Test-Path -LiteralPath $sourceRoot) {
     $sources += @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filter '*.java' | ForEach-Object FullName)
 }
@@ -31,8 +32,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Strict JNI row boundary failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe guard failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeRootTest
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe path resolution failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.SyntheticRootResolverTest
+if ($LASTEXITCODE -ne 0) { throw 'Synthetic package path resolution failed.' }
 & python "$testRoot/test-probe-build.py"
 if ($LASTEXITCODE -ne 0) { throw 'Offline real-target probe packaging gate failed.' }
+& python "$testRoot/test-bootstrap-observations.py"
+if ($LASTEXITCODE -ne 0) { throw 'Exact synthetic startup control accounting failed.' }
 & python "$testRoot/schema-fixtures.py" --output "$outputRoot/schema-fixtures" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Complete database schema recognition failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.VoiceStoreQualificationTest "$outputRoot/schema-fixtures"

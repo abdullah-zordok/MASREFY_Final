@@ -37,6 +37,7 @@ jobs:
           fi
           mapfile -d '' -t sources < "$source_list"
           test "${#sources[@]}" -gt 0
+          sources+=(scripts/android-voice-qualification/android-rehearsal/journal/SyntheticRootResolver.java)
           "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotTest > "$build_dir/platform-test.log" 2>&1 || { cat "$build_dir/platform-test.log"; exit 1; }
           cat "$build_dir/platform-test.log"
@@ -52,6 +53,10 @@ jobs:
           cat "$build_dir/root-test.log"
           if grep -q 'UNEXECUTED_ROOT_CASE' "$build_dir/root-test.log"; then exit 1; fi
           python3 scripts/android-voice-qualification/tests/test-probe-build.py
+          python3 scripts/android-voice-qualification/tests/test-bootstrap-observations.py
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SyntheticRootResolverTest > "$build_dir/synthetic-root-test.log" 2>&1 || { cat "$build_dir/synthetic-root-test.log"; exit 1; }
+          cat "$build_dir/synthetic-root-test.log"
+          if grep -q 'UNEXECUTED_ROOT_CASE' "$build_dir/synthetic-root-test.log"; then exit 1; fi
           python3 scripts/android-voice-qualification/tests/schema-fixtures.py --output "$build_dir/schema-fixtures" --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreQualificationTest "$build_dir/schema-fixtures"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
@@ -100,6 +105,7 @@ jobs:
             -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -DSQLCIPHER_CRYPTO_OPENSSL \
             "$vendor_dir/sqlite3.c" -lcrypto -ldl -lpthread -lm -o "$build_dir/libfixture-sqlcipher.so"
           find scripts/android-voice-qualification/src scripts/android-voice-qualification/tests -type f -name '*.java' -print0 > "$build_dir/sources.list"
+          printf '%s\0' scripts/android-voice-qualification/android-rehearsal/journal/SyntheticRootResolver.java >> "$build_dir/sources.list"
           mapfile -d '' -t sources < "$build_dir/sources.list"
           "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py \
