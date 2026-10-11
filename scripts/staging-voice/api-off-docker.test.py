@@ -74,7 +74,7 @@ class DockerQualification(unittest.TestCase):
         promotion_spec = importlib.util.spec_from_file_location('promotion', pathlib.Path(__file__).with_name('api-off-promotion.py'))
         promotion = importlib.util.module_from_spec(promotion_spec); promotion_spec.loader.exec_module(promotion)
         promoted = promotion.Host(root)
-        promotion_packet = {**packet, 'candidateID': identity}
+        promotion_packet = {**packet, 'candidateID': identity, 'candidateConfigurationHash': api.off.configuration_hash(original)}
         qualified = {**state, 'phase': 'closed'}
         promoted.read_json = lambda name: qualified
         promoted.candidate(promotion_packet, ['no'])

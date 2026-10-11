@@ -72,6 +72,7 @@ class Host(api.Host):
         require(policy in [{'Name': name, 'MaximumRetryCount': 0} for name in policies], 'CANDIDATE_RESTART_POLICY_CHANGED')
         normalized = copy.deepcopy(c)
         normalized['HostConfig']['RestartPolicy'] = {'Name': 'no', 'MaximumRetryCount': 0}
+        require(off.configuration_hash(normalized) == packet['candidateConfigurationHash'], 'QUALIFIED_CONFIGURATION_CHANGED')
         adapter = type('CandidateInspect', (), {'inspect': lambda _self, identity: normalized})()
         api.checked_candidate(adapter, state)
         return c
