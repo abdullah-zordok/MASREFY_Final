@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "kind": "review-only-staging-and-client-acceptance",
+  "executable": false,
+  "approval": null,
+  "recoveryBase": "68e198e0e689a406b439d13e6d82f96e9a9f9312",
+  "productCandidate": "e6def119b047c54fbaf36877fdd23b3bc367ad6a",
+  "backendImageDigest": "sha256:8ee5100f2f9de7b5930867eb7cf901c94344452ba8a3ed62954223bbc8fb2bab",
+  "backendImage": "ghcr.io/masarifiratibi-spec/masarifi-backend@sha256:8ee5100f2f9de7b5930867eb7cf901c94344452ba8a3ed62954223bbc8fb2bab",
+  "apkSha256": "be33158e282efa4d8ae6b5f1ad9541e1a90ac9a3a42d0d830bbbf7d601346c9f",
+  "apk": "E:/Masarifi-local-readiness-2026-10-11/client-e6def119/Masarifi.Ratibi-staging-e6def119-universal.apk",
+  "apkInstalled": false,
+  "project": "qcffvfbpzvpwcwxwjyro",
+  "host": "srv2006836",
+  "financialPostingMustRemainOff": true,
+  "generalWorkerMustRemainStopped": true,
+  "historicalState": {
+    "observedAtRiyadh": "2026-10-11T13:59:51+03:00",
+    "freshlyVerified": false,
+    "transactions": 31,
+    "postings": 31,
+    "testBalanceMinor": -6000,
+    "currency": "SAR",
+    "unpublishedOutbox": 497071,
+    "canary10SarApprovalConsumed": true
+  },
+  "ci": {
+    "backend": 38137175993,
+    "client": 38137178320,
+    "voiceBoundary": 38137175690,
+    "privateJournal": 38137182043,
+    "bootstrap": 38137183748,
+    "privateJournalDiagnostic": 38138175305,
+    "operatingPreparationFirstRun": 38138352008,
+    "privateJournalFinalCandidate": 38138946719,
+    "operatingPreparationFinalCandidate": 38138946678,
+    "bootstrapFinalCandidate": 38138946804,
+    "voiceBoundaryFinalCandidate": 38138946706,
+    "backendRuntimeFirstRun": 38142363697,
+    "backendRuntimeCandidate": 38142445486,
+    "privateJournalCandidate": 38143858679,
+    "bootstrapCandidate": 38143858579,
+    "voiceBoundaryCandidate": 38143858693,
+    "privateJournalPrior3082Attempt2": 38140900030,
+    "privateJournalPriorE0bdFailure": 38142569506
+  },
+  "operationalSourceQualificationPending": false,
+  "currentPins": null,
+  "requiredBeforeAnyDeployment": [
+    "Unwaived dependency findings resolved or separately governed release decision; no waiver recorded",
+    "Complete candidate automated gates and artifact verification",
+    "Fresh protected service/environment/CA/source/image inventory and full appropriate backup/restore scope",
+    "Approved actual posting-OFF retained-helper rehearsal; separately reviewed owned-epoch authority and scope for financial closure/shutdown proof",
+    "Existing installed-client private-journal no-replay proof under separate exact device approval",
+    "Reviewed API Analysis Assistant financial-worker compatibility and capacity/consent/provider budgets",
+    "Separate explicit Staging deployment approval with interruption and rollback scope"
+  ],
+  "requiredBeforeFinancialActivation": [
+    "All safety gates satisfied",
+    "Fresh active-user eligibility and authenticated normal-user policy; no temporary canary allowlists",
+    "Fresh captures only; private stale work remains excluded",
+    "Exact monitor/financial worker/image/environment/source pins and independent kill switch",
+    "Separate explicit persistent financial activation approval; prior canary approval cannot be reused"
+  ],
+  "historicalWorkPolicy": [
+    "No replay of four old uploaded Voice sessions",
+    "No blanket publication or drain of 497071 outbox records",
+    "No general-worker activation",
+    "Only existing operating-epoch confirmation claims for fresh committed events",
+    "SMS/notification automatic financial posting requires separate governed rollout"
+  ],
+  "clientAcceptance": [
+    "Single and ordered multi-event Voice effects exactly once with owned currency-compatible accounts",
+    "Interrupted retry and duplicate delivery retain committed effects",
+    "New normal identity default Cash creation is atomic zero balance and isolated across identities",
+    "Assistant Arabic/English consent routing quota timeout reset and history",
+    "Manual/Home/Transactions/Reports immediate consistent original-design rendering",
+    "Fresh opt-in OS notification delivery including background",
+    "Tracking SMS/listener consent encrypted owner queues sessions duplicates refunds",
+    "Accounts categories keywords Savings Reports settings Arabic/English RTL/LTR session persistence",
+    "iOS separately qualified only if in delivery scope"
+  ],
+  "forbiddenUntilSeparateApproval": [
+    "Real financial transactions",
+    "Phone installation launch recording or permissions and all ADB/device queries",
+    "Staging deployment/service changes",
+    "Integration/main merges or ref updates"
+  ],
+  "productionChangesForbidden": true,
+  "productQualificationBaseline": "e6def119b047c54fbaf36877fdd23b3bc367ad6a",
+  "toolSourceCandidate": "238968b8172cd416663d5e980f244022d274c080",
+  "backendRuntimeCandidate": "093b5d0c42f3d68eb2de619aff94b44fbf088a02",
+  "backendRuntimeQualificationPending": false,
+  "privateJournalQualificationPending": false,
+  "actualOperationalRehearsalPending": true,
+  "security": {
+    "apiNpm": {
+      "total": 0
+    },
+    "mobileNpm": {
+      "moderate": 27,
+      "high": 53,
+      "critical": 0
+    },
+    "adminNpm": {
+      "high": 8,
+      "critical": 0
+    },
+    "historicalBackendUnfiltered": {
+      "medium": 25,
+      "low": 8,
+      "high": 0,
+      "critical": 0,
+      "fixableMedium": 2
+    },
+    "qualifiedBackendUnfiltered": {
+      "medium": 23,
+      "low": 8,
+      "high": 0,
+      "critical": 0,
+      "unfixed": 31
+    },
+    "waivers": []
+  },
+  "sourceEquivalence": {
+    "productionApi": "04bf17e81828fc3c41cdbf9c4eedb92a0585075b",
+    "mobile": "2181030b3976cb588016f8ed984f0a7eb3f1a4b6",
+    "admin": "0c1a8ea1e5f1dcce05a394173a846a2d0b54bf9d",
+    "packages": "6dc5cb5af44d25c8b6b52d5487903a7194aed80e",
+    "supabase": "4077662282bcf7a85206e40eea28e3abcd49e60f",
+    "qualification": "Exact Git trees equal fully qualified e6 baseline; backend Docker runtime/test separately qualified"
+  },
+  "privateJournalQualifiedSource": "238968b8172cd416663d5e980f244022d274c080",
+  "privateJournalPhysicalClearancePending": true,
+  "privateJournalProbe": {
+    "apk": "E:/Masarifi-local-readiness-2026-10-11/private-journal/probe-signed-238968b8-review-only/private-journal-diagnostic.apk",
+    "sha256": "938da77e4750ca24165e218fe025848f30f6a5edb09418887341f4863021fe05",
+    "signed": true,
+    "installed": false,
+    "executed": false,
+    "deviceApproval": null,
+    "freshInstalledTargetUid": null,
+    "identityReviewPacket": "E:/Masarifi-local-readiness-2026-10-11/private-journal/private-probe-238968b8-inert-review-packet/identity-review-packet.json",
+    "identityReviewPacketSha256": "a1607114ce09f24a90cd52a67ad62feb1c9959a051766fd805af6f19792c5e4f",
+    "runtimeQualification": "Disposable API35 only; 42 encrypted cases three times, exact six positive effects and three zero-effect unchanged bootstrap runs"
+  }
+}

@@ -33,9 +33,9 @@
 
 **Interfaces:** Stable bounded snapshot + owner-key index + committed WAL reconstruction + independent native RAM reader -> full-store sanitized verdict. Retained blocker evidence feeds Task5 acceptance report.
 
-- [ ] Resume unfinished diagnostic Task3/Task4 without rerunning completed historical qualification.
-- [ ] Add whole-store/legacy/key/rollback and JNI integration RED tests, implement, run host GREEN and isolated CI encrypted/runtime gates.
-- [ ] Prepare signed probe identity scope; never execute on a device in this task.
+- [x] Resume unfinished diagnostic Task3/Task4 without rerunning completed historical qualification.
+- [x] Add whole-store/legacy/key/rollback and JNI integration RED tests, implement, run host GREEN and isolated CI encrypted/runtime gates. Exact238968b8/run38143858679 passed all42 encrypted Android cases three times, with unchanged evidence and startup guards.
+- [x] Prepare signed probe identity scope; never execute on a device in this task. Offline signed arm64 diagnostic and inert identity packet retain null fresh UID/device approvals; physical Task4 remains open separately.
 
 ### Task 2: Bound and retain operating monitor lifecycle
 
@@ -74,9 +74,9 @@
 
 **Interfaces:** Task1-4 verified source -> candidate APK + hashes/signature/ABIs + explicit external acceptance blockers.
 
-- [ ] Review combined diff, qualify exact commit, preserve all-ref bundle and source manifest.
+- [x] Review combined diff, qualify exact component sources, preserve all-ref bundle and source manifest. Final additive documentation-HEAD receipt records exact tested component equivalence and unchanged protected remote refs.
 - [x] Prepare latest compatible standalone Staging APK using the existing certificate/package; verify ZIP/signature/bundle/native provenance without install.
-- [ ] Report completed tasks, actual test counts, remaining upstream/external blockers and staged approval scopes. Integration/main and live activation remain untouched.
+- [x] Report completed tasks, actual test counts, remaining upstream/external blockers and staged approval scopes. Integration/main and live activation remain untouched. Final local-delivery report, feature matrix and inert acceptance packet distinguish safe preparation from unperformed Staging/client acceptance.
 
 ## Execution rulings
 
