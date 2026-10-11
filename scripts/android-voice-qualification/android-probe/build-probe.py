@@ -15,6 +15,7 @@ HERE=Path(__file__).resolve().parent
 ROOT=HERE.parent
 CERT="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c"
 TARGET_SHA="0c0dd12035bd22eeb6f45b1597731462b967533cb394a23d3f9430a0d7a78685"
+UPGRADE_SHA="be33158e282efa4d8ae6b5f1ad9541e1a90ac9a3a42d0d830bbbf7d601346c9f"
 ANDROID="{http://schemas.android.com/apk/res/android}"
 ANDROID35_JAR_SHA="4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b"
 
@@ -65,6 +66,30 @@ def validate_manifest(path):
     gate(len(root)==3 and set(child.tag for child in root)==set(expected))
     for child in root:gate(child.attrib==expected[child.tag] and len(child)==0)
 
+def validate_upgrade(value):
+    gate(isinstance(value,dict))
+    gate(value.get("verdict")=="PASS_DISABLED_REPLACEMENT")
+    gate(all(isinstance(value.get(key),str) and re.fullmatch("[0-9a-f]{64}",value[key]) for key in ("beforeApkSha256","afterApkSha256")))
+    gate(value["beforeApkSha256"]!=value["afterApkSha256"])
+    gate(all(value.get(key) is True for key in ("uidUnchanged","exactPackageStateRestored","journalFingerprintUnchanged","startupTripwireUnchanged")))
+    gate(type(value.get("newNetworkRequests")) is int and value["newNetworkRequests"]==0)
+
+def validate_upgrade_provenance(runtime,artifact):
+    upgrade=runtime.get("disabledReplacement",{})
+    gate(upgrade.get("beforeApkSha256")==artifact.get("target",{}).get("sha256") and
+         upgrade.get("afterApkSha256")==artifact.get("replacement",{}).get("sha256"))
+    encrypted=runtime.get("encryptedJournals",{})
+    baseline=encrypted.get("runs",[])
+    gate(bool(baseline) and isinstance(baseline[0].get("fixtureFingerprint"),str))
+    for phase in ("preReplacementRuns","postReplacementRuns"):
+        runs=encrypted.get(phase,[])
+        gate(isinstance(runs,list) and len(runs)==1)
+        run=runs[0]
+        gate(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and
+             run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and
+             run.get("packageState")=="3" and run.get("applicationEnabled")=="false" and
+             run.get("fixtureFingerprint")==baseline[0]["fixtureFingerprint"])
+
 def validate_runtime(runtime):
     gate(runtime.get("result")=="PASS_DISPOSABLE_ANDROID15_BOOTSTRAP" and runtime.get("fixtureOnly") is True and runtime.get("realRedmiQualification") is False)
     gate(runtime.get("positiveControl")=={"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True})
@@ -78,6 +103,7 @@ def validate_runtime(runtime):
     runs=encrypted.get("runs",[])
     gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
     gate(len(set(run["fixtureFingerprint"] for run in runs))==1)
+    validate_upgrade(runtime.get("disabledReplacement"))
 
 def checked(command,log):
     result=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=180)
@@ -107,9 +133,11 @@ def main():
     if args.sign:
         gate(native["abi"]=="arm64-v8a" and args.historical_target_apk and args.keystore and args.password_env and args.runtime_directory)
         gate(args.password_env in os.environ and digest(args.historical_target_apk)==TARGET_SHA)
-        validate_runtime(json.loads((args.runtime_directory/"runtime/runtime-receipt.json").read_text(encoding="utf-8")))
+        runtime=json.loads((args.runtime_directory/"runtime/runtime-receipt.json").read_text(encoding="utf-8"))
+        validate_runtime(runtime)
         runtime_build=json.loads((args.runtime_directory/"build/build-receipt.json").read_text(encoding="utf-8"))
         validate_provenance(native,runtime_build)
+        validate_upgrade_provenance(runtime,runtime_build)
     args.output.mkdir(parents=True,exist_ok=False)
     os.environ["TEMP"]=str(args.output);os.environ["TMP"]=str(args.output)
     tools=args.sdk/"build-tools/35.0.0";android_jar=args.sdk/"platforms/android-36/android.jar"
@@ -148,7 +176,7 @@ def main():
         receipt={"qualification":"OFFLINE_PROBE_REVIEW_ONLY","installed":False,"executed":False,"realTargetRuntimeAcceptance":False,"signed":args.sign,
                  "runtimeAndroidJarSha256":digest(args.runtime_android_jar),"platformDescriptorCheckerSha256":digest(ROOT/"tests/test-android-buffer-descriptors.py"),
                  "apk":str(apk),"apkSha256":digest(apk),"signature":signature,"targetPackage":"com.masarifi.mobile","process":"com.masarifi.mobile:voicequalify",
-                 "historicalTargetApkSha256":TARGET_SHA,"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
+                 "historicalTargetApkSha256":TARGET_SHA,"supportedTargetApkSha256":[TARGET_SHA,UPGRADE_SHA],"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
                  "probeSourceHashes":{path.name:digest(path) for path in (HERE/"PrivateJournalDiagnostic.java",HERE/"AndroidManifest.xml",Path(__file__))},"nativeBuild":native}
         (args.output/"build-receipt.json").write_text(json.dumps(receipt,indent=2),encoding="utf-8")
     print(json.dumps({"result":"OFFLINE_SIGNED_PROBE_REVIEW_ONLY" if args.sign else "OFFLINE_UNSIGNED_PROBE_COMPILED","apkSha256":receipt["apkSha256"],"installed":False,"executed":False}))

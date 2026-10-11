@@ -37,8 +37,8 @@ def core_factory(aar, output):
             fixture.writestr(name,archive.read(name))
     return trimmed
 
-def build_apk(kind, arguments, factory, log):
-    output = arguments.output / kind
+def build_apk(kind, arguments, factory, log, replacement=False):
+    output = arguments.output / ("replacement" if replacement else kind)
     output.mkdir()
     classes = output / "classes"
     classes.mkdir()
@@ -85,6 +85,7 @@ def build_apk(kind, arguments, factory, log):
              "-o",unsigned],log)
     with zipfile.ZipFile(unsigned,"a",compression=zipfile.ZIP_DEFLATED) as archive:
         for entry in sorted(dex.glob("*.dex")): archive.write(entry,entry.name)
+        if replacement: archive.writestr("assets/disposable-replacement.txt","Synthetic same-version replacement; no customer data.\n")
         if kind == "probe" and arguments.journal_fixtures:
             for entry in sorted(arguments.journal_fixtures.rglob("*")):
                 if entry.is_file(): archive.write(entry,"assets/journals/" + entry.relative_to(arguments.journal_fixtures).as_posix())
@@ -161,6 +162,7 @@ def main():
         receipt["target"] = build_apk("target",arguments,factory,log)
         receipt["probe"] = build_apk("probe",arguments,factory,log)
         if arguments.journal_fixtures:
+            receipt["replacement"] = build_apk("target",arguments,factory,log,replacement=True)
             receipt["runtimeAndroidJarSha256"]=digest(arguments.runtime_android_jar)
             receipt["platformDescriptorCheckerSha256"]=digest(SOURCE.parent/"tests/test-android-buffer-descriptors.py")
             receipt["diagnosticSourceHashes"] = {str(path.relative_to(SOURCE.parent)):digest(path)

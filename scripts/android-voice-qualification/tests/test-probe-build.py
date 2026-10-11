@@ -55,6 +55,8 @@ class ProbeBuildGates(unittest.TestCase):
                           "beforeApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS",
                           "afterApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS"} for _ in range(3)],
                  "encryptedJournals":{"seed":seed,"runs":[dict(run) for _ in range(3)]}}
+        runtime["disabledReplacement"]={"verdict":"PASS_DISABLED_REPLACEMENT","beforeApkSha256":"a"*64,"afterApkSha256":"b"*64,
+            "uidUnchanged":True,"exactPackageStateRestored":True,"journalFingerprintUnchanged":True,"newNetworkRequests":0,"startupTripwireUnchanged":True}
         build.validate_runtime(runtime)
         bad=[{},dict(runtime,result="FAIL"),dict(runtime,realRedmiQualification=True),dict(runtime,fixtureOnly=False),
              dict(runtime,runs=[]),dict(runtime,positiveControl={}),dict(runtime,encryptedJournals={})]

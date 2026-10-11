@@ -53,9 +53,9 @@ class ControlObservationsTest(unittest.TestCase):
                 emulator = JournalEmulator(); receipt = {}
                 if drift:
                     with self.assertRaisesRegex(RuntimeError, 'SYNTHETIC_FILES_CHANGED'):
-                        bootstrap.encrypted_journals(emulator, receipt)
+                        bootstrap.encrypted_journals(emulator, receipt, replacement=False)
                 else:
-                    bootstrap.encrypted_journals(emulator, receipt)
+                    bootstrap.encrypted_journals(emulator, receipt, replacement=False)
                     self.assertEqual(len(receipt['encryptedJournals'].get('disabledRuns', [])), 3)
                     self.assertEqual(len(receipt['encryptedJournals'].get('restoredRuns', [])), 1)
                 self.assertEqual(emulator.state, 0)

@@ -48,6 +48,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Reader receipt parser tests failed.' }
 & python "$testRoot/test-probe-build.py"
 if ($LASTEXITCODE -ne 0) { throw 'Offline real-target probe packaging gate failed.' }
 & python "$testRoot/test-bootstrap-observations.py"
+if ($LASTEXITCODE -ne 0) { throw 'Bootstrap observation tests failed' }
+& python "$testRoot/test-disabled-upgrade.py"
 if ($LASTEXITCODE -ne 0) { throw 'Exact synthetic startup control accounting failed.' }
 & python "$testRoot/schema-fixtures.py" --output "$outputRoot/schema-fixtures" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Complete database schema recognition failed.' }

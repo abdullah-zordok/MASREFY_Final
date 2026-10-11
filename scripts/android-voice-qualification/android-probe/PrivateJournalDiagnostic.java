@@ -85,7 +85,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 receipt.putInt("pending",result.pending());receipt.putInt("terminal",result.terminal());
                 receipt.putInt("audioOwned",result.audioOwned());receipt.putInt("confirmationOwned",result.confirmationOwned());
                 receipt.putInt("committedFrames",result.committedFrames());
-                receipt.putString("targetApkSha256",PrivateProbePolicy.HISTORICAL_APK);receipt.putString("probeApkSha256",approvedProbeHash);
+                receipt.putString("targetApkSha256",hash(Path.of(context.getApplicationInfo().sourceDir)));receipt.putString("probeApkSha256",approvedProbeHash);
                 receipt.putString("certificateSha256",PrivateProbePolicy.CERTIFICATE);receipt.putInt("targetUid",Process.myUid());
                 receipt.putBoolean("unchanged",true);receipt.putBoolean("plainApplication",true);receipt.putBoolean("onlyPrivateProcess",true);
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_CLOSE;

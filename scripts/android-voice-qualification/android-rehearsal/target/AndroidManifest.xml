@@ -9,5 +9,6 @@
     <provider android:name=".TargetProviderTwo" android:authorities="com.masarifi.voicequalification.fixture.second" android:exported="false" />
     <provider android:name=".TargetProviderThree" android:authorities="com.masarifi.voicequalification.fixture.third" android:exported="false" />
     <provider android:name=".TargetProviderFour" android:authorities="com.masarifi.voicequalification.fixture.fourth" android:exported="false" />
+    <receiver android:name=".ReplacementReceiver" android:exported="false"><intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter></receiver>
   </application>
 </manifest>

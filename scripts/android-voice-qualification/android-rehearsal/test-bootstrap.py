@@ -213,7 +213,74 @@ def exercise(emulator,marks,receipt):
             raise RuntimeError("BOOTSTRAP_CLASS_OR_COMPONENT_TRIPWIRE_FIRED")
         expected_hash = observed["fixtureSha256"]
 
-def encrypted_journals(emulator, receipt):
+def require_upgrade_state(value,enabled,uid,sha):
+    if (value.get("enabled")!=enabled or value.get("stopped") is not True or value.get("uid")!=uid
+            or value.get("apkSha256")!=sha or value.get("quiet") is not True):
+        raise RuntimeError("UPGRADE_STATE_REJECTED")
+
+def upgrade_state(emulator):
+    listing=emulator.command("shell","pm","list","packages","--user","0","-U",TARGET).strip()
+    match=re.fullmatch(re.escape("package:"+TARGET)+r" uid:([1-9][0-9]+)",listing)
+    if not match:raise RuntimeError("UPGRADE_UID_UNKNOWN")
+    uid=int(match.group(1))
+    dump=emulator.command("shell","dumpsys","package",TARGET)
+    rows=re.findall(r"^\s*User 0: ([^\r\n]*)$",dump,re.M)
+    if len(rows)!=1:raise RuntimeError("UPGRADE_USER_STATE_UNKNOWN")
+    def field(name):
+        values=re.findall(r"(?:^|\s)"+name+r"=([^\s]+)",rows[0])
+        if len(values)!=1:raise RuntimeError("UPGRADE_USER_STATE_UNKNOWN")
+        return values[0]
+    if field("installed")!="true" or field("hidden")!="false" or field("suspended")!="false":raise RuntimeError("UPGRADE_USER_STATE_UNKNOWN")
+    process=emulator.command("shell","ps","-A","-o","UID,PID,NAME").splitlines()
+    if not process or process[0].split()!=["UID","PID","NAME"]:raise RuntimeError("UPGRADE_PROCESS_UNKNOWN")
+    quiet=True
+    for row in process[1:]:
+        columns=row.split(maxsplit=2)
+        if len(columns)!=3 or not columns[0].isdigit() or not columns[1].isdigit():raise RuntimeError("UPGRADE_PROCESS_UNKNOWN")
+        if int(columns[0])==uid or columns[2]==TARGET or columns[2].startswith(TARGET+":"):quiet=False
+    path=emulator.command("shell","pm","path",TARGET).strip()
+    if not re.fullmatch(r"package:/data/app/[A-Za-z0-9._~+=/-]+/base\.apk",path):raise RuntimeError("UPGRADE_PATH_UNKNOWN")
+    sha=emulator.command("shell","sha256sum",path[8:]).split()[0]
+    return {"enabled":int(field("enabled")),"stopped":field("stopped")=="true","uid":uid,"quiet":quiet,"apkSha256":sha}
+
+def disabled_replacement(emulator,receipt,qualify,change):
+    build=emulator.arguments.build
+    inputs=json.loads((build/"build-receipt.json").read_text(encoding="utf-8"))
+    apk=build/"replacement/fixture.apk"
+    old,new=inputs["target"]["sha256"],inputs["replacement"]["sha256"]
+    if old==new or hashlib.sha256(apk.read_bytes()).hexdigest()!=new:raise RuntimeError("UPGRADE_ARTIFACT_UNKNOWN")
+    signatures=[re.findall(r"certificate SHA-256 digest: ([0-9a-f]+)",inputs[key]["signature"]) for key in ("target","replacement")]
+    if len(signatures[0])!=1 or signatures[0]!=signatures[1] or signatures[0][0]=="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c":raise RuntimeError("UPGRADE_SYNTHETIC_SIGNATURE_REQUIRED")
+    baseline_log=emulator.fixture_log();baseline_requests=LocalTripwireListener.requests
+    emulator.command("shell","am","force-stop",TARGET)
+    initial=upgrade_state(emulator);uid=initial["uid"]
+    require_upgrade_state(initial,0,uid,old)
+    observed=receipt["disabledReplacement"]={"verdict":"FAIL_DISABLED_REPLACEMENT","beforeApkSha256":old,"afterApkSha256":new}
+    try:
+        change(3);require_upgrade_state(upgrade_state(emulator),3,uid,old)
+        qualify("preReplacementRuns",3)
+        # The private diagnostic is explicitly stopped before replacement.
+        emulator.command("shell","am","force-stop",TARGET)
+        emulator.command("shell","am","force-stop","com.masarifi.voicequalification.rehearsal")
+        require_upgrade_state(upgrade_state(emulator),3,uid,old)
+        output=emulator.command("install","-r","--no-incremental","--no-streaming",apk)
+        if not re.search(r"^Success\s*$",output,re.M):raise RuntimeError("UPGRADE_INSTALL_FAILED")
+        drain_framework(emulator)
+        require_upgrade_state(upgrade_state(emulator),3,uid,new)
+        qualify("postReplacementRuns",3)
+    finally:
+        emulator.command("shell","am","force-stop",TARGET)
+        emulator.command("shell","am","force-stop","com.masarifi.voicequalification.rehearsal")
+        current=upgrade_state(emulator)
+        if current["apkSha256"] not in (old,new):raise RuntimeError("UPGRADE_CLEANUP_IDENTITY_UNKNOWN")
+        require_upgrade_state(current,3,uid,current["apkSha256"])
+        change(0);drain_framework(emulator)
+        require_upgrade_state(upgrade_state(emulator),0,uid,current["apkSha256"])
+    if emulator.fixture_log()!=baseline_log or LocalTripwireListener.requests!=baseline_requests:raise RuntimeError("UPGRADE_STARTUP_EFFECT")
+    observed.update(verdict="PASS_DISABLED_REPLACEMENT",uidUnchanged=True,exactPackageStateRestored=True,
+                    journalFingerprintUnchanged=True,newNetworkRequests=0,startupTripwireUnchanged=True)
+
+def encrypted_journals(emulator, receipt, replacement=True):
     probe = "com.masarifi.voicequalification.rehearsal/com.masarifi.voicequalification.EncryptedJournalRehearsal"
     baseline_log = emulator.fixture_log()
     baseline_requests = LocalTripwireListener.requests
@@ -254,6 +321,8 @@ def encrypted_journals(emulator, receipt):
         for iteration in range(3): qualify("disabledRuns", 3)
     window.package_window(0, change, lambda: emulator.command("shell", "am", "force-stop", TARGET), disabled_runs)
     qualify("restoredRuns", 0)
+    if replacement:
+        disabled_replacement(emulator,receipt,qualify,change)
 
 def main():
     parser = argparse.ArgumentParser()
