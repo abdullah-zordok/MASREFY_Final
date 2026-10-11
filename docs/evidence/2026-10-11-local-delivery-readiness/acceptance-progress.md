@@ -134,3 +134,59 @@ and instrumentation-intent receipts, its failure-metadata receipt,
 `process-survey-full-local.log`, `process-survey-signing-gate-{red,green}.log`,
 and `review/process-survey-shared-guard-review.md` under
 `E:/Masarifi-staging-acceptance-2026-10-11/`.
+
+## Third diagnostic, approved current-state inventory and peer-role preparation
+
+All exact-source e3bbeca9 workflows completed successfully: Private Journal
+38150583824, Bootstrap 38150583816 and Posting Boundary 38150583829. The shared
+adapter passed before/after Application checks in all three disposable runs;
+42 encrypted cases passed three times with unchanged fingerprints. These are
+synthetic qualification results, not Redmi journal clearance.
+
+Directly approved scope `62673075e7f8e5e070c9164dfb34cc9c74c7c844cd4a6b0217ff8a3841f0d678`
+ran once at 15:35:15–15:35:20 UTC. Separate diagnostic b94639a9 installed and
+rejected **PROCESS_SAME_UID_PEER** before key/journal access. Original client
+unchanged/stopped verification passed. The scope is consumed; journal remains
+INDETERMINATE. Raw crash metadata was discarded; only a time-correlated closed
+stage/count/booleans remain.
+
+Separate exact read-only scope
+`5fd28163d4eef92197111d1d472f95c210d44d33c5af5bd39f8dea5245b5b1cb`
+was then approved and executed once at 16:01:28–16:01:30 UTC. It found exactly
+one package at the target UID, no kernel target-UID processes and no related
+framework entries. Both APK hashes remained unchanged; global kernel snapshots
+differed, so no global stability claim is made. No phone mutation, instrumentation,
+app launch or journal/key access occurred. This is current-state evidence only:
+it cannot explain the earlier invocation or clear the journal gate. Its latch is
+consumed. The 25 parser/mock-executor tests passed normally and optimized, and
+final independent review was clean after fixing malformed-output regressions.
+
+The same policy now adds a closed PEER_ROLE label to its first same-UID peer
+rejection. It distinguishes target main, the expected private-process name,
+another target process, other/unknown names and invalid PIDs. Original rejection
+criteria and all guard positions are preserved. Names, PID/UID values and causes
+are never exported. No file/kernel/key/journal access or passing-path behavior
+is added. This label describes the framework record, not actual kernel liveness.
+RED compile/behavior evidence and complete portable GREEN are preserved under
+`peer-role-preparation-red`, `peer-role-policy-red` and `peer-role-portable-green.log`.
+The portable suite passed 89 failure-sanitization and 19 process-policy checks,
+plus all prior reader/schema/binder gates. Windows unavailable protection cases
+remain explicitly unexecuted. Fresh exact-source Linux/Android CI and independent
+review are required before signing changed bytes or requesting a new device scope.
+
+Fresh read-only Staging observations at 15:55:41 and 15:56:17 UTC retain the
+ac7bc92a API/Analysis/Assistant cohort, healthy ready API, zero restarts and stopped
+financial/general workers. Posting is false with zero active epochs, five accounts,
+31 transactions/31 postings, five balances, zero pending balance and zero ledger
+mismatches. Four historical uploaded/processing Voice jobs remain untouched.
+Analysis/Assistant running status alone does not prove successful lifecycle tests.
+The original encrypted backup hash remains d177b5d4…a25359; D remains NTFS with
+100,195,930,112 bytes free at the latest storage check. No restore restart occurred.
+
+Full signed Staging client be33158e remains uninstalled; qualified backend image
+8ee5100f remains undeployed. Mobile/admin unwaived dependency findings remain
+release blockers. Real Posting-OFF monitor, lifecycle/epoch/watchdog/rollback,
+full device features and separately approved normal-user activation/fresh financial
+reconciliation remain outstanding. No Production, historical replay/drain or
+Integration/main merge occurred. Authoritative physical receipts and current
+acceptance report are under `E:/Masarifi-staging-acceptance-2026-10-11/`.

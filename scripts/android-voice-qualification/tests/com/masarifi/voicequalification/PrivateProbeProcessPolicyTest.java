@@ -16,11 +16,26 @@ public final class PrivateProbeProcessPolicyTest {
         rejected(List.of(),"PROCESS_SELF_MISSING");
         rejected(List.of(new PrivateProbeProcessPolicy.Record(1000,44,"other")),"PROCESS_SELF_MISSING");
         rejected(Arrays.asList(own(),null),"PROCESS_RECORD_INVALID");
-        rejected(List.of(own(),new PrivateProbeProcessPolicy.Record(UID,124,"peer")),"PROCESS_SAME_UID_PEER");
+        peer("com.masarifi.mobile",124,"TARGET_MAIN");
+        peer(NAME,124,"PRIVATE_PROCESS_NAME");
+        peer("com.masarifi.mobile:auxiliary",124,"TARGET_AUXILIARY");
+        peer("private.sibling",124,"OTHER");
+        peer(null,124,"UNKNOWN_NAME");
+        peer("",124,"UNKNOWN_NAME");
+        peer("private/token/path\nCLEAR",124,"UNKNOWN_NAME");
+        peer("com.masarifi.mobile:auxiliary",0,"INVALID_PID");
+        peer("com.masarifi.mobile",-1,"INVALID_PID");
+        // A peer before the self record still rejects; record order grants no bypass.
+        rejected(List.of(new PrivateProbeProcessPolicy.Record(UID,124,"com.masarifi.mobile"),own()),
+                "PROCESS_SAME_UID_PEER:PEER_ROLE=TARGET_MAIN");
         rejected(List.of(new PrivateProbeProcessPolicy.Record(UID,PID,"com.masarifi.mobile")),"PROCESS_NAME_MISMATCH");
         rejected(List.of(new PrivateProbeProcessPolicy.Record(UID,PID,null)),"PROCESS_NAME_MISMATCH");
         rejected(List.of(own(),own()),"PROCESS_SELF_DUPLICATE");
         System.out.println("PASS private process isolation "+checks+" checks");
+    }
+    private static void peer(String name,int pid,String role) {
+        rejected(List.of(own(),new PrivateProbeProcessPolicy.Record(UID,pid,name)),
+                "PROCESS_SAME_UID_PEER:PEER_ROLE="+role);
     }
     private static void rejected(List<PrivateProbeProcessPolicy.Record> records,String expectedStage) {
         try {PrivateProbeProcessPolicy.require(UID,PID,NAME,records);throw new AssertionError("Missing process rejection: "+expectedStage);}

@@ -17,6 +17,13 @@ public final class PrivateProbeFailureTest {
         }
         require(PrivateProbeFailure.bootstrap(null,new Error("private-key"))
                 .getMessage().equals("PROBE_IDENTITY_INDETERMINATE:UNEXPECTED"));
+        for(PrivateProbeFailure.PeerRole role:PrivateProbeFailure.PeerRole.values()) {
+            ClassNotFoundException safe=PrivateProbeFailure.bootstrap(PrivateProbeFailure.Stage.UNEXPECTED,
+                    PrivateProbeFailure.rejectPeer(role));
+            require(safe.getMessage().equals("PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE="+role.name()));
+            require(safe.getCause()==null && safe.getSuppressed().length==0);
+            checks+=2;
+        }
         System.out.println("PASS private probe sanitized bootstrap failures "+(checks+1)+" checks");
     }
     private static void require(boolean condition) {
