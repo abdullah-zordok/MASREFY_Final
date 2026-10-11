@@ -61,17 +61,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 22
+          node-version-file: apps/api/.nvmrc
           cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
       - name: Install locked mobile dependencies without scripts
         working-directory: apps/mobile
-        run: npm ci --ignore-scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts 2>&1 | tee "$RUNNER_TEMP/voice-encrypted-wal-test.log"
       - name: Qualify committed WAL pages using the deployed SQLCipher source
         shell: bash
         run: |
           set -euo pipefail
-          exec > >(tee "$RUNNER_TEMP/voice-encrypted-wal-test.log") 2>&1
+          exec > >(tee -a "$RUNNER_TEMP/voice-encrypted-wal-test.log") 2>&1
           build_dir=$(mktemp -d "$RUNNER_TEMP/voice-encrypted-wal.XXXXXX")
           vendor_dir=apps/mobile/node_modules/expo-sqlite/vendor/sqlcipher
           echo "8fdf08e15777a45386fe4b2fc7604f125eb9ec57d0aaa8bde11ec8d8115ed915  $vendor_dir/sqlite3.c" | sha256sum -c -
