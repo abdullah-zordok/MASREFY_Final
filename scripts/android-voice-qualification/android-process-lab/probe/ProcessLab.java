@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.DeadObjectException;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Process;
@@ -101,12 +102,19 @@ public final class ProcessLab extends Instrumentation {
             try {if(bound)context.unbindService(connection);}
             catch(Exception failed) {if(firstFailure==null){firstFailure=failed;firstFailureStage=stage;}}
             stage=label+"_STOP";
+            receipt.putString(label+"StopAlreadyDead","false");
             try {
                 if(endpoint[0]!=null) {
                     Parcel stop=Parcel.obtain();
                     try {stop.writeInterfaceToken("public.synthetic.processlab");endpoint[0].transact(IBinder.FIRST_CALL_TRANSACTION+1,stop,null,IBinder.FLAG_ONEWAY);}
                     finally {stop.recycle();}
                 }
+            }
+            catch(DeadObjectException alreadyDead) {
+                // Unbinding can end the child before the stop transaction. This is
+                // not proof of cleanup: framework absence AND active Binder death
+                // must still be established below, and earlier failures still win.
+                receipt.putString(label+"StopAlreadyDead","true");
             }
             catch(Exception failed) {if(firstFailure==null){firstFailure=failed;firstFailureStage=stage;}}
             if(firstFailure!=null){stage=firstFailureStage;throw firstFailure;}

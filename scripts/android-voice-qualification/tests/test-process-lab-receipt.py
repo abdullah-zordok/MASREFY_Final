@@ -21,7 +21,7 @@ class ProcessLabEvidenceTests(unittest.TestCase):
         return {'verdict':'PASS_DISPOSABLE_PROCESS_LAB','initialSurvey':'PASS_ONLY_PRIVATE_PROCESS','listenerAccessGranted':'false',
                 'normalBound':'true','normalActualUidMatches':'true','normalFrameworkVisible':'true',
                 'normalFrameworkUidMatches':'true','normalGuard':'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=TARGET_AUXILIARY',
-                'normalGone':'true','normalCachedAliveBeforePing':'true','isolatedBound':'true','isolatedActualUidMatches':'false',
+                'normalGone':'true','normalCachedAliveBeforePing':'true','normalStopAlreadyDead':'false','isolatedStopAlreadyDead':'false','isolatedBound':'true','isolatedActualUidMatches':'false',
                 'isolatedFrameworkVisible':'false','isolatedFrameworkUidMatches':'false',
                 'isolatedGuard':'PASS_ONLY_PRIVATE_PROCESS','isolatedGone':'true','isolatedCachedAliveBeforePing':'true','isolatedOtherSameUidPeers':'0'}
     def test_actual_normal_peer_must_reject(self):
@@ -38,6 +38,14 @@ class ProcessLabEvidenceTests(unittest.TestCase):
     def test_unknown_or_contradictory_isolated_metadata_rejects(self):
         for field,value in (('isolatedActualUidMatches','true'),('isolatedGone','false'),('initialSurvey','UNKNOWN'),('isolatedFrameworkUidMatches','true'),('listenerAccessGranted','TRUE'),('listenerAccessGranted','UNKNOWN')):
             with self.subTest(field=field),self.assertRaises(RuntimeError):self.validate(dict(self.evidence(),**{field:value}))
+
+    def test_stop_dead_observation_cannot_replace_cleanup_proof(self):
+        for kind in ('normal','isolated'):
+            self.validate(dict(self.evidence(),**{kind+'StopAlreadyDead':'true'}))
+            for change in ({kind+'StopAlreadyDead':'UNKNOWN'},
+                           {kind+'StopAlreadyDead':'true',kind+'Gone':'false'}):
+                with self.subTest(kind=kind,change=change),self.assertRaises(RuntimeError):
+                    self.validate(dict(self.evidence(),**change))
 
     def test_malformed_duplicate_or_extra_envelope_lines_reject(self):
         valid=''.join('INSTRUMENTATION_RESULT: '+key+'='+value+'\n' for key,value in self.evidence().items())+'INSTRUMENTATION_CODE: -1\n'

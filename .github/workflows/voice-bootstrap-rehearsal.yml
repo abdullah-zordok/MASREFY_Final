@@ -11,6 +11,7 @@ on:
       - scripts/android-voice-qualification/src/com/masarifi/voicequalification/PrivateProbeFailure.java
       - scripts/android-voice-qualification/src/com/masarifi/voicequalification/PrivateProbeProcessPolicy.java
       - scripts/android-voice-qualification/tests/test-process-lab-receipt.py
+      - scripts/android-voice-qualification/tests/test-process-lab-cleanup.py
       - .github/workflows/voice-bootstrap-rehearsal.yml
 
 permissions:
@@ -28,6 +29,8 @@ jobs:
           set -euo pipefail
           python3 scripts/android-voice-qualification/tests/test-process-lab-receipt.py
           python3 -O scripts/android-voice-qualification/tests/test-process-lab-receipt.py
+          python3 scripts/android-voice-qualification/tests/test-process-lab-cleanup.py
+          python3 -O scripts/android-voice-qualification/tests/test-process-lab-cleanup.py
           fixture_root="$RUNNER_TEMP/vqs-android15"
           mkdir "$fixture_root"
           exec > >(tee "$fixture_root/rehearsal.log") 2>&1
