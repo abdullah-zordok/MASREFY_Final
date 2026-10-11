@@ -23,5 +23,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Existing-only key decryption failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Bounded strict JSON parsing failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SecureStoreKeyIndexTest
 if ($LASTEXITCODE -ne 0) { throw 'Existing owner-key mapping failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.VoiceJournalClassifierTest
+if ($LASTEXITCODE -ne 0) { throw 'Pinned Voice journal classification failed.' }
 & python "$testRoot/real-wal-fixtures.py" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Disposable SQLite WAL fixture failed.' }
