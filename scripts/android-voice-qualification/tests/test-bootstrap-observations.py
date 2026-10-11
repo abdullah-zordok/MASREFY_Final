@@ -43,9 +43,9 @@ class ControlObservationsTest(unittest.TestCase):
                         self.stopped = False
                         result = {'packageState': str(self.state), 'applicationEnabled': str(self.state != 3).lower()}
                         if 'seed' in args:
-                            result.update(verdict='SEEDED_PUBLIC_SYNTHETIC_FIXTURES', missingExistingAliasesFailClosed='true')
+                            result.update(androidRollbackJournalCases='4', verdict='SEEDED_PUBLIC_SYNTHETIC_FIXTURES', missingExistingAliasesFailClosed='true')
                         else:
-                            result.update(verdict='PASS_DISPOSABLE_ENCRYPTED_JOURNALS', cases='42', readerStageCases='25', qualificationStageCases='16',
+                            result.update(verdict='PASS_DISPOSABLE_ENCRYPTED_JOURNALS', cases='57', readerStageCases='25', qualificationStageCases='19',
                                           fixtureFingerprint=('b' if drift and self.state == 3 else 'a') * 64)
                         return ''.join('INSTRUMENTATION_RESULT: ' + key + '=' + value + '\n' for key, value in result.items())
                     def assert_stopped(self):

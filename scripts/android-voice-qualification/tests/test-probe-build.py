@@ -47,8 +47,8 @@ class ProbeBuildGates(unittest.TestCase):
         build.validate_manifest(build.HERE/"AndroidManifest.xml")
 
     def test_missing_incomplete_or_false_runtime_evidence_cannot_qualify_packaging(self):
-        seed={"verdict":"SEEDED_PUBLIC_SYNTHETIC_FIXTURES","missingExistingAliasesFailClosed":"true"}
-        run={"verdict":"PASS_DISPOSABLE_ENCRYPTED_JOURNALS","cases":"42","readerStageCases":"25","qualificationStageCases":"16","fixtureFingerprint":"a"*64}
+        seed={"androidRollbackJournalCases":"4","verdict":"SEEDED_PUBLIC_SYNTHETIC_FIXTURES","missingExistingAliasesFailClosed":"true"}
+        run={"verdict":"PASS_DISPOSABLE_ENCRYPTED_JOURNALS","cases":"57","readerStageCases":"25","qualificationStageCases":"19","fixtureFingerprint":"a"*64}
         runtime={"result":"PASS_DISPOSABLE_ANDROID15_BOOTSTRAP","fixtureOnly":True,"realRedmiQualification":False,
                  "positiveControl":{"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True},
                  "runs":[{"verdict":"PASS_DISPOSABLE_BOOTSTRAP","newNetworkRequests":0,
@@ -58,10 +58,11 @@ class ProbeBuildGates(unittest.TestCase):
         build.validate_runtime(runtime)
         bad=[{},dict(runtime,result="FAIL"),dict(runtime,realRedmiQualification=True),dict(runtime,fixtureOnly=False),
              dict(runtime,runs=[]),dict(runtime,positiveControl={}),dict(runtime,encryptedJournals={})]
-        for key,value in (("qualificationStageCases","0"),("readerStageCases","0"),("cases","41"),("verdict","INDETERMINATE_SYNTHETIC_JOURNALS"),("fixtureFingerprint","unknown")):
+        for key,value in (("qualificationStageCases","0"),("readerStageCases","0"),("cases","42"),("qualificationStageCases","16"),("verdict","INDETERMINATE_SYNTHETIC_JOURNALS"),("fixtureFingerprint","unknown")):
             case=copy.deepcopy(runtime);case["encryptedJournals"]["runs"][0][key]=value;bad.append(case)
         case=copy.deepcopy(runtime);case["encryptedJournals"]["runs"][0]["fixtureFingerprint"]="b"*64;bad.append(case)
         case=copy.deepcopy(runtime);case["encryptedJournals"]["seed"]["missingExistingAliasesFailClosed"]="false";bad.append(case)
+        case=copy.deepcopy(runtime);case["encryptedJournals"]["seed"].pop("androidRollbackJournalCases");bad.append(case)
         case=copy.deepcopy(runtime);case["runs"][1]["newNetworkRequests"]=1;bad.append(case)
         for index in range(3):
             for field in ("beforeApplicationProcessSurvey","afterApplicationProcessSurvey"):

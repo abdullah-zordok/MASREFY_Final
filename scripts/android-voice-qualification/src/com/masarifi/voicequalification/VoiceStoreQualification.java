@@ -61,7 +61,7 @@ public final class VoiceStoreQualification {
             // Never stop at the first blocking row: every owner must still be recognized.
             for(String hash:hashes.stream().sorted().toList()) {
                 String name=ROOT+"masarifi-"+hash.substring(0,24)+".db";
-                progress.stage=Stage.OWNER_ROLLBACK_CHECK;rejectRollback(snapshot,name);
+                progress.stage=Stage.OWNER_ROLLBACK_CHECK;requireInactiveRollback(snapshot,name);
                 try(var key=progress.at(Stage.OWNER_KEY_DECRYPT,()->ExistingDatabaseKey.decrypt(index.owner(hash.substring(0,24)),keys));
                     var committed=progress.at(Stage.OWNER_WAL_RECONSTRUCT,()->CommittedWalSnapshot.reconstruct(snapshot.content(name),snapshot.content(name+"-wal")));
                     var reader=progress.at(Stage.OWNER_DATABASE_OPEN,()->factory.open(committed.bytes(),key.bytes()))) {
@@ -79,7 +79,7 @@ public final class VoiceStoreQualification {
                 progress.stage=Stage.LEGACY_DATABASE_BINDING;
                 if(claimedOwner==null || !hashes.contains(claimedOwner) || !markedOwners.contains(claimedOwner))
                     throw failure("LEGACY_MIGRATION_INCOMPLETE");
-                progress.stage=Stage.LEGACY_ROLLBACK_CHECK;rejectRollback(snapshot,LEGACY);
+                progress.stage=Stage.LEGACY_ROLLBACK_CHECK;requireInactiveRollback(snapshot,LEGACY);
                 try(var committed=progress.at(Stage.LEGACY_WAL_RECONSTRUCT,()->CommittedWalSnapshot.reconstruct(snapshot.content(LEGACY),snapshot.content(LEGACY+"-wal")));
                     var reader=progress.at(Stage.LEGACY_DATABASE_OPEN,()->factory.open(committed.bytes(),null))) {
                     counts.frames+=committed.committedFrames();
@@ -89,7 +89,7 @@ public final class VoiceStoreQualification {
                 }
             }
             if(snapshot.content(ASYNC)!=null) {
-                progress.stage=Stage.ASYNC_ROLLBACK_CHECK;rejectRollback(snapshot,ASYNC);
+                progress.stage=Stage.ASYNC_ROLLBACK_CHECK;requireInactiveRollback(snapshot,ASYNC);
                 try(var committed=progress.at(Stage.ASYNC_WAL_RECONSTRUCT,()->CommittedWalSnapshot.reconstruct(snapshot.content(ASYNC),snapshot.content(ASYNC+"-wal")));
                     var reader=progress.at(Stage.ASYNC_DATABASE_OPEN,()->factory.open(committed.bytes(),null))) {
                     counts.frames+=committed.committedFrames();
@@ -124,10 +124,16 @@ public final class VoiceStoreQualification {
             return hash.toString();
         }
     }
-    private static void rejectRollback(VoiceStoreSnapshot snapshot,String name) {
-        // No pinned rollback-journal classifier exists. Even an empty persistent journal
-        // cannot be silently treated as absent; never invoke SQLite recovery/checkpoint.
-        if(snapshot.content(name+"-journal")!=null)throw failure("ROLLBACK_UNCLASSIFIED");
+    private static void requireInactiveRollback(VoiceStoreSnapshot snapshot,String name) {
+        // Pinned sqlite3.c zeroJournalHdr commits by truncating to zero bytes or
+        // zeroing all 28 header bytes. Accept only those complete inactive forms,
+        // not SQLite's broader first-byte heuristic. Tail pages are stale, not replayed.
+        // The package must stay quiescent and the complete snapshot unchanged.
+        byte[] journal=snapshot.content(name+"-journal");
+        if(journal==null || journal.length==0)return;
+        if(journal.length<28)throw failure("ROLLBACK_UNCLASSIFIED");
+        for(int index=0;index<28;index++)
+            if(journal[index]!=0)throw failure("ROLLBACK_UNCLASSIFIED");
     }
     private static boolean mobile(SnapshotReader reader,String owner,Counts counts,Progress progress) {
         progress.stage=Stage.MOBILE_USER_VERSION;

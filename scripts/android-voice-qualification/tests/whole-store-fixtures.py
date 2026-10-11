@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 
 A, B = "a" * 64, "b" * 64
 ID = "11111111-1111-4111-8111-111111111111"
@@ -122,7 +123,7 @@ def main():
     for mode in ("missing", "wrong"):
         root, want = case("key-" + mode, "INDETERMINATE", key=mode); database(root)
     root, want = case("rollback-journal", "INDETERMINATE"); database(root)
-    (root / ("input/files/SQLite/masarifi-" + A[:24] + ".db-journal")).write_bytes(b"\0" * 512)
+    (root / ("input/files/SQLite/masarifi-" + A[:24] + ".db-journal")).write_bytes(bytes.fromhex("d9d505f920a163d7") + bytes(504))
     root, want = case("hmac-corrupt-unrelated-page", "INDETERMINATE"); database(root)
     path = root / ("input/files/SQLite/masarifi-" + A[:24] + ".db")
     data = bytearray(path.read_bytes()); data[-4096 + 100] ^= 1; path.write_bytes(data)
@@ -142,9 +143,60 @@ def main():
             writer.executescript("CREATE TABLE catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=1;")
             payload = dict(sessionId=ID, sessionVersion=1, recordedAt=0, timezoneOffsetMinutes=0, createdAt=0)
             writer.execute("INSERT INTO catalystLocalStorage VALUES(?,?)", ("masarifi.voice.pending" if malformed else "masarifi.voice.pending." + B[:24], json.dumps(payload)))
+    # Real committed SQLite/SQLCipher journals, including retained stale page tails.
+    for store in ("owner", "legacy", "async"):
+        for mode in ("TRUNCATE", "PERSIST"):
+            for pending in (False, True):
+                name = "rollback-" + store + "-" + mode.lower() + ("-pending" if pending else "-clear")
+                root, want = case(name, "BLOCKED" if pending else "CLEAR", pending=int(pending),
+                                  terminal=int(not pending and store != "async"), claim=A if store == "legacy" else None)
+                database(root, marked=store == "legacy")
+                if store == "legacy": database(root, legacy=True)
+                if store == "async":
+                    (root / "input/databases").mkdir()
+                    path = root / "input/databases/RKStorage"
+                    with sqlite3.connect(path) as setup:
+                        setup.executescript("CREATE TABLE catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=1;")
+                    setup.close()
+                else:
+                    path = root / "input/files/SQLite" / ("masarifi.db" if store == "legacy" else "masarifi-" + A[:24] + ".db")
+                writer = cipher.CipherConnection(library, path) if store == "owner" else sqlite3.connect(path, isolation_level=None)
+                try:
+                    writer.execute("PRAGMA journal_mode=" + mode)
+                    writer.execute("BEGIN IMMEDIATE")
+                    if store == "async":
+                        payload = dict(sessionId=ID, sessionVersion=1, recordedAt=0, timezoneOffsetMinutes=0, createdAt=0)
+                        key = "masarifi.voice.pending." + B[:24] if pending else "public-unrelated-fixture"
+                        writer.execute("INSERT INTO catalystLocalStorage VALUES(" + quote(key) + "," + quote(json.dumps(payload)) + ")")
+                    else:
+                        writer.execute(batch_sql(batch("processing" if pending else "completed")))
+                    writer.execute("COMMIT")
+                finally: writer.close()
+                journal = Path(str(path) + "-journal").read_bytes()
+                if mode == "TRUNCATE": assert journal == b""
+                else: assert len(journal) > 512 and journal[:28] == bytes(28) and any(journal[28:])
+
+    for kind in ("crash", "short-header", "partial-zero-header"):
+        root, want = case("rollback-async-" + kind, "INDETERMINATE")
+        want["qualificationStage"] = "ASYNC_ROLLBACK_CHECK"
+        database(root); (root / "input/databases").mkdir()
+        path = root / "input/databases/RKStorage"
+        with sqlite3.connect(path) as setup:
+            setup.executescript("CREATE TABLE catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=1;")
+        setup.close()
+        journal = Path(str(path) + "-journal")
+        if kind == "crash":
+            # A disposable child exits without COMMIT/close after forcing cache spills.
+            # Never reopen this DB through a filesystem SQLite connection afterwards.
+            subprocess.run([sys.executable, "-c", "import sqlite3,sys,os; c=sqlite3.connect(sys.argv[1]); c.execute('PRAGMA cache_size=1'); c.execute('PRAGMA cache_spill=ON'); c.execute('BEGIN IMMEDIATE'); c.executemany('INSERT INTO catalystLocalStorage VALUES(?,?)', [(str(i),'x'*8192) for i in range(128)]); os._exit(0)", str(path)], check=True, timeout=30)
+            captured = journal.read_bytes()
+            assert len(captured) > 512 and captured[:8] == bytes.fromhex("d9d505f920a163d7")
+        elif kind == "short-header": journal.write_bytes(bytes(27))
+        else: journal.write_bytes(bytes(27) + b"\x01" + bytes(484))
+
     qualification_stages = {'unknown-schema': 'MOBILE_SCHEMA', 'invalid-history': 'MOBILE_SCHEMA', 'wrong-marker-owner': 'MOBILE_MIGRATION_MARKER', 'empty-marker': 'MOBILE_MIGRATION_MARKER', 'unknown-marker-row': 'MOBILE_MIGRATION_MARKER', 'unknown-phase': 'MOBILE_BATCH_ROWS', 'bad-row-payload': 'MOBILE_BATCH_ROWS', 'key-missing': 'OWNER_KEY_DECRYPT', 'key-wrong': 'OWNER_DATABASE_OPEN', 'rollback-journal': 'OWNER_ROLLBACK_CHECK', 'hmac-corrupt-unrelated-page': 'OWNER_DATABASE_OPEN', 'truncated-wal': 'OWNER_WAL_RECONSTRUCT', 'unbound-legacy': 'LEGACY_DATABASE_BINDING', 'uppercase-legacy-claim': 'LEGACY_CLAIM', 'async-only-missing-owner': 'OWNER_DATABASE_REQUIRED', 'legacy-key-malformed': 'ASYNC_ROWS'}
     for root, want in cases:
-        if want["verdict"] == "INDETERMINATE": want["qualificationStage"] = qualification_stages[root.name]
+        if want["verdict"] == "INDETERMINATE" and "qualificationStage" not in want: want["qualificationStage"] = qualification_stages[root.name]
         (root / "fixture.json").write_text(json.dumps(want, indent=2), encoding="utf-8")
     if args.jni_library:
         if not args.classes: raise AssertionError("JNI_CLASSES_REQUIRED")

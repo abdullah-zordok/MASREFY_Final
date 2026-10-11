@@ -139,3 +139,39 @@ native Linux JNI and disposable Android, while all 42 outcomes and original
 fingerprints remain checked. Android also verifies that the three-field failure
 receipt survives Bundle/Parcel transport without extra fields. No diagnostic
 reader, snapshot, key or database gains a mutation or recovery capability.
+
+
+## Conservative rollback-journal qualification
+
+A present rollback sidecar is no longer rejected solely for existing. The reader
+accepts only an absent journal, a zero-length TRUNCATE result, or a journal with
+at least 28 bytes whose complete 28-byte header is zero (PERSIST commit form).
+This is narrower than the pinned SQLite pager's first-byte hot-journal heuristic.
+Short nonempty headers, partial zeroing, hot headers and every unclassified form
+remain INDETERMINATE at the corresponding rollback stage. No journal contents are
+exported, modified, deleted or replayed; database recovery is never invoked.
+This policy requires the existing quiet-process guard and before/after complete
+snapshot verification. An inactive sidecar does not bypass schema, ownership,
+row classification, key, WAL or native-integrity checks.
+
+The source basis is the checksum-pinned expo-sqlite SQLCipher `sqlite3.c`:
+`zeroJournalHdr()` commits by truncating or zeroing 28 bytes; `hasHotJournal()`
+checks the first byte after its lock checks. See also
+https://www.sqlite.org/lockingv3.html, sections 4.1 and 5.0. This classifier does
+not attempt filesystem locking or recover a hot journal through SQLite.
+
+The complete integration corpus is now 57 cases (the original 42 plus 15).
+Twelve real committed SQLite/SQLCipher TRUNCATE/PERSIST cases cover encrypted
+owners, bound legacy stores and AsyncStorage, each with clear and pending work.
+A disposable writer exits without commit/close after cache spills to leave a real
+hot AsyncStorage journal; it must remain rejected. Short and partially zeroed
+headers are also rejected. Android itself regenerates four committed AsyncStorage
+journals through its SQLite engine inside the synthetic-only seeder. All cases
+run through the actual RAM-only JNI reader seven times across normal, disabled
+and restored package states with identical before/after fingerprints. Updated
+host/build gates require 57 cases, 19 negative internal stages, and four Android
+journal-production cases; earlier evidence cannot qualify this changed reader.
+
+The physical Redmi sidecar has not yet been classified. Its retained result
+proved only sidecar presence. A new physical operation still requires explicit
+approval after this implementation passes disposable Android qualification.

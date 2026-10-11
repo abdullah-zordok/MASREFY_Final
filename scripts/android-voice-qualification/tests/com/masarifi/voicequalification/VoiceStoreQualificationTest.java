@@ -29,6 +29,7 @@ public final class VoiceStoreQualificationTest {
         try { binder=Class.forName("com.masarifi.voicequalification.VoiceStoreQualification"); }
         catch (ClassNotFoundException missing) { throw new AssertionError("whole-store journal qualification is not implemented"); }
         schemas=Path.of(args[0]);
+        rollbackJournals();
         var empty = fixture();
         assertVerdict(empty,"CLEAR",0,0,0,0);
         var all = fixture(); all.owner(B,2); all.rows.get(2).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,batch("processing")}));
@@ -55,8 +56,8 @@ public final class VoiceStoreQualificationTest {
         missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.USER_VERSION,List.<Object[]>of(new Object[]{1L})); reject(missing,"MOBILE_USER_VERSION");
         missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,null})); reject(missing);
         missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,"2",batch("completed")})); reject(missing);
-        missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[0]); reject(missing,"OWNER_ROLLBACK_CHECK");
-        missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[512]); reject(missing);
+        missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[]{1}); reject(missing,"OWNER_ROLLBACK_CHECK");
+        missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[27]); reject(missing);
         missing=fixture(); missing.files.put(OWNER_A+"-wal",new byte[1]); reject(missing,"OWNER_WAL_RECONSTRUCT");
         missing=fixture(); missing.files.put("databases/RKStorage",new byte[]{9}); reject(missing);
         missing=fixture(); missing.files.put(OWNER_A,new byte[0]); reject(missing);
@@ -82,6 +83,34 @@ public final class VoiceStoreQualificationTest {
         missing=fixture();missing.throwLinkage=true;reject(missing,"OWNER_DATABASE_OPEN");
         missing=fixture();missing.throwClose=true;reject(missing,"OWNER_RESOURCES_CLOSE");
         System.out.println("PASS: "+checks+" whole-store synthetic journal checks; no device/private key accessed");
+    }
+
+    private static void rollbackJournals() throws Exception {
+        // Redmi 2026-10-11: a present RKStorage-journal alone is not proof of a hot journal.
+        for(String store:new String[]{OWNER_A,"files/SQLite/masarifi.db","databases/RKStorage"}) {
+            String stage=store.equals(OWNER_A)?"OWNER_ROLLBACK_CHECK":store.endsWith("RKStorage")?"ASYNC_ROLLBACK_CHECK":"LEGACY_ROLLBACK_CHECK";
+            byte[] persisted=new byte[1024];Arrays.fill(persisted,28,persisted.length,(byte)93);
+            for(byte[] journal:new byte[][]{new byte[0],new byte[28],persisted}) {
+                var value=rollbackFixture(store,journal);assertVerdict(value,"CLEAR",0,0,0,0);
+                value=rollbackFixture(store,journal);value.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,batch("processing")}));
+                assertVerdict(value,"BLOCKED",1,0,0,0);
+            }
+            for(int size=1;size<28;size++)reject(rollbackFixture(store,new byte[size]),stage);
+            for(int offset=0;offset<28;offset++) {
+                byte[] malformed=new byte[512];malformed[offset]=1;
+                reject(rollbackFixture(store,malformed),stage);
+            }
+            byte[] hot=new byte[512];byte[] magic={(byte)0xd9,(byte)0xd5,5,(byte)0xf9,0x20,(byte)0xa1,0x63,(byte)0xd7};
+            System.arraycopy(magic,0,hot,0,magic.length);reject(rollbackFixture(store,hot),stage);
+        }
+        var changed=rollbackFixture("databases/RKStorage",new byte[0]);changed.mutateJournal=true;
+        reject(changed,"SNAPSHOT_STABILITY_AFTER");
+    }
+    private static Fixture rollbackFixture(String store,byte[] journal) throws Exception {
+        var value=fixture();
+        if(store.endsWith("RKStorage"))value.async();
+        else if(!store.equals(OWNER_A))value.legacy(A,true);
+        value.files.put(store+"-journal",journal);return value;
     }
 
     static String batch(String phase) { return "{\"id\":\""+ID+"\",\"revision\":2,\"phase\":\""+phase+"\",\"audioReference\":null,\"locale\":\"ar\",\"durationMs\":1000,\"recordedAt\":0,\"timezoneOffsetMinutes\":0,\"createBody\":null,\"sessionId\":null,\"version\":null,\"processBody\":null}"; }
@@ -125,7 +154,7 @@ public final class VoiceStoreQualificationTest {
     }
     private static final class Fixture {
         final Map<String,byte[]> files=new HashMap<>();final Map<Integer,Map<SnapshotReader.Query,List<Object[]>>> rows=new HashMap<>();
-        final List<byte[]> keyArrays=new ArrayList<>(); String preferences,extraPreferences;boolean failLookup,throwReader,mutate,throwLinkage,throwClose;int opened,closed;
+        final List<byte[]> keyArrays=new ArrayList<>(); String preferences,extraPreferences;boolean failLookup,throwReader,mutate,mutateJournal,throwLinkage,throwClose;int opened,closed;
         void owner(String hash,int index) throws Exception {
             files.put("files/SQLite/masarifi-"+hash.substring(0,24)+".db",new byte[]{(byte)index});
             String xml=ownerXml(hash);preferences=preferences==null?xml:preferences.replace("</map>",xml.substring(5));
@@ -146,7 +175,7 @@ public final class VoiceStoreQualificationTest {
             else if(key!=null)throw new AssertionError("plaintext legacy/async must not receive owner key");
             opened++;
             return new SnapshotReader() {
-                public void visit(Query query,Consumer<Object[]> visitor) { if(mutate)try {Files.write(root.resolve(OWNER_A),new byte[]{9});}catch(Exception e){throw new IllegalStateException("test mutation");}var values=rows.get(id).get(query);if(values==null)throw new IllegalStateException("query unavailable");for(var row:values)visitor.accept(row); }
+                public void visit(Query query,Consumer<Object[]> visitor) { if(mutateJournal)try {Files.write(root.resolve("databases/RKStorage-journal"),new byte[]{1});}catch(Exception e){throw new IllegalStateException("test journal mutation");} if(mutate)try {Files.write(root.resolve(OWNER_A),new byte[]{9});}catch(Exception e){throw new IllegalStateException("test mutation");}var values=rows.get(id).get(query);if(values==null)throw new IllegalStateException("query unavailable");for(var row:values)visitor.accept(row); }
                 public void close() {closed++;if(throwClose)throw new IllegalStateException("private close failure");}
             };
         }; }

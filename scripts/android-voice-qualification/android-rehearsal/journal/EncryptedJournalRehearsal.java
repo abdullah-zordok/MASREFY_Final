@@ -54,6 +54,8 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 phase="COPY_PUBLIC_FIXTURES";
                 if(Files.exists(fixtures))throw new IllegalStateException("PRESERVE_FIXTURE_EVIDENCE");
                 Files.createDirectory(fixtures);copyAssetTree("journals",fixtures);
+                phase="ANDROID_COMMITTED_ROLLBACK_JOURNALS";
+                receipt.putInt("androidRollbackJournalCases",writeAndroidCommittedJournals(fixtures));
                 phase="KEYSTORE_ABSENCE";
                 KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);
                 for(String alias:new String[]{"AES/GCM/NoPadding:key_v1","AES/GCM/NoPadding:key_v1:keystoreUnauthenticated"}) {
@@ -125,6 +127,37 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                     failure instanceof java.io.IOException?"SYNTHETIC_IO":"PLATFORM_REJECTION");
             finish(0,receipt);
         }
+    }
+    private static int writeAndroidCommittedJournals(Path fixtures) throws Exception {
+        int count=0;
+        for(String mode:new String[]{"TRUNCATE","PERSIST"})for(String outcome:new String[]{"clear","pending"}) {
+            Path root=fixtures.resolve("rollback-async-"+mode.toLowerCase(java.util.Locale.ROOT)+"-"+outcome).resolve("input");
+            verifySyntheticUid(root);
+            Path file=root.resolve("databases/RKStorage");
+            // Called only while seeding the separately guarded synthetic UID. Never shipped in the reader.
+            try(var database=android.database.sqlite.SQLiteDatabase.openDatabase(file.toString(),null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE|android.database.sqlite.SQLiteDatabase.NO_LOCALIZED_COLLATORS)) {
+                try(var result=database.rawQuery("PRAGMA journal_mode="+mode,null)) {
+                    require(result.moveToFirst()&&mode.equalsIgnoreCase(result.getString(0)));
+                }
+                database.beginTransaction();
+                try {
+                    database.execSQL("INSERT INTO catalystLocalStorage VALUES('public-android-writer','synthetic')");
+                    database.execSQL("DELETE FROM catalystLocalStorage WHERE key='public-android-writer'");
+                    database.setTransactionSuccessful();
+                } finally {database.endTransaction();}
+            }
+            byte[] journal=Files.readAllBytes(root.resolve("databases/RKStorage-journal"));
+            if(mode.equals("TRUNCATE"))require(journal.length==0);
+            else {
+                require(journal.length>512);
+                for(int index=0;index<28;index++)require(journal[index]==0);
+                boolean tail=false;for(int index=28;index<journal.length;index++)tail|=journal[index]!=0;
+                require(tail);
+            }
+            verifySyntheticUid(root);count++;
+        }
+        return count;
     }
     private void copyAssetTree(String asset,Path destination) throws Exception {
         String[] names=getContext().getAssets().list(asset);

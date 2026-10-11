@@ -220,7 +220,7 @@ def encrypted_journals(emulator, receipt):
     seeded = parse_receipt(emulator.command("shell", "am", "instrument", "-w", "-r", "-e", "mode", "seed", probe))
     receipt["encryptedJournals"] = {"seed": seeded, "runs": []}
     if (seeded.get("verdict") != "SEEDED_PUBLIC_SYNTHETIC_FIXTURES" or seeded.get("missingExistingAliasesFailClosed") != "true"
-            or seeded.get("packageState") != "0" or seeded.get("applicationEnabled") != "true"):
+            or seeded.get("androidRollbackJournalCases") != "4" or seeded.get("packageState") != "0" or seeded.get("applicationEnabled") != "true"):
         raise RuntimeError("SYNTHETIC_JOURNAL_SEED_FAILED")
     fingerprint = None
     def qualify(destination, state):
@@ -229,8 +229,8 @@ def encrypted_journals(emulator, receipt):
         receipt["encryptedJournals"].setdefault(destination, []).append(observed)
         if observed.get("packageState") != str(state) or observed.get("applicationEnabled") != str(state != 3).lower():
             raise RuntimeError("SYNTHETIC_PACKAGE_STATE_CHANGED")
-        if observed.get("readerStageCases") != "25" or observed.get("qualificationStageCases") != "16": raise RuntimeError("READER_STAGE_REPORTING_FAILED")
-        if observed.get("verdict") != "PASS_DISPOSABLE_ENCRYPTED_JOURNALS" or int(observed.get("cases", "0")) < 30:
+        if observed.get("readerStageCases") != "25" or observed.get("qualificationStageCases") != "19": raise RuntimeError("READER_STAGE_REPORTING_FAILED")
+        if observed.get("verdict") != "PASS_DISPOSABLE_ENCRYPTED_JOURNALS" or observed.get("cases") != "57":
             raise RuntimeError("ENCRYPTED_JOURNAL_QUALIFICATION_FAILED")
         if not re.fullmatch("[0-9a-f]{64}", observed.get("fixtureFingerprint", "")):
             raise RuntimeError("SYNTHETIC_FINGERPRINT_MISSING")
