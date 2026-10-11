@@ -77,8 +77,9 @@ begin
     join public.currencies c on c.code=p.default_currency and c.enabled
     where p.user_id=p_user_id and p.currency_selected;
   if selected_currency is null then return 'currency_selection_required'; end if;
-  insert into public.accounts(user_id,name,type,currency_code,status,is_default)
-    values(p_user_id,case when selected_locale='ar' then 'النقدية' else 'Cash' end,'cash',selected_currency,'active',true)
+  -- Use the existing active status default; the API can insert only its granted columns.
+  insert into public.accounts(user_id,name,type,currency_code,is_default)
+    values(p_user_id,case when selected_locale='ar' then 'النقدية' else 'Cash' end,'cash',selected_currency,true)
     returning id,version into account_id,account_version;
   perform private.enqueue_outbox_event('account.created','account',account_id,jsonb_build_object(
     'accountId',account_id,'userId',p_user_id,'version',account_version,'occurredAt',clock_timestamp()));

@@ -64,6 +64,37 @@ describeLiveDatabase('authenticated default Cash onboarding', () => {
     expect(evidence).toEqual({ transactions: 0, postings: 0, balance: '0' });
   });
 
+  it('provisions active Cash with restricted API column capabilities and no status insert privilege', async () => {
+    const capabilities = await pool.query(
+      `select has_table_privilege('masarifi_api','public.accounts','INSERT') table_insert,
+        has_column_privilege('masarifi_api','public.accounts','status','INSERT') status_insert,
+        has_column_privilege('masarifi_api','public.accounts','is_default','INSERT') default_insert,
+        has_column_privilege('masarifi_api','public.accounts','is_default','UPDATE') default_update`,
+    );
+    expect(capabilities.rows).toEqual([
+      { table_insert: false, status_insert: false, default_insert: true, default_update: true },
+    ]);
+    const owner = await customer();
+    await expect(
+      identity.withCustomerTransaction(owner, (client) =>
+        client.query(
+          "insert into public.accounts(user_id,name,type,currency_code,status) values($1,'Forbidden explicit status','cash','SAR','active')",
+          [owner.userId],
+        ),
+      ),
+    ).rejects.toThrow('permission denied for table accounts');
+    await selectCurrency(owner, 'AED');
+    expect(await accounts(owner.userId)).toMatchObject([
+      {
+        user_id: owner.userId,
+        type: 'cash',
+        currency_code: 'AED',
+        status: 'active',
+        is_default: true,
+      },
+    ]);
+  });
+
   it('does not treat bootstrap SAR or missing preferences as a selected currency', async () => {
     const owner = await customer();
     await identity.getProfile(owner);
