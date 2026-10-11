@@ -29,6 +29,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/api/package-lock.json
       - run: npm --prefix apps/api ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix apps/mobile ci --ignore-scripts --no-audit --no-fund
       - name: Start disposable local Supabase
         run: npm --prefix apps/api run supabase:start
       - run: npm --prefix apps/api run db:reset
