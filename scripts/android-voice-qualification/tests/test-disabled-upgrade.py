@@ -7,6 +7,13 @@ spec=importlib.util.spec_from_file_location('bootstrap',Path(__file__).resolve()
 bootstrap=importlib.util.module_from_spec(spec);spec.loader.exec_module(bootstrap)
 
 class UpgradeGuards(unittest.TestCase):
+    def test_replacement_command_preserves_enabled_state_and_is_user_zero_only(self):
+        from types import SimpleNamespace
+        calls=[]
+        emulator=SimpleNamespace(command=lambda *args:(calls.append(args) or 'Success\n'))
+        bootstrap.install_disabled_replacement(emulator,Path('synthetic.apk'))
+        self.assertEqual(calls, [('install','-r','--no-incremental','--no-streaming','--user','0','--skip-enable',Path('synthetic.apk'))])
+
     def test_upgrade_runtime_is_bound_to_built_apks_and_both_journal_phases(self):
         spec=importlib.util.spec_from_file_location('builder2',Path(__file__).resolve().parents[1]/'android-probe/build-probe.py')
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)

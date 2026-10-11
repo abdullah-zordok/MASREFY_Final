@@ -243,6 +243,12 @@ def upgrade_state(emulator):
     sha=emulator.command("shell","sha256sum",path[8:]).split()[0]
     return {"enabled":int(field("enabled")),"stopped":field("stopped")=="true","uid":uid,"quiet":quiet,"apkSha256":sha}
 
+def install_disabled_replacement(emulator,apk):
+    # Android15 normally re-enables an updated package. Preserve the disabled
+    # barrier atomically in the install session, never by racing a second disable.
+    output=emulator.command("install","-r","--no-incremental","--no-streaming","--user","0","--skip-enable",apk)
+    if not re.search(r"^Success\s*$",output,re.M):raise RuntimeError("UPGRADE_INSTALL_FAILED")
+
 def disabled_replacement(emulator,receipt,qualify,change):
     build=emulator.arguments.build
     inputs=json.loads((build/"build-receipt.json").read_text(encoding="utf-8"))
@@ -263,8 +269,7 @@ def disabled_replacement(emulator,receipt,qualify,change):
         emulator.command("shell","am","force-stop",TARGET)
         emulator.command("shell","am","force-stop","com.masarifi.voicequalification.rehearsal")
         require_upgrade_state(upgrade_state(emulator),3,uid,old)
-        output=emulator.command("install","-r","--no-incremental","--no-streaming",apk)
-        if not re.search(r"^Success\s*$",output,re.M):raise RuntimeError("UPGRADE_INSTALL_FAILED")
+        install_disabled_replacement(emulator,apk)
         drain_framework(emulator)
         require_upgrade_state(upgrade_state(emulator),3,uid,new)
         qualify("postReplacementRuns",3)
