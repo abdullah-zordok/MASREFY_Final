@@ -61,7 +61,7 @@ it('rediscovers an unexpired terminal receipt after the same owner resumes a new
     createdAt: '2026-10-05T00:00:00.000Z'
   };
   const request = jest.fn(
-    async (url: string | URL | Request) =>
+    async (url: string | URL | Request, _init?: RequestInit) =>
       ({
         ok: true,
         status: 200,
@@ -77,6 +77,13 @@ it('rediscovers an unexpired terminal receipt after the same owner resumes a new
     request: request as typeof fetch
   });
   expect((await api.recoverBatches()).results).toHaveLength(1);
+  expect(request.mock.calls[0]?.[1]).toEqual(
+    expect.objectContaining({
+      headers: expect.objectContaining({
+        accept: 'application/json; voice-event-results=1'
+      })
+    })
+  );
   api.pauseBatches();
   expect((await api.recoverBatches()).results).toHaveLength(1);
 });

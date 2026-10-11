@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { AiRepository } from '../../../src/ai/ai.repository';
+import { AiController } from '../../../src/ai/ai.controller';
+import { AiService } from '../../../src/ai/ai.service';
 import {
   decideVoiceBatch,
   parseVoiceBatchProviderOutput,
@@ -160,6 +163,216 @@ describeLiveDatabase('Voice extracted multi-event authoritative posting', () => 
   async function finish() {
     await new AiRepository(pool).finalizeVoiceBatches(25);
   }
+  it.each(['batch', 'recovery'] as const)(
+    'keeps the negotiated %s snapshot consistent when finalization commits during the owner read',
+    async (channel) => {
+      const f = await fixture([event()]);
+      const principal = { userId: f.user, sessionId: 'local-fixture', factorAgeSeconds: 0 };
+      const ownerPool = createLivePool();
+      const withClient = ownerPool.withClient.bind(ownerPool);
+      let aggregate: Record<string, unknown> | undefined;
+      let coordinated = false;
+      // Coordinate real SQL at the driver boundary. No mocked rows or function DDL.
+      const spy = jest.spyOn(ownerPool, 'withClient').mockImplementation((action) =>
+        withClient(async (client) => {
+          const coordinatedClient = Object.create(client) as PoolClient;
+          coordinatedClient.query = (async (sql: string, values?: unknown[]) => {
+            if (
+              !coordinated &&
+              /private\.(?:get_voice_batch_event_result|list_voice_batch_event_recovery)/.test(sql)
+            ) {
+              coordinated = true;
+              aggregate = required(
+                (
+                  await client.query<{ result: Record<string, unknown> }>(
+                    'select private.get_voice_batch_result($1,$2) result',
+                    [f.user, f.session],
+                  )
+                ).rows[0],
+              ).result;
+              expect(aggregate.addedCount).toBe(0);
+              // A distinct connection commits through the unchanged real executor.
+              await finish();
+              expect((await result(f)).effects[0]?.status).toBe('committed');
+            }
+            return client.query<Record<string, unknown>>(sql, values);
+          }) as PoolClient['query'];
+          return action(coordinatedClient);
+        }),
+      );
+      try {
+        const repository = new AiRepository(ownerPool);
+        const response =
+          channel === 'batch'
+            ? await repository.getVoiceBatchResult(principal, f.session, true)
+            : await repository.listVoiceBatchRecovery(principal, null, null, 100, true);
+        const receipt =
+          channel === 'batch'
+            ? response
+            : required((response.items as Record<string, unknown>[])[0]);
+        expect(coordinated).toBe(true);
+        expect(receipt).toMatchObject({
+          addedCount: 0,
+          transactionIds: [],
+          ledgerVersion: 0,
+          outcomes: [
+            { ordinal: 0, kind: 'expense', status: 'eligible', reason: null, transactionId: null },
+          ],
+        });
+        expect(receipt.addedCount).toEqual(aggregate?.addedCount);
+        spy.mockRestore();
+        const fresh = await repository.getVoiceBatchResult(principal, f.session, true);
+        expect(fresh.addedCount).toBe(1);
+        expect(fresh.outcomes).toEqual([
+          expect.objectContaining({
+            ordinal: 0,
+            status: 'committed',
+            transactionId: (fresh.transactionIds as string[])[0],
+          }),
+        ]);
+      } finally {
+        spy.mockRestore();
+        await ownerPool.onModuleDestroy();
+      }
+    },
+  );
+  it('projects every outcome only for opted-in owners and preserves legacy recovery receipts', async () => {
+    const f = await fixture([event(), event({ s: 2, b: 'a:' }), event({ s: 3, k: 't' })]);
+    await finish();
+    const repository = new AiRepository(pool);
+    const principal = { userId: f.user, sessionId: 'local-fixture', factorAgeSeconds: 0 };
+    const before = await result(f);
+    const legacy = await repository.getVoiceBatchResult(principal, f.session);
+    expect(Object.keys(legacy).sort()).toEqual([
+      'addedCount',
+      'batchId',
+      'ledgerVersion',
+      'sessionId',
+      'status',
+      'transactionIds',
+    ]);
+    const opted = await repository.getVoiceBatchResult(principal, f.session, true);
+    expect(opted).toEqual({
+      ...legacy,
+      outcomes: [
+        {
+          ordinal: 0,
+          kind: 'expense',
+          status: 'committed',
+          reason: null,
+          transactionId: before.effects[0]?.transaction_id,
+        },
+        {
+          ordinal: 1,
+          kind: null,
+          status: 'skipped',
+          reason: 'ambiguous_account',
+          transactionId: null,
+        },
+        {
+          ordinal: 2,
+          kind: null,
+          status: 'skipped',
+          reason: 'unsupported_event',
+          transactionId: null,
+        },
+      ],
+    });
+    const controller = new AiController(
+      new AiService(
+        repository,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      ),
+    );
+    const request = { clerkPrincipal: principal } as Parameters<
+      AiController['getVoiceBatchResult']
+    >[0];
+    expect(await controller.getVoiceBatchResult(request, f.session)).toEqual(legacy);
+    expect(
+      await controller.getVoiceBatchResult(
+        request,
+        f.session,
+        'application/json; voice-event-results=1',
+      ),
+    ).toEqual(opted);
+    expect(
+      await controller.listVoiceBatchRecovery(
+        request,
+        undefined,
+        undefined,
+        'application/json; voice-event-results=1',
+      ),
+    ).toEqual(expect.objectContaining({ items: [expect.objectContaining(opted)] }));
+    const recovery = await repository.listVoiceBatchRecovery(principal, null, null, 100, true);
+    expect(recovery.items).toEqual([expect.objectContaining(opted)]);
+    const oldRecovery = await repository.listVoiceBatchRecovery(principal, null, null, 100);
+    expect(oldRecovery.items).toEqual([expect.objectContaining(legacy)]);
+    expect((oldRecovery.items as Record<string, unknown>[])[0]).not.toHaveProperty('outcomes');
+    await expect(
+      repository.getVoiceBatchResult({ ...principal, userId: randomUUID() }, f.session, true),
+    ).rejects.toThrow();
+    const otherUser = randomUUID();
+    await pool.query("insert into public.profiles(id,status) values($1,'active')", [otherUser]);
+    await expect(
+      repository.getVoiceBatchResult({ ...principal, userId: otherUser }, f.session, true),
+    ).rejects.toThrow();
+    expect(
+      await repository.listVoiceBatchRecovery(
+        { ...principal, userId: otherUser },
+        null,
+        null,
+        100,
+        true,
+      ),
+    ).toEqual({ items: [] });
+    expect(await result(f)).toEqual(before);
+  });
+  it('grants the owner result capabilities only to the API role', async () => {
+    for (const signature of [
+      'private.get_voice_batch_event_result(text,uuid)',
+      'private.list_voice_batch_event_recovery(text,timestamptz,uuid,integer)',
+    ]) {
+      const privileges = await pool.query(
+        "select has_function_privilege('masarifi_api',$1,'EXECUTE') api,has_function_privilege('masarifi_worker',$1,'EXECUTE') worker,has_function_privilege('anon',$1,'EXECUTE') anon,has_function_privilege('authenticated',$1,'EXECUTE') authenticated",
+        [signature],
+      );
+      expect(privileges.rows[0]).toEqual({
+        api: true,
+        worker: false,
+        anon: false,
+        authenticated: false,
+      });
+    }
+  });
+  it('projects waiting, cancelled and failed outcomes without creating financial effects', async () => {
+    const f = await fixture([event(), event({ s: 2 }), event({ s: 3, a: '' })]);
+    const repository = new AiRepository(pool);
+    const principal = { userId: f.user, sessionId: 'local-fixture', factorAgeSeconds: 0 };
+    const waiting = await repository.getVoiceBatchResult(principal, f.session, true);
+    expect(waiting.outcomes).toEqual([
+      { ordinal: 0, kind: 'expense', status: 'eligible', reason: null, transactionId: null },
+      { ordinal: 1, kind: 'expense', status: 'eligible', reason: null, transactionId: null },
+      { ordinal: 2, kind: null, status: 'skipped', reason: 'missing_amount', transactionId: null },
+    ]);
+    // Fixture terminal states exercise the read projection only, never the executor.
+    await pool.query(
+      "update private.voice_events set status=case when ordinal=0 then 'cancelled' else 'execution_failed' end where batch_id=$1 and status='eligible'",
+      [f.batch],
+    );
+    const terminal = await repository.getVoiceBatchResult(principal, f.session, true);
+    expect(terminal.outcomes).toEqual([
+      { ordinal: 0, kind: null, status: 'cancelled', reason: null, transactionId: null },
+      { ordinal: 1, kind: null, status: 'execution_failed', reason: null, transactionId: null },
+      { ordinal: 2, kind: null, status: 'skipped', reason: 'missing_amount', transactionId: null },
+    ]);
+    expect(terminal.transactionIds).toEqual([]);
+    expect((await result(f)).effects.every((effect) => effect.transaction_id === null)).toBe(true);
+  });
   it('marks disabled-currency work references unavailable without shrinking the account window', async () => {
     await pool.query("update public.currencies set enabled=false where code='USD'");
     try {

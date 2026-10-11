@@ -63,8 +63,7 @@ function mapped(error: unknown): Error {
       : '';
   if (message === 'VOICE_AUTOMATIC_UNAVAILABLE')
     return new HttpException({ code: 'VOICE_AUTOMATIC_UNAVAILABLE' }, 503);
-  if (message === 'PROFILE_INACTIVE')
-    return new HttpException({ code: 'PROFILE_INACTIVE' }, 403);
+  if (message === 'PROFILE_INACTIVE') return new HttpException({ code: 'PROFILE_INACTIVE' }, 403);
   if (/NOT_FOUND/.test(message)) return new HttpException({ code: message }, 404);
   if (/EXPIRED/.test(message)) return new HttpException({ code: message }, 410);
   if (/CONFLICT|FENCE|IN_PROGRESS|REUSED/.test(message))
@@ -217,23 +216,23 @@ export class AiRepository {
     );
   }
 
-  getVoiceBatchResult(principal: ClerkPrincipal, sessionId: string) {
-    return this.ownerJson(principal, 'select private.get_voice_batch_result($1,$2::uuid) result', [
-      principal.userId,
-      sessionId,
-    ]);
+  getVoiceBatchResult(principal: ClerkPrincipal, sessionId: string, eventResults = false) {
+    const sql = eventResults
+      ? 'select private.get_voice_batch_event_result($1,$2::uuid) result'
+      : 'select private.get_voice_batch_result($1,$2::uuid) result';
+    return this.ownerJson(principal, sql, [principal.userId, sessionId], eventResults);
   }
   listVoiceBatchRecovery(
     principal: ClerkPrincipal,
     after: string | null,
     afterId: string | null,
     limit: number,
+    eventResults = false,
   ) {
-    return this.ownerJson(
-      principal,
-      'select private.list_voice_batch_recovery($1,$2::timestamptz,$3::uuid,$4) result',
-      [principal.userId, after, afterId, limit],
-    );
+    const sql = eventResults
+      ? 'select private.list_voice_batch_event_recovery($1,$2::timestamptz,$3::uuid,$4) result'
+      : 'select private.list_voice_batch_recovery($1,$2::timestamptz,$3::uuid,$4) result';
+    return this.ownerJson(principal, sql, [principal.userId, after, afterId, limit], eventResults);
   }
   acceptVoiceBatch(id: string, token: string, decisions: unknown, policy: string) {
     return this.workerJson(
@@ -1353,11 +1352,17 @@ export class AiRepository {
     });
   }
 
-  private ownerJson(principal: ClerkPrincipal, sql: string, values: readonly unknown[]) {
+  private ownerJson(
+    principal: ClerkPrincipal,
+    sql: string,
+    values: readonly unknown[],
+    repeatableRead = false,
+  ) {
     return this.owner(
       principal,
       async (client) =>
         publicValue(await this.json(client, sql, values)) as Record<string, unknown>,
+      repeatableRead,
     );
   }
   private workerJson(sql: string, values: readonly unknown[]) {
@@ -1382,8 +1387,12 @@ export class AiRepository {
     if (!result) throw new Error('AI_RESULT_MISSING');
     return result;
   }
-  private owner<T>(principal: ClerkPrincipal, action: (client: PoolClient) => Promise<T>) {
-    return this.transaction('masarifi_api', principal, action);
+  private owner<T>(
+    principal: ClerkPrincipal,
+    action: (client: PoolClient) => Promise<T>,
+    repeatableRead = false,
+  ) {
+    return this.transaction('masarifi_api', principal, action, repeatableRead);
   }
   private worker<T>(action: (client: PoolClient) => Promise<T>) {
     return this.transaction('masarifi_worker', null, action);
@@ -1392,9 +1401,12 @@ export class AiRepository {
     role: 'masarifi_api' | 'masarifi_worker',
     principal: ClerkPrincipal | null,
     action: (client: PoolClient) => Promise<T>,
+    repeatableRead = false,
   ): Promise<T> {
     return this.pool.withClient(async (client) => {
-      await client.query('begin');
+      // Negotiated Voice receipts compose multiple capability reads. Keep one
+      // snapshot, while allowing the legacy getter to expire analysis context.
+      await client.query(repeatableRead ? 'begin isolation level repeatable read' : 'begin');
       try {
         if (principal)
           await client.query("select set_config('request.jwt.claims',$1,true)", [

@@ -76,13 +76,18 @@ export class AiController {
     @Req() request: AiRequest,
     @Query('after') after?: string,
     @Query('afterId') afterId?: string,
+    @Headers('accept') accept?: string,
   ) {
-    return this.ai.listVoiceBatchRecovery(principal(request), after, afterId);
+    return this.ai.listVoiceBatchRecovery(principal(request), after, afterId, accept);
   }
   @Get('voice/sessions/:sessionId/batch')
   @ApiOperation({ operationId: 'getVoiceBatchResult' })
-  getVoiceBatchResult(@Req() request: AiRequest, @Param('sessionId') id: string) {
-    return this.ai.getVoiceBatchResult(principal(request), id);
+  getVoiceBatchResult(
+    @Req() request: AiRequest,
+    @Param('sessionId') id: string,
+    @Headers('accept') accept?: string,
+  ) {
+    return this.ai.getVoiceBatchResult(principal(request), id, accept);
   }
 
   @Get('voice/sessions/:sessionId/recovery')

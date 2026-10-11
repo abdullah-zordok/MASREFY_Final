@@ -6,7 +6,7 @@ import type {
   VoiceBatchApi,
   VoiceBatchResult
 } from '@/services/live/voice-batch-api-service';
-import { translate } from '@/localization/i18n';
+import { translate, translateDynamic } from '@/localization/i18n';
 import { VoiceBatchStatus } from './VoiceBatchStatus';
 import { useVoiceBatches } from './useVoiceBatches';
 import { voiceAnalysisKey } from './voice-analysis-query';
@@ -31,6 +31,21 @@ const empty = {
   uncertain: false,
   localFailure: false
 };
+
+function statusFixture(
+  latest: VoiceBatchResult
+): ReturnType<typeof useVoiceBatches> {
+  return {
+    ...empty,
+    latest,
+    submit: jest.fn(),
+    recover: async () => undefined,
+    cancel: async () => undefined,
+    cancelIds: [],
+    localFailureCode: undefined,
+    processing: false
+  };
+}
 
 function mount() {
   const client = new QueryClient({
@@ -57,6 +72,79 @@ function mount() {
     }
   };
 }
+
+it('confirms the authoritative saved count for a multi-event receipt without another Save action', async () => {
+  Object.assign(voiceAnalyzerService, {
+    recoverBatches: async () => empty,
+    runBatch: async () => ({
+      ...receipt('completed'),
+      addedCount: 2,
+      transactionIds: [
+        '33333333-3333-4333-8333-333333333333',
+        '44444444-4444-4444-8444-444444444444'
+      ],
+      ledgerVersion: 2
+    }),
+    pauseBatches: () => undefined
+  });
+  const view = mount();
+  try {
+    await act(async () => {});
+    await act(async () => view.batches.submit(capture));
+    expect(
+      screen.getByText(translateDynamic('voice.batch.added', { count: 2 }))
+    ).toBeTruthy();
+    expect(screen.queryByText(translate('voice.batch.empty'))).toBeNull();
+  } finally {
+    view.unmount();
+  }
+});
+
+it.each([
+  { addedCount: 2, transactionIds: [capture, capture], ledgerVersion: 2 },
+  {
+    addedCount: 2,
+    transactionIds: [capture, session, capture],
+    ledgerVersion: 2
+  },
+  { addedCount: 1, transactionIds: [capture], ledgerVersion: 0 },
+  {
+    addedCount: 1,
+    transactionIds: [capture],
+    ledgerVersion: 1,
+    analysis: {
+      mode: 'analysis_only',
+      persisted: false,
+      events: [],
+      expiresAt: new Date(Date.now() + 60000).toISOString()
+    }
+  }
+])(
+  'does not claim financial saving from an incomplete or analysis-only receipt %#',
+  (fields) => {
+    const latest = { ...receipt('completed'), ...fields } as VoiceBatchResult;
+    render(<VoiceBatchStatus batches={statusFixture(latest)} />);
+    expect(
+      screen.queryByText(
+        translateDynamic('voice.batch.added', { count: latest.addedCount })
+      )
+    ).toBeNull();
+  }
+);
+
+it('shows the committed count and remaining failure for a partial financial receipt', () => {
+  const latest = {
+    ...receipt('failed'),
+    addedCount: 1,
+    transactionIds: [capture],
+    ledgerVersion: 1
+  };
+  render(<VoiceBatchStatus batches={statusFixture(latest)} />);
+  expect(
+    screen.getByText(translateDynamic('voice.batch.added', { count: 1 }))
+  ).toBeTruthy();
+  expect(screen.getByText(translate('voice.batch.failed'))).toBeTruthy();
+});
 
 it('scrubs expired analysis fields from hook state and shared cache', async () => {
   jest.useFakeTimers();

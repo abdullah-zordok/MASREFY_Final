@@ -1231,6 +1231,23 @@ const ar: MessageCatalog = {
   'voice.action.checkResult': 'التحقق من نتيجة التأكيد',
   'voice.action.cancel': 'إلغاء',
   'voice.batch.added': 'تمت إضافة {{count}} معاملات.',
+  'voice.batch.event.result': 'الحدث {{number}}: {{result}}',
+  'voice.batch.event.committed': 'تم الحفظ',
+  'voice.batch.event.eligible': 'بانتظار الإكمال',
+  'voice.batch.event.cancelled': 'أُلغي — لم يُضف',
+  'voice.batch.event.execution_failed': 'تعذّر الإكمال — لم يُضف',
+  'voice.batch.event.reason.missing_amount': 'لم يُضف — المبلغ غير واضح.',
+  'voice.batch.event.reason.ambiguous_account': 'لم يُضف — تعذّر تحديد الحساب.',
+  'voice.batch.event.reason.invalid_category': 'لم يُضف — الفئة غير متاحة.',
+  'voice.batch.event.reason.invalid_date': 'لم يُضف — التاريخ غير واضح.',
+  'voice.batch.event.reason.currency_mismatch':
+    'لم يُضف — عملة الحساب غير مطابقة.',
+  'voice.batch.event.reason.unsupported_event':
+    'لم يُضف — نوع الحدث غير مدعوم.',
+  'voice.batch.event.reason.authorization_required':
+    'لم يُضف — كان التفويض مطلوبًا.',
+  'voice.batch.event.reason.invalid_event':
+    'لم يُضف — تعذّر تحديد الحدث بأمان.',
   'voice.analysis.unsaved': 'تم التحليل — لم يتم الحفظ',
   'voice.analysis.noPosting':
     'تحليل تجريبي فقط. لم تُحفظ معاملات ولم تتغير الأرصدة.',

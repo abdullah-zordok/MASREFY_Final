@@ -13,6 +13,17 @@ const CONTENT_TYPES = new Set([
   'audio/wav',
   'audio/webm',
 ]);
+
+/** New clients explicitly request the additive projection; legacy receipts stay exact. */
+export function wantsVoiceEventResults(accept?: string): boolean {
+  return (accept ?? '')
+    .split(',')
+    .some(
+      (media) =>
+        /^\s*application\/json\s*(?:;|$)/i.test(media) &&
+        /;\s*voice-event-results\s*=\s*(?:1|"1")\s*(?:;|$)/i.test(media),
+    );
+}
 const SCOPES = new Set([
   'accounts_summary',
   'recent_transactions',

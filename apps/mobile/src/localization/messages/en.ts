@@ -1269,6 +1269,26 @@ const en = {
   'voice.action.checkResult': 'Check confirmation result',
   'voice.action.cancel': 'Cancel',
   'voice.batch.added': 'Added {{count}} transactions.',
+  'voice.batch.event.result': 'Event {{number}}: {{result}}',
+  'voice.batch.event.committed': 'Saved',
+  'voice.batch.event.eligible': 'Waiting to finish',
+  'voice.batch.event.cancelled': 'Cancelled — not added',
+  'voice.batch.event.execution_failed': 'Could not finish — not added',
+  'voice.batch.event.reason.missing_amount':
+    'Not added — the amount was unclear.',
+  'voice.batch.event.reason.ambiguous_account':
+    'Not added — the account could not be identified.',
+  'voice.batch.event.reason.invalid_category':
+    'Not added — the category was unavailable.',
+  'voice.batch.event.reason.invalid_date': 'Not added — the date was unclear.',
+  'voice.batch.event.reason.currency_mismatch':
+    'Not added — the account currency did not match.',
+  'voice.batch.event.reason.unsupported_event':
+    'Not added — this event type is not supported.',
+  'voice.batch.event.reason.authorization_required':
+    'Not added — authorization was required.',
+  'voice.batch.event.reason.invalid_event':
+    'Not added — the event could not be resolved safely.',
   'voice.analysis.unsaved': 'Analyzed — not saved',
   'voice.analysis.noPosting':
     'Staging analysis only. No transactions saved; balances unchanged.',

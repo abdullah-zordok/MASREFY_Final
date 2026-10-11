@@ -30,6 +30,37 @@ export const voiceBatchResultSchema = z
     transactionIds: z.array(z.string().uuid()).max(10),
     addedCount: z.number().int().min(0).max(10),
     ledgerVersion: z.number().int().nonnegative(),
+    outcomes: z
+      .array(
+        z
+          .object({
+            ordinal: z.number().int().min(0).max(9),
+            kind: z.enum(['expense', 'income']).nullable(),
+            status: z.enum([
+              'eligible',
+              'committed',
+              'skipped',
+              'cancelled',
+              'execution_failed'
+            ]),
+            reason: z
+              .enum([
+                'missing_amount',
+                'ambiguous_account',
+                'invalid_category',
+                'invalid_date',
+                'currency_mismatch',
+                'unsupported_event',
+                'authorization_required',
+                'invalid_event'
+              ])
+              .nullable(),
+            transactionId: z.string().uuid().nullable()
+          })
+          .strict()
+      )
+      .max(10)
+      .optional(),
     analysis: z
       .object({
         mode: z.literal('analysis_only'),
@@ -57,17 +88,38 @@ export const voiceBatchResultSchema = z
       .optional()
   })
   .strict()
-  .refine(
-    (value) =>
+  .refine((value) => {
+    const outcomes = value.outcomes;
+    const committed =
+      outcomes?.filter((event) => event.status === 'committed') ?? [];
+    return (
       value.addedCount === value.transactionIds.length &&
       new Set(value.transactionIds).size === value.addedCount &&
+      (!outcomes ||
+        (outcomes.every(
+          (event, index) =>
+            (index === 0 || event.ordinal > outcomes[index - 1].ordinal) &&
+            (event.status === 'committed') === (event.transactionId !== null) &&
+            (event.status === 'skipped') === (event.reason !== null) &&
+            (event.status !== 'committed' ||
+              (event.kind !== null && value.ledgerVersion > 0))
+        ) &&
+          committed.length === value.addedCount &&
+          committed.every(
+            (event) =>
+              event.transactionId !== null &&
+              value.transactionIds.includes(event.transactionId)
+          ) &&
+          new Set(committed.map((event) => event.transactionId)).size ===
+            value.addedCount)) &&
       (!value.analysis ||
         (value.status === 'completed' &&
           value.addedCount === 0 &&
           value.ledgerVersion === 0 &&
           new Set(value.analysis.events.map((event) => event.ordinal)).size ===
             value.analysis.events.length))
-  );
+    );
+  });
 export type VoiceBatchResult = z.infer<typeof voiceBatchResultSchema>;
 export class VoiceBatchLocalTerminalError extends VoiceCaptureError {
   constructor(
@@ -200,6 +252,11 @@ export function createVoiceBatchApi(options: {
           signal,
           headers: {
             authorization: 'Bearer ' + token,
+            ...(method === 'GET' &&
+            (path.endsWith('/batch') ||
+              path.startsWith('/api/v1/voice/batches/recovery'))
+              ? { accept: 'application/json; voice-event-results=1' }
+              : {}),
             'X-Voice-Contract': '3',
             'X-Request-Id': requestId,
             'content-type': audio ? 'audio/m4a' : 'application/json',
@@ -236,7 +293,9 @@ export function createVoiceBatchApi(options: {
           const now = Date.now();
           const reset = quota.success ? Date.parse(quota.data.resetsAt) : NaN;
           throw new VoiceBatchRateLimited(
-            reset > now ? Math.min(reset, now + quotaRetryMs) : now + quotaRetryMs
+            reset > now
+              ? Math.min(reset, now + quotaRetryMs)
+              : now + quotaRetryMs
           );
         }
         if ([400, 403, 404, 410, 422].includes(response.status)) {
@@ -558,7 +617,9 @@ export function createVoiceBatchApi(options: {
         // Quota entitlements can change while queued. Recheck at most once a minute,
         // including journals written by the earlier reset-time-only implementation.
         if (operation.retryAfterAt > Date.now() + quotaRetryMs)
-          await update(b, operation, { retryAfterAt: Date.now() + quotaRetryMs });
+          await update(b, operation, {
+            retryAfterAt: Date.now() + quotaRetryMs
+          });
         return server;
       }
       if (!operation.processBody) {

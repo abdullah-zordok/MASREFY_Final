@@ -25,6 +25,7 @@ import {
   uuid,
   voicePreference,
   voiceDecision,
+  wantsVoiceEventResults,
 } from './ai.dto';
 import { recordAiResult } from './ai.observability';
 import { AiRepository } from './ai.repository';
@@ -199,10 +200,19 @@ export class AiService {
     return { id: sessionId, status: 'queued' };
   }
 
-  getVoiceBatchResult(principal: ClerkPrincipal, sessionId: string) {
-    return this.repository.getVoiceBatchResult(principal, uuid(sessionId));
+  getVoiceBatchResult(principal: ClerkPrincipal, sessionId: string, accept?: string) {
+    return this.repository.getVoiceBatchResult(
+      principal,
+      uuid(sessionId),
+      wantsVoiceEventResults(accept),
+    );
   }
-  listVoiceBatchRecovery(principal: ClerkPrincipal, after?: string, afterId?: string) {
+  listVoiceBatchRecovery(
+    principal: ClerkPrincipal,
+    after?: string,
+    afterId?: string,
+    accept?: string,
+  ) {
     if (
       (after && !afterId) ||
       (!after && afterId) ||
@@ -214,6 +224,7 @@ export class AiService {
       after ?? null,
       afterId ? uuid(afterId) : null,
       100,
+      wantsVoiceEventResults(accept),
     );
   }
 

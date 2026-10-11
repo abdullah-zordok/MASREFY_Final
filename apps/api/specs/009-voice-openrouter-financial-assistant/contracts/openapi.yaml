@@ -15,23 +15,40 @@ paths:
   /api/v1/voice/batches/recovery:
     get:
       operationId: listVoiceBatchRecovery
-      description: Owner-scoped v3 recovery of recent sessions (seven days) and unresolved batches ordered by createdAt and sessionId. Up to 100 items; continue with the last createdAt and sessionId as after/afterId. No candidates or skip diagnostics.
+      description: Owner-scoped v3 recovery of recent sessions (seven days) and unresolved batches ordered by createdAt and sessionId. Up to 100 items; continue with the last createdAt and sessionId as after/afterId. Legacy receipts stay unchanged unless the JSON Accept header opts in to voice-event-results=1. Opted-in receipts include sanitized numbered event outcomes only.
       parameters:
         - { name: after, in: query, schema: { type: string, format: date-time } }
         - { name: afterId, in: query, schema: { type: string, format: uuid } }
+        - $ref: '#/components/parameters/VoiceEventResultsAccept'
       responses:
-        '200': { description: Public batch receipts and processing states }
+        '200':
+          description: Public batch receipts and processing states; outcomes appear only when negotiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/VoiceBatchRecoveryItem' }
   /api/v1/voice/sessions/{sessionId}/batch:
     get:
       operationId: getVoiceBatchResult
       parameters:
         - $ref: '#/components/parameters/AiVoiceSessionId'
+        - $ref: '#/components/parameters/VoiceEventResultsAccept'
       responses:
         '200':
-          description: Public v3 batch status and committed receipts only
+          description: Public v3 batch status and committed receipts. Event outcomes are additive only when explicitly negotiated through Accept; skipped kinds are null when not retained. No amount, provider narrative or audio is exposed by the outcome projection.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/VoiceBatchResult' }
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/VoiceBatchResult' }
+                  - { $ref: '#/components/schemas/VoiceBatchEventResult' }
   /api/v1/voice/sessions:
     post:
       tags: [Voice]
@@ -866,6 +883,12 @@ components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   parameters:
+    VoiceEventResultsAccept:
+      name: Accept
+      in: header
+      required: false
+      description: Set application/json; voice-event-results=1 to request per-event outcomes. Omitted or unsupported values return the exact legacy receipt.
+      schema: { type: string, example: 'application/json; voice-event-results=1' }
     LegacyVoiceContract:
       name: X-Voice-Contract
       in: header
@@ -998,6 +1021,47 @@ components:
           { type: array, maxItems: 10, uniqueItems: true, items: { type: string, format: uuid } }
         addedCount: { type: integer, minimum: 0, maximum: 10 }
         ledgerVersion: { type: integer, minimum: 0 }
+    VoiceBatchEventResult:
+      type: object
+      additionalProperties: false
+      required: [sessionId, batchId, status, transactionIds, addedCount, ledgerVersion, outcomes]
+      properties:
+        sessionId: { type: string, format: uuid }
+        batchId: { type: [string, 'null'], format: uuid }
+        status:
+          { type: string, enum: [uploading, queued, analyzing, finalizing, completed, cancelled, failed] }
+        transactionIds:
+          { type: array, maxItems: 10, uniqueItems: true, items: { type: string, format: uuid } }
+        addedCount: { type: integer, minimum: 0, maximum: 10 }
+        ledgerVersion: { type: integer, minimum: 0 }
+        outcomes:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/VoiceEventOutcome' }
+    VoiceEventOutcome:
+      type: object
+      additionalProperties: false
+      required: [ordinal, kind, status, reason, transactionId]
+      properties:
+        ordinal: { type: integer, minimum: 0, maximum: 9 }
+        kind: { enum: [expense, income, null] }
+        status: { enum: [eligible, committed, skipped, cancelled, execution_failed] }
+        reason:
+          enum: [missing_amount, ambiguous_account, invalid_category, invalid_date, currency_mismatch, unsupported_event, authorization_required, invalid_event, null]
+        transactionId: { type: [string, 'null'], format: uuid }
+    VoiceBatchRecoveryItem:
+      type: object
+      additionalProperties: false
+      required: [createdAt, sessionId, batchId, status, transactionIds, addedCount, ledgerVersion]
+      properties:
+        createdAt: { type: string, format: date-time }
+        sessionId: { $ref: '#/components/schemas/VoiceBatchResult/properties/sessionId' }
+        batchId: { $ref: '#/components/schemas/VoiceBatchResult/properties/batchId' }
+        status: { $ref: '#/components/schemas/VoiceBatchResult/properties/status' }
+        transactionIds: { $ref: '#/components/schemas/VoiceBatchResult/properties/transactionIds' }
+        addedCount: { $ref: '#/components/schemas/VoiceBatchResult/properties/addedCount' }
+        ledgerVersion: { $ref: '#/components/schemas/VoiceBatchResult/properties/ledgerVersion' }
+        outcomes: { $ref: '#/components/schemas/VoiceBatchEventResult/properties/outcomes' }
     CreateVoiceSessionRequest:
       type: object
       additionalProperties: false
