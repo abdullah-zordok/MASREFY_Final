@@ -7,6 +7,8 @@ import {
   makeTransaction
 } from '@/test-utils/core-finance-fixtures';
 import { createMockCoreFinanceService } from './mocks/core-finance-service';
+import { readHomeTodayActivity } from './home-today-activity';
+import type { TransactionPage } from './contracts/core-finance-service';
 
 const now = Date.parse('2026-10-08T20:59:00Z');
 const day = todayPeriod(now, { timeZone: 'Asia/Riyadh', monthStartDay: 1 });
@@ -154,6 +156,88 @@ it('reads beyond a hundred daily transactions and preserves distinct repeated st
   expect(activity).toHaveLength(123);
   expect(activity[0].transaction.id).toBe('transaction-1');
   expect(activity[122].transaction.id).toBe('transaction-123');
+});
+
+it('continues after an empty filtered API page and keeps only the newest version in the selected account', async () => {
+  const committed = makeTransaction(50, {
+    amountMinor: 5000,
+    title: 'Existing manual expense',
+    accountId: 'account-wallet',
+    occurredAt: now,
+    status: 'posted',
+    syncStatus: 'synced',
+    reviewStatus: 'none',
+    version: 2
+  });
+  const pages: Record<string, TransactionPage> = {
+    first: { items: [], nextCursor: 'second' },
+    second: { items: [{ ...committed, version: 1 }, makeTransaction(51, {
+      accountId: 'account-bank', occurredAt: now, status: 'posted',
+      syncStatus: 'synced', reviewStatus: 'none'
+    })], nextCursor: 'third' },
+    third: { items: [committed], nextCursor: null }
+  };
+  const activity = await readHomeTodayActivity({
+    filters: { ...filters, accountIds: ['account-wallet'] },
+    listTransactions: async (_filters, cursor, pageSize) => {
+      if (pageSize !== 100) throw new Error('Unexpected API page size');
+      return pages[cursor ?? 'first'];
+    },
+    readSignedEffect: async () => { throw new Error('Expense needs no detail read'); }
+  });
+  expect(activity).toHaveLength(1);
+  expect(activity[0]).toMatchObject({
+    transaction: { id: 'transaction-50', amountMinor: 5000, version: 2 },
+    group: 'expense', sign: 'negative'
+  });
+});
+
+it('rejects a repeated pagination cursor instead of returning an incomplete Today group', async () => {
+  await expect(readHomeTodayActivity({
+    filters,
+    listTransactions: async () => ({ items: [], nextCursor: 'repeated' }),
+    readSignedEffect: async () => null
+  })).rejects.toMatchObject({ code: 'unknown' });
+});
+
+it('does not turn a later-page error into successful partial Today activity', async () => {
+  await expect(readHomeTodayActivity({
+    filters,
+    listTransactions: async (_filters, cursor) => {
+      if (cursor) throw new Error('Second page unavailable');
+      return { items: [makeTransaction(50, {
+        amountMinor: 5000, occurredAt: now, status: 'posted',
+        syncStatus: 'synced', reviewStatus: 'none'
+      })], nextCursor: 'next-page' };
+    },
+    readSignedEffect: async () => null
+  })).rejects.toThrow('Second page unavailable');
+});
+
+it.each([
+  ['2026-10-10T20:59:00Z', 1],
+  ['2026-10-10T21:01:00Z', 0]
+] as const)('places the retained 50 SAR Manual expense on its actual Riyadh day at %s', async (anchor, expectedCount) => {
+  // Retained 91213b4 receipt: hash8cda91ee19c3e064, not a new financial write.
+  const existingManual = makeTransaction(50, {
+    amountMinor: 5000,
+    occurredAt: Date.parse('2026-10-10T20:51:01.901+00:00'),
+    source: 'manual', type: 'expense', status: 'posted',
+    syncStatus: 'synced', reviewStatus: 'none'
+  });
+  const period = todayPeriod(Date.parse(anchor), {
+    timeZone: 'Asia/Riyadh', monthStartDay: 1
+  });
+  const activity = await readHomeTodayActivity({
+    filters: { ...emptyTransactionFilters, periodStart: period.periodStart, periodEnd: period.periodEnd },
+    listTransactions: async () => ({ items: [existingManual], nextCursor: null }),
+    readSignedEffect: async () => null
+  });
+  expect(activity).toHaveLength(expectedCount);
+  if (expectedCount) expect(activity[0]).toMatchObject({
+    transaction: { amountMinor: 5000, occurredAt: 1791665461901 },
+    group: 'expense', sign: 'negative'
+  });
 });
 
 it('classifies refunds and reversals from their financial effect without adding the older original to today', async () => {

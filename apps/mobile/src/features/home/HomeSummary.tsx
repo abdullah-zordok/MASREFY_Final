@@ -40,6 +40,8 @@ import { useTheme } from '@/state/theme-context';
 import { formatFinancialDisplayValue } from '@/utils/format-financial-value';
 import type { HomeTodayActivity } from '@/services/contracts/core-finance-service';
 import { AccountScopeSheet } from '@/features/accounts/AccountScopeSheet';
+import { useHomeActivityOffset } from './HomeActivityViewport';
+import { HomeActivityRows } from './HomeActivityRows';
 
 export function HomeSummary({
   accounts,
@@ -65,6 +67,8 @@ export function HomeSummary({
   const direction = usePreferenceStore((state) => state.direction);
   const reducedMotion = usePreferenceStore((state) => state.reducedMotion);
   const theme = useTheme();
+  const homeLayout = useHomeActivityOffset();
+  const activityLayout = useHomeActivityOffset(homeLayout.offset);
   const voice = useVoiceCapture({ permissionSync: 'on-demand' });
   const largeText = PixelRatio.getFontScale() >= 1.5;
   const scoped = Boolean(selectedAccount);
@@ -152,7 +156,7 @@ export function HomeSummary({
   };
 
   return (
-    <View testID="home-horizon" style={styles.root}>
+    <View testID="home-horizon" style={styles.root} onLayout={homeLayout.onLayout}>
       <View style={styles.hero}>
         <View
           accessible={false}
@@ -458,6 +462,7 @@ export function HomeSummary({
 
       <View
         testID="home-activity-sheet"
+        onLayout={activityLayout.onLayout}
         style={[
           styles.activity,
           { backgroundColor: theme.colors.surfaces.page }
@@ -560,6 +565,7 @@ export function HomeSummary({
         {activityStatus}
         {expenses.length ? (
           <ActivitySection
+            offset={activityLayout.offset}
             accounts={accounts}
             categories={categories}
             hidden={hidden}
@@ -571,6 +577,7 @@ export function HomeSummary({
         ) : null}
         {income.length ? (
           <ActivitySection
+            offset={activityLayout.offset}
             accounts={accounts}
             categories={categories}
             hidden={hidden}
@@ -844,6 +851,7 @@ function formatVoiceDuration(durationMs: number) {
 }
 
 function ActivitySection({
+  offset,
   accounts,
   categories,
   hidden,
@@ -852,6 +860,7 @@ function ActivitySection({
   title,
   transactions
 }: {
+  offset: number;
   accounts?: Account[];
   categories?: Category[];
   hidden: boolean;
@@ -861,11 +870,14 @@ function ActivitySection({
   transactions: HomeTodayActivity[];
 }) {
   const theme = useTheme();
+  const sectionLayout = useHomeActivityOffset(offset);
+  const listLayout = useHomeActivityOffset(sectionLayout.offset);
   return (
-    <View testID={testID} style={styles.section}>
+    <View testID={testID} style={styles.section} onLayout={sectionLayout.onLayout}>
       <SectionHeading testID={`${testID}-heading`} title={title} />
       <View
         testID={`home-transaction-list-${testID === 'home-expense-section' ? 'expense' : 'income'}`}
+        onLayout={listLayout.onLayout}
         style={[
           styles.transactionList,
           {
@@ -874,31 +886,36 @@ function ActivitySection({
           }
         ]}
       >
-        {transactions.map(({ transaction, group, sign }, index) => (
-          <React.Fragment key={transaction.id}>
-            {index > 0 ? (
-              <View
-                style={[
-                  styles.transactionDivider,
-                  { backgroundColor: theme.colors.horizon.sheetBorder }
-                ]}
+        <HomeActivityRows
+          transactions={transactions}
+          offset={listLayout.offset}
+          largeText={largeText}
+          renderRow={({ transaction, group, sign }, index) => (
+            <React.Fragment key={transaction.id}>
+              {index > 0 ? (
+                <View
+                  style={[
+                    styles.transactionDivider,
+                    { backgroundColor: theme.colors.horizon.sheetBorder }
+                  ]}
+                />
+              ) : null}
+              <TransactionCard
+                accountName={
+                  accounts?.find(({ id }) => id === transaction.accountId)?.name
+                }
+                category={categories?.find(({ id }) => id === transaction.categoryId)}
+                contained
+                hidden={hidden}
+                largeText={largeText}
+                testIDPrefix="home"
+                transaction={transaction}
+                financialGroup={group}
+                sign={sign}
               />
-            ) : null}
-            <TransactionCard
-              accountName={
-                accounts?.find(({ id }) => id === transaction.accountId)?.name
-              }
-              category={categories?.find(({ id }) => id === transaction.categoryId)}
-              contained
-              hidden={hidden}
-              largeText={largeText}
-              testIDPrefix="home"
-              transaction={transaction}
-              financialGroup={group}
-              sign={sign}
-            />
-          </React.Fragment>
-        ))}
+            </React.Fragment>
+          )}
+        />
       </View>
     </View>
   );

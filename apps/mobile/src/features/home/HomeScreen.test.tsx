@@ -333,6 +333,52 @@ it('shares one surface between recent rows without removing their individual act
   }
 });
 
+it.each([['en', 1], ['en', 2], ['ar', 1], ['ar', 2]] as const)('keeps large Today groups reachable in %s without mounting every row at %s font scale', (locale, fontScale) => {
+  jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(fontScale);
+  changeLocale(locale);
+  const todayActivity = Array.from({ length: 120 }, (_, index) => ({
+    transaction: makeTransaction(index + 1000, {
+      title: `Daily expense ${index + 1}`,
+      type: 'expense'
+    }),
+    group: 'expense' as const,
+    sign: 'negative' as const
+  }));
+  renderWithProviders(<HomeScreen summary={summary} todayActivity={todayActivity} />);
+
+  expect(screen.getAllByTestId(/^home-transaction-row-/).length).toBeLessThan(40);
+  expect(screen.getByText('Daily expense 1')).toBeTruthy();
+  expect(screen.queryByText('Daily expense 120')).toBeNull();
+  const scroll = screen.getByTestId('home-scroll');
+  fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 600 } } });
+  // Notices and the hero can move the activity group far down the Home content.
+  for (const [testID, y] of [
+    ['home-horizon', 100], ['home-activity-sheet', 2000],
+    ['home-expense-section', 1500], ['home-transaction-list-expense', 400]
+  ] as const) fireEvent(screen.getByTestId(testID), 'layout', {
+    nativeEvent: { layout: { y } }
+  });
+  fireEvent.scroll(scroll, {
+    nativeEvent: { contentOffset: { y: 4000 + (fontScale === 1 ? 5000 : 10000) } }
+  });
+  expect(screen.getByText('Daily expense 60')).toBeTruthy();
+  // A long group retains its natural height; scrolling its parent reaches the tail.
+  fireEvent.scroll(scroll, {
+    nativeEvent: { contentOffset: { y: 4000 + (fontScale === 1 ? 10000 : 20000) } }
+  });
+  expect(screen.getByText('Daily expense 120')).toBeTruthy();
+  expect(screen.getAllByTestId(/^home-transaction-row-/).length).toBeLessThan(40);
+  fireEvent.press(screen.getByText('Daily expense 120'));
+  expect(router.push).toHaveBeenLastCalledWith('/transactions/transaction-1119/edit');
+  expect(screen.getByTestId('home-transaction-list-expense')).toHaveStyle({
+    borderRadius: radius.group,
+    borderWidth: 1,
+    overflow: 'hidden'
+  });
+  fireEvent.scroll(scroll, { nativeEvent: { contentOffset: { y: 4000 } } });
+  expect(screen.getByText('Daily expense 1')).toBeTruthy();
+});
+
 it.each([
   ['ar', 'rtl', 'الخدمات'],
   ['en', 'ltr', 'Utilities']

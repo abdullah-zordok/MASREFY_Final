@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { layoutDirectionStyle } from '@/design-system/direction';
 import { StateView } from '@/design-system/components/feedback/StateView';
@@ -34,6 +34,7 @@ import { useTheme } from '@/state/theme-context';
 import { HomeSummary } from './HomeSummary';
 import type { HomeTodayActivity } from '@/services/contracts/core-finance-service';
 import { useHomeTodayActivity } from './useHomeTodayActivity';
+import { HomeActivityScrollView } from './HomeActivityViewport';
 
 export function HomeScreen({
   accounts,
@@ -173,7 +174,7 @@ function HomeLayout({
 }) {
   const theme = useTheme();
   return (
-    <ScrollView
+    <HomeActivityScrollView
       style={{ backgroundColor: theme.colors.surfaces.page }}
       contentContainerStyle={styles.stack}
     >
@@ -181,7 +182,7 @@ function HomeLayout({
         <HomeHeader period={period} onPeriodChange={onPeriodChange} />
         {children}
       </FinancialHorizonSurface>
-    </ScrollView>
+    </HomeActivityScrollView>
   );
 }
 
