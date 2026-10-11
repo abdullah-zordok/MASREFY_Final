@@ -1,0 +1,17 @@
+param([Parameter(Mandatory=$true)][string]$OutputDirectory)
+$ErrorActionPreference = 'Stop'
+$sourceRoot = Join-Path $PSScriptRoot 'src'
+$testRoot = Join-Path $PSScriptRoot 'tests'
+if (Test-Path -LiteralPath $OutputDirectory) { throw 'Use a new output directory; existing evidence is preserved.' }
+$outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
+New-Item -ItemType Directory -Path $outputRoot | Out-Null
+$sources = @(Get-ChildItem -LiteralPath $testRoot -Recurse -Filter '*.java' | ForEach-Object FullName)
+if (Test-Path -LiteralPath $sourceRoot) {
+    $sources += @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filter '*.java' | ForEach-Object FullName)
+}
+& javac -encoding UTF-8 -d $outputRoot @sources
+if ($LASTEXITCODE -ne 0) { throw 'Portable reader compilation failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.VoiceStoreSnapshotTest
+if ($LASTEXITCODE -ne 0) { throw 'Portable reader tests failed.' }
+& java -Xmx96m -cp $outputRoot com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest
+if ($LASTEXITCODE -ne 0) { throw 'Bounded snapshot verification failed.' }

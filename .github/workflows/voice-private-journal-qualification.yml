@@ -1,0 +1,43 @@
+name: Voice Private Journal Preparation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/voice-auto-save-restoration-2026-10-11]
+    paths:
+      - scripts/android-voice-qualification/**
+      - .github/workflows/voice-private-journal-qualification.yml
+  pull_request:
+    paths:
+      - scripts/android-voice-qualification/**
+      - .github/workflows/voice-private-journal-qualification.yml
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-private-store:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Compile and test the portable reader on synthetic stores
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_dir=$(mktemp -d "$RUNNER_TEMP/voice-private-reader.XXXXXX")
+          mapfile -d '' -t sources < <(rg --files -0 scripts/android-voice-qualification -g '*.java')
+          "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotTest | tee "$RUNNER_TEMP/voice-private-reader-test.log"
+          "$JAVA_HOME_17_X64/bin/java" -Xmx96m -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest | tee -a "$RUNNER_TEMP/voice-private-reader-test.log"
+          if rg -q 'UNEXECUTED_PLATFORM_CASE' "$RUNNER_TEMP/voice-private-reader-test.log"; then
+            echo 'Linux symlink protection case must execute.' >&2
+            exit 1
+          fi
+      - name: Retain the test log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: voice-private-reader-preparation-${{ github.sha }}
+          path: ${{ runner.temp }}/voice-private-reader-test.log
+          if-no-files-found: error
