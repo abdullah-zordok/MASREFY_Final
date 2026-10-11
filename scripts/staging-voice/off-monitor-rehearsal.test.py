@@ -102,6 +102,22 @@ class OffOnlyRehearsal(unittest.TestCase):
     def setUp(self):
         self.assertIsNotNone(adapter, 'A separate executable OFF-only adapter is unavailable')
 
+    def test_short_verbatim_approval_is_preserved_without_padding(self):
+        host = FixtureHost()
+        host.packet['approval']['verbatimMessage'] = 'Approve'
+        receipt = adapter.rehearse(host.packet, host)
+        self.assertTrue(receipt['helpersStoppedConfirmed'])
+        self.assertEqual(host.packet['approval']['verbatimMessage'], 'Approve')
+
+    def test_empty_or_untraceable_human_evidence_blocks_before_docker(self):
+        for field, value in [('verbatimMessage', ''), ('verbatimMessage', ' \t\n'),
+                             ('verbatimMessage', None), ('messageReference', 'short')]:
+            with self.subTest(field=field, value=value):
+                host = FixtureHost()
+                host.packet['approval'][field] = value
+                with self.assertRaises(existing.adapter.GuardError): adapter.rehearse(host.packet, host)
+                self.assertEqual(host.commands, [])
+
     def test_missing_or_operating_approval_rejects_before_docker_boundary(self):
         for kind in (None, 'direct-human-operating-approval'):
             host = FixtureHost()

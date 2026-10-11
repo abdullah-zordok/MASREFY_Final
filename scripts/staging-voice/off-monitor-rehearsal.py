@@ -41,8 +41,11 @@ def validate_packet(packet, now):
             approval.get('packetHash') == packet_hash(packet), 'DIRECT_HUMAN_OFF_APPROVAL_REQUIRED')
     received, expires = operating.instant(approval.get('receivedAt')), operating.instant(packet['expiresAt'])
     require(received <= now < expires <= received + 3600, 'OFF_APPROVAL_WINDOW_INVALID')
-    require(all(isinstance(approval.get(key), str) and 8 <= len(approval[key].strip()) <= maximum
-                for key, maximum in (('messageReference', 256), ('verbatimMessage', 4096))), 'OFF_HUMAN_EVIDENCE_REQUIRED')
+    # Evidence must preserve short direct replies such as "Approve" verbatim.
+    # Authorization remains bound to the explicit approval kind, packet and time.
+    require(all(isinstance(approval.get(key), str) and minimum <= len(approval[key].strip()) <= maximum
+                for key, minimum, maximum in (('messageReference', 8, 256), ('verbatimMessage', 1, 4096))),
+            'OFF_HUMAN_EVIDENCE_REQUIRED')
     require(packet['requiredMigrations'] == operating.MIGRATIONS and
             set(packet['files']) == {'customer-operating-cohort.py', 'off-monitor-rehearsal.py'} and
             all(operating.valid_hash(value) for value in packet['files'].values()), 'OFF_CONTROL_PINS_REQUIRED')
