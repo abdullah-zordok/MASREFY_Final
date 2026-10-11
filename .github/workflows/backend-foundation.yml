@@ -88,7 +88,7 @@ jobs:
       - run: npm run test:planning:logic
       - run: npm run build
       - name: Verify recovered offline Voice diagnostics and compiled idle workers
-        run: node --test ../../docs/reviews/2026-10-04-voice-processing/*.test.cjs ../../scripts/integration/compiled-idle-worker.test.cjs
+        run: node --test ../../docs/reviews/2026-10-04-voice-processing/*.test.cjs ../../scripts/integration/compiled-idle-worker.test.cjs ../../scripts/integration/compiled-voice-module.test.cjs
       - run: npm audit --audit-level=high
       - run: npm run migration:checksums
       - name: Verify bounded Voice canary closure and guards
@@ -97,6 +97,8 @@ jobs:
         run: |
           node --test ../../scripts/staging-voice/controls.test.cjs ../../scripts/staging-voice/redmi-controls.test.cjs ../../scripts/staging-voice/deployment-guard.test.cjs ../../scripts/staging-voice/deploy-cohort.test.cjs ../../scripts/staging-voice/cross-feature-compatibility.test.cjs ../../scripts/staging-voice/collect-compatibility.test.cjs ../../scripts/staging-voice/tracking-runtime.test.cjs
           python3 ../../scripts/staging-voice/operating-host.test.py
+          python3 ../../scripts/staging-voice/customer-operating-cohort.test.py
+          python3 -O ../../scripts/staging-voice/customer-operating-cohort.test.py
           python3 ../../scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
           python3 -O ../../scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
 

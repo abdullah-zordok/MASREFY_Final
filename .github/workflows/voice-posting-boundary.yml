@@ -32,6 +32,8 @@ jobs:
         run: node --test ../../scripts/staging-voice/redmi-controls.test.cjs
       - name: Verify independent rollback and arming guards
         run: |
+          python3 ../../scripts/staging-voice/customer-operating-cohort.test.py
+          python3 -O ../../scripts/staging-voice/customer-operating-cohort.test.py
           python3 ../../scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
           python3 -O ../../scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
       - name: Start disposable local Supabase
