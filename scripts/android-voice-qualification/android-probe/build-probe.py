@@ -16,6 +16,7 @@ ROOT=HERE.parent
 CERT="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c"
 TARGET_SHA="0c0dd12035bd22eeb6f45b1597731462b967533cb394a23d3f9430a0d7a78685"
 ANDROID="{http://schemas.android.com/apk/res/android}"
+ANDROID35_JAR_SHA="4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b"
 
 def gate(condition):
     if not condition:raise RuntimeError("PROBE_BUILD_GATE")
@@ -50,6 +51,8 @@ def validate_native_metadata(native):
 def validate_provenance(native,runtime_build):
     validate_native_metadata(native)
     gate(isinstance(runtime_build,dict) and runtime_build.get("sourceHashes")==rehearsal_hashes() and runtime_build.get("diagnosticSourceHashes")==source_hashes())
+    gate(runtime_build.get("runtimeAndroidJarSha256")==ANDROID35_JAR_SHA and
+         runtime_build.get("platformDescriptorCheckerSha256")==digest(ROOT/"tests/test-android-buffer-descriptors.py"))
     validate_native_metadata(runtime_build.get("nativeBuild"))
 
 def validate_manifest(path):
@@ -84,12 +87,14 @@ def main():
     parser.add_argument("--sdk",type=Path,required=True)
     parser.add_argument("--java",type=Path,required=True)
     parser.add_argument("--native",type=Path,required=True)
+    parser.add_argument("--runtime-android-jar",type=Path,required=True)
     parser.add_argument("--sign",action="store_true")
     parser.add_argument("--historical-target-apk",type=Path)
     parser.add_argument("--keystore",type=Path)
     parser.add_argument("--password-env")
     parser.add_argument("--runtime-directory",type=Path)
     args=parser.parse_args()
+    gate(digest(args.runtime_android_jar)==ANDROID35_JAR_SHA)
     validate_manifest(HERE/"AndroidManifest.xml")
     native=json.loads((args.native/"build-receipt.json").read_text(encoding="utf-8"))
     validate_native_metadata(native)
@@ -111,10 +116,10 @@ def main():
     sources=sorted((ROOT/"src").rglob("*.java"))+[HERE/"PrivateJournalDiagnostic.java"]
     with (args.output/"build.log").open("w",encoding="utf-8") as log:
         checked([args.java/"bin"/("javac"+suffix),"-encoding","UTF-8","-source","17","-target","17","-classpath",android_jar,"-d",classes,*sources],log)
-        checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",android_jar,"--classes",classes],log)
+        checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",args.runtime_android_jar,"--classes",classes],log)
         checked([java,"-Djava.io.tmpdir="+str(args.output),"-cp",tools/"lib/d8.jar","com.android.tools.r8.D8","--min-api","35","--lib",android_jar,"--output",dex,*sorted(classes.rglob("*.class"))],log)
         for entry in sorted(dex.glob("*.dex")):
-            checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",android_jar,"--dex",entry],log)
+            checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",args.runtime_android_jar,"--dex",entry],log)
         unsigned=args.output/"unsigned-probe.apk"
         checked([tools/("aapt2"+suffix),"link","-I",android_jar,"--manifest",HERE/"AndroidManifest.xml","-o",unsigned],log)
         with zipfile.ZipFile(unsigned,"a",compression=zipfile.ZIP_DEFLATED) as archive:
@@ -137,6 +142,7 @@ def main():
         with zipfile.ZipFile(apk) as archive:
             gate(all(name=="AndroidManifest.xml" or name=="resources.arsc" or re.fullmatch("classes[0-9]*\\.dex",name) or name in {"lib/"+native["abi"]+"/"+lib for lib in native["libraries"]} or name.startswith("META-INF/") for name in archive.namelist()))
         receipt={"qualification":"OFFLINE_PROBE_REVIEW_ONLY","installed":False,"executed":False,"realTargetRuntimeAcceptance":False,"signed":args.sign,
+                 "runtimeAndroidJarSha256":digest(args.runtime_android_jar),"platformDescriptorCheckerSha256":digest(ROOT/"tests/test-android-buffer-descriptors.py"),
                  "apk":str(apk),"apkSha256":digest(apk),"signature":signature,"targetPackage":"com.masarifi.mobile","process":"com.masarifi.mobile:voicequalify",
                  "historicalTargetApkSha256":TARGET_SHA,"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
                  "probeSourceHashes":{path.name:digest(path) for path in (HERE/"PrivateJournalDiagnostic.java",HERE/"AndroidManifest.xml",Path(__file__))},"nativeBuild":native}

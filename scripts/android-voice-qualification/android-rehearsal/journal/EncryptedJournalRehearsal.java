@@ -84,7 +84,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 try(var directories=Files.list(fixtures)) {
                     for(Path fixture:directories.sorted().toList()) {
                         if(!Files.isDirectory(fixture))throw new IllegalStateException("FIXTURE_INVENTORY");
-                        Map<?,?> expected=(Map<?,?>)StrictJson.parse(Files.readString(fixture.resolve("fixture.json")));
+                        Map<?,?> expected=(Map<?,?>)StrictJson.parse(SyntheticFixtureMetadata.read(fixture.resolve("fixture.json")));
                         Path root=fixture.resolve("input");
                         verifySyntheticUid(root);
                         try(var snapshot=VoiceStoreSnapshot.capture(root)) {

@@ -38,6 +38,7 @@ jobs:
           mapfile -d '' -t sources < "$source_list"
           test "${#sources[@]}" -gt 0
           sources+=(scripts/android-voice-qualification/android-rehearsal/journal/SyntheticRootResolver.java)
+          sources+=(scripts/android-voice-qualification/android-rehearsal/journal/SyntheticFixtureMetadata.java)
           "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotTest > "$build_dir/platform-test.log" 2>&1 || { cat "$build_dir/platform-test.log"; exit 1; }
           cat "$build_dir/platform-test.log"
@@ -57,6 +58,7 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SyntheticRootResolverTest > "$build_dir/synthetic-root-test.log" 2>&1 || { cat "$build_dir/synthetic-root-test.log"; exit 1; }
           cat "$build_dir/synthetic-root-test.log"
           if grep -q 'UNEXECUTED_ROOT_CASE' "$build_dir/synthetic-root-test.log"; then exit 1; fi
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SyntheticFixtureMetadataTest
           python3 scripts/android-voice-qualification/tests/schema-fixtures.py --output "$build_dir/schema-fixtures" --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreQualificationTest "$build_dir/schema-fixtures"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
@@ -106,6 +108,7 @@ jobs:
             "$vendor_dir/sqlite3.c" -lcrypto -ldl -lpthread -lm -o "$build_dir/libfixture-sqlcipher.so"
           find scripts/android-voice-qualification/src scripts/android-voice-qualification/tests -type f -name '*.java' -print0 > "$build_dir/sources.list"
           printf '%s\0' scripts/android-voice-qualification/android-rehearsal/journal/SyntheticRootResolver.java >> "$build_dir/sources.list"
+          printf '%s\0' scripts/android-voice-qualification/android-rehearsal/journal/SyntheticFixtureMetadata.java >> "$build_dir/sources.list"
           mapfile -d '' -t sources < "$build_dir/sources.list"
           "$JAVA_HOME_17_X64/bin/javac" -encoding UTF-8 -d "$build_dir" "${sources[@]}"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py \
@@ -203,7 +206,7 @@ jobs:
           sudo chmod 666 /dev/kvm
           timeout 300 "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --channel=0 \
             emulator platform-tools 'system-images;android-35;default;x86_64' \
-            'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.1.12297006' < /dev/null
+            'platforms;android-36' 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.1.12297006' < /dev/null
           "$sdk_root/emulator/emulator" -accel-check
           curl --fail --location --proto '=https' --tlsv1.2 \
             https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.aar \
@@ -218,10 +221,12 @@ jobs:
             --openssl-aar "$fixture_root/openssl-3.3.2-1.aar" --vendor apps/mobile/node_modules/expo-sqlite/vendor/sqlcipher
           python3 scripts/android-voice-qualification/android-rehearsal/build-fixtures.py \
             --output "$fixture_root/build" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --runtime-android-jar "$sdk_root/platforms/android-35/android.jar" \
             --core-aar "$fixture_root/core-1.17.0.aar" --journal-native "$fixture_root/native" \
             --journal-abi x86_64 --journal-fixtures "$RUNNER_TEMP/vqs-android-encrypted-input"
           python3 scripts/android-voice-qualification/android-probe/build-probe.py \
             --output "$fixture_root/offline-unsigned-real-target-probe" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --runtime-android-jar "$sdk_root/platforms/android-35/android.jar" \
             --native "$fixture_root/native"
           "$sdk_root/cmdline-tools/latest/bin/avdmanager" create avd \
             -n vqs_disposable_android15 -k 'system-images;android-35;default;x86_64' \

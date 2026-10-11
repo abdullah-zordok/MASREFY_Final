@@ -7,6 +7,7 @@ $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $outputRoot | Out-Null
 $sources = @(Get-ChildItem -LiteralPath $testRoot -Recurse -Filter '*.java' | ForEach-Object FullName)
 $sources += Join-Path $PSScriptRoot 'android-rehearsal/journal/SyntheticRootResolver.java'
+$sources += Join-Path $PSScriptRoot 'android-rehearsal/journal/SyntheticFixtureMetadata.java'
 if (Test-Path -LiteralPath $sourceRoot) {
     $sources += @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filter '*.java' | ForEach-Object FullName)
 }
@@ -34,6 +35,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe guard failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe path resolution failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SyntheticRootResolverTest
 if ($LASTEXITCODE -ne 0) { throw 'Synthetic package path resolution failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.SyntheticFixtureMetadataTest
+if ($LASTEXITCODE -ne 0) { throw 'Bounded strict fixture metadata read failed.' }
 & python "$testRoot/test-probe-build.py"
 if ($LASTEXITCODE -ne 0) { throw 'Offline real-target probe packaging gate failed.' }
 & python "$testRoot/test-bootstrap-observations.py"

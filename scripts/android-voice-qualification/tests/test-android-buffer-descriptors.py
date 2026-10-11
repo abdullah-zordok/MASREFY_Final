@@ -1,4 +1,4 @@
-"""Verify compiled class AND DEX method signatures against the supplied Android SDK.
+"""Verify class Buffer signatures and ALL emitted DEX platform method signatures.
 
 Javac's host Java17 ByteBuffer covariant signatures are absent on Android.
 This reads public build artifacts only; it never loads Java code or uses a device.
@@ -8,7 +8,7 @@ import struct
 from pathlib import Path
 import zipfile
 
-def class_data(data):
+def class_data(data,details=False):
     if data[:4]!=b"\xca\xfe\xba\xbe":raise RuntimeError("CLASS_FORMAT")
     position=8
     def take(size):
@@ -31,18 +31,51 @@ def class_data(data):
     def text(index):return pool[index][1]
     def owner(index):return text(pool[index][1])
     u2();u2();parent=u2();superclass=owner(parent) if parent else None
-    for _ in range(u2()):u2()
+    interfaces=[owner(u2()) for _ in range(u2())]
     def members():
         result=set()
         for _ in range(u2()):
-            u2();name=u2();descriptor=u2();result.add((text(name),text(descriptor)))
+            access=u2();name=u2();descriptor=u2()
+            if not details or access&5:result.add((text(name),text(descriptor)))
             for _ in range(u2()):u2();take(struct.unpack(">I",take(4))[0])
         return result
     members();methods=members();references=[]
     for item in pool:
         if item and item[0] in (10,11):
             named=pool[item[2]];references.append((owner(item[1]),text(named[1]),text(named[2])))
-    return superclass,methods,references
+    return (superclass,interfaces,methods,references) if details else (superclass,methods,references)
+
+class PlatformMethods:
+    def __init__(self,archive):self.archive=archive;self.cache={}
+    def contains(self,owner,name,descriptor,seen=None):
+        seen=set() if seen is None else seen
+        if owner in seen:return False
+        seen.add(owner)
+        if owner not in self.cache:
+            try:self.cache[owner]=class_data(self.archive.read(owner+".class"),details=True)[:3]
+            except KeyError:raise RuntimeError("ANDROID_PLATFORM_CLASS_UNAVAILABLE: "+owner)
+        parent,interfaces,methods=self.cache[owner]
+        if (name,descriptor) in methods:return True
+        # Constructors belong to their exact declaring class, never a superclass/interface.
+        if name in ("<init>","<clinit>"):return False
+        return any(self.contains(base,name,descriptor,seen) for base in ([parent] if parent else [])+interfaces)
+
+def platform_owner(owner):
+    return owner.startswith(("java/","javax/","android/","org/xml/sax/","org/w3c/dom/"))
+
+def verify_lookup_contract(methods):
+    if not methods.contains("java/util/List","stream","()Ljava/util/stream/Stream;"):
+        raise RuntimeError("INTERFACE_METHOD_LOOKUP_FAILED")
+    if not methods.contains("java/lang/RuntimeException","<init>","(Ljava/lang/String;Ljava/lang/Throwable;ZZ)V"):
+        raise RuntimeError("DECLARED_CONSTRUCTOR_LOOKUP_FAILED")
+    if methods.contains("java/lang/IllegalStateException","<init>","(Ljava/lang/String;Ljava/lang/Throwable;ZZ)V"):
+        raise RuntimeError("CONSTRUCTOR_INHERITANCE_ALLOWED")
+    if methods.contains("java/nio/file/Files","readString","(Ljava/nio/file/Path;)Ljava/lang/String;"):
+        raise RuntimeError("UNAVAILABLE_ANDROID_FILE_API_ACCEPTED")
+    try:methods.contains("java/does/not/Exist","missing","()V")
+    except RuntimeError as failure:
+        if not str(failure).startswith("ANDROID_PLATFORM_CLASS_UNAVAILABLE:"):raise
+    else:raise RuntimeError("MISSING_PLATFORM_CLASS_ACCEPTED")
 
 def android_methods(jar,name):
     methods=set()
@@ -89,6 +122,18 @@ def main():
         if (name,descriptor) not in allowed[owner]:raise RuntimeError("ANDROID_BUFFER_DESCRIPTOR_UNAVAILABLE: "+name+descriptor)
         checks+=1
     if checks==0:raise RuntimeError("BUFFER_CONTRACT_NOT_EXERCISED")
-    print("PASS Android SDK class/DEX ByteBuffer descriptor contract: "+str(checks)+" references")
+    print("PASS Android SDK class/DEX Buffer descriptor contract: "+str(checks)+" references")
+    if args.dex:
+        checks=0
+        with zipfile.ZipFile(args.android_jar) as archive:
+            methods=PlatformMethods(archive)
+            verify_lookup_contract(methods)
+            for owner,name,descriptor in dex_references(args.dex.read_bytes()):
+                if not owner.startswith("L") or not platform_owner(owner[1:-1]):continue
+                if not methods.contains(owner[1:-1],name,descriptor):
+                    raise RuntimeError("ANDROID_PLATFORM_METHOD_UNAVAILABLE: "+owner+"."+name+descriptor)
+                checks+=1
+        if checks==0:raise RuntimeError("DEX_PLATFORM_CONTRACT_NOT_EXERCISED")
+        print("PASS Android SDK DEX platform descriptor contract: "+str(checks)+" references")
 
 if __name__=="__main__":main()

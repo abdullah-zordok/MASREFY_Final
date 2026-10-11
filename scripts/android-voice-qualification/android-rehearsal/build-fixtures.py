@@ -10,6 +10,7 @@ import zipfile
 
 SOURCE = Path(__file__).resolve().parent
 EXECUTABLE_SUFFIX = ".exe" if os.name == "nt" else ""
+ANDROID35_JAR_SHA="4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b"
 
 def executable(directory, name):
     return directory / (name + EXECUTABLE_SUFFIX)
@@ -51,7 +52,7 @@ def build_apk(kind, arguments, factory, log):
              "-classpath",android_jar,"-d",classes,*sources],log)
     if kind == "probe" and arguments.journal_fixtures:
         checked([sys.executable,SOURCE.parent / "tests/test-android-buffer-descriptors.py",
-                 "--android-jar",android_jar,"--classes",classes],log)
+                 "--android-jar",arguments.runtime_android_jar,"--classes",classes],log)
     dex = output / "dex"
     dex.mkdir()
     dex_inputs = sorted(classes.rglob("*.class"))
@@ -61,7 +62,7 @@ def build_apk(kind, arguments, factory, log):
     if kind == "probe" and arguments.journal_fixtures:
         for entry in sorted(dex.glob("*.dex")):
             checked([sys.executable,SOURCE.parent / "tests/test-android-buffer-descriptors.py",
-                     "--android-jar",android_jar,"--dex",entry],log)
+                     "--android-jar",arguments.runtime_android_jar,"--dex",entry],log)
     unsigned = output / "unsigned.apk"
     manifest_source = SOURCE / ("journal" if kind == "probe" and arguments.journal_fixtures else kind) / "AndroidManifest.xml"
     checked([executable(tools,"aapt2"),"link","-I",android_jar,"--manifest",manifest_source,
@@ -94,8 +95,11 @@ def main():
     parser.add_argument("--journal-fixtures",type=Path)
     parser.add_argument("--journal-native",type=Path)
     parser.add_argument("--journal-abi",choices=["arm64-v8a","x86_64"])
+    parser.add_argument("--runtime-android-jar",type=Path)
     arguments = parser.parse_args()
     if any((arguments.journal_fixtures, arguments.journal_native, arguments.journal_abi)):
+        if not arguments.runtime_android_jar or digest(arguments.runtime_android_jar)!=ANDROID35_JAR_SHA:
+            raise RuntimeError("PINNED_ANDROID35_RUNTIME_STUB_REQUIRED")
         if not all((arguments.journal_fixtures, arguments.journal_native, arguments.journal_abi)):
             raise RuntimeError("COMPLETE_JOURNAL_BUILD_INPUTS_REQUIRED")
         if len(list(arguments.journal_fixtures.glob("*/fixture.json"))) < 30:
@@ -129,6 +133,8 @@ def main():
         receipt["target"] = build_apk("target",arguments,factory,log)
         receipt["probe"] = build_apk("probe",arguments,factory,log)
         if arguments.journal_fixtures:
+            receipt["runtimeAndroidJarSha256"]=digest(arguments.runtime_android_jar)
+            receipt["platformDescriptorCheckerSha256"]=digest(SOURCE.parent/"tests/test-android-buffer-descriptors.py")
             receipt["diagnosticSourceHashes"] = {str(path.relative_to(SOURCE.parent)):digest(path)
                                                  for path in sorted((SOURCE.parent / "src").rglob("*.java"))}
             receipt["journalFixtureHashes"] = {str(path.relative_to(arguments.journal_fixtures)):digest(path)

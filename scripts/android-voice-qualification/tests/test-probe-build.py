@@ -14,7 +14,8 @@ class ProbeBuildGates(unittest.TestCase):
         native["libraries"]={"libcrypto.so":"a"*64,"libvoice_private_reader.so":"b"*64}
         runtime_native=build.native_contract("x86_64")
         runtime_native["libraries"]=dict(native["libraries"])
-        rehearsal={"sourceHashes":build.rehearsal_hashes(),"diagnosticSourceHashes":build.source_hashes(),"nativeBuild":runtime_native}
+        rehearsal={"sourceHashes":build.rehearsal_hashes(),"diagnosticSourceHashes":build.source_hashes(),"nativeBuild":runtime_native,
+                   "runtimeAndroidJarSha256":build.ANDROID35_JAR_SHA,"platformDescriptorCheckerSha256":build.digest(build.ROOT/"tests/test-android-buffer-descriptors.py")}
         build.validate_provenance(native,rehearsal)
         bad=[]
         for key in ("builderSha256","configuration","sqlcipherSources","opensslAarSha256","sources"):
@@ -22,7 +23,7 @@ class ProbeBuildGates(unittest.TestCase):
         altered=copy.deepcopy(native);altered["configuration"]["compileFlags"].append("-DVQS_TEST=1");bad.append((altered,rehearsal))
         altered=copy.deepcopy(native);altered["sources"].pop("voice_memory_jni.c");bad.append((altered,rehearsal))
         altered=copy.deepcopy(native);altered["sources"]["unexpected.c"]="a"*64;bad.append((altered,rehearsal))
-        for key in ("sourceHashes","diagnosticSourceHashes","nativeBuild"):
+        for key in ("sourceHashes","diagnosticSourceHashes","nativeBuild","runtimeAndroidJarSha256","platformDescriptorCheckerSha256"):
             altered=copy.deepcopy(rehearsal);altered[key]={};bad.append((native,altered))
         altered=copy.deepcopy(rehearsal);altered["sourceHashes"]["journal/EncryptedJournalRehearsal.java"]="a"*64;bad.append((native,altered))
         altered=copy.deepcopy(rehearsal);altered["nativeBuild"]["configuration"]["linkFlags"].append("-lunsafe");bad.append((native,altered))

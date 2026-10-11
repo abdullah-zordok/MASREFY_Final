@@ -57,6 +57,14 @@ source hashes before signing. Both native receipts additionally bind the exact
 builder hash, NDK27.1.12297006/API35/ABI target, full compile/link flags, disabled
 test hooks, exact native source set and locked SQLCipher/OpenSSL pins. The entire
 current rehearsal source inventory must also match the successful runtime build.
+`--runtime-android-jar` must supply the official Android35 r02 stub, SHA256
+`4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b`.
+Both builders check Buffer descriptors before D8, then every emitted DEX method
+reference in the Java, javax, Android and XML platform namespaces against this
+actual API35 stub, including inherited interface methods and exact constructors.
+Compiler bootstrap references that D8 desugars are not treated as runtime calls;
+the complete emitted DEX has no method waiver. Signing also requires matching
+runtime-stub and descriptor-checker hashes in the qualified build receipt.
 It verifies the resulting certificate and emits
 source/native/APK hashes in `build-receipt.json`. Password values are never logged.
 
