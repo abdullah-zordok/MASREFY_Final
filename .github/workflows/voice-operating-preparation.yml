@@ -1,0 +1,61 @@
+name: Voice Operating Preparation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/voice-auto-save-restoration-2026-10-11]
+    paths:
+      - scripts/staging-voice/**
+      - .github/workflows/voice-operating-preparation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inert-operating-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+      - name: Verify retained controls and OFF-only adapter against inert host boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/voice-operating-python.log") 2>&1
+          python3 scripts/staging-voice/customer-operating-cohort.test.py
+          python3 -O scripts/staging-voice/customer-operating-cohort.test.py
+          python3 scripts/staging-voice/off-monitor-rehearsal.test.py
+          python3 -O scripts/staging-voice/off-monitor-rehearsal.test.py
+          python3 scripts/staging-voice/operating-host.test.py
+          python3 scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
+          python3 -O scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
+      - name: Verify related Node control and deployment guards using local fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/voice-operating-node.log") 2>&1
+          node --test scripts/staging-voice/*.test.cjs
+      - name: Retain exact-source checksums and qualification boundary
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          paths=sorted(pathlib.Path('scripts/staging-voice').glob('*.py'))
+          result={'sourceSha':os.environ['GITHUB_SHA'],'fixtureOnly':True,'liveStagingRun':False,
+                  'files':{str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}}
+          pathlib.Path(os.environ['RUNNER_TEMP'],'voice-operating-source.json').write_text(json.dumps(result,sort_keys=True))
+          PY
+      - name: Retain evidence without deployment credentials or external operations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: voice-operating-preparation-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/voice-operating-python.log
+            ${{ runner.temp }}/voice-operating-node.log
+            ${{ runner.temp }}/voice-operating-source.json
+          if-no-files-found: error

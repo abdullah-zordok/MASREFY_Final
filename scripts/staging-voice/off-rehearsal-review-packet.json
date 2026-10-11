@@ -12,12 +12,24 @@
   "proposedRoot": "/opt/masarifi/customer-voice-operating-b8d4429f-8d53-4f0a-a86b-973e05c779d1",
   "controlFiles": [
     {
-      "sha256": "395433c7cf5442d80a5a65a68caad63901ed78435b78dbfdc5a7fc7faeae6638",
-      "path": "scripts/staging-voice/customer-operating-cohort.py"
+      "path": "scripts/staging-voice/customer-operating-cohort.py",
+      "sha256": "395433c7cf5442d80a5a65a68caad63901ed78435b78dbfdc5a7fc7faeae6638"
     },
     {
-      "sha256": "935615ec556f4592be84b8c923c4c9e028db17bd690a650299d3139e612cff8b",
-      "path": "scripts/staging-voice/customer-operating-cohort.test.py"
+      "path": "scripts/staging-voice/customer-operating-cohort.test.py",
+      "sha256": "935615ec556f4592be84b8c923c4c9e028db17bd690a650299d3139e612cff8b"
+    },
+    {
+      "path": "scripts/staging-voice/off-monitor-rehearsal.py",
+      "sha256": "d1e117c140b8967506ca3d9b2efb3b233041b7bbf918fa14f2f79c19a149aba7"
+    },
+    {
+      "path": "scripts/staging-voice/off-monitor-rehearsal.test.py",
+      "sha256": "f92d1916b0f62c0032d8610023650e6c639a915ee9a9d75588d2e905d822d18c"
+    },
+    {
+      "path": ".github/workflows/voice-operating-preparation.yml",
+      "sha256": "ba1e816272b12e0f8ff0c49f58f389adf49a6f6ab50372a38b214bffe6d5aab1"
     }
   ],
   "proposedHelpers": [
@@ -55,9 +67,9 @@
     "envHashes": null
   },
   "affectedServices": [
-    "new OFF rehearsal guard",
-    "new control migration helper",
-    "new independent closure migration helper"
+    "new OFF-only helper rehearsal guard",
+    "new retained readonly control helper",
+    "new independent retained readonly helper"
   ],
   "maximumNewRetainedContainers": 2,
   "maximumHelperMemoryBytes": 1073741824,
@@ -72,12 +84,12 @@
     "shared API Analysis Assistant identities unchanged"
   ],
   "allowedOperationsAfterSeparateApproval": [
-    "copy exact pinned local controls to proposed root",
-    "install only separately reviewed OFF-only invocation guard",
-    "read-only database status on exact helpers",
-    "idle helper/monitor failure and interruption rehearsal",
-    "independent owned closure path with Posting remaining OFF",
-    "stop exact owned helper IDs; retain containers and receipts"
+    "copy exact pinned local controller and OFF adapter to proposed root",
+    "install only reviewed one-shot OFF adapter unit with rehearse and cleanup",
+    "fixed read-only database status on exact helpers",
+    "stop/restart only exact owned idle control helper",
+    "independent exact-owned helper cleanup; no financial epoch closure",
+    "retain stopped helpers journals logs and independent before/after evidence"
   ],
   "forbiddenOperations": [
     "customer-operating-cohort.py apply",
@@ -90,7 +102,10 @@
     "API Analysis Assistant replacement without another exact approval",
     "Production operation",
     "Integration/main merge or ref update",
-    "remove historical or rehearsal evidence"
+    "remove historical or rehearsal evidence",
+    "database prepare or close",
+    "financial epoch policy/ownership changes",
+    "all shared-service start stop or switch"
   ],
   "requiredReceipts": [
     "fresh protected current inventory and pins",
@@ -98,7 +113,7 @@
     "successful-poll health readiness for each relevant exact candidate worker",
     "financial and historical-work before/after digests",
     "helper identity isolation and bounded container count",
-    "monitor failure restart shutdown and independent closure/stop receipts",
+    "helper reuse idle restart shutdown and independent helper-stop receipts",
     "unchanged shared-service identities and Posting OFF confirmation"
   ],
   "rollback": {
@@ -109,16 +124,80 @@
     "sharedServiceChanges": "excluded; any proposed restoration needs separate exact cohort approval",
     "stopOnlyExactOwnedHelpers": true,
     "closureBudgetSeconds": 150,
-    "ownedWriterStopFirst": true,
-    "writerBoundaryTimeoutSeconds": 10,
-    "systemdShutdownBudgetSeconds": 180
+    "ownedWriterStopFirst": "operating controller only; OFF adapter never operates writers",
+    "writerBoundaryTimeoutSeconds": "operating controller only; OFF helper cleanup boundary is 10 seconds",
+    "systemdShutdownBudgetSeconds": 180,
+    "financialEpochClosureExercised": false
   },
   "blockers": [
     "FINAL_COMBINED_SOURCE_IMAGE_QUALIFICATION_REQUIRED",
     "FRESH_PROTECTED_COHORT_PINS_AND_BACKUP_REQUIRED",
-    "OFF_ONLY_INVOCATION_REVIEW_REQUIRED",
     "DIRECT_HUMAN_OFF_REHEARSAL_APPROVAL_REQUIRED",
-    "ACTUAL_POSTING_OFF_STAGING_REHEARSAL_UNPERFORMED",
-    "DEPLOYED_ANALYSIS_ASSISTANT_PROCESSING_HEALTH_UNVERIFIED"
-  ]
+    "ACTUAL_POSTING_OFF_HELPER_REHEARSAL_UNPERFORMED",
+    "DEPLOYED_ANALYSIS_ASSISTANT_PROCESSING_HEALTH_UNVERIFIED",
+    "NO_APPROVED_OWNED_FINANCIAL_EPOCH_AUTHORITY",
+    "ACTUAL_OWNED_FINANCIAL_EPOCH_CLOSURE_REHEARSAL_UNPERFORMED"
+  ],
+  "adapterPrepared": true,
+  "executionPacketRequirements": {
+    "kind": "posting-off-helper-rehearsal",
+    "financialEpochAuthority": null,
+    "requiredFields": [
+      "version",
+      "kind",
+      "host",
+      "project",
+      "generation",
+      "sourceSha",
+      "imageDigest",
+      "expiresAt",
+      "requiredMigrations",
+      "files",
+      "cohort",
+      "baseline",
+      "financialEpochAuthority",
+      "approval"
+    ],
+    "approvalKind": "direct-human-posting-off-rehearsal-approval",
+    "maximumApprovalSeconds": 3600,
+    "maximumCohortAndBackupAgeSeconds": 900,
+    "maximumFingerprintRowsPerTable": 10000,
+    "files": [
+      "customer-operating-cohort.py",
+      "off-monitor-rehearsal.py"
+    ],
+    "requiredBackupReceiptFields": [
+      "restoreVerified",
+      "backupDigest",
+      "observedAt",
+      "financialFingerprints",
+      "requiredMigrations",
+      "cohortHash"
+    ],
+    "readonlyBaseline": [
+      "posting false",
+      "zero active epochs",
+      "zero scoped Analysis jobs",
+      "complete migrations",
+      "financial fingerprints",
+      "historical Voice Assistant outbox counts"
+    ]
+  },
+  "preparedService": {
+    "unitName": "masarifi-staging-voice-off-b8d4429f-8d53-4f0a-a86b-973e05c779d1.service",
+    "type": "oneshot",
+    "restart": "no",
+    "execStart": "/usr/bin/python3 /opt/masarifi/customer-voice-operating-b8d4429f-8d53-4f0a-a86b-973e05c779d1/off-monitor-rehearsal.py rehearse",
+    "execStopPost": "/usr/bin/python3 /opt/masarifi/customer-voice-operating-b8d4429f-8d53-4f0a-a86b-973e05c779d1/off-monitor-rehearsal.py cleanup",
+    "timeoutStartSeconds": 300,
+    "timeoutStopSeconds": 180,
+    "notInstalledOrExecuted": true
+  },
+  "independentReview": {
+    "status": "passed-local-source-review",
+    "blockingDefects": 0,
+    "normalAdapterTests": 16,
+    "optimizedAdapterTests": 16,
+    "notRuntimeApproval": true
+  }
 }

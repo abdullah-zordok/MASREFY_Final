@@ -1,0 +1,93 @@
+{
+  "fixtureOnly": true,
+  "liveStagingRun": false,
+  "financialEpochClosureExercised": false,
+  "financialEpochClosureBlocker": "NO_APPROVED_OWNED_FINANCIAL_EPOCH_AUTHORITY",
+  "files": {
+    "scripts/staging-voice/customer-operating-cohort.py": "395433c7cf5442d80a5a65a68caad63901ed78435b78dbfdc5a7fc7faeae6638",
+    "scripts/staging-voice/customer-operating-cohort.test.py": "935615ec556f4592be84b8c923c4c9e028db17bd690a650299d3139e612cff8b",
+    "scripts/staging-voice/off-monitor-rehearsal.py": "d1e117c140b8967506ca3d9b2efb3b233041b7bbf918fa14f2f79c19a149aba7",
+    "scripts/staging-voice/off-monitor-rehearsal.test.py": "f92d1916b0f62c0032d8610023650e6c639a915ee9a9d75588d2e905d822d18c",
+    ".github/workflows/voice-operating-preparation.yml": "ba1e816272b12e0f8ff0c49f58f389adf49a6f6ab50372a38b214bffe6d5aab1"
+  },
+  "commands": [
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "scripts/staging-voice/customer-operating-cohort.test.py"
+      ],
+      "caseExecutions": 65,
+      "exitCode": 0,
+      "log": "controller-green.log"
+    },
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "-O",
+        "scripts/staging-voice/customer-operating-cohort.test.py"
+      ],
+      "caseExecutions": 65,
+      "exitCode": 0,
+      "log": "controller-optimized-green.log"
+    },
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "scripts/staging-voice/operating-host.test.py"
+      ],
+      "caseExecutions": 8,
+      "exitCode": 0,
+      "log": "legacy-controller-green.log"
+    },
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "scripts/staging-voice/test_redmi_voice_rollback_watchdog.py"
+      ],
+      "caseExecutions": 23,
+      "exitCode": 0,
+      "log": "watchdog-green.log"
+    },
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "-O",
+        "scripts/staging-voice/test_redmi_voice_rollback_watchdog.py"
+      ],
+      "caseExecutions": 23,
+      "exitCode": 0,
+      "log": "watchdog-optimized-green.log"
+    },
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "scripts/staging-voice/off-monitor-rehearsal.test.py"
+      ],
+      "caseExecutions": 16,
+      "exitCode": 0,
+      "log": "off-adapter-green.log"
+    },
+    {
+      "command": [
+        "C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "-O",
+        "scripts/staging-voice/off-monitor-rehearsal.test.py"
+      ],
+      "caseExecutions": 16,
+      "exitCode": 0,
+      "log": "off-adapter-optimized-green.log"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        "scripts/staging-voice/*.test.cjs"
+      ],
+      "caseExecutions": 41,
+      "exitCode": 0,
+      "log": "related-node-green.log"
+    }
+  ],
+  "pythonCaseExecutions": 216,
+  "nodeCases": 41
+}

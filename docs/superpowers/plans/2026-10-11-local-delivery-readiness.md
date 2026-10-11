@@ -43,9 +43,9 @@
 
 **Interfaces:** Pinned guarded cohort controller and independent closure controls -> bounded retained monitor runner and OFF rehearsal packet.
 
-- [ ] Reproduce repeated ephemeral container lifecycle in behavior tests.
-- [ ] Implement bounded retained runner with image/environment/identity/isolation checks.
-- [ ] Run existing controller/watchdog suites normally and under optimized Python; prepare real OFF rehearsal scope without running it.
+- [x] Reproduce repeated ephemeral container lifecycle in behavior tests.
+- [x] Implement bounded retained runner with image/environment/identity/isolation checks.
+- [x] Run existing controller/watchdog suites normally and under optimized Python; prepare real OFF rehearsal scope without running it.
 
 ### Task 3: Compatible dependency security remediation
 
@@ -53,9 +53,9 @@
 
 **Interfaces:** Final frozen lockfiles consumed by Task4 verification and Task5 APK preparation.
 
-- [ ] Capture fresh complete lockfile audits with advisory provenance.
-- [ ] Apply minimum compatible updates/overrides; record residual upstream exposures accurately.
-- [ ] Install locked dependencies without scripts and verify targeted package/toolchain compatibility.
+- [x] Capture fresh complete lockfile audits with advisory provenance.
+- [x] Apply minimum compatible updates/overrides; record residual upstream exposures accurately.
+- [x] Install locked dependencies without scripts and verify targeted package/toolchain compatibility.
 
 ### Task 4: Sanitized extraction reliability and combined verification
 
@@ -63,8 +63,8 @@
 
 **Interfaces:** Existing event decisions -> bounded stage/count/enum diagnostics. No public contract or accounting change.
 
-- [ ] Trace empty extraction handling and reproduce missing skip diagnostics with meaningful tests.
-- [ ] Emit only validated counts/enumerated skipped reasons; verify privacy sentinels and no behavioral change.
+- [x] Trace empty extraction handling and reproduce missing skip diagnostics with meaningful tests.
+- [x] Emit only validated counts/enumerated skipped reasons; verify privacy sentinels and no behavioral change.
 - [ ] Run full mobile/admin/API unit, contract, security, type/lint/build gates and exact-source CI including fresh/upgrade disposable DB, browser, Android and performance lanes.
 
 ### Task 5: Prepare release artifacts and acceptance handoff
