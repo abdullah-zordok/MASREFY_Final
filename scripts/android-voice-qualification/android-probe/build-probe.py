@@ -28,7 +28,7 @@ def digest(path):
     return value.hexdigest()
 
 def source_hashes():
-    sources=sorted((ROOT/"src").rglob("*.java"))+[HERE/"PrivateJournalDiagnostic.java"]
+    sources=sorted((ROOT/"src").rglob("*.java"))+sorted(HERE.glob("*.java"))
     return {path.relative_to(ROOT).as_posix():digest(path) for path in sources}
 
 def rehearsal_hashes():
@@ -70,6 +70,8 @@ def validate_runtime(runtime):
     gate(runtime.get("positiveControl")=={"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True})
     runs=runtime.get("runs",[])
     gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_BOOTSTRAP" and run.get("newNetworkRequests")==0 for run in runs))
+    gate(all(run.get(field)=="PASS_ONLY_PRIVATE_PROCESS" for run in runs for field in
+             ("beforeApplicationProcessSurvey","afterApplicationProcessSurvey")))
     encrypted=runtime.get("encryptedJournals",{})
     gate(encrypted.get("seed",{}).get("verdict")=="SEEDED_PUBLIC_SYNTHETIC_FIXTURES" and encrypted.get("seed",{}).get("missingExistingAliasesFailClosed")=="true")
     runs=encrypted.get("runs",[])
@@ -114,7 +116,7 @@ def main():
     java=args.java/"bin"/("java"+suffix)
     classes=args.output/"classes";classes.mkdir()
     dex=args.output/"dex";dex.mkdir()
-    sources=sorted((ROOT/"src").rglob("*.java"))+[HERE/"PrivateJournalDiagnostic.java"]
+    sources=sorted((ROOT/"src").rglob("*.java"))+sorted(HERE.glob("*.java"))
     with (args.output/"build.log").open("w",encoding="utf-8") as log:
         checked([args.java/"bin"/("javac"+suffix),"-encoding","UTF-8","-source","17","-target","17","-classpath",android_jar,"-d",classes,*sources],log)
         checked([sys.executable,ROOT/"tests/test-android-buffer-descriptors.py","--android-jar",args.runtime_android_jar,"--classes",classes],log)

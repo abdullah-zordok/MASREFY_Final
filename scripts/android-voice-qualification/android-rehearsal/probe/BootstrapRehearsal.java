@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.os.Process;
+import com.masarifi.voicequalification.AndroidProcessSurvey;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -16,10 +17,12 @@ import java.util.concurrent.TimeUnit;
 public final class BootstrapRehearsal extends Instrumentation {
     private int expectedMarks;
     private String expectedHash;
+    private String beforeApplicationProcessSurvey;
     @Override public Application newApplication(ClassLoader loader,String targetClassName,Context targetContext)
             throws InstantiationException,IllegalAccessException,ClassNotFoundException {
         // Retain Android's target Context and component factory while avoiding
         // construction/class initialization of the target Application subclass.
+        beforeApplicationProcessSurvey=observeProcessSurvey(targetContext);
         return super.newApplication(loader,Application.class.getName(),targetContext);
     }
     @Override public void onCreate(Bundle arguments) {
@@ -37,6 +40,8 @@ public final class BootstrapRehearsal extends Instrumentation {
             getTargetContext().getMainExecutor().execute(bound::countDown);
             if (!bound.await(5,TimeUnit.SECONDS)) throw new IllegalStateException("BOOTSTRAP_BARRIER");
             describeTarget(receipt);
+            receipt.putString("beforeApplicationProcessSurvey",beforeApplicationProcessSurvey);
+            receipt.putString("afterApplicationProcessSurvey",observeProcessSurvey(getTargetContext()));
             boolean pass = receipt.getBoolean("plainApplication") && receipt.getBoolean("correctProcess") &&
                     receipt.getBoolean("correctUid") && receipt.getBoolean("nonDebuggable") &&
                     receipt.getBoolean("marksUnchanged") && receipt.getBoolean("hashUnchanged");
@@ -45,6 +50,14 @@ public final class BootstrapRehearsal extends Instrumentation {
         } catch (Exception failure) {
             receipt.putString("verdict","INDETERMINATE_BOOTSTRAP");
             finish(0,receipt);
+        }
+    }
+    private static String observeProcessSurvey(Context context) {
+        try {AndroidProcessSurvey.require(context,"com.masarifi.voicequalification.fixture:voicequalify");return "PASS_ONLY_PRIVATE_PROCESS";}
+        catch(Throwable rejected) {
+            String marker=rejected.getMessage();
+            if(marker!=null && marker.matches("PROBE_IDENTITY_INDETERMINATE:PROCESS_[A-Z_]+"))return marker.substring(marker.indexOf(':')+1);
+            return "PROCESS_SURVEY_EXCEPTION";
         }
     }
     private void describeTarget(Bundle receipt) throws Exception {

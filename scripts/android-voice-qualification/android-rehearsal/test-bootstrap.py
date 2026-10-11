@@ -66,6 +66,11 @@ def parse_receipt(output):
     pairs = re.findall(r"^INSTRUMENTATION_RESULT: ([A-Za-z0-9]+)=(.*)$",output,re.MULTILINE)
     return dict(pairs)
 
+def require_process_survey(observed):
+    if any(observed.get(field)!="PASS_ONLY_PRIVATE_PROCESS" for field in
+           ("beforeApplicationProcessSurvey","afterApplicationProcessSurvey")):
+        raise RuntimeError("PROCESS_SURVEY_RUNTIME_REJECTED")
+
 def fixture_apks(arguments):
     receipt = json.loads((arguments.build / "build-receipt.json").read_text(encoding="utf-8"))
     apks = []
@@ -200,6 +205,7 @@ def exercise(emulator,marks,receipt):
         observed = parse_receipt(output)
         observed["newNetworkRequests"] = LocalTripwireListener.requests - baseline_requests
         receipt["runs"].append(observed)
+        require_process_survey(observed)
         if observed.get("verdict") != "PASS_DISPOSABLE_BOOTSTRAP" or observed["newNetworkRequests"] != 0:
             raise RuntimeError("BOOTSTRAP_SUPPRESSION_FAILED")
         if emulator.fixture_log() != baseline_log:

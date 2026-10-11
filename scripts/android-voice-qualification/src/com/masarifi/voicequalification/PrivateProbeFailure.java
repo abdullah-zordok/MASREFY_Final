@@ -3,7 +3,9 @@ package com.masarifi.voicequalification;
 /** Bootstrap metadata failures must never expose exception causes or private values. */
 final class PrivateProbeFailure {
     enum Stage {TARGET_METADATA,PROBE_METADATA,TARGET_DECLARATION,TARGET_APK,TARGET_CERTIFICATE,
-        PROBE_CERTIFICATE,DATA_ROOT,IDENTITY_POLICY,PROCESS_SURVEY,APPLICATION_CLASS,UNEXPECTED}
+        PROBE_CERTIFICATE,DATA_ROOT,IDENTITY_POLICY,PROCESS_SURVEY,PROCESS_SERVICE_UNAVAILABLE,
+        PROCESS_LIST_UNAVAILABLE,PROCESS_RECORD_INVALID,PROCESS_SAME_UID_PEER,PROCESS_NAME_MISMATCH,
+        PROCESS_SELF_MISSING,PROCESS_SELF_DUPLICATE,PROCESS_SURVEY_EXCEPTION,APPLICATION_CLASS,UNEXPECTED}
     static IllegalStateException reject(Stage stage) {
         return new Rejection(stage);
     }
@@ -14,6 +16,6 @@ final class PrivateProbeFailure {
     }
     private static final class Rejection extends IllegalStateException {
         final Stage stage;
-        Rejection(Stage stage){super("PROBE_IDENTITY_INDETERMINATE");this.stage=stage;}
+        Rejection(Stage stage){super("PROBE_IDENTITY_INDETERMINATE:"+stage.name());this.stage=stage;}
     }
 }

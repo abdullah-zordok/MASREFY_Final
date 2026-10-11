@@ -88,3 +88,49 @@ deployment, real Posting-OFF monitor/worker rehearsal, security disposition, and
 separately approved activation and bounded fresh financial tests. No claim of
 full device, live auto-posting or client acceptance is made. Production,
 Integration and main remain untouched.
+
+## Second approved diagnostic and process-guard coverage
+
+Exact replacement scope SHA-256
+`0a8a914f431cc1872a2187af895cf6ad62720c4fe0a38876c943bd8355fc024d`
+received direct human approval. The separate signed diagnostic SHA-256
+`ab9358069e3d97b219069121a817e942f042e2e55f1b78b8c39de6bdef03d66e`
+installed successfully. Its sole invocation ran at 15:00:29-15:00:35 UTC and
+failed framework bootstrap. The original client APK was verified unchanged and
+both named packages were left stopped. The journal verdict remains
+**INDETERMINATE**; this approval and invocation latch are consumed.
+
+Bounded read-only crash metadata, correlated to that invocation's UTC interval
+and dedicated process, retained only the closed stage `PROCESS_SURVEY`. No raw
+crash log, process identities, key or journal values were retained. The failure
+occurred before the journal read. There was no new client installation, Staging
+deployment, historical replay or financial action.
+
+The disposable bootstrap rehearsal previously omitted the real process survey.
+Both wrappers now use the same adapter and portable rejection policy. All four
+real guard positions and rejection criteria are preserved. Closed enum stages
+distinguish unavailable service/list, invalid record, same-UID peer, unexpected
+name, missing/duplicate self and service exceptions. Host runtime qualification
+and the signing gate require successful observations before and after Application
+creation in every run; missing or rejected observations cannot qualify a probe.
+This is diagnostic coverage and refactoring, not a proven Redmi fix.
+
+Local verification passed the complete reader suite, including 43 identity,
+77 sanitized-failure, ten process-policy, 215 schema and 98 whole-store checks.
+Four packaging and sixteen observation tests passed; the signing gate regression
+first failed on twelve omitted/rejected observation cases and passed after the
+gate correction. Windows-only unexecuted cases remain explicit. The actual
+wrapper and disposable fixture compiled offline; fresh exact-source Linux and
+Android CI is still required before a replacement can be signed.
+
+Independent review found no remaining actionable findings in this diff. Tagged
+upstream Android15 startup sources do not establish an early publication race;
+the exact Redmi rejection branch remains unknown. No process guard was weakened
+or moved. A future physical packet needs new bytes, refreshed closed-stage host
+parsing, bounded failure metadata collection and a new exact human approval.
+
+Evidence: `redmi-diagnostic-replacement-aadff3ae-result.json`, its consumed scope
+and instrumentation-intent receipts, its failure-metadata receipt,
+`process-survey-full-local.log`, `process-survey-signing-gate-{red,green}.log`,
+and `review/process-survey-shared-guard-review.md` under
+`E:/Masarifi-staging-acceptance-2026-10-11/`.

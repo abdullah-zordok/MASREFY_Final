@@ -43,9 +43,14 @@ def build_apk(kind, arguments, factory, log):
     classes = output / "classes"
     classes.mkdir()
     sources = sorted((SOURCE / kind).glob("*.java"))
+    if kind == "probe":
+        sources += [SOURCE.parent/"android-probe/AndroidProcessSurvey.java",
+                    SOURCE.parent/"src/com/masarifi/voicequalification/PrivateProbeFailure.java",
+                    SOURCE.parent/"src/com/masarifi/voicequalification/PrivateProbeProcessPolicy.java"]
     if kind == "probe" and arguments.journal_fixtures:
         sources += sorted((SOURCE / "journal").glob("*.java"))
         sources += sorted((SOURCE.parent / "src").rglob("*.java"))
+    sources=sorted(set(sources))
     android_jar = arguments.sdk / "platforms/android-36/android.jar"
     tools = arguments.sdk / "build-tools/35.0.0"
     checked([executable(arguments.java / "bin","javac"),"-encoding","UTF-8","-source","17","-target","17",
@@ -137,7 +142,7 @@ def main():
             receipt["platformDescriptorCheckerSha256"]=digest(SOURCE.parent/"tests/test-android-buffer-descriptors.py")
             receipt["diagnosticSourceHashes"] = {str(path.relative_to(SOURCE.parent)):digest(path)
                                                  for path in sorted((SOURCE.parent / "src").rglob("*.java"))+
-                                                 [SOURCE.parent / "android-probe/PrivateJournalDiagnostic.java"]}
+                                                 sorted((SOURCE.parent / "android-probe").glob("*.java"))}
             receipt["journalFixtureHashes"] = {str(path.relative_to(arguments.journal_fixtures)):digest(path)
                                                for path in sorted(arguments.journal_fixtures.rglob("*")) if path.is_file()}
             receipt["nativeBuild"] = json.loads((arguments.journal_native / "build-receipt.json").read_text(encoding="utf-8"))

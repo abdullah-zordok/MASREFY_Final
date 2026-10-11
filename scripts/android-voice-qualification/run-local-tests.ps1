@@ -33,6 +33,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Strict JNI row boundary failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Private probe identity tests failed' }
 & java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeFailureTest
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe guard failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeProcessPolicyTest
+if ($LASTEXITCODE -ne 0) { throw 'Same-UID private process isolation failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeRootTest
 if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe path resolution failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SyntheticRootResolverTest

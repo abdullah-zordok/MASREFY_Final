@@ -51,7 +51,9 @@ class ProbeBuildGates(unittest.TestCase):
         run={"verdict":"PASS_DISPOSABLE_ENCRYPTED_JOURNALS","cases":"42","fixtureFingerprint":"a"*64}
         runtime={"result":"PASS_DISPOSABLE_ANDROID15_BOOTSTRAP","fixtureOnly":True,"realRedmiQualification":False,
                  "positiveControl":{"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True},
-                 "runs":[{"verdict":"PASS_DISPOSABLE_BOOTSTRAP","newNetworkRequests":0} for _ in range(3)],
+                 "runs":[{"verdict":"PASS_DISPOSABLE_BOOTSTRAP","newNetworkRequests":0,
+                          "beforeApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS",
+                          "afterApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS"} for _ in range(3)],
                  "encryptedJournals":{"seed":seed,"runs":[dict(run) for _ in range(3)]}}
         build.validate_runtime(runtime)
         bad=[{},dict(runtime,result="FAIL"),dict(runtime,realRedmiQualification=True),dict(runtime,fixtureOnly=False),
@@ -61,6 +63,10 @@ class ProbeBuildGates(unittest.TestCase):
         case=copy.deepcopy(runtime);case["encryptedJournals"]["runs"][0]["fixtureFingerprint"]="b"*64;bad.append(case)
         case=copy.deepcopy(runtime);case["encryptedJournals"]["seed"]["missingExistingAliasesFailClosed"]="false";bad.append(case)
         case=copy.deepcopy(runtime);case["runs"][1]["newNetworkRequests"]=1;bad.append(case)
+        for index in range(3):
+            for field in ("beforeApplicationProcessSurvey","afterApplicationProcessSurvey"):
+                case=copy.deepcopy(runtime);case["runs"][index].pop(field);bad.append(case)
+                case=copy.deepcopy(runtime);case["runs"][index][field]="PROCESS_SELF_MISSING";bad.append(case)
         for evidence in bad:
             with self.subTest(evidence_number=bad.index(evidence)),self.assertRaisesRegex(RuntimeError,"PROBE_BUILD_GATE"):
                 build.validate_runtime(evidence)

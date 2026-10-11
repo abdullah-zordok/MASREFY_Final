@@ -20,6 +20,16 @@ class FixtureEmulator:
     def command(self,*arguments): self.commands.append(arguments);return ""
 
 class ControlObservationsTest(unittest.TestCase):
+    def test_process_survey_cannot_be_omitted_or_rejected_before_application(self):
+        passed={"beforeApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS",
+                "afterApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS"}
+        bootstrap.require_process_survey(passed)
+        for values in ({}, {"beforeApplicationProcessSurvey":"OWN_PROCESS_MISSING",
+                            "afterApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS"},
+                       {"beforeApplicationProcessSurvey":"PASS_ONLY_PRIVATE_PROCESS",
+                        "afterApplicationProcessSurvey":"SAME_UID_COMPETING_PROCESS"}):
+            with self.subTest(values=values),self.assertRaisesRegex(RuntimeError,"PROCESS_SURVEY_RUNTIME_REJECTED"):
+                bootstrap.require_process_survey(values)
     def test_platform_barriers_require_explicit_completion(self):
         class BarrierEmulator:
             def __init__(self,outputs):self.outputs=iter(outputs);self.commands=[]

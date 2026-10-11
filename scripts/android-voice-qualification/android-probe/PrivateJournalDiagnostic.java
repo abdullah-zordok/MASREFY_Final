@@ -1,6 +1,5 @@
 package com.masarifi.voicequalification;
 
-import android.app.ActivityManager;
 import android.app.Application;
 import android.app.Instrumentation;
 import android.content.Context;
@@ -117,12 +116,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
         });
     }
     private static void requireOnlyPrivateProcess(Context context) {
-        ActivityManager manager=context.getSystemService(ActivityManager.class);if(manager==null)throw failure();
-        var processes=manager.getRunningAppProcesses();if(processes==null)throw failure();int own=0;
-        for(var process:processes){if(process==null)throw failure();if(process.uid==Process.myUid()){
-            if(process.pid!=Process.myPid() || !PrivateProbePolicy.PROCESS.equals(process.processName))throw failure();own++;
-        }}
-        if(own!=1)throw failure();
+        AndroidProcessSurvey.require(context,PrivateProbePolicy.PROCESS);
     }
     private record Stamp(long device,long inode,int uid,int mode,long size,long modified,long changed) {}
     private static Map<String,Stamp> stamps(Path root,Iterable<String> files) throws Exception {
