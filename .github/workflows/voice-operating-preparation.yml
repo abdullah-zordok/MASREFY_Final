@@ -29,6 +29,8 @@ jobs:
           python3 -O scripts/staging-voice/customer-operating-cohort.test.py
           python3 scripts/staging-voice/off-monitor-rehearsal.test.py
           python3 -O scripts/staging-voice/off-monitor-rehearsal.test.py
+          python3 scripts/staging-voice/api-off-qualification.test.py
+          python3 -O scripts/staging-voice/api-off-qualification.test.py
           python3 scripts/staging-voice/operating-host.test.py
           python3 scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
           python3 -O scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
@@ -38,6 +40,7 @@ jobs:
           set -euo pipefail
           sudo python3 scripts/staging-voice/database-environment-docker.test.py 2>&1 | tee "$RUNNER_TEMP/voice-operating-docker.log"
           sudo python3 -O scripts/staging-voice/database-environment-docker.test.py 2>&1 | tee -a "$RUNNER_TEMP/voice-operating-docker.log"
+          sudo --preserve-env=GITHUB_ACTIONS python3 scripts/staging-voice/api-off-docker.test.py 2>&1 | tee -a "$RUNNER_TEMP/voice-operating-docker.log"
       - name: Install frozen API dependencies without lifecycle scripts
         working-directory: apps/api
         shell: bash

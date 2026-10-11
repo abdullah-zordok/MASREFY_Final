@@ -49,7 +49,12 @@ def validate_packet(packet, now):
     require(packet['requiredMigrations'] == operating.MIGRATIONS and
             set(packet['files']) == {'customer-operating-cohort.py', 'off-monitor-rehearsal.py'} and
             all(operating.valid_hash(value) for value in packet['files'].values()), 'OFF_CONTROL_PINS_REQUIRED')
-    cohort = packet['cohort']
+    validate_cohort(packet['cohort'], now)
+    checked_snapshot(packet['baseline'], packet)
+    return packet
+
+
+def validate_cohort(cohort, now):
     require(set(cohort) == {'observedAt', 'composeFiles', 'envHashes', 'databaseCAHash', 'backupDigest',
                            'backupRestoreReceiptHash', 'services', 'containerIDs', 'runningIDs'} and
             0 <= now - operating.instant(cohort['observedAt']) <= 900, 'OFF_FRESH_COHORT_REQUIRED')
@@ -71,8 +76,6 @@ def validate_packet(packet, now):
                 all(operating.valid_hash(value) for value in values), 'OFF_CONTAINER_INVENTORY_REQUIRED')
     require(set(cohort['runningIDs']).issubset(cohort['containerIDs']) and
             {entry['id'] for entry in cohort['services']}.issubset(cohort['containerIDs']), 'OFF_CONTAINER_INVENTORY_REQUIRED')
-    checked_snapshot(packet['baseline'], packet)
-    return packet
 
 
 def checked_snapshot(snapshot, packet):
