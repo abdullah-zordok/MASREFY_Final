@@ -1,5 +1,5 @@
 """Disposable process-API experiment. No real client, private data or signing key."""
-import argparse,importlib.util,json,re,time
+import argparse,importlib.util,json,re,shlex,time
 from pathlib import Path
 
 HERE=Path(__file__).resolve().parent
@@ -51,6 +51,10 @@ def listener_connections(emulator):
     reject(len(output.encode())<=16384)
     return output.count('LISTENER_CONNECTED')
 
+def configure_listener(emulator,enabled):
+    # adb shell rejoins argv into remote shell text; preserve the literal '$'.
+    emulator.command('shell','cmd','notification','allow_listener' if enabled else 'disallow_listener',shlex.quote(LISTENER),'0')
+
 def wait_listener(emulator,before):
     previous=getattr(emulator,'command_deadline',None)
     deadline=time.monotonic()+15
@@ -84,16 +88,16 @@ def main():
             bootstrap.install_fixtures(emulator,bootstrap.fixture_apks(args))
             for listener_enabled in (False,True):
                 for iteration in range(3):
-                    emulator.command('shell','cmd','notification','disallow_listener',LISTENER,'0')
+                    configure_listener(emulator,False)
                     emulator.command('shell','am','force-stop',TARGET)
                     before=listener_connections(emulator)
                     connected=False
                     if listener_enabled:
-                        emulator.command('shell','cmd','notification','allow_listener',LISTENER,'0')
-                        wait_listener(emulator,before);connected=True
+                        configure_listener(emulator,True)
                     configured=emulator.command('shell','settings','--user','0','get','secure','enabled_notification_listeners',retain_output=False).strip().split(':')
                     enabled=any(item in (LISTENER,TARGET+'/.Peers$Listener') for item in configured)
                     reject(enabled==listener_enabled)
+                    if listener_enabled:wait_listener(emulator,before);connected=True
                     emulator.command('shell','am','force-stop',TARGET)
                     observed=parse(emulator.command('shell','am','instrument','-w','-r',PROBE))
                     receipt['runs'].append({'listenerEnabled':listener_enabled,'listenerBoundBeforeControlledForceStop':connected,**observed})
@@ -101,7 +105,7 @@ def main():
             receipt['result']='PASS_DISPOSABLE_PROCESS_LAB'
         finally:
             try:
-                try:emulator.command('shell','cmd','notification','disallow_listener',LISTENER,'0')
+                try:configure_listener(emulator,False)
                 finally:emulator.command('shell','am','force-stop',TARGET)
             except Exception:
                 receipt['result']='FAIL_FIXTURE_CLEANUP'
