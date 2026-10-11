@@ -12,13 +12,30 @@ describeLiveDatabase('planning worker live recovery', () => {
   const salaryId = randomUUID();
   const obligationId = randomUUID();
   const overdueItemId = randomUUID();
-  const transactionId = randomUUID();
+  const transactionId = `ffffffff-ffff-4fff-bfff-${randomUUID().slice(-12)}`;
+  const backlogOwner = `planning_worker_backlog_${randomUUID()}`;
+  const backlogIds = Array.from(
+    { length: 101 },
+    () => `00000000-0000-4000-8000-${randomUUID().slice(-12)}`,
+  );
 
   beforeAll(async () =>
     pool.withClient(async (client) => {
       await client.query('begin');
       await client.query('set local role masarifi_migration');
       await client.query("insert into public.profiles(id,status) values($1,'active')", [owner]);
+      await client.query("insert into public.profiles(id,status) values($1,'active')", [
+        backlogOwner,
+      ]);
+      // Confirmed expenses are global match candidates, even without obligations.
+      // All 101 UUIDs precede this fixture, placing it beyond one bounded claim.
+      await client.query(
+        `insert into public.transactions(id,user_id,kind,status,amount_minor,currency_code,title,occurred_at)
+         select id,$1,
+           'expense','confirmed',1,'SAR','Unrelated backlog',clock_timestamp()
+         from unnest($2::uuid[]) id`,
+        [backlogOwner, backlogIds],
+      );
       await client.query(
         `insert into public.salary_profiles(id,user_id,name,amount_minor,currency_code,frequency,expected_day)
       values($1,$2,'Salary',1000,'SAR','monthly',extract(day from current_date)::integer)`,
@@ -51,6 +68,22 @@ describeLiveDatabase('planning worker live recovery', () => {
     await pool.onModuleDestroy();
   });
 
+  async function finishOwnMatch() {
+    // Other suites retain confirmed expenses. Each pass still claims at most 100;
+    // stop at this fixture's completion instead of assuming one global page drains.
+    for (let pass = 0; pass < 20; pass += 1) {
+      await worker.runJob('planning.payment-match.propose');
+      const state = await pool.query<{ completed: boolean }>(
+        `select exists(select 1 from private.planning_job_claims
+         where job_name='planning.payment-match.propose' and resource_id=$1
+           and status='completed') completed`,
+        [transactionId],
+      );
+      if (state.rows[0]?.completed) return;
+    }
+    throw new Error('Planning fixture match not completed within 20 bounded passes');
+  }
+
   it('runs all five bounded jobs idempotently and emits one intent per eligible due item', async () => {
     for (const job of [
       'planning.salary-cycle.generate',
@@ -58,8 +91,19 @@ describeLiveDatabase('planning worker live recovery', () => {
       'planning.payment-match.propose',
       'planning.overdue.mark',
       'planning.reminders.emit',
-    ] as const)
+    ] as const) {
       await expect(worker.runJob(job)).resolves.toBeGreaterThanOrEqual(1);
+      if (job === 'planning.payment-match.propose') {
+        const firstPage = await pool.query<{ pending: boolean }>(
+          `select exists(select 1 from private.planning_job_claims
+           where job_name='planning.payment-match.propose' and resource_id=$1
+             and status='pending') pending`,
+          [transactionId],
+        );
+        expect(firstPage.rows[0]?.pending).toBe(true);
+        await finishOwnMatch();
+      }
+    }
     await expect(worker.runJob('planning.reminders.emit')).resolves.toBe(0);
     const counts = await pool.query<{
       receipts: string;
