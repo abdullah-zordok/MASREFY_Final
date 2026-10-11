@@ -29,7 +29,7 @@
     },
     {
       "path": ".github/workflows/voice-operating-preparation.yml",
-      "sha256": "ba1e816272b12e0f8ff0c49f58f389adf49a6f6ab50372a38b214bffe6d5aab1"
+      "sha256": "7a56b9b21a9b1f19422d4674f71e4cc95850c25fc9236736505084db6b20510a"
     }
   ],
   "proposedHelpers": [

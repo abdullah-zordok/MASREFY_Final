@@ -32,6 +32,12 @@ jobs:
           python3 scripts/staging-voice/operating-host.test.py
           python3 scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
           python3 -O scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
+      - name: Install frozen API dependencies without lifecycle scripts
+        working-directory: apps/api
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/voice-operating-dependencies.log"
       - name: Verify related Node control and deployment guards using local fixtures
         shell: bash
         run: |
@@ -45,6 +51,8 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,os,pathlib
           paths=sorted(pathlib.Path('scripts/staging-voice').glob('*.py'))
+          paths += [pathlib.Path('.github/workflows/voice-operating-preparation.yml'),
+                    pathlib.Path('apps/api/package.json'), pathlib.Path('apps/api/package-lock.json')]
           result={'sourceSha':os.environ['GITHUB_SHA'],'fixtureOnly':True,'liveStagingRun':False,
                   'files':{str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}}
           pathlib.Path(os.environ['RUNNER_TEMP'],'voice-operating-source.json').write_text(json.dumps(result,sort_keys=True))
@@ -56,6 +64,7 @@ jobs:
           name: voice-operating-preparation-${{ github.sha }}
           path: |
             ${{ runner.temp }}/voice-operating-python.log
+            ${{ runner.temp }}/voice-operating-dependencies.log
             ${{ runner.temp }}/voice-operating-node.log
             ${{ runner.temp }}/voice-operating-source.json
           if-no-files-found: error

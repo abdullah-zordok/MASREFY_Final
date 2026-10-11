@@ -1,0 +1,134 @@
+package com.masarifi.voicequalification;
+
+import android.app.ActivityManager;
+import android.app.Application;
+import android.app.Instrumentation;
+import android.content.Context;
+import android.content.pm.ComponentInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Process;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+/** Existing-only real-target reader. No fixture seeder, app loader, writes or network code. */
+public final class PrivateJournalDiagnostic extends Instrumentation {
+    private String observedUid,approvedProbeHash;
+    @Override public Application newApplication(ClassLoader loader,String name,Context context)
+            throws InstantiationException,IllegalAccessException,ClassNotFoundException {
+        try {
+            // Android installs matching providers before onCreate. Reject manifest/process
+            // collisions and the wrong archived target BEFORE returning any Application.
+            requireIdentity(context);requireOnlyPrivateProcess(context);
+            if(!"com.masarifi.mobile.MainApplication".equals(name))throw failure();
+            return super.newApplication(loader,Application.class.getName(),context);
+        } catch(Throwable rejected) {throw new ClassNotFoundException("PROBE_IDENTITY_INDETERMINATE");}
+    }
+    @Override public void onCreate(Bundle arguments) {
+        super.onCreate(arguments);
+        if(arguments!=null){observedUid=arguments.getString("observedTargetUid");approvedProbeHash=arguments.getString("approvedProbeSha256");}
+        start();
+    }
+    @Override public void onStart() {
+        Bundle receipt=new Bundle();
+        try {
+            Context context=getTargetContext();
+            PrivateProbePolicy.requireObservedBinding(Process.myUid(),observedUid,approvedProbeHash,hash(Path.of(getContext().getApplicationInfo().sourceDir)));
+            CountDownLatch barrier=new CountDownLatch(1);context.getMainExecutor().execute(barrier::countDown);
+            if(!barrier.await(5,TimeUnit.SECONDS) || context.getApplicationContext().getClass()!=Application.class)throw failure();
+            requireIdentity(context);requireOnlyPrivateProcess(context);
+            Path root=dataRoot(context);Map<String,Stamp> before=stamps(root,List.of());
+            NativeSnapshotReader.loadLibrary();
+            try(var snapshot=VoiceStoreSnapshot.capture(root)) {
+                if(!Boolean.TRUE.equals(snapshot.summary().get("nativeFileIdentityAvailable")))throw failure();
+                Map<String,Stamp> nativeBefore=stamps(root,snapshot.names());
+                requireOnlyPrivateProcess(context);
+                var result=VoiceStoreQualification.qualify(snapshot,ExistingDatabaseKey.androidExistingOnly(),NativeSnapshotReader::open);
+                if(!snapshot.verifyUnchanged() || !nativeBefore.equals(stamps(root,snapshot.names())) || !before.equals(stamps(root,List.of())))throw failure();
+                requireIdentity(context);requireOnlyPrivateProcess(context);
+                receipt.putString("verdict",result.verdict());receipt.putString("fingerprint",result.fingerprint());
+                receipt.putInt("owners",result.ownerDatabases());receipt.putInt("legacy",result.legacyDatabases());
+                receipt.putInt("async",result.asyncDatabases());receipt.putInt("rows",result.rows());
+                receipt.putInt("pending",result.pending());receipt.putInt("terminal",result.terminal());
+                receipt.putInt("audioOwned",result.audioOwned());receipt.putInt("confirmationOwned",result.confirmationOwned());
+                receipt.putInt("committedFrames",result.committedFrames());
+                receipt.putString("targetApkSha256",PrivateProbePolicy.HISTORICAL_APK);receipt.putString("probeApkSha256",approvedProbeHash);
+                receipt.putString("certificateSha256",PrivateProbePolicy.CERTIFICATE);receipt.putInt("targetUid",Process.myUid());
+                receipt.putBoolean("unchanged",true);receipt.putBoolean("plainApplication",true);receipt.putBoolean("onlyPrivateProcess",true);
+            }
+            finish(-1,receipt);
+        } catch(Throwable rejected) {receipt.clear();receipt.putString("verdict","INDETERMINATE");finish(0,receipt);}
+    }
+    private void requireIdentity(Context context) throws Exception {
+        PackageManager manager=context.getPackageManager();
+        PackageInfo target=manager.getPackageInfo(PrivateProbePolicy.TARGET,PackageManager.GET_PROVIDERS|PackageManager.GET_ACTIVITIES|
+                PackageManager.GET_RECEIVERS|PackageManager.GET_SERVICES|PackageManager.GET_SIGNING_CERTIFICATES|PackageManager.MATCH_DISABLED_COMPONENTS);
+        PackageInfo probe=manager.getPackageInfo(PrivateProbePolicy.PROBE,PackageManager.GET_SIGNING_CERTIFICATES);
+        if(target.applicationInfo==null || probe.applicationInfo==null || target.sharedUserId!=null || !PrivateProbePolicy.PROBE.equals(getContext().getPackageName()) ||
+                !PrivateProbePolicy.TARGET.equals(target.applicationInfo.processName) || target.getLongVersionCode()!=1 || !"0.0.1".equals(target.versionName) ||
+                (probe.applicationInfo.flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0 || probe.splitNames!=null)throw failure();
+        List<String> providers=processes(target.providers);List<String> components=new ArrayList<>();
+        components.addAll(processes(target.activities));components.addAll(processes(target.services));components.addAll(processes(target.receivers));
+        var app=target.applicationInfo;
+        PrivateProbePolicy.requireIdentity(new PrivateProbePolicy.Identity(context.getPackageName(),Application.getProcessName(),Build.VERSION.SDK_INT,
+                Process.myUid(),app.uid,hash(Path.of(app.sourceDir)),certificate(target),certificate(probe),app.className,app.appComponentFactory,
+                (app.flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,target.splitNames==null?0:target.splitNames.length,providers,components,dataRoot(context).toString()));
+    }
+    private static List<String> processes(ComponentInfo[] components) {
+        List<String> result=new ArrayList<>();if(components!=null)for(ComponentInfo component:components){if(component==null)throw failure();result.add(component.processName);}return result;
+    }
+    private static String certificate(PackageInfo info) throws Exception {
+        if(info.signingInfo==null || info.signingInfo.hasMultipleSigners())throw failure();
+        var signatures=info.signingInfo.getApkContentsSigners();if(signatures==null || signatures.length!=1)throw failure();
+        byte[] encoded=signatures[0].toByteArray();try{return hex(MessageDigest.getInstance("SHA-256").digest(encoded));}finally{Arrays.fill(encoded,(byte)0);}
+    }
+    private static Path dataRoot(Context context) throws Exception {
+        Path declared=Path.of(context.getApplicationInfo().dataDir);
+        return PrivateProbePolicy.canonicalRoot(declared,Path.of("/data/user/0"),Path.of("/data/data"),path -> {
+            var stamp=Os.lstat(path.toString());return OsConstants.S_ISDIR(stamp.st_mode)&&stamp.st_uid==Process.myUid();
+        });
+    }
+    private static void requireOnlyPrivateProcess(Context context) {
+        ActivityManager manager=context.getSystemService(ActivityManager.class);if(manager==null)throw failure();
+        var processes=manager.getRunningAppProcesses();if(processes==null)throw failure();int own=0;
+        for(var process:processes){if(process==null)throw failure();if(process.uid==Process.myUid()){
+            if(process.pid!=Process.myPid() || !PrivateProbePolicy.PROCESS.equals(process.processName))throw failure();own++;
+        }}
+        if(own!=1)throw failure();
+    }
+    private record Stamp(long device,long inode,int uid,int mode,long size,long modified,long changed) {}
+    private static Map<String,Stamp> stamps(Path root,Iterable<String> files) throws Exception {
+        Map<String,Stamp> result=new TreeMap<>();
+        for(String directory:List.of("","files","files/SQLite","databases","shared_prefs"))stamp(root,directory,true,result);
+        for(String file:files)stamp(root,file,false,result);return result;
+    }
+    private static void stamp(Path root,String relative,boolean directory,Map<String,Stamp> result) throws Exception {
+        try {
+            var value=Os.lstat(root.resolve(relative).toString());
+            if(value.st_uid!=Process.myUid() || (directory?!OsConstants.S_ISDIR(value.st_mode):!OsConstants.S_ISREG(value.st_mode)))throw failure();
+            result.put(relative,new Stamp(value.st_dev,value.st_ino,value.st_uid,value.st_mode,value.st_size,value.st_mtime,value.st_ctime));
+        } catch(ErrnoException absent) {if(!directory || relative.isEmpty() || absent.errno!=OsConstants.ENOENT)throw failure();}
+    }
+    private static String hash(Path apk) throws Exception {
+        if(!Files.isRegularFile(apk,LinkOption.NOFOLLOW_LINKS))throw failure();long size=Files.size(apk);if(size<=0 || size>512L*1024*1024)throw failure();
+        MessageDigest digest=MessageDigest.getInstance("SHA-256");byte[] buffer=new byte[65536];long count=0;
+        try(var input=Files.newInputStream(apk,LinkOption.NOFOLLOW_LINKS)){int length;while((length=input.read(buffer))!=-1){count+=length;if(count>size)throw failure();digest.update(buffer,0,length);}}
+        finally{Arrays.fill(buffer,(byte)0);}if(count!=size || Files.size(apk)!=size)throw failure();return hex(digest.digest());
+    }
+    private static String hex(byte[] bytes){StringBuilder result=new StringBuilder(64);try{for(byte octet:bytes)result.append(String.format(java.util.Locale.ROOT,"%02x",octet&255));return result.toString();}finally{Arrays.fill(bytes,(byte)0);}}
+    private static IllegalStateException failure(){return new IllegalStateException("PROBE_IDENTITY_INDETERMINATE");}
+}

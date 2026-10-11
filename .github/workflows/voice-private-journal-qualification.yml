@@ -47,6 +47,11 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SecureStoreKeyIndexTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceJournalClassifierTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.NativeSnapshotReaderTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.PrivateProbePolicyTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.PrivateProbeRootTest > "$build_dir/root-test.log" 2>&1 || { cat "$build_dir/root-test.log"; exit 1; }
+          cat "$build_dir/root-test.log"
+          if grep -q 'UNEXECUTED_ROOT_CASE' "$build_dir/root-test.log"; then exit 1; fi
+          python3 scripts/android-voice-qualification/tests/test-probe-build.py
           python3 scripts/android-voice-qualification/tests/schema-fixtures.py --output "$build_dir/schema-fixtures" --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreQualificationTest "$build_dir/schema-fixtures"
           python3 scripts/android-voice-qualification/tests/real-wal-fixtures.py --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java"
@@ -209,6 +214,9 @@ jobs:
             --output "$fixture_root/build" --sdk "$sdk_root" --java "$JAVA_HOME" \
             --core-aar "$fixture_root/core-1.17.0.aar" --journal-native "$fixture_root/native" \
             --journal-abi x86_64 --journal-fixtures "$RUNNER_TEMP/vqs-android-encrypted-input"
+          python3 scripts/android-voice-qualification/android-probe/build-probe.py \
+            --output "$fixture_root/offline-unsigned-real-target-probe" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --native "$fixture_root/native"
           "$sdk_root/cmdline-tools/latest/bin/avdmanager" create avd \
             -n vqs_disposable_android15 -k 'system-images;android-35;default;x86_64' \
             -d pixel_7 -p "$ANDROID_AVD_HOME/vqs_disposable_android15.avd" < /dev/null

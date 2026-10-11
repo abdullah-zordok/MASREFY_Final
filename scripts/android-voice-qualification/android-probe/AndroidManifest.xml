@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.masarifi.voicequalification.diagnostic" android:versionCode="1" android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="35" android:targetSdkVersion="35" />
+    <application android:name="android.app.Application" android:debuggable="false" android:allowBackup="false" android:extractNativeLibs="true" android:hasCode="true" />
+    <instrumentation android:name="com.masarifi.voicequalification.PrivateJournalDiagnostic" android:targetPackage="com.masarifi.mobile" android:targetProcesses="com.masarifi.mobile:voicequalify" android:functionalTest="false" android:handleProfiling="false" />
+</manifest>

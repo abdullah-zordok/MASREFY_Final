@@ -27,6 +27,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Existing owner-key mapping failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Pinned Voice journal classification failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.NativeSnapshotReaderTest
 if ($LASTEXITCODE -ne 0) { throw 'Strict JNI row boundary failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.PrivateProbePolicyTest
+if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe guard failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.PrivateProbeRootTest
+if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe path resolution failed.' }
+& python "$testRoot/test-probe-build.py"
+if ($LASTEXITCODE -ne 0) { throw 'Offline real-target probe packaging gate failed.' }
 & python "$testRoot/schema-fixtures.py" --output "$outputRoot/schema-fixtures" --classes $outputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Complete database schema recognition failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.VoiceStoreQualificationTest "$outputRoot/schema-fixtures"

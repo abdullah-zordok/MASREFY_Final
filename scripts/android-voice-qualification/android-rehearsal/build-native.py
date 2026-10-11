@@ -11,8 +11,32 @@ HERE = Path(__file__).resolve().parent
 PINS = {"sqlite3.c": "8fdf08e15777a45386fe4b2fc7604f125eb9ec57d0aaa8bde11ec8d8115ed915",
         "sqlite3.h": "3c6356d8cf67ed92522114559cdcba1b38b39eab05e9f5989c1758b8eacef5b9"}
 OPENSSL_SHA = "bdd7fdc6d5534b0c3d1d1b233de4c7a688086aa8b13dcee70699a178a89ee298"
+COMPILE_FLAGS = ["-std=c11", "-fPIC", "-O2", "-fvisibility=hidden", "-D_GNU_SOURCE", "-include", "stdint.h",
+                 "-include", "unistd.h", "-include", "sys/mman.h", "-include", "errno.h",
+                 "-DSQLITE_THREADSAFE=1", "-DSQLITE_TEMP_STORE=2", "-DSQLITE_ENABLE_BYTECODE_VTAB=1",
+                 "-DSQLITE_ENABLE_SESSION=1", "-DSQLITE_ENABLE_PREUPDATE_HOOK=1", "-DSQLITE_ENABLE_MATH_FUNCTIONS=1",
+                 "-DSQLITE_ENABLE_FTS4=1", "-DSQLITE_ENABLE_FTS3_PARENTHESIS=1", "-DSQLITE_ENABLE_FTS5=1",
+                 "-DSQLITE_HAS_CODEC=1", "-DSQLITE_EXTRA_INIT=sqlcipher_extra_init", "-DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown",
+                 "-DSQLCIPHER_CRYPTO_OPENSSL", "-DSQLITE_OS_OTHER=1", "-DSQLITE_OMIT_LOAD_EXTENSION=1",
+                 "-DSQLITE_OMIT_DESERIALIZE=1", "-DSQLCIPHER_OMIT_DEFAULT_LOGGING=1"]
+READER_WARNINGS=["-Wall","-Wextra","-Werror"]
+LINK_FLAGS=["-shared","-Wl,-Bsymbolic","-Wl,-z,defs","-Wl,-soname,libvoice_private_reader.so"]
+LINK_LIBRARIES=["-lcrypto","-llog","-lm"]
 
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def native_contract(abi):
+    if abi not in ("arm64-v8a","x86_64"):raise AssertionError("NATIVE_ABI_INVALID")
+    names={"voice_memory_reader.c","voice_memory_reader.h","voice_memory_jni.c"}
+    if {path.name for path in (HERE.parent/"native").glob("*.[ch]")}!=names:raise AssertionError("NATIVE_SOURCE_SET_CHANGED")
+    triplet="aarch64-linux-android" if abi=="arm64-v8a" else "x86_64-linux-android"
+    return dict(qualification="OFFLINE_COMPILE_AND_LINK_ONLY",runtimeAcceptance=False,abi=abi,
+                builderSha256=digest(Path(__file__)),opensslAarSha256=OPENSSL_SHA,sqlcipherSources=dict(PINS),
+                sources={name:digest(HERE.parent/"native"/name) for name in ("voice_memory_reader.c","voice_memory_reader.h","voice_memory_jni.c")},
+                configuration=dict(ndkRevision="27.1.12297006",androidApi=35,target=triplet+"35",compileFlags=list(COMPILE_FLAGS),
+                                   readerWarnings=list(READER_WARNINGS),linkFlags=list(LINK_FLAGS),linkLibraries=list(LINK_LIBRARIES),
+                                   sources=["sqlcipher/sqlite3.c","voice_memory_reader.c","voice_memory_jni.c"],
+                                   includes=["pinned-sqlcipher","pinned-openssl-crypto"],testHooks=False))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -22,6 +46,8 @@ def main():
     parser.add_argument("--vendor", type=Path, required=True)
     parser.add_argument("--abi", choices=["arm64-v8a", "x86_64"], required=True)
     args = parser.parse_args()
+    if "Pkg.Revision = 27.1.12297006" not in (args.ndk/"source.properties").read_text(encoding="utf-8"):
+        raise AssertionError("NDK_REVISION_PIN_CHANGED")
     if digest(args.openssl_aar) != OPENSSL_SHA: raise AssertionError("OPENSSL_AAR_PIN_CHANGED")
     sources = {name:(args.vendor / name).read_bytes() for name in PINS}
     for name, expected in PINS.items():
@@ -47,33 +73,23 @@ def main():
     compiler = toolchain / "bin" / ("clang.exe" if os.name == "nt" else "clang")
     triplet = "aarch64-linux-android" if args.abi == "arm64-v8a" else "x86_64-linux-android"
     flags = [str(compiler), "--target=" + triplet + "35", "--sysroot=" + str(toolchain / "sysroot"),
-             "-std=c11", "-fPIC", "-O2", "-fvisibility=hidden", "-D_GNU_SOURCE", "-include", "stdint.h",
-             "-include", "unistd.h", "-include", "sys/mman.h", "-include", "errno.h",
-             "-DSQLITE_THREADSAFE=1", "-DSQLITE_TEMP_STORE=2", "-DSQLITE_ENABLE_BYTECODE_VTAB=1",
-             "-DSQLITE_ENABLE_SESSION=1", "-DSQLITE_ENABLE_PREUPDATE_HOOK=1", "-DSQLITE_ENABLE_MATH_FUNCTIONS=1",
-             "-DSQLITE_ENABLE_FTS4=1", "-DSQLITE_ENABLE_FTS3_PARENTHESIS=1", "-DSQLITE_ENABLE_FTS5=1",
-             "-DSQLITE_HAS_CODEC=1", "-DSQLITE_EXTRA_INIT=sqlcipher_extra_init", "-DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown",
-             "-DSQLCIPHER_CRYPTO_OPENSSL", "-DSQLITE_OS_OTHER=1", "-DSQLITE_OMIT_LOAD_EXTENSION=1",
-             "-DSQLITE_OMIT_DESERIALIZE=1", "-DSQLCIPHER_OMIT_DEFAULT_LOGGING=1", "-I", str(args.vendor), "-I", str(include)]
+             *COMPILE_FLAGS, "-I", str(args.vendor), "-I", str(include)]
     objects = []
     with (args.output / "build.log").open("w", encoding="utf-8") as log:
         for name, source in (("cipher", args.vendor / "sqlite3.c"), ("reader", HERE.parent / "native/voice_memory_reader.c"),
                              ("jni", HERE.parent / "native/voice_memory_jni.c")):
             output = args.output / (name + ".o"); objects.append(output)
-            command = flags + ([] if name == "cipher" else ["-Wall", "-Wextra", "-Werror"]) + ["-c", str(source), "-o", str(output)]
+            command = flags + ([] if name == "cipher" else READER_WARNINGS) + ["-c", str(source), "-o", str(output)]
             result = subprocess.run(command, capture_output=True, text=True, timeout=300)
             log.write(result.stdout + result.stderr); log.flush()
             if result.returncode: raise AssertionError("ANDROID_NATIVE_COMPILE_FAILED")
         shared = args.output / "libvoice_private_reader.so"
-        command = flags + ["-shared", "-Wl,-Bsymbolic", "-Wl,-z,defs", "-Wl,-soname,libvoice_private_reader.so", *map(str, objects),
-                           "-L", str(args.output), "-lcrypto", "-llog", "-lm", "-o", str(shared)]
+        command = flags + LINK_FLAGS + [*map(str, objects),"-L",str(args.output),*LINK_LIBRARIES,"-o",str(shared)]
         result = subprocess.run(command, capture_output=True, text=True, timeout=120)
         log.write(result.stdout + result.stderr)
         if result.returncode: raise AssertionError("ANDROID_NATIVE_LINK_FAILED")
-    receipt = dict(qualification="OFFLINE_COMPILE_AND_LINK_ONLY", runtimeAcceptance=False, abi=args.abi,
-                   opensslAarSha256=OPENSSL_SHA, sqlcipherSources=PINS,
-                   sources={source.name:digest(source) for source in (HERE.parent / "native").glob("*.[ch]")},
-                   libraries={path.name:digest(path) for path in (crypto, shared)})
+    receipt=native_contract(args.abi)
+    receipt["libraries"]={path.name:digest(path) for path in (crypto,shared)}
     (args.output / "build-receipt.json").write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     print(json.dumps(dict(result="BUILT_DISPOSABLE_ANDROID_JNI", abi=args.abi, androidRuntimeQualified=False)))
 
