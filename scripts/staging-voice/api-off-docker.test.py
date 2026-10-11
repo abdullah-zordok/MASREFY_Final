@@ -9,7 +9,6 @@ import socket
 import subprocess
 import unittest
 import uuid
-import time
 
 SPEC = importlib.util.spec_from_file_location('isolated_api', pathlib.Path(__file__).with_name('api-off-qualification.py'))
 api = importlib.util.module_from_spec(SPEC)
@@ -45,6 +44,7 @@ class DockerQualification(unittest.TestCase):
         (root/'database-control.env').write_bytes(api.op.database_environment_bytes(values))
         (root/'database-control.env').chmod(0o600)
         packet = {'generation': generation, 'sourceSha': SOURCE, 'imageDigest': IMAGE.split('@sha256:')[1]}
+        (root/'packet.json').write_text(json.dumps(packet)); (root/'packet.json').chmod(0o600)
         identity = self.docker(*api.create_command(packet)[1:])
         self.addCleanup(lambda: self.docker('rm', '-f', identity))
         state = {**packet, 'version': 1, 'kind': 'posting-off-isolated-api', 'imageID': image['Id'],
