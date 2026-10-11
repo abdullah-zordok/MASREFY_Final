@@ -781,6 +781,14 @@ def database_command(packet, action, state=None, runner_id=None):
             runner_id, '/nodejs/bin/node', '-e', DB_SCRIPT]
 
 
+def database_environment_bytes(values):
+    require(isinstance(values, dict) and all(isinstance(key, str) and
+            re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key) and isinstance(value, str) and
+            not any(char in value for char in ('\r', '\n', '\0'))
+            for key, value in values.items()), 'DATABASE_ENV_FILE_INVALID')
+    return ''.join(key + '=' + value + '\n' for key, value in sorted(values.items())).encode('utf-8')
+
+
 def database_runner_command(identity, role):
     require(role in ('control', 'close') and UUID.fullmatch(identity.get('generation', '')) and
             valid_hash(identity.get('imageDigest')) and SHA.fullmatch(identity.get('sourceSha', '')),
@@ -793,8 +801,8 @@ def database_runner_command(identity, role):
             '--log-opt', 'max-size=1m', '--log-opt', 'max-file=2',
             '--label', 'org.masarifi.scope=' + scope_name(identity),
             '--label', 'org.masarifi.database-role=' + role,
-            '--env-file', '/etc/masarifi/migration.env', '-e', 'MASARIFI_PROCESS_KIND=migration',
-            '-e', 'MASARIFI_RELEASE_VERSION=' + identity['sourceSha'],
+            '--env-file', '/opt/masarifi/customer-voice-operating-' + identity['generation'] +
+            '/database-' + role + '.env',
             '-v', DATABASE_CA_BIND, IMAGE_PREFIX + identity['imageDigest'], '-e', DATABASE_IDLE]
 
 
@@ -857,6 +865,7 @@ def retained_database_runner(host, identity, role):
     present = host.run(['docker', 'ps', '-a', '--filter', 'name=^/' + name + '$', '--format', '{{.Names}}'])
     if journal is None:
         require(not present, 'DATABASE_RUNNER_NAME_ALREADY_OWNED')
+        host.prepare_database_environment(identity, role, expected_environment)
         journal = {**expected, 'id': None, 'phase': 'idle'}
         # Persist intent before create: a timeout can leave a container even if
         # Docker did not return its ID. Reconcile only this exact specification.
@@ -1099,7 +1108,12 @@ class LocalHost:
         return result
 
     def database_environment(self, image, identity):
-        values = dict(entry.split('=', 1) for entry in image.get('Config', {}).get('Env', []))
+        values = {}
+        for entry in image.get('Config', {}).get('Env', []):
+            require(isinstance(entry, str) and '=' in entry, 'DATABASE_IMAGE_ENV_INVALID')
+            key, value = entry.split('=', 1)
+            require(key not in values, 'DATABASE_IMAGE_ENV_INVALID')
+            values[key] = value
         content = pathlib.Path('/etc/masarifi/migration.env').read_bytes()
         pinned = identity['migrationEnvHash'] if 'migrationEnvHash' in identity else identity['rollback']['envHashes']['migration.env']
         require(hashlib.sha256(content).hexdigest() == pinned, 'DATABASE_ENV_PIN_CHANGED')
@@ -1117,7 +1131,38 @@ class LocalHost:
         require(not any(values.get(key) for key in ('NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH')) and
                 not any(key in values for key in ('OPERATING_ACTION', 'OPERATING_CONTROL')),
                 'DATABASE_ENV_UNSAFE')
+        database_environment_bytes(values)
         return values
+
+    def prepare_database_environment(self, identity, role, values):
+        # Do not pass overrides alongside --env-file: Docker can retain both
+        # entries. Keep credentials out of argv and never edit the shared file.
+        require(role in ('control', 'close'), 'DATABASE_RUNNER_ROLE_INVALID')
+        self.target(identity['generation'], incident='migrationEnvHash' in identity)
+        filename = self.root / ('database-' + role + '.env')
+        encoded = database_environment_bytes(values)
+        try:
+            descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        except FileExistsError:
+            # A prior interrupted preparation may have left the exact file.
+            # Never overwrite a different or incomplete credential artifact.
+            descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(descriptor, 'rb') as source:
+                metadata = os.fstat(source.fileno())
+                require(stat.S_ISREG(metadata.st_mode) and metadata.st_uid == 0 and
+                        stat.S_IMODE(metadata.st_mode) == 0o600 and metadata.st_nlink == 1,
+                        'DATABASE_DERIVED_ENV_INVALID')
+                require(source.read(len(encoded) + 1) == encoded, 'DATABASE_DERIVED_ENV_CHANGED')
+            return
+        with os.fdopen(descriptor, 'wb') as output:
+            output.write(encoded)
+            output.flush()
+            os.fsync(output.fileno())
+        directory = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     @contextlib.contextmanager
     def runner_lock(self, role):

@@ -885,6 +885,9 @@ class RetainedDockerHost(FakeHost):
         self.readiness_deadline = None
         self.fail_exec = False
         self.fail_create_receipt = False
+        self.env_files = {'/etc/masarifi/migration.env': [
+            'MASARIFI_PROCESS_KIND=migration', 'MASARIFI_RELEASE_VERSION=' + 'f' * 40,
+            'SUPABASE_URL=https://' + PROJECT + '.supabase.co']}
 
     @contextlib.contextmanager
     def runner_lock(self, role):
@@ -901,6 +904,10 @@ class RetainedDockerHost(FakeHost):
     def database_environment(self, image, identity):
         return {'MASARIFI_PROCESS_KIND': 'migration', 'MASARIFI_RELEASE_VERSION': 'a' * 40,
                 'SUPABASE_URL': 'https://' + PROJECT + '.supabase.co'}
+
+    def prepare_database_environment(self, identity, role, values):
+        path = '/opt/masarifi/customer-voice-operating-' + identity['generation'] + '/database-' + role + '.env'
+        self.env_files[path] = [key + '=' + value for key, value in sorted(values.items())]
 
     def inspect(self, identity):
         matches = [entry for entry in self.runners.values()
@@ -926,13 +933,17 @@ class RetainedDockerHost(FakeHost):
             identity = ('5' if name.endswith('-control') else '6') * 64
             labels = dict(value.split('=', 1) for index, value in enumerate(command)
                           if index and command[index - 1] == '--label')
+            # Docker retains env-file entries followed by CLI overrides. Model
+            # raw entries, not a dict that conceals conflicting duplicate keys.
+            docker_args = command[:command.index(IMAGE_PREFIX + 'b' * 64)]
+            entries = list(self.env_files[docker_args[docker_args.index('--env-file') + 1]])
+            entries += [value for index, value in enumerate(docker_args)
+                        if index and docker_args[index - 1] == '-e']
             self.runners[name] = {'Id': identity, 'Name': '/' + name,
                 'Image': 'sha256:' + '7' * 64,
                 'Config': {'Image': IMAGE_PREFIX + 'b' * 64, 'User': '65532:65532',
                     'Entrypoint': ['/nodejs/bin/node'], 'Cmd': ['-e', 'setInterval(()=>{},2147483647)'],
-                    'Labels': labels, 'Env': ['MASARIFI_PROCESS_KIND=migration',
-                        'MASARIFI_RELEASE_VERSION=' + 'a' * 40,
-                        'SUPABASE_URL=https://' + PROJECT + '.supabase.co']},
+                    'Labels': labels, 'Env': entries},
                 'HostConfig': {'NetworkMode': 'masarifi-staging_backend', 'ReadonlyRootfs': True,
                     'Privileged': False, 'CapAdd': None, 'CapDrop': ['ALL'],
                     'SecurityOpt': ['no-new-privileges'], 'PidsLimit': 128,
@@ -965,6 +976,41 @@ class RetainedDockerHost(FakeHost):
 
 
 class RetainedDatabaseLifecycle(unittest.TestCase):
+    def test_old_shared_release_is_overridden_once_without_secrets_in_argv(self):
+        host = RetainedDockerHost()
+        original = copy.deepcopy(host.env_files['/etc/masarifi/migration.env'])
+        host.db(host.packet, 'status')
+        runner = next(iter(host.runners.values()))
+        entries = runner['Config']['Env']
+        self.assertEqual(len(entries), len(dict(entry.split('=', 1) for entry in entries)))
+        self.assertIn('MASARIFI_RELEASE_VERSION=' + 'a' * 40, entries)
+        self.assertEqual(host.env_files['/etc/masarifi/migration.env'], original)
+        create = next(cmd for cmd in host.commands if cmd[:2] == ['docker', 'create'])
+        self.assertNotIn('-e', create[:create.index(IMAGE_PREFIX + 'b' * 64)])
+        self.assertNotIn('SUPABASE_URL=', ' '.join(create))
+
+    def test_duplicate_container_entries_remain_rejected_even_if_identical(self):
+        host = RetainedDockerHost()
+        host.db(host.packet, 'status')
+        runner = next(iter(host.runners.values()))
+        runner['Config']['Env'].append(runner['Config']['Env'][0])
+        with self.assertRaisesRegex(adapter.GuardError, '^DATABASE_RUNNER_ENV_CHANGED$'):
+            host.db(host.packet, 'status')
+        self.assertEqual(sum(cmd[:2] == ['docker', 'exec'] for cmd in host.commands), 1)
+
+    def test_derived_environment_refuses_line_injection_and_preserves_literals(self):
+        self.assertEqual(adapter.database_environment_bytes({'Z': 'a=b', 'A': ' x # " ' }),
+                         b'A= x # " \nZ=a=b\n')
+        for values in ({'X': 'a\nINJECTED=yes'}, {'X': 'a\rINJECTED=yes'}, {'X': 'a\0b'},
+                       {'INVALID KEY': 'value'}, {'X': None}):
+            with self.subTest(values=values), self.assertRaisesRegex(adapter.GuardError, '^DATABASE_ENV_FILE_INVALID$'):
+                adapter.database_environment_bytes(values)
+
+    def test_duplicate_image_environment_is_rejected_before_overrides(self):
+        host = adapter.LocalHost('/not-a-live-scope')
+        with self.assertRaisesRegex(adapter.GuardError, '^DATABASE_IMAGE_ENV_INVALID$'):
+            host.database_environment({'Config': {'Env': ['PATH=a', 'PATH=b']}}, {})
+
     def close_state(self, host):
         return {'generation': GENERATION, 'epochId': '20000000-0000-4000-8000-000000000001',
             'manifestHash': 'd' * 64, 'sourceSha': 'a' * 40, 'imageDigest': 'b' * 64,

@@ -32,6 +32,12 @@ jobs:
           python3 scripts/staging-voice/operating-host.test.py
           python3 scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
           python3 -O scripts/staging-voice/test_redmi_voice_rollback_watchdog.py
+      - name: Verify private environment construction with disposable Docker containers
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo python3 scripts/staging-voice/database-environment-docker.test.py 2>&1 | tee "$RUNNER_TEMP/voice-operating-docker.log"
+          sudo python3 -O scripts/staging-voice/database-environment-docker.test.py 2>&1 | tee -a "$RUNNER_TEMP/voice-operating-docker.log"
       - name: Install frozen API dependencies without lifecycle scripts
         working-directory: apps/api
         shell: bash
@@ -64,6 +70,7 @@ jobs:
           name: voice-operating-preparation-${{ github.sha }}
           path: |
             ${{ runner.temp }}/voice-operating-python.log
+            ${{ runner.temp }}/voice-operating-docker.log
             ${{ runner.temp }}/voice-operating-dependencies.log
             ${{ runner.temp }}/voice-operating-node.log
             ${{ runner.temp }}/voice-operating-source.json
