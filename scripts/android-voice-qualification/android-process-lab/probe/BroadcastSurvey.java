@@ -30,6 +30,8 @@ public final class BroadcastSurvey extends Instrumentation {
             Context context = getTargetContext();
             receipt.putString("componentState", Integer.toString(context.getPackageManager().getComponentEnabledSetting(
                     new ComponentName(TARGET, TARGET + ".BootReceiver"))));
+            receipt.putString("secondComponentState", Integer.toString(context.getPackageManager().getComponentEnabledSetting(
+                    new ComponentName(TARGET, TARGET + ".SecondBootReceiver"))));
             int peers = MAIN.equals(receipt.getString("initialSurvey")) ? 1 : 0;
             // Fixed observation interval, never a retry-until-PASS and never journal access.
             for (int sample = 0; sample < 25; sample++) {

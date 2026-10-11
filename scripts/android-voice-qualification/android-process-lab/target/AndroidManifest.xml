@@ -6,6 +6,9 @@
     <receiver android:name=".BootReceiver" android:enabled="false" android:exported="false">
       <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
     </receiver>
+    <receiver android:name=".SecondBootReceiver" android:enabled="false" android:exported="false">
+      <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+    </receiver>
     <service android:name=".Peers$Normal" android:process=":normal" android:exported="false" />
     <service android:name=".Peers$Isolated" android:process=":isolated" android:isolatedProcess="true" android:exported="false" />
     <service android:name=".Peers$Listener" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="false">

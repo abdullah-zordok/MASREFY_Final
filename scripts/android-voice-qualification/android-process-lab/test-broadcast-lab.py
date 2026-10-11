@@ -12,6 +12,7 @@ spec.loader.exec_module(process_lab)
 bootstrap = process_lab.bootstrap
 TARGET = process_lab.TARGET
 COMPONENT = TARGET + '/' + TARGET + '.BootReceiver'
+SECOND = TARGET + '/' + TARGET + '.SecondBootReceiver'
 PROBE = 'com.masarifi.voicequalification.processlab/.BroadcastSurvey'
 PASS = 'PASS_ONLY_PRIVATE_PROCESS'
 MAIN = 'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=TARGET_MAIN'
@@ -25,16 +26,17 @@ def receiver_window(original, change, operation):
     finally:
         change(original)
 
-def validate(value, protected):
-    require(set(value) == {'initialSurvey', 'finalSurvey', 'peerSamples', 'componentState', 'verdict'})
+def validate(value, protected, first_state='1'):
+    require(set(value) == {'initialSurvey', 'finalSurvey', 'peerSamples', 'componentState', 'secondComponentState', 'verdict'})
     require(value['verdict'] == 'PASS_BROADCAST_OBSERVATION')
     require(value['initialSurvey'] in (PASS, MAIN) and value['finalSurvey'] in (PASS, MAIN))
     require(re.fullmatch(r'0|[1-9]|1[0-9]|2[0-6]', value['peerSamples']) is not None)
     if protected:
-        require(value['componentState'] == '2' and value['initialSurvey'] == PASS and
+        require(value['componentState'] == '2' and value['secondComponentState'] == '2' and value['initialSurvey'] == PASS and
                 value['finalSurvey'] == PASS and value['peerSamples'] == '0')
     else:
-        require(value['componentState'] == '1' and value['finalSurvey'] == MAIN and int(value['peerSamples']) > 0)
+        require(value['componentState'] == first_state and value['secondComponentState'] == '1' and
+                value['finalSurvey'] == MAIN and int(value['peerSamples']) > 0)
     return value
 
 def require(condition):
@@ -54,22 +56,23 @@ def parse(output):
     require(len(pairs) == len(dict(pairs)) and codes == ['-1'])
     return dict(pairs)
 
-def change_receiver(emulator, state):
+def change_receiver(emulator, state, component=COMPONENT):
     command, expected = {0: ('default-state', 'default'), 1: ('enable', 'enabled'), 2: ('disable', 'disabled')}[state]
-    response = emulator.command('shell', 'pm', command, '--user', '0', COMPONENT)
-    require(response.strip() == 'Component {' + COMPONENT + '} new state: ' + expected)
+    require(component in (COMPONENT, SECOND))
+    response = emulator.command('shell', 'pm', command, '--user', '0', component)
+    require(response.strip() == 'Component {' + component + '} new state: ' + expected)
 
 def boot_count(emulator):
     output = emulator.command('logcat', '-d', '-v', 'raw', '-s', 'VQSBroadcastLab:I', '*:S')
     require(len(output.encode()) <= 16384 and 'UNEXPECTED_ACTION' not in output)
     return output.count('BOOT_RECEIVER_DELIVERED')
 
-def observe(emulator, protected):
+def observe(emulator, protected, first_state='1'):
     before = boot_count(emulator)
     emulator.command('shell', 'am', 'force-stop', TARGET)
-    result = validate(parse(emulator.command('shell', 'am', 'instrument', '-w', '-r', PROBE)), protected)
+    result = validate(parse(emulator.command('shell', 'am', 'instrument', '-w', '-r', PROBE)), protected, first_state)
     delta = boot_count(emulator) - before
-    require(delta == (0 if protected else 1))
+    require(delta == (0 if protected else 1 if first_state == '2' else 2))
     return {**result, 'bootDeliveries': delta}
 
 def main():
@@ -95,16 +98,22 @@ def main():
             bootstrap.install_fixtures(emulator, bootstrap.fixture_apks(args))
             for iteration in range(3):
                 change_receiver(emulator, 1)
+                change_receiver(emulator, 1, SECOND)
                 before = observe(emulator, protected=False)
+                incomplete = receiver_window(int(before['componentState']), lambda state: change_receiver(emulator, state),
+                                             lambda: observe(emulator, protected=False, first_state='2'))
                 fixed = receiver_window(int(before['componentState']), lambda state: change_receiver(emulator, state),
-                                        lambda: observe(emulator, protected=True))
+                                        lambda: receiver_window(int(before['secondComponentState']),
+                                                                lambda state: change_receiver(emulator, state, SECOND),
+                                                                lambda: observe(emulator, protected=True)))
                 restored = observe(emulator, protected=False)
-                receipt['runs'].append({'enabled': before, 'protected': fixed, 'restored': restored})
+                receipt['runs'].append({'enabled': before, 'onlyFirstDisabled': incomplete, 'protected': fixed, 'restored': restored})
             receipt['result'] = 'PASS_DISPOSABLE_BROADCAST_WINDOW'
         finally:
             try:
                 emulator.command('shell', 'am', 'force-stop', TARGET)
-                change_receiver(emulator, 0)
+                try: change_receiver(emulator, 0)
+                finally: change_receiver(emulator, 0, SECOND)
             except Exception:
                 receipt['result'] = 'FAIL_FIXTURE_CLEANUP'
                 raise

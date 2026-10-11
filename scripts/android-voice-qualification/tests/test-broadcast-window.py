@@ -49,6 +49,16 @@ class BroadcastWindowTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'RESTORE_FAILED'):
             lab.receiver_window(1, change, lambda: 'pass')
 
+    def test_multiple_receiver_window_restores_both_when_inner_restore_fails(self):
+        changes = []
+        def outer(state): changes.append(('outer', state))
+        def inner(state):
+            changes.append(('inner', state))
+            if state == 1: raise RuntimeError('INNER_RESTORE_FAILED')
+        with self.assertRaisesRegex(RuntimeError, 'INNER_RESTORE_FAILED'):
+            lab.receiver_window(0, outer, lambda: lab.receiver_window(1, inner, lambda: None))
+        self.assertEqual(changes, [('outer', 2), ('inner', 2), ('inner', 1), ('outer', 0)])
+
     def test_malformed_or_duplicate_instrumentation_output_is_rejected(self):
         valid = 'INSTRUMENTATION_RESULT: verdict=PASS_BROADCAST_OBSERVATION\nINSTRUMENTATION_CODE: -1\n'
         self.assertEqual(lab.parse(valid), {'verdict': 'PASS_BROADCAST_OBSERVATION'})
@@ -59,7 +69,7 @@ class BroadcastWindowTests(unittest.TestCase):
 
     def test_enabled_control_requires_an_observed_main_peer(self):
         good = {'initialSurvey': lab.PASS, 'finalSurvey': lab.MAIN, 'peerSamples': '25',
-                'componentState': '1', 'verdict': 'PASS_BROADCAST_OBSERVATION'}
+                'componentState': '1', 'secondComponentState': '1', 'verdict': 'PASS_BROADCAST_OBSERVATION'}
         lab.validate(good, protected=False)
         for key, value in [('peerSamples', '0'), ('peerSamples', '27'), ('finalSurvey', lab.PASS),
                            ('componentState', '2'), ('verdict', 'INDETERMINATE')]:
@@ -68,10 +78,10 @@ class BroadcastWindowTests(unittest.TestCase):
 
     def test_guard_rejection_or_missing_boot_evidence_never_passes_fixed_case(self):
         good = {'initialSurvey': lab.PASS, 'finalSurvey': lab.PASS, 'peerSamples': '0',
-                'componentState': '2', 'verdict': 'PASS_BROADCAST_OBSERVATION'}
+                'componentState': '2', 'secondComponentState': '2', 'verdict': 'PASS_BROADCAST_OBSERVATION'}
         lab.validate(good, protected=True)
         for key, value in [('initialSurvey', lab.MAIN), ('finalSurvey', lab.MAIN),
-                           ('peerSamples', '1'), ('componentState', '1'), ('unexpected', 'data')]:
+                           ('peerSamples', '1'), ('componentState', '1'), ('secondComponentState', '1'), ('unexpected', 'data')]:
             with self.subTest(key=key), self.assertRaises(RuntimeError):
                 lab.validate(dict(good, **{key: value}), protected=True)
         with self.assertRaises(RuntimeError):

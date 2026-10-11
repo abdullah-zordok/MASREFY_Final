@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.util.Log;
 
 /** Mirrors the Expo receiver's default-process BOOT declaration, without task execution. */
-public final class BootReceiver extends BroadcastReceiver {
+public class BootReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
             Log.i("VQSBroadcastLab", "BOOT_RECEIVER_DELIVERED");
