@@ -18,6 +18,19 @@ class FixtureEmulator:
     def command(self,*arguments): self.commands.append(arguments);return ""
 
 class ControlObservationsTest(unittest.TestCase):
+    def test_both_fixture_installs_require_complete_materialization(self):
+        class InstallEmulator:
+            def __init__(self):self.commands=[]
+            def command(self,*arguments):self.commands.append(arguments);return "Performing Push Install\nSuccess\n"
+        emulator=InstallEmulator();apks=[Path("public-target.apk"),Path("public-probe.apk")]
+        bootstrap.install_fixtures(emulator,apks)
+        self.assertEqual(emulator.commands,[("install","--no-incremental","--no-streaming","-r",apk) for apk in apks])
+    def test_incremental_response_or_failure_remains_rejected(self):
+        for output in ("Performing Incremental Install\nSuccess\n","Failure\n"):
+            class InstallEmulator:
+                def command(self,*arguments):return output
+            with self.subTest(output=output),self.assertRaisesRegex(RuntimeError,"FIXTURE_INSTALL_FAILED"):
+                bootstrap.install_fixtures(InstallEmulator(),[Path("public-fixture.apk")])
     def exercise(self,activities,requests):
         emulator=FixtureEmulator(activities);receipt={}
         bootstrap.LocalTripwireListener.requests=requests

@@ -69,4 +69,4 @@ Admin:     npm run typecheck; npm run lint; npm test -- --maxWorkers=1; npm run 
 Each app:  npm audit --package-lock-only --json
 ```
 
-Native/deep-link/signing and vinext build verification remain meaningful follow-up checks before shipping, particularly for the documented upstream blockers. No deployment or device operations were performed here.
+Root's final product qualification subsequently passed at `e6def119b047c54fbaf36877fdd23b3bc367ad6a`: Backend Foundation run38137175993 completed mobile481 suites/2,979 tests, admin87 files/926 tests, API unit/contract/security and fresh/upgrade disposable database gates, all five browser jobs, Android all-four-ABI compilation and container/performance gates. Native/deep-link checks and the standalone Staging APK's signature, bundle and native provenance were verified without installation. Later tools-only commits retain the same apps/packages/docker Git trees. These passing functional/build gates do not resolve the residual audit findings above or establish physical/client acceptance. No deployment or device operations were performed here.

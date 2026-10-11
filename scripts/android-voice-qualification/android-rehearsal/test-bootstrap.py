@@ -67,6 +67,14 @@ def fixture_apks(arguments):
         raise RuntimeError("SYNTHETIC_SAME_SIGNATURE_REQUIRED")
     return apks
 
+def install_fixtures(emulator,apks):
+    # Fully copy/verify both public APKs before startup. Incremental asset updates
+    # can relaunch an Activity with CONFIG_ASSETS_PATHS while it is the control.
+    for apk in apks:
+        output=emulator.command("install","--no-incremental","--no-streaming","-r",apk)
+        if not re.search(r"^Success$",output,re.MULTILINE) or "Incremental Install" in output:
+            raise RuntimeError("FIXTURE_INSTALL_FAILED")
+
 def positive_control(emulator,receipt):
     before = emulator.fixture_log()
     emulator.command("shell","am","force-stop",TARGET)
@@ -141,9 +149,7 @@ def main():
             apks = fixture_apks(arguments)
             with ThreadingHTTPServer(("127.0.0.1",34861),LocalTripwireListener) as listener:
                 threading.Thread(target=listener.serve_forever,daemon=True).start()
-                for apk in apks:
-                    if not re.search(r"^Success$",emulator.command("install","-r",apk),re.MULTILINE):
-                        raise RuntimeError("FIXTURE_INSTALL_FAILED")
+                install_fixtures(emulator,apks)
                 marks = positive_control(emulator,receipt)
                 receipt["positiveControl"] = {"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True}
                 exercise(emulator,marks,receipt)

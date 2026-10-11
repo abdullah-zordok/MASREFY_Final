@@ -65,7 +65,7 @@
 
 - [x] Trace empty extraction handling and reproduce missing skip diagnostics with meaningful tests.
 - [x] Emit only validated counts/enumerated skipped reasons; verify privacy sentinels and no behavioral change.
-- [ ] Run full mobile/admin/API unit, contract, security, type/lint/build gates and exact-source CI including fresh/upgrade disposable DB, browser, Android and performance lanes.
+- [x] Run full mobile/admin/API unit, contract, security, type/lint/build gates and exact-source CI including fresh/upgrade disposable DB, browser, Android and performance lanes.
 
 ### Task 5: Prepare release artifacts and acceptance handoff
 
