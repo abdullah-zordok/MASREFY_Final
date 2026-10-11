@@ -77,8 +77,11 @@ def exercise(emulator,marks,receipt):
     baseline_requests = LocalTripwireListener.requests
     expected_hash = ""
     for iteration in range(3):
-        output = emulator.command("shell","am","instrument","-w","-r","-e","expectedMarks",str(marks),
-                                  "-e","expectedHash",expected_hash,PROBE)
+        command = ["shell","am","instrument","-w","-r","-e","expectedMarks",str(marks)]
+        # adb shell concatenates arguments: an empty extra disappears on device.
+        # Omit only the first hash extra; later runs pin the first observed bytes.
+        if expected_hash: command.extend(["-e","expectedHash",expected_hash])
+        output = emulator.command(*command,PROBE)
         time.sleep(1)
         observed = parse_receipt(output)
         observed["newNetworkRequests"] = LocalTripwireListener.requests - baseline_requests
