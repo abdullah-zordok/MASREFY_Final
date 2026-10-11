@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.masarifi.voicequalification.processfixture" android:versionCode="1" android:versionName="disposable-process-lab-1">
+  <uses-sdk android:minSdkVersion="35" android:targetSdkVersion="35" />
+  <application android:name="android.app.Application" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:debuggable="false" android:allowBackup="false">
+    <service android:name=".Peers$Normal" android:process=":normal" android:exported="false" />
+    <service android:name=".Peers$Isolated" android:process=":isolated" android:isolatedProcess="true" android:exported="false" />
+    <service android:name=".Peers$Listener" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="false">
+      <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+    </service>
+  </application>
+</manifest>

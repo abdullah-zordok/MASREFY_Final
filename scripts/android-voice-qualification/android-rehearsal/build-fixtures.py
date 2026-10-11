@@ -42,7 +42,8 @@ def build_apk(kind, arguments, factory, log):
     output.mkdir()
     classes = output / "classes"
     classes.mkdir()
-    sources = sorted((SOURCE / kind).glob("*.java"))
+    source_directory = SOURCE.parent / "android-process-lab" / kind if arguments.process_lab else SOURCE / kind
+    sources = sorted(source_directory.glob("*.java"))
     if kind == "probe":
         sources += [SOURCE.parent/"android-probe/AndroidProcessSurvey.java",
                     SOURCE.parent/"src/com/masarifi/voicequalification/PrivateProbeFailure.java",
@@ -69,7 +70,7 @@ def build_apk(kind, arguments, factory, log):
             checked([sys.executable,SOURCE.parent / "tests/test-android-buffer-descriptors.py",
                      "--android-jar",arguments.runtime_android_jar,"--dex",entry],log)
     unsigned = output / "unsigned.apk"
-    manifest_source = SOURCE / ("journal" if kind == "probe" and arguments.journal_fixtures else kind) / "AndroidManifest.xml"
+    manifest_source = SOURCE / "journal/AndroidManifest.xml" if kind == "probe" and arguments.journal_fixtures else source_directory / "AndroidManifest.xml"
     checked([executable(tools,"aapt2"),"link","-I",android_jar,"--manifest",manifest_source,
              "-o",unsigned],log)
     with zipfile.ZipFile(unsigned,"a",compression=zipfile.ZIP_DEFLATED) as archive:
@@ -101,7 +102,10 @@ def main():
     parser.add_argument("--journal-native",type=Path)
     parser.add_argument("--journal-abi",choices=["arm64-v8a","x86_64"])
     parser.add_argument("--runtime-android-jar",type=Path)
+    parser.add_argument("--process-lab",action="store_true")
     arguments = parser.parse_args()
+    if arguments.process_lab and any((arguments.journal_fixtures,arguments.journal_native,arguments.journal_abi)):
+        raise RuntimeError("PROCESS_LAB_MUST_NOT_INCLUDE_JOURNAL_OR_NATIVE_CODE")
     if any((arguments.journal_fixtures, arguments.journal_native, arguments.journal_abi)):
         if not arguments.runtime_android_jar or digest(arguments.runtime_android_jar)!=ANDROID35_JAR_SHA:
             raise RuntimeError("PINNED_ANDROID35_RUNTIME_STUB_REQUIRED")
@@ -135,6 +139,12 @@ def main():
         receipt = {"realDeviceOrMasarifiArtifact":False,"coreAarSha256":digest(arguments.core_aar),
                    "sourceHashes":{str(path.relative_to(SOURCE)):digest(path) for path in sorted(SOURCE.rglob("*"))
                                    if path.is_file() and path.suffix in (".java",".xml",".py")}}
+        if arguments.process_lab:
+            receipt["sharedGuardSourceHashes"]={name:digest(SOURCE.parent/name) for name in (
+                "android-probe/AndroidProcessSurvey.java","src/com/masarifi/voicequalification/PrivateProbeFailure.java",
+                "src/com/masarifi/voicequalification/PrivateProbeProcessPolicy.java")}
+            receipt["processLabSourceHashes"]={str(path.relative_to(SOURCE.parent/"android-process-lab")):digest(path)
+                for path in sorted((SOURCE.parent/"android-process-lab").rglob("*")) if path.is_file() and path.suffix in (".java",".xml",".py")}
         receipt["target"] = build_apk("target",arguments,factory,log)
         receipt["probe"] = build_apk("probe",arguments,factory,log)
         if arguments.journal_fixtures:

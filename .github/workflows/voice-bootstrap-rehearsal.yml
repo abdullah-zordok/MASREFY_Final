@@ -6,6 +6,11 @@ on:
     branches: [codex/voice-auto-save-restoration-2026-10-11]
     paths:
       - scripts/android-voice-qualification/android-rehearsal/**
+      - scripts/android-voice-qualification/android-process-lab/**
+      - scripts/android-voice-qualification/android-probe/AndroidProcessSurvey.java
+      - scripts/android-voice-qualification/src/com/masarifi/voicequalification/PrivateProbeFailure.java
+      - scripts/android-voice-qualification/src/com/masarifi/voicequalification/PrivateProbeProcessPolicy.java
+      - scripts/android-voice-qualification/tests/test-process-lab-receipt.py
       - .github/workflows/voice-bootstrap-rehearsal.yml
 
 permissions:
@@ -21,6 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 scripts/android-voice-qualification/tests/test-process-lab-receipt.py
+          python3 -O scripts/android-voice-qualification/tests/test-process-lab-receipt.py
           fixture_root="$RUNNER_TEMP/vqs-android15"
           mkdir "$fixture_root"
           exec > >(tee "$fixture_root/rehearsal.log") 2>&1
@@ -68,6 +75,12 @@ jobs:
           python3 scripts/android-voice-qualification/android-rehearsal/test-bootstrap.py \
             --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
             --build "$fixture_root/build" --output "$fixture_root/runtime"
+          python3 scripts/android-voice-qualification/android-rehearsal/build-fixtures.py \
+            --output "$fixture_root/process-lab-build" --sdk "$sdk_root" --java "$JAVA_HOME" \
+            --core-aar "$fixture_root/core-1.17.0.aar" --process-lab
+          python3 scripts/android-voice-qualification/android-process-lab/test-process-lab.py \
+            --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
+            --build "$fixture_root/process-lab-build" --output "$fixture_root/process-lab-runtime"
       - name: Retain synthetic fixture identities and runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -77,4 +90,6 @@ jobs:
             ${{ runner.temp }}/vqs-android15/*.log
             ${{ runner.temp }}/vqs-android15/build
             ${{ runner.temp }}/vqs-android15/runtime
+            ${{ runner.temp }}/vqs-android15/process-lab-build
+            ${{ runner.temp }}/vqs-android15/process-lab-runtime
           if-no-files-found: error
