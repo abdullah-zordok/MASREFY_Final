@@ -1,6 +1,8 @@
 #include "voice_memory_reader.h"
 #include "sqlite3.h"
 #include <openssl/rand.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +35,93 @@ static void (*before_free)(const unsigned char *, size_t);
 static void wipe(void *buffer, size_t length) {
     volatile unsigned char *owned = buffer;
     while (length--) *owned++ = 0;
+}
+
+/* OS_OTHER supplies no threaded default. Install real locks before SQLite init;
+ * this hidden engine never exposes shutdown or shares the app's SQLite state. */
+typedef struct {
+    pthread_mutex_t lock;
+    _Atomic uintptr_t owner;
+    _Atomic unsigned depth;
+    int dynamic;
+} ReaderMutex;
+static ReaderMutex static_mutexes[12];
+static pthread_once_t mutex_once = PTHREAD_ONCE_INIT;
+static pthread_once_t engine_once = PTHREAD_ONCE_INIT;
+static _Thread_local unsigned char thread_identity;
+static int mutex_status = SQLITE_ERROR, engine_status = SQLITE_ERROR;
+
+static int initialize_mutex(ReaderMutex *mutex, int recursive) {
+    pthread_mutexattr_t attributes;
+    if (pthread_mutexattr_init(&attributes)) return SQLITE_ERROR;
+    int status = recursive ? pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE) : 0;
+    if (!status) status = pthread_mutex_init(&mutex->lock, &attributes);
+    pthread_mutexattr_destroy(&attributes);
+    atomic_init(&mutex->owner, 0);
+    atomic_init(&mutex->depth, 0);
+    return status ? SQLITE_ERROR : SQLITE_OK;
+}
+static void initialize_static_mutexes(void) {
+    for (size_t index = 0; index < 12; index++)
+        if (initialize_mutex(&static_mutexes[index], 1)) return;
+    mutex_status = SQLITE_OK;
+}
+static int mutex_init(void) {
+    if (pthread_once(&mutex_once, initialize_static_mutexes)) return SQLITE_ERROR;
+    return mutex_status;
+}
+/* Static locks retain library lifetime; all dynamic locks are freed on close. */
+static int mutex_end(void) { return SQLITE_OK; }
+static exsqlite3_mutex *mutex_alloc(int kind) {
+    if (mutex_init() || kind < 0 || kind > 13) return NULL;
+    if (kind >= 2) return (exsqlite3_mutex *)&static_mutexes[kind - 2];
+    ReaderMutex *mutex = calloc(1, sizeof(*mutex));
+    if (!mutex) return NULL;
+    if (initialize_mutex(mutex, kind == SQLITE_MUTEX_RECURSIVE)) { free(mutex); return NULL; }
+    mutex->dynamic = 1;
+    return (exsqlite3_mutex *)mutex;
+}
+static void mutex_free(exsqlite3_mutex *opaque) {
+    ReaderMutex *mutex = (ReaderMutex *)opaque;
+    if (!mutex->dynamic) return;
+    if (pthread_mutex_destroy(&mutex->lock)) abort();
+    free(mutex);
+}
+static void record_lock(ReaderMutex *mutex) {
+    atomic_store(&mutex->owner, (uintptr_t)&thread_identity);
+    atomic_fetch_add(&mutex->depth, 1);
+}
+static void mutex_enter(exsqlite3_mutex *opaque) {
+    ReaderMutex *mutex = (ReaderMutex *)opaque;
+    if (pthread_mutex_lock(&mutex->lock)) abort();
+    record_lock(mutex);
+}
+static int mutex_try(exsqlite3_mutex *opaque) {
+    ReaderMutex *mutex = (ReaderMutex *)opaque;
+    if (pthread_mutex_trylock(&mutex->lock)) return SQLITE_BUSY;
+    record_lock(mutex);
+    return SQLITE_OK;
+}
+static int mutex_held(exsqlite3_mutex *opaque) {
+    ReaderMutex *mutex = (ReaderMutex *)opaque;
+    return !mutex || (atomic_load(&mutex->owner) == (uintptr_t)&thread_identity && atomic_load(&mutex->depth));
+}
+static int mutex_notheld(exsqlite3_mutex *opaque) { return !opaque || !mutex_held(opaque); }
+static void mutex_leave(exsqlite3_mutex *opaque) {
+    ReaderMutex *mutex = (ReaderMutex *)opaque;
+    if (!mutex_held(opaque)) abort();
+    if (atomic_fetch_sub(&mutex->depth, 1) == 1) atomic_store(&mutex->owner, 0);
+    if (pthread_mutex_unlock(&mutex->lock)) abort();
+}
+static void initialize_engine(void) {
+    static const exsqlite3_mutex_methods methods = {
+        mutex_init, mutex_end, mutex_alloc, mutex_free, mutex_enter,
+        mutex_try, mutex_leave, mutex_held, mutex_notheld
+    };
+    if (exsqlite3_config(SQLITE_CONFIG_MUTEX, &methods) != SQLITE_OK) return;
+    if (exsqlite3_initialize() != SQLITE_OK) return;
+    if (exsqlite3_vfs_find(NULL) != NULL) return;
+    engine_status = SQLITE_OK;
 }
 
 /* SQLite registers no OS interface; every connection must explicitly use our VFS. */
@@ -282,9 +371,7 @@ int vqs_open(const VqsInput *input, VqsReader **out) {
     if ((input->key_length && (input->key_length != 32 || !input->key)) ||
             (input->key_length == 0 && memcmp(input->bytes, "SQLite format 3\0", 16)) ||
             (input->key_length && !memcmp(input->bytes, "SQLite format 3\0", 16))) return VQS_KEY;
-    if (exsqlite3_initialize() != SQLITE_OK) return VQS_ENGINE;
-    for (exsqlite3_vfs *vfs = exsqlite3_vfs_find(NULL); vfs; vfs = vfs->pNext)
-        if (!vfs->zName || strncmp(vfs->zName, "vqs-", 4)) return VQS_ENGINE;
+    if (pthread_once(&engine_once, initialize_engine) || engine_status != SQLITE_OK) return VQS_ENGINE;
     VqsReader *reader = calloc(1, sizeof(*reader));
     if (!reader) return VQS_MEMORY;
     reader->bytes = malloc(input->length);

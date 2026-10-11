@@ -4,6 +4,7 @@ Never accepts an app data directory or a real key. Only the pinned fixture engin
 may write newly created synthetic databases; the reader receives byte arrays.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import ctypes as c
 import hashlib
 import importlib.util
@@ -81,13 +82,18 @@ class Reader:
         collected = []
         @VISITOR
         def receive(unused, pointer):
-            values = []
-            for number in range(pointer.contents.count):
-                cell = pointer.contents.cells[number]
-                values.append(cell.integer if cell.kind == 1 else
-                              c.string_at(cell.text, cell.length).decode("utf-8") if cell.kind == 3 else None)
-            collected.append(values)
-            return 0
+            try:
+                values = []
+                for number in range(pointer.contents.count):
+                    cell = pointer.contents.cells[number]
+                    values.append(cell.integer if cell.kind == 1 else
+                                  c.string_at(cell.text, cell.length).decode("utf-8") if cell.kind == 3 else None)
+                collected.append(values)
+                return 0
+            except Exception:
+                # ctypes otherwise prints/ignores a callback exception and may
+                # pass an undefined return value back to C. Abort explicitly.
+                return 1
         status = self.library.vqs_visit(self.handle, query, receive, None)
         return status, collected
 
@@ -140,11 +146,25 @@ def main():
     source = root / "plain.db"
     make_plain(source)
     plain = source.read_bytes()
+    other = root/'other.db'
+    make_plain(other,3,'{"phase":"processing","label":"قهوة"}')
+    other_snapshot = other.read_bytes()
     checks = 0
     def checked(condition, label):
         nonlocal checks
         check(condition, label)
         checks += 1
+    # Every handle has one owner; independent readers must safely share the engine.
+    # Run this before any open to exercise concurrent initialisation as well.
+    def independent_reads(number):
+        snapshot, expected = (plain, 2) if number % 2 == 0 else (other_snapshot, 3)
+        for unused in range(12):
+            with production.open(snapshot) as reader:
+                status, rows = reader.rows(2)
+                check(status == 0 and len(rows) == expected, "parallel owner isolation")
+        return True
+    with ThreadPoolExecutor(max_workers=8) as threads:
+        checked(all(threads.map(independent_reads, range(8))), "96 independent reads across eight threads")
     with production.open(plain) as reader:
         status, rows = reader.rows(2)
         checked(status == 0 and len(rows) == 2 and rows[0][2] == '{"phase":"processing"}', "actual SQLite rows from owned RAM")
@@ -166,7 +186,6 @@ def main():
             return 1
         checked(production.library.vqs_visit(reader.handle, 2, busy_close, None) != 0 and attempted_close[0] != 0 and reader.rows(2)[0] == 0,
                 "busy close leaves reader safely usable")
-    other = root/'other.db';make_plain(other,3,'{"phase":"processing","label":"قهوة"}')
     with production.open(plain) as first, production.open(other.read_bytes()) as second:
         checked(len(first.rows(2)[1]) == 2 and len(second.rows(2)[1]) == 3 and 'قهوة' in second.rows(2)[1][0][2],
                 "simultaneous owner snapshots remain independent with Arabic UTF8")

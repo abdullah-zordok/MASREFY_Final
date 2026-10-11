@@ -97,8 +97,9 @@ jobs:
             --classes "$build_dir" --java "$JAVA_HOME_17_X64/bin/java" \
             --sqlcipher-library "$build_dir/libfixture-sqlcipher.so"
           native_flags=(
-            -std=c11 -fPIC -O2 -fvisibility=hidden -D_GNU_SOURCE -include stdint.h
-            -DSQLITE_THREADSAFE=1 -DSQLITE_MUTEX_PTHREADS=1 -DSQLITE_TEMP_STORE=2
+            -std=c11 -fPIC -O2 -fvisibility=hidden -D_GNU_SOURCE
+            -include stdint.h -include unistd.h -include sys/mman.h -include errno.h
+            -DSQLITE_THREADSAFE=1 -DSQLITE_TEMP_STORE=2
             -DSQLITE_ENABLE_BYTECODE_VTAB=1 -DSQLITE_ENABLE_SESSION=1 -DSQLITE_ENABLE_PREUPDATE_HOOK=1
             -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -DSQLITE_ENABLE_FTS4=1 -DSQLITE_ENABLE_FTS3_PARENTHESIS=1 -DSQLITE_ENABLE_FTS5=1
             -DSQLITE_HAS_CODEC=1 -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown
