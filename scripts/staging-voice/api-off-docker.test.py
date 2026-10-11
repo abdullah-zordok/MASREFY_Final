@@ -71,6 +71,18 @@ class DockerQualification(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(api.GuardError):
                 api.checked_candidate(type('InspectOnly', (), {'inspect': lambda self, identity: altered})(), state)
         # Missing synthetic configuration must fail closed; no real credentials exist.
+        promotion_spec = importlib.util.spec_from_file_location('promotion', pathlib.Path(__file__).with_name('api-off-promotion.py'))
+        promotion = importlib.util.module_from_spec(promotion_spec); promotion_spec.loader.exec_module(promotion)
+        promoted = promotion.Host(root)
+        promotion_packet = {**packet, 'candidateID': identity}
+        qualified = {**state, 'phase': 'closed'}
+        promoted.read_json = lambda name: qualified
+        promoted.candidate(promotion_packet, ['no'])
+        self.docker('update', '--restart', 'unless-stopped', identity)
+        promoted.candidate(promotion_packet, ['unless-stopped'])
+        with self.assertRaises(promotion.GuardError): promoted.candidate(promotion_packet, ['no'])
+        self.docker('update', '--restart', 'no', identity)
+        promoted.candidate(promotion_packet, ['no'])
         host.start()
         try:
             with self.assertRaises(api.GuardError): host.start()
