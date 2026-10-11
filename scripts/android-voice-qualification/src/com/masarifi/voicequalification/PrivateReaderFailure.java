@@ -2,7 +2,7 @@ package com.masarifi.voicequalification;
 
 import java.util.Map;
 
-/** Closed operation labels only. Never accepts a Throwable or private store values. */
+/** Closed operation labels only. Only trusted typed qualification failures can add an internal enum. */
 final class PrivateReaderFailure {
     enum Stage {
         CONTEXT,
@@ -18,6 +18,7 @@ final class PrivateReaderFailure {
         NATIVE_FILE_IDENTITY,
         SNAPSHOT_STAMPS,
         PROCESS_BEFORE_QUALIFICATION,
+        KEYSTORE_OPEN,
         QUALIFICATION,
         SNAPSHOT_UNCHANGED,
         FILE_STAMPS_UNCHANGED,
@@ -28,6 +29,12 @@ final class PrivateReaderFailure {
         SNAPSHOT_CLOSE,
         FINISH,
         UNEXPECTED
+    }
+    static Map<String,String> receipt(Stage stage,Throwable rejected) {
+        var qualification=VoiceStoreQualification.stageOf(rejected);
+        if(stage==Stage.QUALIFICATION && qualification!=null)
+            return Map.of("verdict","INDETERMINATE","readerStage",stage.name(),"qualificationStage",qualification.name());
+        return receipt(stage);
     }
     static Map<String,String> receipt(Stage stage) {
         return Map.of("verdict","INDETERMINATE","readerStage",(stage==null?Stage.UNEXPECTED:stage).name());

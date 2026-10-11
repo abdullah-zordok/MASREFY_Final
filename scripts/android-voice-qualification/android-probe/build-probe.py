@@ -75,7 +75,7 @@ def validate_runtime(runtime):
     encrypted=runtime.get("encryptedJournals",{})
     gate(encrypted.get("seed",{}).get("verdict")=="SEEDED_PUBLIC_SYNTHETIC_FIXTURES" and encrypted.get("seed",{}).get("missingExistingAliasesFailClosed")=="true")
     runs=encrypted.get("runs",[])
-    gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="42" and run.get("readerStageCases")=="24" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
+    gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="42" and run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="16" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
     gate(len(set(run["fixtureFingerprint"] for run in runs))==1)
 
 def checked(command,log):

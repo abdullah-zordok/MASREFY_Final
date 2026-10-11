@@ -142,7 +142,9 @@ def main():
             writer.executescript("CREATE TABLE catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=1;")
             payload = dict(sessionId=ID, sessionVersion=1, recordedAt=0, timezoneOffsetMinutes=0, createdAt=0)
             writer.execute("INSERT INTO catalystLocalStorage VALUES(?,?)", ("masarifi.voice.pending" if malformed else "masarifi.voice.pending." + B[:24], json.dumps(payload)))
+    qualification_stages = {'unknown-schema': 'MOBILE_SCHEMA', 'invalid-history': 'MOBILE_SCHEMA', 'wrong-marker-owner': 'MOBILE_MIGRATION_MARKER', 'empty-marker': 'MOBILE_MIGRATION_MARKER', 'unknown-marker-row': 'MOBILE_MIGRATION_MARKER', 'unknown-phase': 'MOBILE_BATCH_ROWS', 'bad-row-payload': 'MOBILE_BATCH_ROWS', 'key-missing': 'OWNER_KEY_DECRYPT', 'key-wrong': 'OWNER_DATABASE_OPEN', 'rollback-journal': 'OWNER_ROLLBACK_CHECK', 'hmac-corrupt-unrelated-page': 'OWNER_DATABASE_OPEN', 'truncated-wal': 'OWNER_WAL_RECONSTRUCT', 'unbound-legacy': 'LEGACY_DATABASE_BINDING', 'uppercase-legacy-claim': 'LEGACY_CLAIM', 'async-only-missing-owner': 'OWNER_DATABASE_REQUIRED', 'legacy-key-malformed': 'ASYNC_ROWS'}
     for root, want in cases:
+        if want["verdict"] == "INDETERMINATE": want["qualificationStage"] = qualification_stages[root.name]
         (root / "fixture.json").write_text(json.dumps(want, indent=2), encoding="utf-8")
     if args.jni_library:
         if not args.classes: raise AssertionError("JNI_CLASSES_REQUIRED")

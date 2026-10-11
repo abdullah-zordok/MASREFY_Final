@@ -80,6 +80,9 @@ class ReaderStageTests(unittest.TestCase):
         source=(Path(__file__).resolve().parents[1]/'src/com/masarifi/voicequalification/PrivateReaderFailure.java').read_text()
         enum=re.search(r'enum Stage \{([^}]+)\}',source).group(1)
         self.assertEqual(set(re.findall(r'[A-Z][A-Z_]+',enum)),receipt.READER_STAGES)
+        source=(Path(__file__).resolve().parents[1]/'src/com/masarifi/voicequalification/VoiceStoreQualification.java').read_text()
+        enum=re.search(r'enum Stage \{([^}]+)\}',source).group(1)
+        self.assertEqual(set(re.findall(r'[A-Z][A-Z_]+',enum)),receipt.QUALIFICATION_STAGES)
 
     def test_all_closed_stages_round_trip(self):
         for stage in receipt.READER_STAGES:
@@ -98,6 +101,16 @@ class ReaderStageTests(unittest.TestCase):
             self.assertNotIn('readerStage',result)
         self.values['readerStage']='QUALIFICATION'
         self.assertEqual(self.parse()['verdict'],'INDETERMINATE')
+    def test_internal_stage_requires_exact_qualification_failure_envelope(self):
+        for stage in receipt.QUALIFICATION_STAGES:
+            result=self.parse({'verdict':'INDETERMINATE','readerStage':'QUALIFICATION','qualificationStage':stage},code='0')
+            self.assertEqual(result.get('qualificationStage'),stage)
+        for reader,internal in [('NATIVE_LOAD','OWNER_KEY_DECRYPT'),('QUALIFICATION','private/key/path')]:
+            result=self.parse({'verdict':'INDETERMINATE','readerStage':reader,'qualificationStage':internal},code='0')
+            self.assertNotIn('qualificationStage',result)
+        result=self.parse({'verdict':'INDETERMINATE','readerStage':'QUALIFICATION','qualificationStage':'OWNER_KEY_DECRYPT','extra':'SECRET'},code='0')
+        self.assertNotIn('qualificationStage',result);self.assertNotIn('SECRET',str(result))
+
     def test_legacy_reader_failure_remains_supported(self):
         self.assertEqual(self.parse({'verdict':'INDETERMINATE'},code='0'),{'verdict':'INDETERMINATE','failureCategory':'READER_INDETERMINATE'})
 

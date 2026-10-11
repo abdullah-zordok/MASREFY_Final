@@ -115,7 +115,7 @@ The versioned host parser at `../parse-private-probe-receipt.py` accepts a stage
 only in an exact two-field failure envelope with finish code 0 and successful
 command exit. Unknown stages, extra fields, conflicting success receipts and
 malformed envelopes fail closed. Legacy verdict-only failures remain supported.
-Disposable Android qualification tests all 23 labels plus a null-stage fallback
+Disposable Android qualification tests all 24 labels plus a null-stage fallback
 through Bundle/Parcel transport with poisoned pre-existing success/private fields;
 all must be removed. The 42 encrypted store fixtures still run seven times across
 normal, disabled and restored states. Updated signing gates require the stage
@@ -123,3 +123,19 @@ reporting evidence; historical receipts cannot qualify the modified probe.
 
 No changed probe is installed or run on a physical device by these tests. Fresh
 explicit approval remains required for replacement/installation/execution.
+
+
+Internal qualification rejection now carries an optional closed
+`qualificationStage` enum alongside `readerStage=QUALIFICATION`. Only a typed
+failure created by the qualifier can supply this label; arbitrary exception
+messages and causes are never inspected or exported. Labels separate inventory,
+key coverage/decryption, WAL reconstruction, native opening, schema/row validation,
+owner binding, resource cleanup and stability checks. Existing-key provider
+initialization has a separate outer `KEYSTORE_OPEN` stage. Unknown or conflicting
+host envelopes still fail closed; no stage grants permission to skip a guard.
+
+The 16 negative encrypted fixtures require exact internal stage matches on both
+native Linux JNI and disposable Android, while all 42 outcomes and original
+fingerprints remain checked. Android also verifies that the three-field failure
+receipt survives Bundle/Parcel transport without extra fields. No diagnostic
+reader, snapshot, key or database gains a mutation or recovery capability.

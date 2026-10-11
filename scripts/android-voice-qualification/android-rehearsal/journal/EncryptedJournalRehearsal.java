@@ -86,7 +86,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 NativeSnapshotReader.loadLibrary();
                 phase="QUALIFY_ENCRYPTED_FIXTURES";
                 var existing=ExistingDatabaseKey.androidExistingOnly();MessageDigest aggregate=MessageDigest.getInstance("SHA-256");
-                int cases=0;
+                int cases=0,qualificationStageCases=0;
                 try(var directories=Files.list(fixtures)) {
                     for(Path fixture:directories.sorted().toList()) {
                         if(!Files.isDirectory(fixture))throw new IllegalStateException("FIXTURE_INVENTORY");
@@ -104,6 +104,8 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                                 if(Boolean.TRUE.equals(expected.get("wal")))require(result.committedFrames()>0);
                             } catch(IllegalStateException invalid) {
                                 if(!"INDETERMINATE".equals(expected.get("verdict")) || !"STORE_INDETERMINATE".equals(invalid.getMessage()) || invalid.getCause()!=null)throw invalid;
+                                ReaderFailureRehearsal.verifyQualification(invalid,(String)expected.get("qualificationStage"));
+                                qualificationStageCases++;
                             }
                             require(snapshot.verifyUnchanged());verifySyntheticUid(root);
                             aggregate.update(((String)snapshot.summary().get("fingerprint")).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
@@ -111,7 +113,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                         cases++;
                     }
                 }
-                require(cases>=30);receipt.putInt("cases",cases);receipt.putString("fixtureFingerprint",hex(aggregate.digest()));
+                require(cases>=30);receipt.putInt("cases",cases);receipt.putInt("qualificationStageCases",qualificationStageCases);receipt.putString("fixtureFingerprint",hex(aggregate.digest()));
                 receipt.putString("verdict","PASS_DISPOSABLE_ENCRYPTED_JOURNALS");
             } else throw new IllegalStateException("MODE");
             finish(-1,receipt);

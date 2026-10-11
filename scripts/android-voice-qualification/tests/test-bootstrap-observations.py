@@ -45,7 +45,7 @@ class ControlObservationsTest(unittest.TestCase):
                         if 'seed' in args:
                             result.update(verdict='SEEDED_PUBLIC_SYNTHETIC_FIXTURES', missingExistingAliasesFailClosed='true')
                         else:
-                            result.update(verdict='PASS_DISPOSABLE_ENCRYPTED_JOURNALS', cases='42', readerStageCases='24',
+                            result.update(verdict='PASS_DISPOSABLE_ENCRYPTED_JOURNALS', cases='42', readerStageCases='25', qualificationStageCases='16',
                                           fixtureFingerprint=('b' if drift and self.state == 3 else 'a') * 64)
                         return ''.join('INSTRUMENTATION_RESULT: ' + key + '=' + value + '\n' for key, value in result.items())
                     def assert_stopped(self):

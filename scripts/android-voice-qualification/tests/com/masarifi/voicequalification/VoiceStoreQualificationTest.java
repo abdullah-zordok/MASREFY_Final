@@ -47,17 +47,17 @@ public final class VoiceStoreQualificationTest {
         unrelated.rows.get(4).put(SnapshotReader.Query.LEGACY,List.<Object[]>of(new Object[]{" MASARIFI.VOICE.pending","private-malformed-value"}));reject(unrelated);
         // A malformed second owner cannot be hidden by a pending first owner.
         all.rows.get(2).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,"private-invalid-payload"})); reject(all);
-        var missing=fixture(); missing.files.remove(OWNER_A); reject(missing);
-        missing=fixture(); missing.preferences="<map/>"; reject(missing);
-        missing=fixture(); missing.preferences=null; reject(missing);
+        var missing=fixture(); missing.files.remove(OWNER_A); reject(missing,"OWNER_DATABASE_REQUIRED");
+        missing=fixture(); missing.preferences="<map/>"; reject(missing,"KEY_COVERAGE");
+        missing=fixture(); missing.preferences=null; reject(missing,"KEY_COVERAGE");
         missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.MIGRATIONS,List.<Object[]>of(new Object[]{15L})); reject(missing);
-        missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.SCHEMA,List.of()); reject(missing);
-        missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.USER_VERSION,List.<Object[]>of(new Object[]{1L})); reject(missing);
+        missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.SCHEMA,List.of()); reject(missing,"MOBILE_SCHEMA");
+        missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.USER_VERSION,List.<Object[]>of(new Object[]{1L})); reject(missing,"MOBILE_USER_VERSION");
         missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,2L,null})); reject(missing);
         missing=fixture(); missing.rows.get(1).put(SnapshotReader.Query.BATCH,List.<Object[]>of(new Object[]{ID,"2",batch("completed")})); reject(missing);
-        missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[0]); reject(missing);
+        missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[0]); reject(missing,"OWNER_ROLLBACK_CHECK");
         missing=fixture(); missing.files.put(OWNER_A+"-journal",new byte[512]); reject(missing);
-        missing=fixture(); missing.files.put(OWNER_A+"-wal",new byte[1]); reject(missing);
+        missing=fixture(); missing.files.put(OWNER_A+"-wal",new byte[1]); reject(missing,"OWNER_WAL_RECONSTRUCT");
         missing=fixture(); missing.files.put("databases/RKStorage",new byte[]{9}); reject(missing);
         missing=fixture(); missing.files.put(OWNER_A,new byte[0]); reject(missing);
         missing=fixture(); missing.files.clear(); missing.preferences="<map/>"; reject(missing);
@@ -76,9 +76,11 @@ public final class VoiceStoreQualificationTest {
         missing=fixture(); missing.extraPreferences=ownerXml(A); reject(missing);
         missing=fixture(); missing.extraPreferences="<map>"+entry("masarifi.database.key."+B,envelope("11".repeat(32)))+"</map>"; reject(missing);
         missing=fixture(); missing.preferences=ownerXml(A).replace("</map>",entry("masarifi.database.legacyOwnerHash","invalid-envelope")+"</map>"); reject(missing);
-        missing=fixture(); missing.failLookup=true; reject(missing);
-        missing=fixture(); missing.throwReader=true; reject(missing);
-        missing=fixture(); missing.mutate=true; reject(missing);
+        missing=fixture(); missing.failLookup=true; reject(missing,"OWNER_KEY_DECRYPT");
+        missing=fixture(); missing.throwReader=true; reject(missing,"OWNER_DATABASE_OPEN");
+        missing=fixture(); missing.mutate=true; reject(missing,"SNAPSHOT_STABILITY_AFTER");
+        missing=fixture();missing.throwLinkage=true;reject(missing,"OWNER_DATABASE_OPEN");
+        missing=fixture();missing.throwClose=true;reject(missing,"OWNER_RESOURCES_CLOSE");
         System.out.println("PASS: "+checks+" whole-store synthetic journal checks; no device/private key accessed");
     }
 
@@ -112,14 +114,18 @@ public final class VoiceStoreQualificationTest {
         check(!result.toString().contains(A.substring(0,24))&&!result.toString().contains(ID)&&!result.toString().contains("private"),"receipt contains no private identities/payloads");
         check(fixture.closed==fixture.opened && fixture.keyArrays.stream().allMatch(bytes -> Arrays.equals(bytes,new byte[bytes.length])),"every native reader closed and temporary keys cleared");
     }
-    private static void reject(Fixture fixture) throws Exception {
+    private static void reject(Fixture fixture) throws Exception {reject(fixture,null);}
+    private static void reject(Fixture fixture,String expectedStage) throws Exception {
         try { run(fixture);throw new AssertionError("incomplete/corrupt/unstable store returned verdict"); }
-        catch (IllegalStateException expected) { check(expected.getCause()==null&&expected.getMessage().matches("[A-Z_]+"),"indeterminate failure sanitized"); }
+        catch (IllegalStateException expected) { check(expected.getCause()==null&&expected.getMessage().equals("STORE_INDETERMINATE"),"indeterminate failure sanitized");
+            if(expectedStage!=null)check(VoiceStoreQualification.stageOf(expected).name().equals(expectedStage),"exact qualification stage");
+            var report=PrivateReaderFailure.receipt(PrivateReaderFailure.Stage.QUALIFICATION,expected);
+            check(report.size()==3&&!report.toString().contains("private"),"closed internal stage only"); }
         check(fixture.closed==fixture.opened,"failure closes all opened readers");
     }
     private static final class Fixture {
         final Map<String,byte[]> files=new HashMap<>();final Map<Integer,Map<SnapshotReader.Query,List<Object[]>>> rows=new HashMap<>();
-        final List<byte[]> keyArrays=new ArrayList<>(); String preferences,extraPreferences;boolean failLookup,throwReader,mutate;int opened,closed;
+        final List<byte[]> keyArrays=new ArrayList<>(); String preferences,extraPreferences;boolean failLookup,throwReader,mutate,throwLinkage,throwClose;int opened,closed;
         void owner(String hash,int index) throws Exception {
             files.put("files/SQLite/masarifi-"+hash.substring(0,24)+".db",new byte[]{(byte)index});
             String xml=ownerXml(hash);preferences=preferences==null?xml:preferences.replace("</map>",xml.substring(5));
@@ -132,6 +138,7 @@ public final class VoiceStoreQualificationTest {
         }
         void async() throws Exception { files.put("databases/RKStorage",new byte[]{4});var data=new HashMap<SnapshotReader.Query,List<Object[]>>();data.put(SnapshotReader.Query.SCHEMA,schema("async"));data.put(SnapshotReader.Query.USER_VERSION,List.<Object[]>of(new Object[]{1L}));data.put(SnapshotReader.Query.LEGACY,List.of());rows.put(4,data); }
         SnapshotReader.Factory factory(Path root) { return (database,key) -> {
+            if(throwLinkage)throw new UnsatisfiedLinkError("private linker path");
             if(throwReader)throw new IllegalStateException("private reader failure");
             if(database.length==0)throw new IllegalStateException("private empty database");
             int id=database[0]; if (!rows.containsKey(id))throw new IllegalStateException("private unknown input");
@@ -140,7 +147,7 @@ public final class VoiceStoreQualificationTest {
             opened++;
             return new SnapshotReader() {
                 public void visit(Query query,Consumer<Object[]> visitor) { if(mutate)try {Files.write(root.resolve(OWNER_A),new byte[]{9});}catch(Exception e){throw new IllegalStateException("test mutation");}var values=rows.get(id).get(query);if(values==null)throw new IllegalStateException("query unavailable");for(var row:values)visitor.accept(row); }
-                public void close() {closed++;}
+                public void close() {closed++;if(throwClose)throw new IllegalStateException("private close failure");}
             };
         }; }
         static Map<SnapshotReader.Query,List<Object[]>> mobile(boolean marker) throws Exception {

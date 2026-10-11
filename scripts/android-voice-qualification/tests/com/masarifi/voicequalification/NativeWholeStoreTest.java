@@ -41,6 +41,7 @@ public final class NativeWholeStoreTest {
                         require(!result.toString().contains("11111111")&&!result.toString().contains("private"),"PRIVATE_RECEIPT");
                     } catch(IllegalStateException indeterminate) {
                         require(wanted.equals("INDETERMINATE")&&indeterminate.getCause()==null&&indeterminate.getMessage().equals("STORE_INDETERMINATE"),"UNEXPECTED_INDETERMINATE");
+                        require(VoiceStoreQualification.stageOf(indeterminate)!=null && VoiceStoreQualification.stageOf(indeterminate).name().equals(expected.get("qualificationStage")),"QUALIFICATION_STAGE_MISMATCH");
                     }
                     require(snapshot.verifyUnchanged(),"ORIGINAL_FIXTURE_CHANGED");
                 }

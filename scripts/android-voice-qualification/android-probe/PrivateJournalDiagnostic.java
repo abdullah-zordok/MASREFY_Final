@@ -69,8 +69,10 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_STAMPS;
                 Map<String,Stamp> nativeBefore=stamps(root,snapshot.names());
                 stage=PrivateReaderFailure.Stage.PROCESS_BEFORE_QUALIFICATION;requireOnlyPrivateProcess(context);
+                stage=PrivateReaderFailure.Stage.KEYSTORE_OPEN;
+                var keys=ExistingDatabaseKey.androidExistingOnly();
                 stage=PrivateReaderFailure.Stage.QUALIFICATION;
-                var result=VoiceStoreQualification.qualify(snapshot,ExistingDatabaseKey.androidExistingOnly(),NativeSnapshotReader::open);
+                var result=VoiceStoreQualification.qualify(snapshot,keys,NativeSnapshotReader::open);
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_UNCHANGED;if(!snapshot.verifyUnchanged())throw failure();
                 stage=PrivateReaderFailure.Stage.FILE_STAMPS_UNCHANGED;if(!nativeBefore.equals(stamps(root,snapshot.names())))throw failure();
                 stage=PrivateReaderFailure.Stage.DIRECTORY_STAMPS_UNCHANGED;if(!before.equals(stamps(root,List.of())))throw failure();
@@ -89,7 +91,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_CLOSE;
             }
             stage=PrivateReaderFailure.Stage.FINISH;finish(-1,receipt);
-        } catch(Throwable rejected) {receipt.clear();PrivateReaderFailure.receipt(stage).forEach(receipt::putString);finish(0,receipt);}
+        } catch(Throwable rejected) {receipt.clear();PrivateReaderFailure.receipt(stage,rejected).forEach(receipt::putString);finish(0,receipt);}
     }
     private void requireIdentity(Context context) throws Exception {
         PrivateProbeFailure.Stage stage=PrivateProbeFailure.Stage.TARGET_METADATA;

@@ -12,6 +12,19 @@ final class ReaderFailureRehearsal {
         verify(null,"UNEXPECTED");
         return cases+1;
     }
+    static void verifyQualification(Throwable failure,String expected) {
+        Bundle receipt=new Bundle();
+        PrivateReaderFailure.receipt(PrivateReaderFailure.Stage.QUALIFICATION,failure).forEach(receipt::putString);
+        Parcel parcel=Parcel.obtain();
+        try {
+            parcel.writeBundle(receipt);parcel.setDataPosition(0);
+            Bundle decoded=parcel.readBundle(ReaderFailureRehearsal.class.getClassLoader());
+            if(decoded==null || !decoded.keySet().equals(Set.of("verdict","readerStage","qualificationStage")) ||
+                    !"INDETERMINATE".equals(decoded.getString("verdict")) || !"QUALIFICATION".equals(decoded.getString("readerStage")) ||
+                    expected==null || !expected.equals(decoded.getString("qualificationStage")))
+                throw new IllegalStateException("QUALIFICATION_STAGE_TRANSPORT_REJECTED");
+        } finally {parcel.recycle();}
+    }
     private static void verify(PrivateReaderFailure.Stage stage,String expected) {
         Bundle receipt=new Bundle();
         receipt.putString("verdict","CLEAR");receipt.putString("fingerprint","SYNTHETIC_PRIVATE_VALUE");
