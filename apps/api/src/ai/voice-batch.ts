@@ -236,19 +236,31 @@ function decideEvent(input: unknown, context: BatchContext): VoiceEventDecision 
     return skip('ambiguous_account');
   if (!['explicit', 'shared', 'omitted'].includes(String(value.dateSource)))
     return skip('invalid_date');
-  const account = context.references.find(
-    (ref) =>
-      ref.kind === 'account' &&
-      (value.accountSource === 'omitted'
-        ? value.accountId === '' && ref.id === context.defaultAccountId
-        : ref.alias === value.accountId),
-  );
-  if (!account) return skip('ambiguous_account');
   if (
     !['explicit', 'shared', 'omitted'].includes(String(value.currencySource)) ||
     (value.currencySource === 'omitted' ? value.currency !== '' : value.currency === '')
   )
     return skip('currency_mismatch');
+  const accounts = context.references.filter((ref) => ref.kind === 'account');
+  let account: BatchReference | undefined;
+  if (value.accountSource === 'omitted') {
+    if (value.accountId !== '') return skip('ambiguous_account');
+    const compatible = accounts.filter(
+      (ref) =>
+        ref.data.available !== false &&
+        (value.currencySource === 'omitted' || ref.data.currency === value.currency),
+    );
+    account = compatible.find((ref) => ref.id === context.defaultAccountId);
+    // Work input exposes at most twenty accounts. At that boundary, an unseen
+    // compatible sibling may exist, so only explicit/default selection is safe.
+    if (!account && compatible.length === 1 && accounts.length < 20) account = compatible[0];
+  } else {
+    // Explicit/shared evidence must resolve uniquely; it never enables fallback.
+    const matches = accounts.filter((ref) => ref.alias === value.accountId);
+    if (matches.length === 1) account = matches[0];
+  }
+  if (!account) return skip('ambiguous_account');
+  if (account.data.available === false) return skip('currency_mismatch');
   const currency = value.currencySource === 'omitted' ? account.data.currency : value.currency;
   if (currency !== account.data.currency) return skip('currency_mismatch');
   const category = context.references.find(
@@ -321,7 +333,26 @@ function decideEvent(input: unknown, context: BatchContext): VoiceEventDecision 
 }
 
 export function decideVoiceBatch(input: unknown, context: BatchContext): VoiceEventDecision[] {
-  const events = parseVoiceBatchEnvelope(input).events;
+  const events = [...parseVoiceBatchEnvelope(input).events];
+  // The provider's array position is not the spoken occurrence. Keep malformed
+  // items isolated in their original slots, and order grounded occurrences.
+  const occurrence = (event: unknown): number | null => {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) return null;
+    const ordinal = (event as Record<string, unknown>).occurrence;
+    return typeof ordinal === 'number' &&
+      Number.isInteger(ordinal) &&
+      ordinal >= 1 &&
+      ordinal <= VOICE_BATCH_MAX_EVENTS
+      ? ordinal
+      : null;
+  };
+  const ordered = events
+    .filter((event) => occurrence(event) !== null)
+    .sort((left, right) => Number(occurrence(left)) - Number(occurrence(right)));
+  let orderedIndex = 0;
+  events.forEach((event, index) => {
+    if (occurrence(event) !== null) events[index] = ordered[orderedIndex++];
+  });
   const decisions = events.map((event) => decideEvent(event, context));
   const occurrences = new Map<number, number[]>();
   events.forEach((event, index) => {
