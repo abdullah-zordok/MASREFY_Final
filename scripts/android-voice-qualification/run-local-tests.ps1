@@ -41,6 +41,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Real-target private probe path resolution fail
 if ($LASTEXITCODE -ne 0) { throw 'Synthetic package path resolution failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SyntheticFixtureMetadataTest
 if ($LASTEXITCODE -ne 0) { throw 'Bounded strict fixture metadata read failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.PrivateReaderFailureTest
+if ($LASTEXITCODE -ne 0) { throw 'Closed reader stage tests failed.' }
+& python "$testRoot/test-private-probe-receipt.py"
+if ($LASTEXITCODE -ne 0) { throw 'Reader receipt parser tests failed.' }
 & python "$testRoot/test-probe-build.py"
 if ($LASTEXITCODE -ne 0) { throw 'Offline real-target probe packaging gate failed.' }
 & python "$testRoot/test-bootstrap-observations.py"

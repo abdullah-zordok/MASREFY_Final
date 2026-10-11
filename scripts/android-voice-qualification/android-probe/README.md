@@ -101,3 +101,25 @@ A changed signed probe requires fresh qualification and a new exact approval.
 API35 can represent a base-only probe's split names as an empty array. The probe
 accepts null or zero-length metadata and still rejects every actual split,
 including malformed nonempty arrays. The exact APK/certificate/UID guards remain.
+
+
+Reader failures now return exactly `verdict=INDETERMINATE` and a closed
+`readerStage` enum. The last entered operation is identified without exporting
+exception text, causes, paths, journal rows, keys, or session values. Stages cover
+binding, main-loop/plain Application checks, identity/process surveys, directory
+stamps, native load, capture, qualification, unchanged verification and snapshot
+close. An operation stage identifies where execution failed, not its underlying
+cause. Existing rejection guards and the success receipt are unchanged.
+
+The versioned host parser at `../parse-private-probe-receipt.py` accepts a stage
+only in an exact two-field failure envelope with finish code 0 and successful
+command exit. Unknown stages, extra fields, conflicting success receipts and
+malformed envelopes fail closed. Legacy verdict-only failures remain supported.
+Disposable Android qualification tests all 23 labels plus a null-stage fallback
+through Bundle/Parcel transport with poisoned pre-existing success/private fields;
+all must be removed. The 42 encrypted store fixtures still run seven times across
+normal, disabled and restored states. Updated signing gates require the stage
+reporting evidence; historical receipts cannot qualify the modified probe.
+
+No changed probe is installed or run on a physical device by these tests. Fresh
+explicit approval remains required for replacement/installation/execution.

@@ -55,6 +55,8 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.PrivateProbeRootTest > "$build_dir/root-test.log" 2>&1 || { cat "$build_dir/root-test.log"; exit 1; }
           cat "$build_dir/root-test.log"
           if grep -q 'UNEXECUTED_ROOT_CASE' "$build_dir/root-test.log"; then exit 1; fi
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.PrivateReaderFailureTest
+          python3 scripts/android-voice-qualification/tests/test-private-probe-receipt.py
           python3 scripts/android-voice-qualification/tests/test-probe-build.py
           python3 scripts/android-voice-qualification/tests/test-bootstrap-observations.py
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SyntheticRootResolverTest > "$build_dir/synthetic-root-test.log" 2>&1 || { cat "$build_dir/synthetic-root-test.log"; exit 1; }

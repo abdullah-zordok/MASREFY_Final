@@ -47,21 +47,36 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
     }
     @Override public void onStart() {
         Bundle receipt=new Bundle();
+        PrivateReaderFailure.Stage stage=PrivateReaderFailure.Stage.CONTEXT;
         try {
             Context context=getTargetContext();
+            stage=PrivateReaderFailure.Stage.OBSERVED_BINDING;
             PrivateProbePolicy.requireObservedBinding(Process.myUid(),observedUid,approvedProbeHash,hash(Path.of(getContext().getApplicationInfo().sourceDir)));
+            stage=PrivateReaderFailure.Stage.MAIN_LOOP_BARRIER;
             CountDownLatch barrier=new CountDownLatch(1);context.getMainExecutor().execute(barrier::countDown);
-            if(!barrier.await(5,TimeUnit.SECONDS) || context.getApplicationContext().getClass()!=Application.class)throw failure();
-            requireIdentity(context);requireOnlyPrivateProcess(context);
-            Path root=dataRoot(context);Map<String,Stamp> before=stamps(root,List.of());
-            NativeSnapshotReader.loadLibrary();
+            if(!barrier.await(5,TimeUnit.SECONDS))throw failure();
+            stage=PrivateReaderFailure.Stage.PLAIN_APPLICATION;
+            if(context.getApplicationContext().getClass()!=Application.class)throw failure();
+            stage=PrivateReaderFailure.Stage.IDENTITY_BEFORE;requireIdentity(context);
+            stage=PrivateReaderFailure.Stage.PROCESS_BEFORE;requireOnlyPrivateProcess(context);
+            stage=PrivateReaderFailure.Stage.DATA_ROOT;Path root=dataRoot(context);
+            stage=PrivateReaderFailure.Stage.INITIAL_STAMPS;Map<String,Stamp> before=stamps(root,List.of());
+            stage=PrivateReaderFailure.Stage.NATIVE_LOAD;NativeSnapshotReader.loadLibrary();
+            stage=PrivateReaderFailure.Stage.SNAPSHOT_CAPTURE;
             try(var snapshot=VoiceStoreSnapshot.capture(root)) {
+                stage=PrivateReaderFailure.Stage.NATIVE_FILE_IDENTITY;
                 if(!Boolean.TRUE.equals(snapshot.summary().get("nativeFileIdentityAvailable")))throw failure();
+                stage=PrivateReaderFailure.Stage.SNAPSHOT_STAMPS;
                 Map<String,Stamp> nativeBefore=stamps(root,snapshot.names());
-                requireOnlyPrivateProcess(context);
+                stage=PrivateReaderFailure.Stage.PROCESS_BEFORE_QUALIFICATION;requireOnlyPrivateProcess(context);
+                stage=PrivateReaderFailure.Stage.QUALIFICATION;
                 var result=VoiceStoreQualification.qualify(snapshot,ExistingDatabaseKey.androidExistingOnly(),NativeSnapshotReader::open);
-                if(!snapshot.verifyUnchanged() || !nativeBefore.equals(stamps(root,snapshot.names())) || !before.equals(stamps(root,List.of())))throw failure();
-                requireIdentity(context);requireOnlyPrivateProcess(context);
+                stage=PrivateReaderFailure.Stage.SNAPSHOT_UNCHANGED;if(!snapshot.verifyUnchanged())throw failure();
+                stage=PrivateReaderFailure.Stage.FILE_STAMPS_UNCHANGED;if(!nativeBefore.equals(stamps(root,snapshot.names())))throw failure();
+                stage=PrivateReaderFailure.Stage.DIRECTORY_STAMPS_UNCHANGED;if(!before.equals(stamps(root,List.of())))throw failure();
+                stage=PrivateReaderFailure.Stage.IDENTITY_AFTER;requireIdentity(context);
+                stage=PrivateReaderFailure.Stage.PROCESS_AFTER;requireOnlyPrivateProcess(context);
+                stage=PrivateReaderFailure.Stage.RECEIPT_BUILD;
                 receipt.putString("verdict",result.verdict());receipt.putString("fingerprint",result.fingerprint());
                 receipt.putInt("owners",result.ownerDatabases());receipt.putInt("legacy",result.legacyDatabases());
                 receipt.putInt("async",result.asyncDatabases());receipt.putInt("rows",result.rows());
@@ -71,9 +86,10 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 receipt.putString("targetApkSha256",PrivateProbePolicy.HISTORICAL_APK);receipt.putString("probeApkSha256",approvedProbeHash);
                 receipt.putString("certificateSha256",PrivateProbePolicy.CERTIFICATE);receipt.putInt("targetUid",Process.myUid());
                 receipt.putBoolean("unchanged",true);receipt.putBoolean("plainApplication",true);receipt.putBoolean("onlyPrivateProcess",true);
+                stage=PrivateReaderFailure.Stage.SNAPSHOT_CLOSE;
             }
-            finish(-1,receipt);
-        } catch(Throwable rejected) {receipt.clear();receipt.putString("verdict","INDETERMINATE");finish(0,receipt);}
+            stage=PrivateReaderFailure.Stage.FINISH;finish(-1,receipt);
+        } catch(Throwable rejected) {receipt.clear();PrivateReaderFailure.receipt(stage).forEach(receipt::putString);finish(0,receipt);}
     }
     private void requireIdentity(Context context) throws Exception {
         PrivateProbeFailure.Stage stage=PrivateProbeFailure.Stage.TARGET_METADATA;

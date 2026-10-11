@@ -80,6 +80,8 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 receipt.putBoolean("missingExistingAliasesFailClosed",true);
                 receipt.putString("verdict","SEEDED_PUBLIC_SYNTHETIC_FIXTURES");
             } else if("qualify".equals(mode)) {
+                phase="READER_STAGE_REPORTING";
+                receipt.putInt("readerStageCases",ReaderFailureRehearsal.verify());
                 phase="LOAD_RAM_READER";
                 NativeSnapshotReader.loadLibrary();
                 phase="QUALIFY_ENCRYPTED_FIXTURES";

@@ -229,6 +229,7 @@ def encrypted_journals(emulator, receipt):
         receipt["encryptedJournals"].setdefault(destination, []).append(observed)
         if observed.get("packageState") != str(state) or observed.get("applicationEnabled") != str(state != 3).lower():
             raise RuntimeError("SYNTHETIC_PACKAGE_STATE_CHANGED")
+        if observed.get("readerStageCases") != "24": raise RuntimeError("READER_STAGE_REPORTING_FAILED")
         if observed.get("verdict") != "PASS_DISPOSABLE_ENCRYPTED_JOURNALS" or int(observed.get("cases", "0")) < 30:
             raise RuntimeError("ENCRYPTED_JOURNAL_QUALIFICATION_FAILED")
         if not re.fullmatch("[0-9a-f]{64}", observed.get("fixtureFingerprint", "")):
