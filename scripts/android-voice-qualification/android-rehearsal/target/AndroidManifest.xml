@@ -3,9 +3,9 @@
   <uses-permission android:name="android.permission.INTERNET" />
   <application android:name=".TargetApplication" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:debuggable="false" android:allowBackup="false" android:usesCleartextTraffic="true" android:label="Disposable bootstrap fixture">
     <activity android:name=".TargetActivity" android:exported="true" />
-    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.first" android:exported="false" />
-    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.second" android:exported="false" />
-    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.third" android:exported="false" />
-    <provider android:name=".TargetProvider" android:authorities="com.masarifi.voicequalification.fixture.fourth" android:exported="false" />
+    <provider android:name=".TargetProviderOne" android:authorities="com.masarifi.voicequalification.fixture.first" android:exported="false" />
+    <provider android:name=".TargetProviderTwo" android:authorities="com.masarifi.voicequalification.fixture.second" android:exported="false" />
+    <provider android:name=".TargetProviderThree" android:authorities="com.masarifi.voicequalification.fixture.third" android:exported="false" />
+    <provider android:name=".TargetProviderFour" android:authorities="com.masarifi.voicequalification.fixture.fourth" android:exported="false" />
   </application>
 </manifest>

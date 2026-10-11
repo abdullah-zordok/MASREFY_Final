@@ -3,7 +3,7 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
-public final class TargetProvider extends ContentProvider {
+public abstract class TargetProvider extends ContentProvider {
     @Override public boolean onCreate() { Tripwire.mark(getContext(),"PROVIDER"); return true; }
     @Override public Cursor query(Uri uri,String[] projection,String selection,String[] args,String order) { return null; }
     @Override public String getType(Uri uri) { return null; }
