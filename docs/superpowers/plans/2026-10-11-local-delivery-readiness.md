@@ -56,7 +56,7 @@
 - [x] Capture fresh complete lockfile audits with advisory provenance.
 - [x] Apply minimum compatible updates/overrides; record residual upstream exposures accurately.
 - [x] Install locked dependencies without scripts and verify targeted package/toolchain compatibility.
-- [ ] Qualify the compatible pinned libc6 security point update in the actual CI image, retain all-severity findings and exact immutable digest.
+- [x] Qualify the compatible pinned libc6 security point update in the actual CI image, retain all-severity findings and exact immutable digest.
 
 ### Task 4: Sanitized extraction reliability and combined verification
 
@@ -75,7 +75,7 @@
 **Interfaces:** Task1-4 verified source -> candidate APK + hashes/signature/ABIs + explicit external acceptance blockers.
 
 - [ ] Review combined diff, qualify exact commit, preserve all-ref bundle and source manifest.
-- [ ] Prepare latest compatible standalone Staging APK using the existing certificate/package; verify ZIP/signature/bundle/native provenance without install.
+- [x] Prepare latest compatible standalone Staging APK using the existing certificate/package; verify ZIP/signature/bundle/native provenance without install.
 - [ ] Report completed tasks, actual test counts, remaining upstream/external blockers and staged approval scopes. Integration/main and live activation remain untouched.
 
 ## Execution rulings

@@ -33,8 +33,16 @@ class Emulator:
         if self.command("shell","getprop","ro.build.version.sdk").strip() != "35":
             raise RuntimeError("ANDROID15_REQUIRED")
     def command(self,*arguments,retain_output=True):
+        timeout=45
+        deadline=getattr(self,"command_deadline",None)
+        if deadline is not None:
+            remaining=deadline-time.monotonic()
+            if remaining<=0:raise RuntimeError("FRAMEWORK_PRECONDITION_DEADLINE")
+            timeout=min(timeout,remaining)
         completed = subprocess.run([str(self.arguments.adb),"-P","15040","-s",self.arguments.serial,*map(str,arguments)],
-                                   capture_output=True,text=True,timeout=45)
+                                   capture_output=True,text=True,timeout=timeout)
+        if deadline is not None and time.monotonic()>=deadline:
+            raise RuntimeError("FRAMEWORK_PRECONDITION_DEADLINE")
         self.log.write("COMMAND "+" ".join(map(str,arguments))+"\n"+(completed.stdout+completed.stderr if retain_output else ""))
         self.log.flush()
         if completed.returncode: raise RuntimeError("EMULATOR_COMMAND_FAILED")
@@ -42,11 +50,16 @@ class Emulator:
     def fixture_log(self):
         return self.command("logcat","-d","-v","raw","-s","VQSFixture:I","*:S")
     def framework_diagnostics(self):
-        output=self.command("logcat","-d","-t","400","-v","threadtime","-s",
-                            "ActivityTaskManager:I","ActivityManager:I","WindowManager:I","VQSFixture:I","*:S",retain_output=False)
-        # Public synthetic package only. No unrelated framework records or Bundle/configuration contents.
+        output=self.command("logcat","-d","-t","10000","-v","threadtime","-s",
+                            "ActivityTaskManager:I","ActivityManager:I","WindowManager:I","VQSFixture:I",
+                            "ThemeOverlayController:D","OverlayManager:D","*:S",retain_output=False)
+        # Input is bounded; raw unrelated framework/theme records are never retained.
+        if len(output)>2*1024*1024:raise RuntimeError("FRAMEWORK_DIAGNOSTICS_TOO_LARGE")
         selected=[line for line in output.splitlines() if TARGET in line or "VQSFixture" in line]
         self.log.write("SYNTHETIC_LIFECYCLE_DIAGNOSTICS\n"+"\n".join(selected[-120:])[:32768]+"\n")
+        self.log.write("SYNTHETIC_FRAMEWORK_EVENTS "+json.dumps({tag:sum(tag in line for line in output.splitlines())
+                       for tag in ("ThemeOverlayController","OverlayManager")})+"\n")
+        self.log.write("SYNTHETIC_FRAMEWORK_STATE "+json.dumps(framework_state(self),sort_keys=True)+"\n")
         self.log.flush()
 
 def parse_receipt(output):
@@ -74,6 +87,89 @@ def install_fixtures(emulator,apks):
         output=emulator.command("install","--no-incremental","--no-streaming","-r",apk)
         if not re.search(r"^Success$",output,re.MULTILINE) or "Incremental Install" in output:
             raise RuntimeError("FIXTURE_INSTALL_FAILED")
+
+def drain_framework(emulator):
+    # Android15 shell returns zero even when the application barrier gives up.
+    idle=emulator.command("shell","am","wait-for-broadcast-idle","--flush-broadcast-loopers",retain_output=False)
+    if "All broadcast queues are idle!" not in idle or "Gave up" in idle:
+        raise RuntimeError("FRAMEWORK_BARRIER_FAILED")
+    application=emulator.command("shell","am","wait-for-application-barrier",retain_output=False)
+    if "Finished application barriers!" not in application or "Gave up" in application:
+        raise RuntimeError("FRAMEWORK_BARRIER_FAILED")
+
+def configuration_identity(output):
+    # Only the public global configuration is hashed; process records are discarded.
+    values=re.findall(r"^\s*mGlobalConfiguration: ([^\r\n]+)$",output,re.MULTILINE)
+    if len(values)!=1 or len(values[0])>4096 or not values[0].startswith("{") or not values[0].endswith("}"):
+        raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+    value=values[0]
+    # API35 Configuration.toString includes nested winConfig={...}. Sequence
+    # counters belong to the outer configuration, never the nested window state.
+    depth=0;top=[]
+    for index,character in enumerate(value):
+        if character=="{":
+            depth+=1
+            if depth>4:raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+            top.append(" ")
+        elif character=="}":
+            depth-=1
+            if depth<0 or depth==0 and index!=len(value)-1:
+                raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+            top.append(" ")
+        elif depth==1:top.append(character)
+    if depth!=0:raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+    def sequence(prefix):
+        matches=[token for token in "".join(top).split() if token.startswith(prefix+".")]
+        if len(matches)>1 or matches and not re.fullmatch(prefix+r"\.[0-9]+",matches[0]):
+            raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+        result=int(matches[0].split(".")[1]) if matches else 0
+        if result>2147483647:raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+        return result
+    return {"configurationSha256":hashlib.sha256(value.encode("utf-8")).hexdigest(),
+            "assetsSequence":sequence("as"),"configurationSequence":sequence("s")}
+
+def framework_state(emulator):
+    boot=emulator.command("shell","getprop","sys.boot_completed",retain_output=False).strip()
+    animation=emulator.command("shell","getprop","init.svc.bootanim",retain_output=False).strip()
+    unlocked=emulator.command("shell","am","get-started-user-state","0",retain_output=False).strip()
+    configuration=emulator.command("shell","dumpsys","activity","processes",retain_output=False)
+    if len(configuration)>16*1024*1024:raise RuntimeError("GLOBAL_CONFIGURATION_UNAVAILABLE")
+    state=configuration_identity(configuration)
+    overlays=emulator.command("shell","cmd","overlay","list","--user","0","android",retain_output=False)
+    if len(overlays)>65536 or not re.search(r"^android\s*$",overlays,re.MULTILINE):
+        raise RuntimeError("FRAMEWORK_OVERLAY_STATE_UNAVAILABLE")
+    state.update({"bootCompleted":boot=="1","bootAnimationStopped":animation=="stopped","user0Unlocked":unlocked=="RUNNING_UNLOCKED",
+                  "ready":boot=="1" and animation=="stopped" and unlocked=="RUNNING_UNLOCKED",
+                  "overlaySha256":hashlib.sha256(overlays.encode("utf-8")).hexdigest()})
+    return state
+
+def await_framework_quiet(emulator,receipt):
+    # Boot completion alone does not drain boot-theme/background overlay work.
+    # Require five consecutive identical public observations after supported drains;
+    # changing/missing state fails closed within 120 seconds / 60 observations.
+    previous=None;stable=0
+    observed={"samples":0,"stableSamples":0,"verdict":"FAIL_FRAMEWORK_PRECONDITION"}
+    receipt["frameworkPrecondition"]=observed
+    emulator.command_deadline=time.monotonic()+120
+    try:
+        for sample in range(60):
+            if time.monotonic()>=emulator.command_deadline:raise RuntimeError("FRAMEWORK_PRECONDITION_DEADLINE")
+            drain_framework(emulator)
+            state=framework_state(emulator)
+            stable=stable+1 if state.get("ready") and state==previous else 1 if state.get("ready") else 0
+            observed.update({"samples":sample+1,"stableSamples":stable,"state":state})
+            emulator.log.write("SYNTHETIC_FRAMEWORK_PRECONDITION "+json.dumps(observed,sort_keys=True)+"\n");emulator.log.flush()
+            if time.monotonic()>=emulator.command_deadline:raise RuntimeError("FRAMEWORK_PRECONDITION_DEADLINE")
+            if stable>=5:
+                observed["verdict"]="PASS_FRAMEWORK_PRECONDITION"
+                return
+            previous=state
+            if sample<59:
+                remaining=emulator.command_deadline-time.monotonic()
+                if remaining<=0:raise RuntimeError("FRAMEWORK_PRECONDITION_DEADLINE")
+                time.sleep(min(1,remaining))
+    finally:emulator.command_deadline=None
+    raise RuntimeError("FRAMEWORK_NOT_QUIESCENT")
 
 def positive_control(emulator,receipt):
     before = emulator.fixture_log()
@@ -150,6 +246,7 @@ def main():
             with ThreadingHTTPServer(("127.0.0.1",34861),LocalTripwireListener) as listener:
                 threading.Thread(target=listener.serve_forever,daemon=True).start()
                 install_fixtures(emulator,apks)
+                await_framework_quiet(emulator,receipt)
                 marks = positive_control(emulator,receipt)
                 receipt["positiveControl"] = {"componentWrites":6,"localRequests":6,"nonDebuggableTarget":True}
                 exercise(emulator,marks,receipt)
