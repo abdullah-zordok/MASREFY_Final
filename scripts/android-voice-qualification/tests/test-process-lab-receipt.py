@@ -19,9 +19,9 @@ class ProcessLabEvidenceTests(unittest.TestCase):
         return {'verdict':'PASS_DISPOSABLE_PROCESS_LAB','initialSurvey':'PASS_ONLY_PRIVATE_PROCESS',
                 'normalBound':'true','normalActualUidMatches':'true','normalFrameworkVisible':'true',
                 'normalFrameworkUidMatches':'true','normalGuard':'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=TARGET_AUXILIARY',
-                'normalGone':'true','isolatedBound':'true','isolatedActualUidMatches':'false',
+                'normalGone':'true','normalCachedAliveBeforePing':'true','isolatedBound':'true','isolatedActualUidMatches':'false',
                 'isolatedFrameworkVisible':'false','isolatedFrameworkUidMatches':'false',
-                'isolatedGuard':'PASS_ONLY_PRIVATE_PROCESS','isolatedGone':'true','isolatedOtherSameUidPeers':'0'}
+                'isolatedGuard':'PASS_ONLY_PRIVATE_PROCESS','isolatedGone':'true','isolatedCachedAliveBeforePing':'true','isolatedOtherSameUidPeers':'0'}
     def test_actual_normal_peer_must_reject(self):
         self.validate(self.evidence())
         for field,value in (('normalGuard','PASS_ONLY_PRIVATE_PROCESS'),('normalActualUidMatches','false'),('normalFrameworkVisible','false')):

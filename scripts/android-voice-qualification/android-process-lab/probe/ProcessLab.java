@@ -112,7 +112,16 @@ public final class ProcessLab extends Instrumentation {
             var records=context.getSystemService(ActivityManager.class).getRunningAppProcesses();
             if(records==null)throw new IllegalStateException("FRAMEWORK_UNAVAILABLE");
             boolean present=false;for(var record:records)if(record==null)throw new IllegalStateException("FRAMEWORK_RECORD_INVALID");else if(record.pid==peerPid)present=true;
-            if(!present && !endpoint[0].isBinderAlive()){gone=true;break;}Thread.sleep(20);
+            if(!present) {
+                // unbindService removes the framework death monitor. isBinderAlive
+                // alone can retain a stale true cache until an active transaction.
+                boolean cached=endpoint[0].isBinderAlive();
+                if(!endpoint[0].pingBinder() && !endpoint[0].isBinderAlive()) {
+                    receipt.putString(label+"CachedAliveBeforePing",Boolean.toString(cached));
+                    gone=true;break;
+                }
+            }
+            Thread.sleep(20);
         }
         receipt.putString(label+"Gone",Boolean.toString(gone));
         if(!gone)throw new IllegalStateException("PEER_CLEANUP_UNPROVEN");

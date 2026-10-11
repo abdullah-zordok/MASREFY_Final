@@ -10,7 +10,7 @@ PROBE='com.masarifi.voicequalification.processlab/.ProcessLab'
 LISTENER=TARGET+'/'+TARGET+'.Peers$Listener'
 REJECTION=r'PROBE_IDENTITY_INDETERMINATE:PROCESS_SAME_UID_PEER:PEER_ROLE=(TARGET_MAIN|PRIVATE_PROCESS_NAME|TARGET_AUXILIARY|OTHER|UNKNOWN_NAME|INVALID_PID)'
 FIELDS={'verdict','initialSurvey','isolatedOtherSameUidPeers'}|{kind+suffix for kind in ('normal','isolated')
-    for suffix in ('Bound','ActualUidMatches','FrameworkVisible','FrameworkUidMatches','Guard','Gone')}
+    for suffix in ('Bound','ActualUidMatches','FrameworkVisible','FrameworkUidMatches','Guard','Gone','CachedAliveBeforePing')}
 
 def reject(condition):
     if not condition:raise RuntimeError('PROCESS_LAB_EVIDENCE_INVALID')
@@ -22,7 +22,7 @@ def validate(value):
     reject(value['initialSurvey']=='PASS_ONLY_PRIVATE_PROCESS' or is_rejection(value['initialSurvey']))
     for kind in ('normal','isolated'):
         reject(value[kind+'Bound']=='true' and value[kind+'Gone']=='true')
-        reject(all(value[kind+suffix] in ('true','false') for suffix in ('ActualUidMatches','FrameworkVisible','FrameworkUidMatches')))
+        reject(all(value[kind+suffix] in ('true','false') for suffix in ('ActualUidMatches','FrameworkVisible','FrameworkUidMatches','CachedAliveBeforePing')))
     reject(value['normalActualUidMatches']=='true' and value['normalFrameworkVisible']=='true' and value['normalFrameworkUidMatches']=='true' and is_rejection(value['normalGuard']))
     reject(value['isolatedActualUidMatches']=='false')
     reject(re.fullmatch(r'0|[1-9][0-9]{0,3}',value['isolatedOtherSameUidPeers']) is not None)
