@@ -61,4 +61,20 @@ class Promotion(unittest.TestCase):
   host.target=lambda *args,**kwargs:None
   host.run=lambda *args,**kwargs:self.fail('Committed promotion must remain serving')
   host.rollback()
+ def test_rollback_never_reloads_unapproved_nginx_configuration(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp)
+   before=b'proxy_pass http://127.0.0.1:3000;\nproxy_pass http://127.0.0.1:3000;\nproxy_pass http://[::1]:3001;'
+   (root/'nginx-original.conf').write_bytes(before);(root/'nginx-promoted.conf').write_bytes(m.promoted_config(before))
+   site=root/'site';site.write_bytes(before)
+   packet={'candidateID':'d'*64,'files':{'qualification-runtime.json':'a'*64,'nginx-original.conf':'b'*64,'nginx-promoted.conf':'c'*64}}
+   state={'kind':'posting-off-api-promotion','generation':'g','phase':'switching','packetHash':m.api.packet_hash(packet)}
+   host=m.Host(root);host.read_json=lambda n:state if n=='runtime.json' else packet
+   host.target=lambda *a,**kw:None;host.pin=lambda *a:None
+   host.candidate=lambda *a:{'State':{'Running':True}}
+   host.routing=lambda *a,**kw:(_ for _ in ()).throw(m.GuardError('NGINX_INCLUDE_SET_CHANGED'))
+   commands=[];host.run=lambda args,**kw:commands.append(args)
+   with patch.object(m,'SITE',site),self.assertRaises((RuntimeError,KeyError)):
+    host.rollback()
+   self.assertEqual(commands,[],'Foreign config must never be loaded during rollback')
 if __name__=='__main__':unittest.main()

@@ -174,6 +174,10 @@ class Host(api.Host):
             stream.write(desired); stream.flush(); os.fsync(stream.fileno())
         tmp.chmod(0o644)
         os.replace(tmp, SITE)
+        if os.name == 'posix':
+            descriptor = os.open(SITE.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try: os.fsync(descriptor)
+            finally: os.close(descriptor)
 
     def switch(self, packet):
         self.pins(packet); self.routing(packet); self.preserved(packet, True); self.snapshot(packet)
@@ -202,7 +206,7 @@ class Host(api.Host):
         state = self.read_json('runtime.json')
         require(state and state['kind'] == 'posting-off-api-promotion', 'OWNED_PROMOTION_REQUIRED')
         self.target(state['generation'], incident=True)
-        if state['phase'] == 'committed': return
+        if state['phase'] in ('committed', 'rolled-back'): return
         packet = self.read_json('packet.json')
         require(api.packet_hash(packet) == state['packetHash'], 'ROLLBACK_PACKET_CHANGED')
         for name in ['qualification-runtime.json', 'nginx-original.conf', 'nginx-promoted.conf']:
@@ -211,9 +215,15 @@ class Host(api.Host):
         before = (self.root / 'nginx-original.conf').read_bytes()
         after = (self.root / 'nginx-promoted.conf').read_bytes()
         require(after == promoted_config(before), 'ROLLBACK_ROUTE_DIFF_CHANGED')
-        if SITE.read_bytes() == after: self.replace_route(before, after)
-        require(SITE.read_bytes() == before, 'ROLLBACK_ROUTE_OWNERSHIP_UNCONFIRMED')
-        self.run(['nginx', '-t']); self.run(['systemctl', 'reload', 'nginx'])
+        current = SITE.read_bytes()
+        require(current in (before, after), 'ROLLBACK_ROUTE_OWNERSHIP_UNCONFIRMED')
+        if state['phase'] == 'switching':
+            # Reload only the pinned include set, even after an uncertain prior reload.
+            self.routing(packet, promoted=current == after)
+            if current == after: self.replace_route(before, after)
+            self.run(['nginx', '-t']); self.run(['systemctl', 'reload', 'nginx'])
+        else:
+            require(current == before and state['phase'] in ('prepared', 'starting'), 'ROLLBACK_PHASE_UNCONFIRMED')
         original = next(e for e in packet['cohort']['services'] if e['service'] == 'api')
         self.public_health(original['sourceSha'])
         self.run(['docker', 'update', '--restart', 'no', packet['candidateID']])
