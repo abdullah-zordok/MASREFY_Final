@@ -66,6 +66,7 @@ internal class NotificationQueue(private val context: Context) {
   )
 
   fun add(record: CapturedNotification) = synchronized(TrackingOwner) {
+    check(!TrackingOwner.isSuspended(context)) {"tracking_suspended"}
     val stored=readStored()+record
     val pruned=NotificationQueuePolicy.prune(stored,System.currentTimeMillis())
     if(stored.count {it.postedAt>=System.currentTimeMillis()-NotificationQueuePolicy.MAX_AGE_MS}>200) {
@@ -75,12 +76,14 @@ internal class NotificationQueue(private val context: Context) {
   }
 
   fun read(limit: Int): List<CapturedNotification> = synchronized(TrackingOwner) {
+    check(!TrackingOwner.isSuspended(context)) {"tracking_suspended"}
     val records = NotificationQueuePolicy.prune(readStored(), System.currentTimeMillis())
     write(records)
     records.sortedBy { it.postedAt }.take(limit.coerceIn(1, 100))
   }
 
   fun acknowledge(keys: Set<String>) = synchronized(TrackingOwner) {
+    check(!TrackingOwner.isSuspended(context)) {"tracking_suspended"}
     write(NotificationQueuePolicy.acknowledge(readStored(), keys))
   }
 

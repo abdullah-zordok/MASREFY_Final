@@ -1,0 +1,124 @@
+name: Mobile Preservation Qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      clerk_publishable_key:
+        description: Existing Staging client Clerk publishable key (public configuration)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:dependency-security
+      - run: npm run check:frontend-quality
+      - run: npx expo prebuild --platform android --no-install
+      - run: npx jest --runInBand --forceExit --json --outputFile=mobile-preservation-tests.json
+      - run: node --test scripts/staging-client-profile.test.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: mobile-preservation-tests-${{ github.sha }}
+          path: apps/mobile/mobile-preservation-tests.json
+          if-no-files-found: warn
+
+  android:
+    needs: mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      EAS_BUILD_PROFILE: staging-client
+      EXPO_NO_DOTENV: '1'
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ inputs.clerk_publishable_key }}
+      NODE_OPTIONS: --max-old-space-size=1536
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: apps/api/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci --ignore-scripts
+      - name: Select existing standalone Staging configuration
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const profile = JSON.parse(readFileSync('eas.json', 'utf8')).build['staging-client'];
+          assert.equal(profile.env.EXPO_PUBLIC_API_URL, 'https://api.staging.masarifiratibi.com');
+          assert.equal(profile.env.EXPO_PUBLIC_CLIENT_MODE, 'live');
+          assert.match(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '', /^pk_live_[A-Za-z0-9_-]+$/);
+          assert.equal(Buffer.from(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY.slice(8), 'base64url').toString('utf8').replace(/\$$/, ''), 'clerk.staging.masarifiratibi.com');
+          for (const [key, value] of Object.entries(profile.env)) {
+            assert.match(key, /^EXPO_PUBLIC_[A-Z_]+$/);
+            assert.equal(typeof value, 'string');
+            assert.doesNotMatch(value, /[\r\n]/);
+            appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
+          }
+          NODE
+      - name: Select Java 17
+        run: |
+          test -d "$JAVA_HOME_17_X64"
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+      - run: node ../../scripts/integration/verify-android-identity.cjs
+      - run: npm run check:client-runtime
+      - run: npx expo prebuild --platform android --no-install
+      - name: Verify native Tracking storage preservation
+        working-directory: apps/mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew :masarifi-sms-inbox:testDebugUnitTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g"
+      - name: Assemble the signed Staging candidate
+        working-directory: apps/mobile/android
+        env:
+          NODE_ENV: production
+        run: ./gradlew :app:assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86,x86_64 --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g"
+      - name: Verify package, certificate and exact source
+        shell: bash
+        run: |
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$apk"
+          tools=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1 | xargs dirname)
+          "$tools/aapt" dump badging "$apk" > staging-candidate-badging.txt
+          grep -q "package: name='com.masarifi.mobile'" staging-candidate-badging.txt
+          grep -q "application-label:'Masarifi.Ratibi'" staging-candidate-badging.txt
+          "$tools/apksigner" verify --verbose --print-certs "$apk" > staging-candidate-signature.txt
+          grep -q 'certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' staging-candidate-signature.txt
+          printf '%s\n' "$GITHUB_SHA" > staging-candidate-source.txt
+          sha256sum "$apk" > staging-candidate-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: staging-mobile-preservation-${{ github.sha }}
+          path: |
+            apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            apps/mobile/staging-candidate-*.txt
+            apps/mobile/modules/masarifi-sms-inbox/android/build/reports/tests/
+            apps/mobile/modules/masarifi-sms-inbox/android/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14

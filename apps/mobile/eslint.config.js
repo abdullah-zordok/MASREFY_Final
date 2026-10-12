@@ -28,6 +28,12 @@ module.exports = [
     }
   },
   {
+    files: ['scripts/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-var-requires': 'off'
+    }
+  },
+  {
     files: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',

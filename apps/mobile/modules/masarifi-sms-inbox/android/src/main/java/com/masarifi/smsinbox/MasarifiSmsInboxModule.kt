@@ -34,6 +34,10 @@ class MasarifiSmsInboxModule : Module() {
         blocked.filter {it.matches(Regex("[a-zA-Z][\\w]*(\\.[\\w]+)+"))},policy)
     }
     AsyncFunction("suspendTrackingOwner") {appContext.reactContext?.let {TrackingOwner.suspend(it)}}
+    AsyncFunction("restoreTrackingOwner") { owner:String,generation:String? ->
+      val context=appContext.reactContext ?: throw IllegalStateException("tracking_context_unavailable")
+      TrackingOwner.restore(context,owner,generation)
+    }
     AsyncFunction("clearTrackingOwner") {appContext.reactContext?.let {TrackingOwner.clear(it)}}
     AsyncFunction("finishTrackingWork") {workId:String,succeeded:Boolean -> TrackingWorker.finish(workId,succeeded)}
     AsyncFunction("presentCaptureConfirmation") {ownerId:String,notificationId:String,title:String,body:String ->

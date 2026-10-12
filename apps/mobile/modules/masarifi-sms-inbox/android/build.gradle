@@ -12,6 +12,7 @@ android {
     versionCode 1
     versionName '1.0.0'
   }
+  testOptions { unitTests.includeAndroidResources = true }
 }
 
 dependencies {
@@ -21,5 +22,7 @@ dependencies {
   implementation(findProject(':expo-notifications') ?: "host.exp.exponent:expo.modules.notifications:${notificationsVersion}")
   testImplementation 'junit:junit:4.13.2'
   testImplementation 'org.json:json:20180813'
+  testImplementation 'org.robolectric:robolectric:4.14.1'
+  testImplementation 'androidx.work:work-testing:2.10.1'
 }
 

@@ -22,4 +22,14 @@ The entire mobile dependency graph still requires the exact-source CI clean inst
 
 Local provenance: `E:/Masarifi-staging-acceptance-2026-10-12/decoder-backport-qualification/provenance.json`. Independent review verified CommonJS compatibility, the narrow override, archive/source equality and license preservation.
 
-Native Tracking cold-restoration preservation is being qualified separately. Product launch, provider acceptance, financial activation and final client delivery remain open. No new device operation or deployment is implied by these source fixes.
+## Native Tracking cold restoration
+
+Successful cold authentication previously ran the same Tracking reset as sign-out, clearing native encrypted notification queues and their owner context even when the authenticated owner was unchanged. The reset now passes the verified restoring owner to a serialized continuity check. Matching owner and generation preserve the original context and ciphertext while native intake is suspended. Missing or malformed context, unmatched generation, orphaned ciphertext and ambiguous target-owner queues block restoration without deleting retained work. Explicit logout and a clean authenticated owner switch retain their cleanup behavior.
+
+Suspension is enforced under the native owner monitor before queue reads, acknowledgements, additions, worker drains and rescheduling. Clearing a runtime retains the suspension flag so a delayed bridge call cannot create an unbound queue. JavaScript generation fences prevent stale configuration and background work from crossing restoration. Disabling SMS while preserving notifications retains the owner context.
+
+Regression tests reproduced the destructive cold path, orphaned ciphertext, suspended queue access, ambiguous owner switching and post-logout queue access before their fixes. Final qualification passed 17 native tests using Android preferences, retained synthetic ciphertext and WorkManager, plus 39 focused JavaScript tests, typecheck and frontend boundary checks. Independent review closed all reported findings. Retained native XML is at `E:/Masarifi-local-readiness-2026-10-12/mobile-preservation/native-final/`. Robolectric does not prove physical-device or Android Keystore behavior.
+
+The earlier concurrent full mobile run passed 2,995 of 2,996 tests; its sole failure loaded the pre-fix SMS/notification continuity implementation and subsequently passed in the focused rerun. Full lint now passes with zero errors and 111 existing warnings after a narrow CommonJS script rule correction. A clean exact-source CI run remains required before the new signed client is qualified.
+
+Product launch, provider acceptance, financial activation and final client delivery remain open. No new device operation or deployment is implied by these source fixes.

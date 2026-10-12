@@ -32,6 +32,7 @@ const clerkSessionCache: TokenCache = {
 };
 let nativeMutation: Promise<void> = Promise.resolve();
 let nativeGeneration = 0;
+let restorationBlocked = false;
 function serializeNative(change: () => Promise<void>): Promise<void> {
   const operation = nativeMutation.then(change, change);
   nativeMutation = operation.catch(() => undefined);
@@ -46,6 +47,7 @@ export async function configureTrackingBackground(
   const expectedGeneration = nativeGeneration;
   return serializeNative(async () => {
     const current = () =>
+      !restorationBlocked &&
       expectedGeneration === nativeGeneration &&
       expectedEpoch === trackingConsentEpoch() &&
       useAppShellStore.getState().session?.userId === ownerId;
@@ -83,7 +85,9 @@ export async function configureTrackingBackground(
       ownerDigest,
       generation,
       !rules.requiresRefresh && mode !== 'paused' && sources.smsEnabled,
-      !rules.requiresRefresh && mode !== 'paused' && sources.notificationEnabled,
+      !rules.requiresRefresh &&
+        mode !== 'paused' &&
+        sources.notificationEnabled,
       packages,
       rules.senders
         .filter(
@@ -98,8 +102,7 @@ export async function configureTrackingBackground(
         : null
     );
     if (!current()) {
-      await trackingNativeRuntime.clearTrackingOwner();
-      await SecureStore.deleteItemAsync(contextKey);
+      await trackingNativeRuntime.suspendTrackingOwner();
       return;
     }
     await registerTrackingNotificationTask('masarifi-tracking-confirmation-v2');
@@ -112,16 +115,75 @@ export async function disableTrackingBackground(
   return serializeNative(async () => {
     if (preserveNotifications && trackingNativeRuntime?.suspendTrackingOwner)
       await trackingNativeRuntime.suspendTrackingOwner();
-    else await trackingNativeRuntime?.clearTrackingOwner?.();
-    await SecureStore.deleteItemAsync(contextKey);
+    else {
+      await trackingNativeRuntime?.clearTrackingOwner?.();
+      await SecureStore.deleteItemAsync(contextKey);
+    }
   });
 }
-registerRuntimeIdentityReset(() => {
+async function restoreTrackingBackground(ownerId: string): Promise<void> {
+  const generation = ++nativeGeneration;
+  restorationBlocked = true;
+  return serializeNative(async () => {
+    try {
+      const raw = await SecureStore.getItemAsync(contextKey);
+      let stored: { ownerId: string; generation: string } | null = null;
+      if (raw !== null) {
+        const value: unknown = JSON.parse(raw);
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+          throw new Error();
+        const candidate = value as Record<string, unknown>;
+        if (
+          Object.keys(candidate).sort().join(',') !== 'generation,ownerId' ||
+          typeof candidate.ownerId !== 'string' ||
+          candidate.ownerId.length < 1 ||
+          candidate.ownerId.length > 256 ||
+          typeof candidate.generation !== 'string' ||
+          candidate.generation.length < 16 ||
+          candidate.generation.length > 80
+        )
+          throw new Error();
+        stored = candidate as { ownerId: string; generation: string };
+      }
+      if (generation !== nativeGeneration) throw new Error();
+      if (Platform.OS === 'android') {
+        if (!trackingNativeRuntime?.restoreTrackingOwner) throw new Error();
+        const ownerDigest = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          ownerId
+        );
+        if (generation !== nativeGeneration) throw new Error();
+        const outcome = await trackingNativeRuntime.restoreTrackingOwner(
+          ownerDigest,
+          stored?.ownerId === ownerId ? stored.generation : null
+        );
+        if (!['PRESERVED', 'CLEARED', 'EMPTY'].includes(outcome))
+          throw new Error();
+      }
+      if (generation !== nativeGeneration) throw new Error();
+      if (stored && stored.ownerId !== ownerId)
+        await SecureStore.deleteItemAsync(contextKey);
+      if (generation !== nativeGeneration) throw new Error();
+      restorationBlocked = false;
+    } catch {
+      // An ambiguous restoration must not fall back to destructive sign-out.
+      // Keep durable notifications and make native intake dormant instead.
+      await trackingNativeRuntime?.suspendTrackingOwner?.();
+      throw new Error('tracking_restore_unavailable');
+    }
+  });
+}
+
+registerRuntimeIdentityReset((context) => {
   invalidateTrackingConsent();
+  if (context?.restoringOwnerId)
+    return restoreTrackingBackground(context.restoringOwnerId);
+  restorationBlocked = true;
   return disableTrackingBackground();
 });
 registerRuntimeUserDataReset(() => {
   invalidateTrackingConsent();
+  restorationBlocked = true;
   return disableTrackingBackground();
 });
 
@@ -129,10 +191,13 @@ export async function runTrackingBackground(input: {
   ownerDigest?: string;
   generation?: string;
 }): Promise<void> {
+  if (restorationBlocked) return;
+  const generation = nativeGeneration;
+  const current = () => !restorationBlocked && generation === nativeGeneration;
   const runtime = resolveClientRuntime();
   if (runtime.mode !== 'live') return;
   const raw = await SecureStore.getItemAsync(contextKey);
-  if (!raw) return;
+  if (!raw || !current()) return;
   const context = JSON.parse(raw) as { ownerId: string; generation: string };
   const digest = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
@@ -144,6 +209,7 @@ export async function runTrackingBackground(input: {
     const identity = await captureLiveClerkIdentity();
     if (identity.userId !== context.ownerId) return;
   } catch {
+    if (!current()) return;
     const { getClerkInstance } = await import('@clerk/expo');
     const clerk = getClerkInstance({
       publishableKey: runtime.clerkPublishableKey!,
@@ -157,6 +223,7 @@ export async function runTrackingBackground(input: {
       return;
     if (
       (await SecureStore.getItemAsync(contextKey)) !== raw ||
+      !current() ||
       (useAppShellStore.getState().session?.userId &&
         useAppShellStore.getState().session?.userId !== context.ownerId)
     )
@@ -186,7 +253,8 @@ export async function runTrackingBackground(input: {
       signOut: interactive
     });
     await configureDatabaseOwner(context.ownerId);
-    if ((await SecureStore.getItemAsync(contextKey)) !== raw) return;
+    if ((await SecureStore.getItemAsync(contextKey)) !== raw || !current())
+      return;
     useAppShellStore.setState({
       session: {
         status: 'authenticated',
@@ -198,9 +266,11 @@ export async function runTrackingBackground(input: {
       }
     });
   }
-  if ((await SecureStore.getItemAsync(contextKey)) !== raw) return;
+  if ((await SecureStore.getItemAsync(contextKey)) !== raw || !current())
+    return;
   const { syncAutomaticTracking } =
     await import('./automatic-tracking-coordinator');
+  if (!current()) return;
   const result = await syncAutomaticTracking();
   if (['processing', 'queued', 'error'].includes(result.status))
     throw new Error('tracking_background_retry');

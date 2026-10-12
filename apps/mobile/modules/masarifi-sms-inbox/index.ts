@@ -13,6 +13,10 @@ export interface MasarifiSmsInboxModule {
     discoveryPolicy: string | null
   ): Promise<void>;
   suspendTrackingOwner(): Promise<void>;
+  restoreTrackingOwner(
+    ownerDigest: string,
+    generation: string | null
+  ): Promise<string>;
   clearTrackingOwner(): Promise<void>;
   finishTrackingWork(workId: string, succeeded: boolean): Promise<void>;
   presentCaptureConfirmation(

@@ -212,7 +212,7 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
       throw new Error('invalid live session');
     if (session.status === 'authenticated' && liveMode) {
       set(initialState);
-      await resetRuntimeIdentityData();
+      await resetRuntimeIdentityData({ restoringOwnerId: session.userId! });
       if (!isCurrent()) return;
       await configureDatabaseOwner(session.userId!);
       if (!isCurrent()) return;
