@@ -1,6 +1,9 @@
 name: Mobile Preservation Qualification
 
 on:
+  push:
+    branches: [codex/voice-auto-save-restoration-2026-10-11]
+    paths: [.github/workflows/mobile-preservation-qualification.yml]
   workflow_dispatch:
     inputs:
       clerk_publishable_key:
@@ -13,6 +16,7 @@ permissions:
 
 jobs:
   mobile:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -41,6 +45,7 @@ jobs:
           if-no-files-found: warn
 
   android:
+    if: github.event_name == 'workflow_dispatch'
     needs: mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 60
