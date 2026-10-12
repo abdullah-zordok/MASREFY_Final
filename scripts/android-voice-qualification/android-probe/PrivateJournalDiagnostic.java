@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Existing-only real-target reader. No fixture seeder, app loader, writes or network code. */
 public final class PrivateJournalDiagnostic extends Instrumentation {
-    private String observedUid,approvedProbeHash,admissionNonce,admissionDeadline;
+    private String observedUid,approvedProbeHash,admissionNonce,admissionDeadline,launchAdmission;
     @Override public Application newApplication(ClassLoader loader,String name,Context context)
             throws InstantiationException,IllegalAccessException,ClassNotFoundException {
         PrivateProbeFailure.Stage stage=PrivateProbeFailure.Stage.UNEXPECTED;
@@ -42,7 +42,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
     }
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
-        if(arguments!=null){observedUid=arguments.getString("observedTargetUid");approvedProbeHash=arguments.getString("approvedProbeSha256");admissionNonce=arguments.getString("admissionNonce");admissionDeadline=arguments.getString("admissionDeadline");}
+        if(arguments!=null){observedUid=arguments.getString("observedTargetUid");approvedProbeHash=arguments.getString("approvedProbeSha256");admissionNonce=arguments.getString("admissionNonce");admissionDeadline=arguments.getString("admissionDeadline");launchAdmission=arguments.getString("launchAdmission");}
         start();
     }
     @Override public void onStart() {
@@ -58,6 +58,8 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
             stage=PrivateReaderFailure.Stage.PLAIN_APPLICATION;
             if(context.getApplicationContext().getClass()!=Application.class)throw failure();
             stage=PrivateReaderFailure.Stage.IDENTITY_BEFORE;requireIdentity(context);
+            if(launchAdmission!=null && (!"true".equals(launchAdmission) || admissionNonce==null || admissionDeadline==null))
+                throw failure();
             if(admissionNonce!=null || admissionDeadline!=null)
                 PrivateProbePolicy.requireAdmissionTarget(hash(Path.of(context.getApplicationInfo().sourceDir)));
             stage=PrivateReaderFailure.Stage.PROCESS_BEFORE;requireOnlyPrivateProcess(context);
@@ -78,7 +80,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 LocalAdmissionCollector admission=null;
                 if(admissionNonce!=null || admissionDeadline!=null) {
                     if(admissionDeadline==null || !admissionDeadline.matches("[0-9]{1,16}"))throw failure();
-                    admission=new LocalAdmissionCollector(admissionNonce,System.currentTimeMillis(),Long.parseLong(admissionDeadline));
+                    admission=new LocalAdmissionCollector(admissionNonce,System.currentTimeMillis(),Long.parseLong(admissionDeadline),launchAdmission!=null);
                 }
                 var result=VoiceStoreQualification.qualify(snapshot,keys,NativeSnapshotReader::open,admission);
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_UNCHANGED;if(!snapshot.verifyUnchanged())throw failure();

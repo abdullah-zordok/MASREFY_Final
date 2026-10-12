@@ -25,6 +25,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Existing-only key decryption failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Local admission collector failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.TrackingAdmissionClassifierTest
 if ($LASTEXITCODE -ne 0) { throw 'Tracking admission classifier failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.LaunchCleanupAdmissionTest
+if ($LASTEXITCODE -ne 0) { throw 'Launch cleanup absence observations failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.StrictJsonTest
 if ($LASTEXITCODE -ne 0) { throw 'Bounded strict JSON parsing failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SecureStoreKeyIndexTest
@@ -49,7 +51,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Bounded strict fixture metadata read failed.' 
 if ($LASTEXITCODE -ne 0) { throw 'Closed reader stage tests failed.' }
 & python "$testRoot/test-private-probe-receipt.py"
 if ($LASTEXITCODE -ne 0) { throw 'Reader receipt parser tests failed.' }
-foreach ($script in @("$PSScriptRoot/admission/test_admission_gate.py", "$PSScriptRoot/admission/test_parse_probe.py", "$testRoot/admission-query-fixtures.py")) {
+foreach ($script in @("$PSScriptRoot/admission/test_admission_gate.py", "$PSScriptRoot/admission/test_parse_probe.py", "$PSScriptRoot/admission/test_parse_launch.py", "$testRoot/admission-query-fixtures.py")) {
     & python $script
     if ($LASTEXITCODE -ne 0) { throw 'Admission qualification failed.' }
     & python -O $script

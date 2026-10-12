@@ -18,6 +18,8 @@ BOOLS = frozenset(('admissionSchemaCurrent', 'admissionLegacyCleanup'))
 TRACKING = frozenset(('admissionTrackingSources', 'admissionNativeIntake'))
 FIELDS = COUNTS | BOOLS | TRACKING | frozenset(('admissionVersion', 'admissionNonce',
     'admissionObservedAt', 'admissionDeadline', 'admissionVerdict', 'admissionLocalStatus'))
+ABSENCE = frozenset(('admissionLegacySmsQueue', 'admissionNativeOwnerContext',
+                     'admissionJsOwnerContext', 'admissionPrivacyEntries'))
 BLOCKED = 'BLOCKED_EXTERNAL_ASSURANCES_REQUIRED'
 MAX_HORIZON_MS = 600000
 MAX_SAFE_INTEGER = 9007199254740991
@@ -43,7 +45,20 @@ def parse(output, exit_code, expected, *, expected_nonce, expected_deadline_ms, 
     never a permitted app-launch duration. The original private receipt verdict
     is returned separately and is never weakened by the admission observation.
     """
+    return _parse(output, exit_code, expected, expected_nonce=expected_nonce,
+                  expected_deadline_ms=expected_deadline_ms, now_ms=now_ms, launch=False)
+
+
+def parse_launch(output, exit_code, expected, *, expected_nonce, expected_deadline_ms, now_ms):
+    """Strict optional v3 absence observations; never substitutes for v2 or grants launch."""
+    return _parse(output, exit_code, expected, expected_nonce=expected_nonce,
+                  expected_deadline_ms=expected_deadline_ms, now_ms=now_ms, launch=True)
+
+
+def _parse(output, exit_code, expected, *, expected_nonce, expected_deadline_ms, now_ms, launch):
     failure = {'verdict': 'INDETERMINATE', 'failureCategory': 'INVALID_ADMISSION_RECEIPT'}
+    fields = FIELDS | ABSENCE if launch else FIELDS
+    version = 3 if launch else 2
     try:
         _require(type(output) is str and len(output.encode('utf-8')) <= 65536)
         _require(type(exit_code) is int and exit_code == 0)
@@ -54,23 +69,23 @@ def parse(output, exit_code, expected, *, expected_nonce, expected_deadline_ms, 
         private_lines = []
         for line in output.splitlines():
             match = re.fullmatch(r'INSTRUMENTATION_RESULT: ([A-Za-z][A-Za-z0-9]*)=(.*)', line)
-            if match and match[1] in FIELDS:
+            if match and match[1] in fields:
                 _require(match[1] not in admission)
                 admission[match[1]] = match[2]
             else:
                 # Unknown/malformed fields remain subject to the original parser.
                 private_lines.append(line)
-        _require(set(admission) == FIELDS)
+        _require(set(admission) == fields)
         private = _PRIVATE.parse('\n'.join(private_lines), exit_code, expected)
         _require(private.get('verdict') in ('CLEAR', 'BLOCKED'))
-        _require(admission['admissionVersion'] == '2')
+        _require(admission['admissionVersion'] == str(version))
         _require(admission['admissionNonce'] == expected_nonce)
         _require(admission['admissionVerdict'] == BLOCKED)
         observed = _integer(admission['admissionObservedAt'], MAX_SAFE_INTEGER)
         deadline = _integer(admission['admissionDeadline'], MAX_SAFE_INTEGER)
         _require(deadline == expected_deadline_ms and observed <= now_ms < deadline)
         _require(0 < deadline - observed <= MAX_HORIZON_MS)
-        typed = dict(admission, admissionVersion=2, admissionObservedAt=observed,
+        typed = dict(admission, admissionVersion=version, admissionObservedAt=observed,
                      admissionDeadline=deadline)
         for key in COUNTS:
             typed[key] = _integer(admission[key], 1048576)
@@ -79,9 +94,14 @@ def parse(output, exit_code, expected, *, expected_nonce, expected_deadline_ms, 
             typed[key] = admission[key] == 'true'
         for key in TRACKING:
             _require(admission[key] in ('INACTIVE', 'ACTIVE', 'UNKNOWN'))
+        if launch:
+            for key in ABSENCE:
+                _require(admission[key] in ('ABSENT', 'PRESENT', 'UNKNOWN'))
         clear_local = (private['owners'] > 0 and all(typed[key] == 0 for key in COUNTS)
                        and typed['admissionSchemaCurrent'] and not typed['admissionLegacyCleanup']
                        and all(typed[key] == 'INACTIVE' for key in TRACKING))
+        if launch:
+            clear_local = clear_local and all(typed[key] == 'ABSENT' for key in ABSENCE)
         expected_status = 'OBSERVED_NO_LOCAL_BLOCKER' if clear_local else 'BLOCKED'
         _require(admission['admissionLocalStatus'] == expected_status)
         return {'verdict': BLOCKED, 'privateReceipt': private, 'admission': typed}

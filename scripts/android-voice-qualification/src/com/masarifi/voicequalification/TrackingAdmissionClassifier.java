@@ -30,30 +30,40 @@ public final class TrackingAdmissionClassifier {
 
     public static String nativeState(byte[] xml) {
         if (xml == null) return "INACTIVE";
-        if (xml.length > 65536) return "UNKNOWN";
         try {
-            String decoded = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(xml)).toString();
-            // No DTD, entity declarations, comments or CDATA. Built-in XML text escapes remain valid.
-            if (decoded.contains("<!")) return "UNKNOWN";
-            Preferences handler = new Preferences();
-            SAXParserFactory factory = SAXParserFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setValidating(false);
-            var reader = factory.newSAXParser().getXMLReader();
-            reader.setEntityResolver((publicId, systemId) -> { throw invalid(); });
-            reader.setContentHandler(handler);
-            reader.setErrorHandler(handler);
-            reader.parse(new InputSource(new StringReader(decoded)));
-            if (!handler.complete) return "UNKNOWN";
-            // Native suspension overrides retained context, including malformed context JSON.
-            // XML must still be unambiguous and correctly typed before honoring this flag.
+            Preferences handler = preferences(xml);
+            // Suspension overrides retained context only after unambiguous typed XML validation.
             if (handler.suspended) return "INACTIVE";
             if (handler.context == null) return "INACTIVE";
             Object parsed = StrictJson.parse(handler.context);
             return parsed instanceof Map<?, ?> map ? flags(map, "sms", "notification") : "UNKNOWN";
         } catch (Exception | javax.xml.parsers.FactoryConfigurationError invalid) { return "UNKNOWN"; }
+    }
+
+    public static String nativeContextState(byte[] xml) {
+        if (xml == null) return "ABSENT";
+        try {return preferences(xml).context == null ? "ABSENT" : "PRESENT";}
+        catch (Exception | javax.xml.parsers.FactoryConfigurationError invalid) {return "UNKNOWN";}
+    }
+
+    private static Preferences preferences(byte[] xml) throws Exception {
+        if (xml.length > 65536) throw invalid();
+        String decoded = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(xml)).toString();
+        // No DTD, entity declarations, comments or CDATA. Built-in XML text escapes remain valid.
+        if (decoded.contains("<!")) throw invalid();
+        Preferences handler = new Preferences();
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setValidating(false);
+        var reader = factory.newSAXParser().getXMLReader();
+        reader.setEntityResolver((publicId, systemId) -> { throw invalid(); });
+        reader.setContentHandler(handler);
+        reader.setErrorHandler(handler);
+        reader.parse(new InputSource(new StringReader(decoded)));
+        if (!handler.complete) throw invalid();
+        return handler;
     }
 
     private static String flags(Map<?, ?> map, String first, String second) {

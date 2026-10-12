@@ -87,7 +87,7 @@ def validate_upgrade_provenance(runtime,artifact):
         gate(isinstance(runs,list) and len(runs)==1)
         run=runs[0]
         gate(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and
-             run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and run.get("admissionCases")=="38" and
+             run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and run.get("admissionCases")=="38" and run.get("launchAdmissionCases")=="38" and run.get("launchAdmissionVersion")=="3" and
              run.get("packageState")=="3" and run.get("applicationEnabled")=="false" and
              run.get("fixtureFingerprint")==baseline[0]["fixtureFingerprint"])
 
@@ -101,8 +101,12 @@ def validate_runtime(runtime):
     encrypted=runtime.get("encryptedJournals",{})
     gate(encrypted.get("seed",{}).get("verdict")=="SEEDED_PUBLIC_SYNTHETIC_FIXTURES" and encrypted.get("seed",{}).get("missingExistingAliasesFailClosed")=="true")
     gate(encrypted.get("seed",{}).get("androidRollbackJournalCases")=="4")
-    runs=encrypted.get("runs",[])
-    gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and run.get("admissionCases")=="38" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
+    runs=[]
+    for phase,count in (("runs",3),("disabledRuns",3),("restoredRuns",1),("preReplacementRuns",1),("postReplacementRuns",1)):
+        observed=encrypted.get(phase,[])
+        gate(isinstance(observed,list) and len(observed)==count)
+        runs.extend(observed)
+    gate(all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and run.get("admissionCases")=="38" and run.get("launchAdmissionCases")=="38" and run.get("launchAdmissionVersion")=="3" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
     gate(len(set(run["fixtureFingerprint"] for run in runs))==1)
     validate_upgrade(runtime.get("disabledReplacement"))
 
@@ -174,7 +178,7 @@ def main():
         (args.output/"manifest.txt").write_text(manifest,encoding="utf-8")
         with zipfile.ZipFile(apk) as archive:
             gate(all(name=="AndroidManifest.xml" or name=="resources.arsc" or re.fullmatch("classes[0-9]*\\.dex",name) or name in {"lib/"+native["abi"]+"/"+lib for lib in native["libraries"]} or name.startswith("META-INF/") for name in archive.namelist()))
-        receipt={"qualification":"OFFLINE_PROBE_REVIEW_ONLY","installed":False,"executed":False,"realTargetRuntimeAcceptance":False,"signed":args.sign,
+        receipt={"qualification":"OFFLINE_PROBE_REVIEW_ONLY","launchAdmissionVersion":3,"installed":False,"executed":False,"realTargetRuntimeAcceptance":False,"signed":args.sign,
                  "runtimeAndroidJarSha256":digest(args.runtime_android_jar),"platformDescriptorCheckerSha256":digest(ROOT/"tests/test-android-buffer-descriptors.py"),
                  "apk":str(apk),"apkSha256":digest(apk),"signature":signature,"targetPackage":"com.masarifi.mobile","process":"com.masarifi.mobile:voicequalify",
                  "historicalTargetApkSha256":TARGET_SHA,"supportedTargetApkSha256":[TARGET_SHA,UPGRADE_SHA,PRESERVATION_SHA],"admissionTargetApkSha256":PRESERVATION_SHA,"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),

@@ -266,10 +266,55 @@ def main():
                     admissionLegacyCleanup="true" if legacy else "false",
                     admissionTrackingSources=sources, admissionNativeIntake=native)
 
+    # Name-only public SecureStore evidence. JNI setup includes secureStoreExtras
+    # before qualification; the other preference file is created here directly.
+    supplemental_preferences = {
+        "singleton-captured": ("SecureStore.xml", "", "privacy"),
+        "singleton-creating": ("SecureStore.xml", "key_v1-", "privacy"),
+        "singleton-created": ("com.masarifi.mobile_preferences.xml", "", "privacy"),
+        "singleton-uploaded": ("com.masarifi.mobile_preferences.xml", "key_v1-", "privacy"),
+        "singleton-processing": ("SecureStore.xml", "", "context"),
+        "singleton-reviewing": ("com.masarifi.mobile_preferences.xml", "key_v1-", "context"),
+    }
+    legacy_sms_case = "singleton-confirming"
+    for root, _ in cases:
+        if root.name == legacy_sms_case:
+            (root / "input/databases").mkdir()
+            with sqlite3.connect(root / "input/databases/RKStorage") as store:
+                store.executescript("CREATE TABLE catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=1;")
+                store.execute("INSERT INTO catalystLocalStorage VALUES(?,?)", ("masarifi.tracking.smsImportQueue.v1", "malformed-public-payload"))
+            store.close()
+
+    def launch_expected(name):
+        value = admission_expected(name)
+        value["admissionVersion"] = "3"
+        value["admissionLegacySmsQueue"] = "PRESENT" if name == legacy_sms_case else "ABSENT"
+        value["admissionNativeOwnerContext"] = (
+            "UNKNOWN" if name == "batch-cancelled" else
+            "PRESENT" if name in {"batch-processing", "batch-cancel_requested", "batch-completed", "batch-failed"} else "ABSENT")
+        kind = supplemental_preferences.get(name, (None, None, None))[2]
+        value["admissionJsOwnerContext"] = "PRESENT" if kind == "context" else "ABSENT"
+        value["admissionPrivacyEntries"] = "PRESENT" if kind == "privacy" else "ABSENT"
+        if any(value[key] != "ABSENT" for key in ("admissionLegacySmsQueue", "admissionNativeOwnerContext", "admissionJsOwnerContext", "admissionPrivacyEntries")):
+            value["admissionLocalStatus"] = "BLOCKED"
+        return value
+
     for root, want in cases:
+        want["secureStoreExtras"] = {}
+        if root.name in supplemental_preferences:
+            filename, prefix, kind = supplemental_preferences[root.name]
+            names = ["masarifi.appShell.privacyLock", "masarifi.appShell.pinCredential"] if kind == "privacy" else ["masarifi.tracking.background-context.v2"]
+            entries = {prefix + name: "public-unusable-envelope" for name in names}
+            if filename == "SecureStore.xml":
+                want["secureStoreExtras"] = entries
+            else:
+                path = root / "input/shared_prefs" / filename
+                path.parent.mkdir(exist_ok=True)
+                path.write_text("<map>" + "".join('<string name="' + name + '">' + value + '</string>' for name, value in entries.items()) + "</map>", encoding="utf-8")
         if want["verdict"] != "INDETERMINATE":
             want["workSummary"] = work_summary(root.name)
             want["admission"] = admission_expected(root.name)
+            want["launchAdmission"] = launch_expected(root.name)
         if want["verdict"] == "INDETERMINATE" and "qualificationStage" not in want: want["qualificationStage"] = qualification_stages[root.name]
         (root / "fixture.json").write_text(json.dumps(want, indent=2), encoding="utf-8")
     if args.jni_library:

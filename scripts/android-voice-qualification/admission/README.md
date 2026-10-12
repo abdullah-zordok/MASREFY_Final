@@ -47,6 +47,36 @@ fields. The four-producer schema below is only a future offline design and is
 not an adapter for the actual Android observation. Nothing populates remote or
 auth proof from local output.
 
+### Optional version-3 startup cleanup observations
+
+`parse_launch` is a separate strict entry point in `parse_probe.py`; it requires
+version 3 and seventeen closed fields. The Android caller must explicitly pass
+`launchAdmission=true` together with the nonce/deadline. Ordinary version-2
+collection and `parse` remain separate and cannot substitute for this receipt.
+
+Four additional fields accept only `ABSENT`, `PRESENT`, or `UNKNOWN`:
+`admissionLegacySmsQueue`, `admissionNativeOwnerContext`,
+`admissionJsOwnerContext`, and `admissionPrivacyEntries`. They conservatively
+observe the legacy SMS AsyncStorage key, native context entry, SecureStore JS
+Tracking context, and any privacy/PIN preference name including owner suffixes.
+Both already captured SecureStore/default preference files are inspected, with
+the existing XML validation; PINs and identity contexts are never decrypted.
+No extra file inventory or authentication-token inspection is added.
+
+Version-3 local status additionally requires all four absent. It remains unknown
+until the complete opted-in stable store walk finishes; native suspension alone
+does not establish context absence. Even empty or malformed retained context
+bytes are present. Missing observations, ambiguity and incomplete coverage
+cannot authorize a launch. Source review identifies these gates as protection
+against existing app-owned startup cleanup branches, not proof of future SDK
+credential-cache byte equality. Normal credential refresh or invalid-session
+handling remains a distinct, explicit scope limitation.
+
+These observation fields have no executable launch path. A separately reviewed
+controller must enforce their freshness across its whole bounded launch and
+stop window, the exact qualified APK, posting-OFF Staging baseline, permitted
+normal cache effects, verified cleanup and new explicit device approval.
+
 ## Interface and strict envelope
 
 `evaluate(context, receipts, pins, now_ms=...)` accepts four exact receipt byte

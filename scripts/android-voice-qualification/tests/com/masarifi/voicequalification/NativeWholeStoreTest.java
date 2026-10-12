@@ -9,7 +9,7 @@ import javax.crypto.spec.SecretKeySpec;
 public final class NativeWholeStoreTest {
     public static void main(String[] args) throws Exception {
         System.load(Path.of(args[0]).toAbsolutePath().toString());
-        int checks=0;
+        int checks=0,launchChecks=0;
         try(var cases=Files.list(Path.of(args[1]))) {
             for(Path fixture:cases.sorted().toList()) {
                 if(!Files.isDirectory(fixture))continue;
@@ -27,10 +27,14 @@ public final class NativeWholeStoreTest {
                         VoiceStoreQualificationTest.envelope("uppercase-claim".equals(expected.get("keyMode"))?
                                 ((String)expected.get("claim")).toUpperCase(java.util.Locale.ROOT):(String)expected.get("claim"))
                                 .replace("\"tlen\":128","\"tlen\":128,\"usesKeystoreSuffix\":true")));
+                if(expected.get("secureStoreExtras") instanceof Map<?,?> extras)
+                    for(var extra:extras.entrySet())xml.append(entry((String)extra.getKey(),(String)extra.getValue()));
                 xml.append("</map>");Files.createDirectories(root.resolve("shared_prefs"));
                 Files.writeString(root.resolve("shared_prefs/SecureStore.xml"),xml);
                 String wanted=(String)expected.get("verdict");
-                try(var snapshot=VoiceStoreSnapshot.capture(root)) {
+                try(var legacySnapshot=VoiceStoreSnapshot.capture(root);
+                    var snapshot=VoiceStoreSnapshot.captureForAdmission(root)) {
+                    require(snapshot.summary().equals(legacySnapshot.summary()),"PUBLIC_FINGERPRINT_CHANGED");
                     try {
                         var result=VoiceStoreQualification.qualify(snapshot,alias -> "missing".equals(expected.get("keyMode"))?null:
                                 new SecretKeySpec(new byte[32],"AES"),NativeSnapshotReader::open);
@@ -40,17 +44,29 @@ public final class NativeWholeStoreTest {
                         require(result.workSummary().equals(expected.get("workSummary")),"WORK_SUMMARY_MISMATCH");
                         if(Boolean.TRUE.equals(expected.get("wal")))require(result.committedFrames()>0,"COMMITTED_WAL_NOT_COVERED");
                         require(!result.toString().contains("11111111")&&!result.toString().contains("private"),"PRIVATE_RECEIPT");
+                        var launch=new LocalAdmissionCollector("a".repeat(64),1800000000000L,1800000120000L,true);
+                        var launchResult=VoiceStoreQualification.qualify(snapshot,alias ->
+                                new SecretKeySpec(new byte[32],"AES"),NativeSnapshotReader::open,launch);
+                        require(result.equals(launchResult),"V3_CHANGED_VOICE_RESULT");
+                        require(expected.get("launchAdmission") instanceof Map<?,?>,"V3_ORACLE_REQUIRED");
+                        Map<?,?> expectedLaunch=(Map<?,?>)expected.get("launchAdmission");
+                        var actual=launch.receipt();
+                        require(actual.size()==17 && expectedLaunch.size()==14,"V3_FIELDS");
+                        for(var field:expectedLaunch.entrySet())
+                            require(field.getValue().equals(actual.get((String)field.getKey())),"V3_ORACLE_MISMATCH");
+                        launchChecks++;
                     } catch(IllegalStateException indeterminate) {
                         require(wanted.equals("INDETERMINATE")&&indeterminate.getCause()==null&&indeterminate.getMessage().equals("STORE_INDETERMINATE"),"UNEXPECTED_INDETERMINATE");
                         require(VoiceStoreQualification.stageOf(indeterminate)!=null && VoiceStoreQualification.stageOf(indeterminate).name().equals(expected.get("qualificationStage")),"QUALIFICATION_STAGE_MISMATCH");
                     }
-                    require(snapshot.verifyUnchanged(),"ORIGINAL_FIXTURE_CHANGED");
+                    require(snapshot.verifyUnchanged() && legacySnapshot.verifyUnchanged(),"ORIGINAL_FIXTURE_CHANGED");
                 }
                 checks++;
             }
         }
         require(checks>=30,"INCOMPLETE_NATIVE_CASES");
-        System.out.println("PASS: "+checks+" actual RAM-only SQLCipher/JNI whole-store cases; synthetic keys only");
+        require(launchChecks==38,"INCOMPLETE_V3_CASES");
+        System.out.println("PASS: "+checks+" actual RAM-only SQLCipher/JNI whole-store cases; "+launchChecks+" v3 admission cases; synthetic keys only");
     }
     private static String entry(String name,String value){return "<string name='"+name+"'>"+value.replace("&","&amp;").replace("<","&lt;")+"</string>";}
     private static void require(boolean condition,String code){if(!condition)throw new AssertionError(code);}

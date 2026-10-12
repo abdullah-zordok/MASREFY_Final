@@ -26,15 +26,30 @@ final class SecureStoreKeyIndex {
     private static final Set<String> ENVELOPE_FIELDS = Set.of(
             "scheme", "ct", "iv", "tlen", "keystoreAlias", "usesKeystoreSuffix", "requireAuthentication");
     private final List<Entry> entries;
+    private final Set<String> preferenceNames;
     private record Entry(String fullOwnerHash, String encryptedEnvelope) {}
 
-    private SecureStoreKeyIndex(List<Entry> entries) { this.entries = List.copyOf(entries); }
+    private SecureStoreKeyIndex(List<Entry> entries, Set<String> names) {
+        this.entries = List.copyOf(entries); this.preferenceNames = Set.copyOf(names);
+    }
 
     static SecureStoreKeyIndex combine(byte[] first, byte[] second) {
         List<Entry> combined = new ArrayList<>();
-        if (first != null) combined.addAll(parse(first).entries);
-        if (second != null) combined.addAll(parse(second).entries);
-        return new SecureStoreKeyIndex(combined);
+        Set<String> names = new HashSet<>();
+        for (byte[] xml : new byte[][]{first, second}) if (xml != null) {
+            var index = parse(xml); combined.addAll(index.entries); names.addAll(index.preferenceNames);
+        }
+        return new SecureStoreKeyIndex(combined, names);
+    }
+
+    /** Conservative name-only observation; never decrypts PINs or identity contexts. */
+    String launchPrivacyEntries() {
+        return preferenceNames.stream().anyMatch(name -> name.contains("masarifi.appShell.privacyLock") ||
+                name.contains("masarifi.appShell.pinCredential")) ? "PRESENT" : "ABSENT";
+    }
+    String launchJsOwnerContext() {
+        return preferenceNames.stream().anyMatch(name -> name.contains("masarifi.tracking.background-context.v2"))
+                ? "PRESENT" : "ABSENT";
     }
 
     /** Validate the entire key inventory, including forms in both preference files. */
@@ -90,7 +105,7 @@ final class SecureStoreKeyIndex {
             throw failure("XML_PARSER_UNAVAILABLE");
         }
         if (!handler.rootClosed) throw failure("XML_SHAPE");
-        return new SecureStoreKeyIndex(handler.entries);
+        return new SecureStoreKeyIndex(handler.entries, handler.names);
     }
 
     ExistingDatabaseKey.Envelope owner(String prefix) {

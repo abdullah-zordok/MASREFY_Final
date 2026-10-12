@@ -94,6 +94,11 @@ public final class VoiceStoreQualificationTest {
             run(value);
             check(value.admission.receipt().get("admissionNativeIntake").equals(optIn?"INACTIVE":"UNKNOWN"),"only opted-in capture proves native absence");
             check(value.admission.receipt().get("admissionTrackingSources").equals(optIn?"INACTIVE":"UNKNOWN"),"full row walk proves source absence only with completed admission");
+            var launch=fixture();launch.async();launch.captureAdmission=optIn;
+            launch.admission=new LocalAdmissionCollector("d".repeat(64),1000,121000,true);
+            run(launch);
+            for(String field:new String[]{"admissionLegacySmsQueue","admissionNativeOwnerContext","admissionJsOwnerContext","admissionPrivacyEntries"})
+                check(launch.admission.receipt().get(field).equals(optIn?"ABSENT":"UNKNOWN"),"only stable opted-in full walk proves launch absence");
         }
         var active=fixture();active.async();active.captureAdmission=true;
         active.admission=new LocalAdmissionCollector("d".repeat(64),1000,121000);
@@ -108,6 +113,10 @@ public final class VoiceStoreQualificationTest {
         duplicate.rows.get(4).put(SnapshotReader.Query.LEGACY,List.<Object[]>of(new Object[]{"masarifi.tracking.sources.v1","{}"},new Object[]{"masarifi.tracking.sources.v1","{}"}));
         reject(duplicate,"ASYNC_ROWS");
         check(duplicate.admission.receipt().get("admissionTrackingSources").equals("UNKNOWN"),"failed walk cannot certify source absence");
+        var launchDrift=fixture();launchDrift.async();launchDrift.captureAdmission=true;launchDrift.mutate=true;
+        launchDrift.admission=new LocalAdmissionCollector("d".repeat(64),1000,121000,true);
+        reject(launchDrift,"SNAPSHOT_STABILITY_AFTER");
+        check(launchDrift.admission.receipt().get("admissionLegacySmsQueue").equals("UNKNOWN"),"drifting store cannot complete absence proof");
     }
 
     private static void workSummaries() throws Exception {

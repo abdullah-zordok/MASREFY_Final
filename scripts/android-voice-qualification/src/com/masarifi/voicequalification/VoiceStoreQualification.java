@@ -121,8 +121,11 @@ public final class VoiceStoreQualification {
             }
             progress.stage=Stage.SNAPSHOT_STABILITY_AFTER;
             if(!snapshot.verifyUnchanged())throw failure("STATE_CHANGED");
-            if(admission!=null && snapshot.trackingAdmissionCaptured())
+            if(admission!=null && snapshot.trackingAdmissionCaptured()) {
                 admission.completeTracking(snapshot.content("shared_prefs/masarifi_tracking_owner_v2.xml"));
+                if(admission.launchAdmissionRequested())
+                    admission.completeLaunch(index,snapshot.content("shared_prefs/masarifi_tracking_owner_v2.xml"));
+            }
             progress.stage=Stage.RESULT;
             return new Result(counts.pending+counts.audio+counts.confirmation==0?"CLEAR":"BLOCKED",counts.owners,counts.legacy,
                     counts.async,counts.rows,counts.pending,counts.terminal,counts.audio,counts.confirmation,counts.frames,

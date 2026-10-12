@@ -88,7 +88,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                 NativeSnapshotReader.loadLibrary();
                 phase="QUALIFY_ENCRYPTED_FIXTURES";
                 var existing=ExistingDatabaseKey.androidExistingOnly();MessageDigest aggregate=MessageDigest.getInstance("SHA-256");
-                int cases=0,qualificationStageCases=0,workSummaryCases=0,admissionCases=0;
+                int cases=0,qualificationStageCases=0,workSummaryCases=0,admissionCases=0,launchAdmissionCases=0;
                 try(var directories=Files.list(fixtures)) {
                     for(Path fixture:directories.sorted().toList()) {
                         if(!Files.isDirectory(fixture))throw new IllegalStateException("FIXTURE_INVENTORY");
@@ -121,6 +121,24 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                                 require(Long.toString(admissionNow).equals(admissionBundle.getString("admissionObservedAt")));
                                 require(Long.toString(admissionNow+120000).equals(admissionBundle.getString("admissionDeadline")));
                                 admissionCases++;
+                                var launchAdmission=new LocalAdmissionCollector("b".repeat(64),admissionNow,admissionNow+120000,true);
+                                var launchResult=VoiceStoreQualification.qualify(snapshot,existing,NativeSnapshotReader::open,launchAdmission);
+                                require(launchResult.equals(result));
+                                var launchReceipt=launchAdmission.receipt();
+                                require(expected.get("launchAdmission") instanceof Map<?,?>);
+                                Map<?,?> expectedLaunch=(Map<?,?>)expected.get("launchAdmission");
+                                var launchFields=new java.util.HashSet<Object>(expectedAdmission.keySet());
+                                launchFields.addAll(java.util.Set.of("admissionLegacySmsQueue","admissionNativeOwnerContext",
+                                        "admissionJsOwnerContext","admissionPrivacyEntries"));
+                                require(expectedLaunch.keySet().equals(launchFields));
+                                for(var field:expectedLaunch.entrySet())require(field.getValue().equals(launchReceipt.get(field.getKey())));
+                                launchFields.addAll(java.util.Set.of("admissionNonce","admissionObservedAt","admissionDeadline"));
+                                require(launchReceipt.keySet().equals(launchFields));
+                                require("b".repeat(64).equals(launchReceipt.get("admissionNonce")));
+                                require(Long.toString(admissionNow).equals(launchReceipt.get("admissionObservedAt")));
+                                require(Long.toString(admissionNow+120000).equals(launchReceipt.get("admissionDeadline")));
+                                require(snapshot.summary().equals(legacySnapshot.summary()) && snapshot.verifyUnchanged());
+                                launchAdmissionCases++;
                                 require(result.pending()==StrictJson.integer(expected.get("pending")) && result.terminal()==StrictJson.integer(expected.get("terminal")) &&
                                         result.audioOwned()==StrictJson.integer(expected.get("audioOwned")) && result.confirmationOwned()==StrictJson.integer(expected.get("confirmationOwned")));
                                 ReaderFailureRehearsal.verifyWorkSummary(result.workSummary(),(String)expected.get("workSummary"));workSummaryCases++;
@@ -136,7 +154,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                         cases++;
                     }
                 }
-                require(cases>=30);receipt.putInt("admissionCases",admissionCases);receipt.putInt("cases",cases);receipt.putInt("qualificationStageCases",qualificationStageCases);receipt.putInt("workSummaryCases",workSummaryCases);receipt.putString("fixtureFingerprint",hex(aggregate.digest()));
+                require(cases>=30);receipt.putInt("launchAdmissionVersion",3);receipt.putInt("launchAdmissionCases",launchAdmissionCases);receipt.putInt("admissionCases",admissionCases);receipt.putInt("cases",cases);receipt.putInt("qualificationStageCases",qualificationStageCases);receipt.putInt("workSummaryCases",workSummaryCases);receipt.putString("fixtureFingerprint",hex(aggregate.digest()));
                 receipt.putString("verdict","PASS_DISPOSABLE_ENCRYPTED_JOURNALS");
             } else throw new IllegalStateException("MODE");
             finish(-1,receipt);

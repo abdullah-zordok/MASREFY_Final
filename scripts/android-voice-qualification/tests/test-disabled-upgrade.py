@@ -19,7 +19,7 @@ class UpgradeGuards(unittest.TestCase):
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
         import copy
         phase={'verdict':'PASS_DISPOSABLE_ENCRYPTED_JOURNALS','fixtureFingerprint':'c'*64,'cases':'57',
-               'readerStageCases':'25','qualificationStageCases':'19','workSummaryCases':'38','admissionCases':'38','packageState':'3','applicationEnabled':'false'}
+               'readerStageCases':'25','qualificationStageCases':'19','workSummaryCases':'38','admissionCases':'38','launchAdmissionCases':'38','launchAdmissionVersion':'3','packageState':'3','applicationEnabled':'false'}
         runtime={'disabledReplacement':{'beforeApkSha256':'a'*64,'afterApkSha256':'b'*64},
                  'encryptedJournals':{'runs':[dict(phase)],'preReplacementRuns':[dict(phase)],'postReplacementRuns':[dict(phase)]}}
         artifact={'target':{'sha256':'a'*64},'replacement':{'sha256':'b'*64}}
@@ -27,7 +27,7 @@ class UpgradeGuards(unittest.TestCase):
         for key in ('preReplacementRuns','postReplacementRuns'):
             bad=copy.deepcopy(runtime);del bad['encryptedJournals'][key]
             with self.assertRaisesRegex(RuntimeError,'PROBE_BUILD_GATE'):builder.validate_upgrade_provenance(bad,artifact)
-            for field,value in [('verdict','FAIL'),('fixtureFingerprint','d'*64),('packageState','0'),('applicationEnabled','true')]:
+            for field,value in [('launchAdmissionCases','0'),('launchAdmissionVersion','2'),('verdict','FAIL'),('fixtureFingerprint','d'*64),('packageState','0'),('applicationEnabled','true')]:
                 bad=copy.deepcopy(runtime);bad['encryptedJournals'][key][0][field]=value
                 with self.assertRaisesRegex(RuntimeError,'PROBE_BUILD_GATE'):builder.validate_upgrade_provenance(bad,artifact)
         for key in ('target','replacement'):
