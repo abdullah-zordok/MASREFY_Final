@@ -50,6 +50,7 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.CommittedWalSnapshotTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.ExistingDatabaseKeyTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.LocalAdmissionCollectorTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.TrackingAdmissionClassifierTest
           python3 scripts/android-voice-qualification/admission/test_admission_gate.py
           python3 -O scripts/android-voice-qualification/admission/test_admission_gate.py
           python3 scripts/android-voice-qualification/admission/test_parse_probe.py
@@ -268,6 +269,16 @@ jobs:
           python3 scripts/android-voice-qualification/android-rehearsal/test-bootstrap.py \
             --adb "$sdk_root/platform-tools/adb" --adb-port 15040 --serial emulator-5580 \
             --build "$fixture_root/build" --output "$fixture_root/runtime" --encrypted-journals
+      - name: Retain compact disposable qualification receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: disposable-encrypted-android-receipts-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/vqs-android15-encrypted/runtime/runtime-receipt.json
+            ${{ runner.temp }}/vqs-android15-encrypted/runtime/runtime.log
+            ${{ runner.temp }}/vqs-android15-encrypted/build/build-receipt.json
+          if-no-files-found: error
       - name: Retain complete disposable encrypted Android qualification
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

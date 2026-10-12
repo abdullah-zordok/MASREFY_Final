@@ -43,3 +43,11 @@ AppShell owner configuration now has a generation fence before and after its asy
 Clean CI for `52b9bdc0` passed all 481 mobile suites and 2,997 tests, including the Voice and decoder changes, and the native test job passed before APK assembly. It predates the unavailable-restoration changes above and does not qualify them.
 
 An additional read-only Staging query at 10:03 UTC found three Tracking preference rows, two enabled, with missing preferences defaulting disabled. Voice posting was OFF and active epochs zero. This is an observed launch constraint, not a change to settings or a guarantee for any specific Redmi owner. Receipt: `E:/Masarifi-staging-acceptance-2026-10-12/redmi-launch-preparation/staging-tracking-readonly-result.json`.
+
+## Final offline client qualification
+
+Clean mobile CI run `38235312737` for `b7d042197da257cc6a57a50e5f6a6d25f0eae0aa` passed all 481 suites and 3,008 tests, completing the pending clean-install and final-source qualification above. Native CI run `38232896956` passed 17 tests and assembled the `52b9bdc0` base. The exact nine-file difference contains seven TypeScript files, one workflow and this evidence document; no native, configuration or dependency inputs changed.
+
+The final offline client is `E:/Masarifi-local-readiness-2026-10-12/client-b7d04219/Masarifi.Ratibi-staging-b7d04219-universal.apk`, SHA256 `23a5653f5d5c1351189b1bc7f3de4a71c47a391b69bdb9c29edd49267b9aad83`. Independent review verified its original signing certificate, non-debuggable manifest, four ABIs, 16 KB ZIP alignment, 2,347 unchanged non-bundle entries, and six critical bundled source files against the committed export. All 68 packaged resource comparisons passed; Metro's 69 copied-file count is not a count of distinct resource checks. Separate ELF checks covered 92 libraries and confirmed 16 KB segment alignment for the 64-bit libraries.
+
+These are offline and disposable test results. The candidate has not been installed or launched on Redmi. A reviewed installation-only controller has 13 passing mocked tests both normally and with Python optimization, including uncertain installers and final APK identity drift. A new diagnostic is being qualified against the exact candidate hash; its narrow policy change passed 51 portable checks and independent review. No device, deployment or financial approval is implied.

@@ -223,6 +223,30 @@ def main():
         raise AssertionError('MISSING_WORK_SUMMARY_ORACLE: '+name)
 
     qualification_stages = {'unknown-schema': 'MOBILE_SCHEMA', 'invalid-history': 'MOBILE_SCHEMA', 'wrong-marker-owner': 'MOBILE_MIGRATION_MARKER', 'empty-marker': 'MOBILE_MIGRATION_MARKER', 'unknown-marker-row': 'MOBILE_MIGRATION_MARKER', 'unknown-phase': 'MOBILE_BATCH_ROWS', 'bad-row-payload': 'MOBILE_BATCH_ROWS', 'key-missing': 'OWNER_KEY_DECRYPT', 'key-wrong': 'OWNER_DATABASE_OPEN', 'rollback-journal': 'OWNER_ROLLBACK_CHECK', 'hmac-corrupt-unrelated-page': 'OWNER_DATABASE_OPEN', 'truncated-wal': 'OWNER_WAL_RECONSTRUCT', 'unbound-legacy': 'LEGACY_DATABASE_BINDING', 'uppercase-legacy-claim': 'LEGACY_CLAIM', 'async-only-missing-owner': 'OWNER_DATABASE_REQUIRED', 'legacy-key-malformed': 'ASYNC_ROWS'}
+    # Public Tracking payloads exercise the actual collector on Android without
+    # adding cases or changing any existing Voice journal semantics.
+    tracking_inputs = {
+        "batch-captured": ("{}", None, "INACTIVE", "INACTIVE"),
+        "batch-created": ('{"smsEnabled":true,"notificationEnabled":false}', None, "ACTIVE", "INACTIVE"),
+        "batch-uploaded": ('{"smsEnabled":"false"}', None, "UNKNOWN", "INACTIVE"),
+        "batch-processing": ('{"smsEnabled":false,"notificationEnabled":false}', '<map><boolean name="suspended" value="true"/><string name="context">malformed</string></map>', "INACTIVE", "INACTIVE"),
+        "batch-cancel_requested": ('{}', '<map><boolean name="suspended" value="false"/><string name="context">{"sms":true,"notification":false}</string></map>', "INACTIVE", "ACTIVE"),
+        "batch-completed": ('{}', '<map><boolean name="suspended" value="false"/><string name="context">malformed</string></map>', "INACTIVE", "UNKNOWN"),
+        "batch-cancelled": ('{}', '<!DOCTYPE map [<!ENTITY private SYSTEM "file:///data/local/forbidden">]><map><string name="context">&private;</string></map>', "INACTIVE", "UNKNOWN"),
+        "batch-failed": ('null', '<map><boolean name="suspended" value="false"/><string name="context">{"sms":false,"notification":false}</string></map>', "UNKNOWN", "INACTIVE"),
+    }
+    for root, _ in cases:
+        if root.name not in tracking_inputs: continue
+        source_payload, native_xml, _, _ = tracking_inputs[root.name]
+        (root / "input/databases").mkdir()
+        with sqlite3.connect(root / "input/databases/RKStorage") as tracking_store:
+            tracking_store.executescript("CREATE TABLE catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=1;")
+            tracking_store.execute("INSERT INTO catalystLocalStorage VALUES(?,?)", ("masarifi.tracking.sources.v1", source_payload))
+        tracking_store.close()
+        if native_xml is not None:
+            (root / "input/shared_prefs").mkdir(exist_ok=True)
+            (root / "input/shared_prefs/masarifi_tracking_owner_v2.xml").write_text(native_xml, encoding="utf-8")
+
     def admission_expected(name):
         # Explicit scenario oracle, independent of production Java decisions.
         prunable = name in {"batch-completed", "batch-cancelled", "batch-failed",
@@ -233,12 +257,14 @@ def main():
                           "rollback-legacy-persist-clear", "rollback-legacy-persist-pending"}
         older_schema = name == "empty-two-owners"
         queued = name == "second-owner-committed-wal"
-        return dict(admissionVersion="1", admissionVerdict="BLOCKED_EXTERNAL_ASSURANCES_REQUIRED",
-                    admissionLocalStatus="BLOCKED" if prunable or legacy or older_schema or queued else "OBSERVED_NO_LOCAL_BLOCKER",
+        sources, native = tracking_inputs[name][2:] if name in tracking_inputs else ("INACTIVE", "INACTIVE")
+        return dict(admissionVersion="2", admissionVerdict="BLOCKED_EXTERNAL_ASSURANCES_REQUIRED",
+                    admissionLocalStatus="BLOCKED" if prunable or legacy or older_schema or queued or sources != "INACTIVE" or native != "INACTIVE" else "OBSERVED_NO_LOCAL_BLOCKER",
                     admissionPrunableBatches="1" if prunable else "0",
                     admissionFinancePending="2" if queued else "0", admissionTrackingRows="1" if queued else "0",
                     admissionSchemaCurrent="false" if older_schema else "true",
-                    admissionLegacyCleanup="true" if legacy else "false")
+                    admissionLegacyCleanup="true" if legacy else "false",
+                    admissionTrackingSources=sources, admissionNativeIntake=native)
 
     for root, want in cases:
         if want["verdict"] != "INDETERMINATE":

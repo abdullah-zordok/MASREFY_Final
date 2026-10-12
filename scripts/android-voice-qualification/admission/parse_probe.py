@@ -15,7 +15,8 @@ _SPEC.loader.exec_module(_PRIVATE)
 
 COUNTS = frozenset(('admissionPrunableBatches', 'admissionFinancePending', 'admissionTrackingRows'))
 BOOLS = frozenset(('admissionSchemaCurrent', 'admissionLegacyCleanup'))
-FIELDS = COUNTS | BOOLS | frozenset(('admissionVersion', 'admissionNonce',
+TRACKING = frozenset(('admissionTrackingSources', 'admissionNativeIntake'))
+FIELDS = COUNTS | BOOLS | TRACKING | frozenset(('admissionVersion', 'admissionNonce',
     'admissionObservedAt', 'admissionDeadline', 'admissionVerdict', 'admissionLocalStatus'))
 BLOCKED = 'BLOCKED_EXTERNAL_ASSURANCES_REQUIRED'
 MAX_HORIZON_MS = 600000
@@ -62,22 +63,25 @@ def parse(output, exit_code, expected, *, expected_nonce, expected_deadline_ms, 
         _require(set(admission) == FIELDS)
         private = _PRIVATE.parse('\n'.join(private_lines), exit_code, expected)
         _require(private.get('verdict') in ('CLEAR', 'BLOCKED'))
-        _require(admission['admissionVersion'] == '1')
+        _require(admission['admissionVersion'] == '2')
         _require(admission['admissionNonce'] == expected_nonce)
         _require(admission['admissionVerdict'] == BLOCKED)
         observed = _integer(admission['admissionObservedAt'], MAX_SAFE_INTEGER)
         deadline = _integer(admission['admissionDeadline'], MAX_SAFE_INTEGER)
         _require(deadline == expected_deadline_ms and observed <= now_ms < deadline)
         _require(0 < deadline - observed <= MAX_HORIZON_MS)
-        typed = dict(admission, admissionVersion=1, admissionObservedAt=observed,
+        typed = dict(admission, admissionVersion=2, admissionObservedAt=observed,
                      admissionDeadline=deadline)
         for key in COUNTS:
             typed[key] = _integer(admission[key], 1048576)
         for key in BOOLS:
             _require(admission[key] in ('true', 'false'))
             typed[key] = admission[key] == 'true'
+        for key in TRACKING:
+            _require(admission[key] in ('INACTIVE', 'ACTIVE', 'UNKNOWN'))
         clear_local = (private['owners'] > 0 and all(typed[key] == 0 for key in COUNTS)
-                       and typed['admissionSchemaCurrent'] and not typed['admissionLegacyCleanup'])
+                       and typed['admissionSchemaCurrent'] and not typed['admissionLegacyCleanup']
+                       and all(typed[key] == 'INACTIVE' for key in TRACKING))
         expected_status = 'OBSERVED_NO_LOCAL_BLOCKER' if clear_local else 'BLOCKED'
         _require(admission['admissionLocalStatus'] == expected_status)
         return {'verdict': BLOCKED, 'privateReceipt': private, 'admission': typed}

@@ -23,6 +23,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Committed WAL reconstruction failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Existing-only key decryption failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.LocalAdmissionCollectorTest
 if ($LASTEXITCODE -ne 0) { throw 'Local admission collector failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.TrackingAdmissionClassifierTest
+if ($LASTEXITCODE -ne 0) { throw 'Tracking admission classifier failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.StrictJsonTest
 if ($LASTEXITCODE -ne 0) { throw 'Bounded strict JSON parsing failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SecureStoreKeyIndexTest

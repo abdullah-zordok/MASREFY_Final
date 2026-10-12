@@ -13,13 +13,14 @@ def fixture():
                    unchanged='true', plainApplication='true', onlyPrivateProcess='true',
                    workSummary='OWNER_SINGLETON:processing:1:1:0=1')
     private['async'] = private.pop('async_')
-    fields = dict(private, admissionVersion='1', admissionNonce='e' * 64,
+    fields = dict(private, admissionVersion='2', admissionNonce='e' * 64,
                   admissionObservedAt='100000', admissionDeadline='160000',
                   admissionVerdict='BLOCKED_EXTERNAL_ASSURANCES_REQUIRED',
                   admissionLocalStatus='OBSERVED_NO_LOCAL_BLOCKER',
                   admissionPrunableBatches='0', admissionFinancePending='0',
                   admissionTrackingRows='0', admissionSchemaCurrent='true',
-                  admissionLegacyCleanup='false')
+                  admissionLegacyCleanup='false', admissionTrackingSources='INACTIVE',
+                  admissionNativeIntake='INACTIVE')
     return fields, identity
 
 
@@ -59,13 +60,26 @@ class ProbeTests(unittest.TestCase):
             self.assertNotIn('DO_NOT_RETAIN_SECRET', str(result))
 
     def test_counts_booleans_versions_and_verdict_are_closed(self):
-        changes = [('admissionVersion', '2'), ('admissionVerdict', 'PASS'),
+        changes = [('admissionVersion', '1'), ('admissionVerdict', 'PASS'),
                    ('admissionSchemaCurrent', '1'), ('admissionLegacyCleanup', 'False'),
                    ('admissionLocalStatus', 'CLEAR'), ('admissionPrunableBatches', '-1'),
                    ('admissionTrackingRows', '1048577'), ('admissionFinancePending', '00')]
         for key, value in changes:
             fields, _ = fixture(); fields[key] = value
             self.assertEqual(invoke(fields)['verdict'], 'INDETERMINATE')
+
+    def test_tracking_facts_are_closed_and_cannot_claim_local_clear(self):
+        for key in ('admissionTrackingSources', 'admissionNativeIntake'):
+            for value in ('ACTIVE', 'UNKNOWN'):
+                fields, _ = fixture(); fields[key] = value
+                self.assertEqual(invoke(fields)['verdict'], 'INDETERMINATE')
+                fields['admissionLocalStatus'] = 'BLOCKED'
+                self.assertEqual(invoke(fields)['verdict'], 'BLOCKED_EXTERNAL_ASSURANCES_REQUIRED')
+            for value in ('false', 'inactive', 'PRIVATE_SENTINEL', ''):
+                fields, _ = fixture(); fields[key] = value
+                result = invoke(fields)
+                self.assertEqual(result['verdict'], 'INDETERMINATE')
+                self.assertNotIn('PRIVATE_SENTINEL', str(result))
 
     def test_local_status_exactly_matches_facts(self):
         for key, value in [('admissionPrunableBatches', '1'), ('admissionFinancePending', '1'),

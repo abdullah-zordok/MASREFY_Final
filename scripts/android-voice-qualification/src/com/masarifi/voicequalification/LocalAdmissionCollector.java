@@ -12,6 +12,9 @@ final class LocalAdmissionCollector {
     private final Map<String,long[]> batches=new TreeMap<>();
     private int financePending,trackingRows;
     private boolean schemaCurrent=true,legacyCleanup;
+    private int sourceRows;
+    private boolean trackingComplete;
+    private String trackingSources="UNKNOWN",nativeIntake="UNKNOWN";
 
     LocalAdmissionCollector(String nonce,long observedAt,long deadline) {
         require(nonce!=null && nonce.matches("[0-9a-f]{64}"));
@@ -46,17 +49,33 @@ final class LocalAdmissionCollector {
         // Any stored Tracking state blocks admission until its semantics are independently qualified.
         trackingRows++;
     }
+    void sourceRow(String key,String value) {
+        require(!trackingComplete);
+        if(!"masarifi.tracking.sources.v1".equals(key))return;
+        require(++sourceRows==1 && value!=null);
+        trackingSources=TrackingAdmissionClassifier.sourceState(value);
+    }
+    /** Call only after the full store walk and opt-in native snapshot capture. */
+    void completeTracking(byte[] nativeXml) {
+        require(!trackingComplete);
+        if(sourceRows==0)trackingSources=TrackingAdmissionClassifier.sourceState(null);
+        nativeIntake=TrackingAdmissionClassifier.nativeState(nativeXml);
+        trackingComplete=true;
+    }
     Map<String,String> receipt() {
         Map<String,String> result=new TreeMap<>();
-        result.put("admissionVersion","1");result.put("admissionNonce",nonce);
+        result.put("admissionVersion","2");result.put("admissionNonce",nonce);
         result.put("admissionObservedAt",Long.toString(observedAt));result.put("admissionDeadline",Long.toString(deadline));
         result.put("admissionVerdict","BLOCKED_EXTERNAL_ASSURANCES_REQUIRED");
-        boolean clean=!batches.isEmpty() && schemaCurrent && !legacyCleanup && prunableBatches()==0 && financePending==0 && trackingRows==0;
+        boolean clean=!batches.isEmpty() && schemaCurrent && !legacyCleanup && prunableBatches()==0 && financePending==0 && trackingRows==0
+                && trackingComplete && trackingSources.equals("INACTIVE") && nativeIntake.equals("INACTIVE");
         result.put("admissionLocalStatus",clean?"OBSERVED_NO_LOCAL_BLOCKER":"BLOCKED");
         result.put("admissionPrunableBatches",Long.toString(prunableBatches()));
         result.put("admissionFinancePending",Integer.toString(financePending));result.put("admissionTrackingRows",Integer.toString(trackingRows));
         result.put("admissionSchemaCurrent",Boolean.toString(schemaCurrent && !batches.isEmpty()));
         result.put("admissionLegacyCleanup",Boolean.toString(legacyCleanup));
+        result.put("admissionTrackingSources",trackingComplete?trackingSources:"UNKNOWN");
+        result.put("admissionNativeIntake",trackingComplete?nativeIntake:"UNKNOWN");
         require(result.toString().length()<=16384);
         return result;
     }

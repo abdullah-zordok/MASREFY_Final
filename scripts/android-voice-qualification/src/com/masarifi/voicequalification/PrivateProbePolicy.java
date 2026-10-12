@@ -12,6 +12,10 @@ final class PrivateProbePolicy {
     static final String UPGRADE_APK="be33158e282efa4d8ae6b5f1ad9541e1a90ac9a3a42d0d830bbbf7d601346c9f";
     static final String PRESERVATION_APK="23a5653f5d5c1351189b1bc7f3de4a71c47a391b69bdb9c29edd49267b9aad83";
     static final String CERTIFICATE="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c";
+    /** V2 native suspension semantics exist only in this exact qualified client. */
+    static void requireAdmissionTarget(String targetApk) {
+        if(!PRESERVATION_APK.equals(targetApk))throw new IllegalStateException("PROBE_IDENTITY_INDETERMINATE");
+    }
     record Identity(String packageName,String process,int api,int uid,int targetUid,String targetApk,
                     String certificate,String probeCertificate,String application,String factory,
                     boolean debuggable,int splits,List<String> providers,List<String> components,String dataRoot) {}

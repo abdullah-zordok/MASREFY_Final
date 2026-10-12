@@ -29,6 +29,7 @@ public final class VoiceStoreQualificationTest {
         try { binder=Class.forName("com.masarifi.voicequalification.VoiceStoreQualification"); }
         catch (ClassNotFoundException missing) { throw new AssertionError("whole-store journal qualification is not implemented"); }
         schemas=Path.of(args[0]);
+        trackingAdmission();
         workSummaries();
         rollbackJournals();
         var empty = fixture();
@@ -84,6 +85,29 @@ public final class VoiceStoreQualificationTest {
         missing=fixture();missing.throwLinkage=true;reject(missing,"OWNER_DATABASE_OPEN");
         missing=fixture();missing.throwClose=true;reject(missing,"OWNER_RESOURCES_CLOSE");
         System.out.println("PASS: "+checks+" whole-store synthetic journal checks; no device/private key accessed");
+    }
+
+    private static void trackingAdmission() throws Exception {
+        for(boolean optIn:new boolean[]{false,true}) {
+            var value=fixture();value.async();value.captureAdmission=optIn;
+            value.admission=new LocalAdmissionCollector("d".repeat(64),1000,121000);
+            run(value);
+            check(value.admission.receipt().get("admissionNativeIntake").equals(optIn?"INACTIVE":"UNKNOWN"),"only opted-in capture proves native absence");
+            check(value.admission.receipt().get("admissionTrackingSources").equals(optIn?"INACTIVE":"UNKNOWN"),"full row walk proves source absence only with completed admission");
+        }
+        var active=fixture();active.async();active.captureAdmission=true;
+        active.admission=new LocalAdmissionCollector("d".repeat(64),1000,121000);
+        active.rows.get(4).put(SnapshotReader.Query.LEGACY,List.<Object[]>of(new Object[]{"masarifi.tracking.sources.v1","{\"notificationEnabled\":true}"}));
+        active.files.put("shared_prefs/masarifi_tracking_owner_v2.xml","<map><boolean name=\"suspended\" value=\"true\"/></map>".getBytes(StandardCharsets.UTF_8));
+        run(active);
+        check(active.admission.receipt().get("admissionTrackingSources").equals("ACTIVE"),"qualifier observes exact async source row");
+        check(active.admission.receipt().get("admissionNativeIntake").equals("INACTIVE"),"qualifier observes captured native XML");
+        check(active.admission.receipt().get("admissionLocalStatus").equals("BLOCKED"),"active source never grants local clear");
+        var duplicate=fixture();duplicate.async();duplicate.captureAdmission=true;
+        duplicate.admission=new LocalAdmissionCollector("d".repeat(64),1000,121000);
+        duplicate.rows.get(4).put(SnapshotReader.Query.LEGACY,List.<Object[]>of(new Object[]{"masarifi.tracking.sources.v1","{}"},new Object[]{"masarifi.tracking.sources.v1","{}"}));
+        reject(duplicate,"ASYNC_ROWS");
+        check(duplicate.admission.receipt().get("admissionTrackingSources").equals("UNKNOWN"),"failed walk cannot certify source absence");
     }
 
     private static void workSummaries() throws Exception {
@@ -148,7 +172,8 @@ public final class VoiceStoreQualificationTest {
         for (var file:fixture.files.entrySet()) { Path path=root.resolve(file.getKey());Files.createDirectories(path.getParent());Files.write(path,file.getValue()); }
         if (fixture.preferences!=null) { Files.createDirectories(root.resolve("shared_prefs"));Files.writeString(root.resolve("shared_prefs/SecureStore.xml"),fixture.preferences); }
         if (fixture.extraPreferences!=null) Files.writeString(root.resolve("shared_prefs/com.masarifi.mobile_preferences.xml"),fixture.extraPreferences);
-        try (var snapshot=VoiceStoreSnapshot.capture(root)) {
+        try (var snapshot=fixture.captureAdmission?VoiceStoreSnapshot.captureForAdmission(root):VoiceStoreSnapshot.capture(root)) {
+            if(fixture.admission!=null)return VoiceStoreQualification.qualify(snapshot,alias -> AES,fixture.factory(root),fixture.admission);
             try { return binder.getDeclaredMethod("qualify",VoiceStoreSnapshot.class,ExistingDatabaseKey.ExistingKeySource.class,SnapshotReader.Factory.class)
                     .invoke(null,snapshot,(ExistingDatabaseKey.ExistingKeySource)(alias -> fixture.failLookup?null:AES),fixture.factory(root)); }
             catch (InvocationTargetException invalid) { if(invalid.getCause() instanceof RuntimeException runtime)throw runtime;throw invalid; }
@@ -174,6 +199,7 @@ public final class VoiceStoreQualificationTest {
     private static final class Fixture {
         final Map<String,byte[]> files=new HashMap<>();final Map<Integer,Map<SnapshotReader.Query,List<Object[]>>> rows=new HashMap<>();
         final List<byte[]> keyArrays=new ArrayList<>(); String preferences,extraPreferences;boolean failLookup,throwReader,mutate,mutateJournal,throwLinkage,throwClose;int opened,closed;
+        LocalAdmissionCollector admission;boolean captureAdmission;
         void owner(String hash,int index) throws Exception {
             files.put("files/SQLite/masarifi-"+hash.substring(0,24)+".db",new byte[]{(byte)index});
             String xml=ownerXml(hash);preferences=preferences==null?xml:preferences.replace("</map>",xml.substring(5));
@@ -201,7 +227,8 @@ public final class VoiceStoreQualificationTest {
         static Map<SnapshotReader.Query,List<Object[]>> mobile(boolean marker) throws Exception {
             var data=new HashMap<SnapshotReader.Query,List<Object[]>>();data.put(SnapshotReader.Query.SCHEMA,schema(marker?"marked-15":"prefix-15"));
             var history=new ArrayList<Object[]>();for(long i=1;i<=15;i++)history.add(new Object[]{i});data.put(SnapshotReader.Query.MIGRATIONS,history);
-            data.put(SnapshotReader.Query.USER_VERSION,List.<Object[]>of(new Object[]{0L}));data.put(SnapshotReader.Query.BATCH,List.of());data.put(SnapshotReader.Query.SINGLETON,List.of());data.put(SnapshotReader.Query.MARKER,List.of());return data;
+            data.put(SnapshotReader.Query.USER_VERSION,List.<Object[]>of(new Object[]{0L}));data.put(SnapshotReader.Query.BATCH,List.of());data.put(SnapshotReader.Query.SINGLETON,List.of());data.put(SnapshotReader.Query.MARKER,List.of());
+            data.put(SnapshotReader.Query.SYNC_MUTATIONS,List.of());data.put(SnapshotReader.Query.SMS_IMPORT,List.of());data.put(SnapshotReader.Query.SYNC_STATE,List.of());return data;
         }
         static List<Object[]> schema(String name) throws Exception {
             var rows=new ArrayList<Object[]>();for(String line:Files.readAllLines(schemas.resolve(name+".rows"))) {

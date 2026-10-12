@@ -95,7 +95,9 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                         Map<?,?> expected=(Map<?,?>)StrictJson.parse(SyntheticFixtureMetadata.read(fixture.resolve("fixture.json")));
                         Path root=fixture.resolve("input");
                         verifySyntheticUid(root);
-                        try(var snapshot=VoiceStoreSnapshot.capture(root)) {
+                        try(var legacySnapshot=VoiceStoreSnapshot.capture(root);
+                            var snapshot=VoiceStoreSnapshot.captureForAdmission(root)) {
+                            require(snapshot.summary().equals(legacySnapshot.summary()));
                             if(!Boolean.TRUE.equals(snapshot.summary().get("nativeFileIdentityAvailable")))throw new IllegalStateException("FILE_IDENTITY");
                             try {
                                 long admissionNow=System.currentTimeMillis();
@@ -108,7 +110,8 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                                 Map<?,?> expectedAdmission=(Map<?,?>)expected.get("admission");
                                 require(expectedAdmission.keySet().equals(java.util.Set.of("admissionVersion","admissionVerdict",
                                         "admissionLocalStatus","admissionPrunableBatches","admissionFinancePending",
-                                        "admissionTrackingRows","admissionSchemaCurrent","admissionLegacyCleanup")));
+                                        "admissionTrackingRows","admissionSchemaCurrent","admissionLegacyCleanup",
+                                        "admissionTrackingSources","admissionNativeIntake")));
                                 for(var field:expectedAdmission.entrySet())
                                     require(field.getValue().equals(admissionBundle.getString((String)field.getKey())));
                                 var admissionFields=new java.util.HashSet<Object>(expectedAdmission.keySet());
@@ -127,7 +130,7 @@ public final class EncryptedJournalRehearsal extends Instrumentation {
                                 ReaderFailureRehearsal.verifyQualification(invalid,(String)expected.get("qualificationStage"));
                                 qualificationStageCases++;
                             }
-                            require(snapshot.verifyUnchanged());verifySyntheticUid(root);
+                            require(snapshot.verifyUnchanged() && legacySnapshot.verifyUnchanged());verifySyntheticUid(root);
                             aggregate.update(((String)snapshot.summary().get("fingerprint")).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
                         }
                         cases++;

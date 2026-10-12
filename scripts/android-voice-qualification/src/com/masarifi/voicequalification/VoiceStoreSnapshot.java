@@ -32,6 +32,10 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
     private static final Pattern STORE = Pattern.compile("(masarifi(?:-[a-f0-9]{24})?\\.db)(-wal|-shm|-journal)?");
     private static final Pattern ASYNC = Pattern.compile("(RKStorage)(-wal|-shm|-journal)?");
     private static final Set<String> KEY_FILES = Set.of("SecureStore.xml", "com.masarifi.mobile_preferences.xml");
+    private static final String TRACKING_FILE = "masarifi_tracking_owner_v2.xml";
+    private static final String TRACKING_PATH = "shared_prefs/" + TRACKING_FILE;
+    private final boolean admission;
+    private final String integrityFingerprint;
     private final Path root;
     private final Map<String, String> directories;
     private final Map<String, Stamp> inventory;
@@ -40,26 +44,34 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
     private boolean closed;
 
     private VoiceStoreSnapshot(Path root, Map<String, String> directories, Map<String, Stamp> inventory,
-                               Map<String, byte[]> contents) {
+                               Map<String, byte[]> contents, boolean admission) {
+        this.admission = admission;
         this.root = root;
         this.directories = directories;
         this.inventory = inventory;
         this.contents = contents;
         long bytes = 0;
-        int owners = 0, legacy = 0, async = 0, keys = 0;
+        int owners = 0, legacy = 0, async = 0, keys = 0, voiceFiles = 0;
         MessageDigest digest = digest();
+        MessageDigest integrity = digest();
         for (var entry : contents.entrySet()) {
-            bytes += entry.getValue().length;
             String name = entry.getKey();
+            byte[] fileDigest = digest().digest(entry.getValue());
+            updateEntry(integrity, name, entry.getValue().length, fileDigest);
+            // Admission-only bytes must not alter the approved legacy Voice receipt.
+            if (name.equals(TRACKING_PATH)) continue;
+            bytes += entry.getValue().length;
+            voiceFiles++;
             String leaf = Path.of(name).getFileName().toString();
             if (name.startsWith("files/SQLite/") && OWNER_DB.matcher(leaf).matches()) owners++;
             if (name.equals("files/SQLite/masarifi.db")) legacy++;
             if (name.equals("databases/RKStorage")) async++;
             if (name.startsWith("shared_prefs/")) keys++;
-            updateEntry(digest, name, entry.getValue().length, digest().digest(entry.getValue()));
+            updateEntry(digest, name, entry.getValue().length, fileDigest);
         }
+        this.integrityFingerprint = hex(integrity.digest());
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("files", contents.size());
+        summary.put("files", voiceFiles);
         summary.put("totalBytes", bytes);
         summary.put("ownerDatabases", owners);
         summary.put("legacyDatabases", legacy);
@@ -72,6 +84,15 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
     }
 
     public static VoiceStoreSnapshot capture(Path targetRoot) {
+        return capture(targetRoot, false);
+    }
+
+    /** Captures tracking metadata privately, without extending the legacy Voice report. */
+    public static VoiceStoreSnapshot captureForAdmission(Path targetRoot) {
+        return capture(targetRoot, true);
+    }
+
+    private static VoiceStoreSnapshot capture(Path targetRoot, boolean admission) {
         Map<String, byte[]> bytes = new TreeMap<>();
         boolean transferred = false;
         try {
@@ -80,7 +101,7 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
             checkDirectory(root, "ROOT_INVALID");
             if (!root.toRealPath().equals(root)) throw failure("SYMLINK");
             Map<String, String> directories = directoryIdentities(root);
-            Map<String, Stamp> before = inventory(root);
+            Map<String, Stamp> before = inventory(root, admission);
             long total = 0;
             for (var entry : before.entrySet()) {
                 total += entry.getValue().size;
@@ -89,9 +110,9 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
                 checkParents(root, file.getParent());
                 retainFile(bytes, entry.getKey(), file, entry.getValue());
             }
-            if (!directories.equals(directoryIdentities(root)) || !before.equals(inventory(root)))
+            if (!directories.equals(directoryIdentities(root)) || !before.equals(inventory(root, admission)))
                 throw failure("STATE_CHANGED");
-            VoiceStoreSnapshot snapshot = new VoiceStoreSnapshot(root, directories, before, bytes);
+            VoiceStoreSnapshot snapshot = new VoiceStoreSnapshot(root, directories, before, bytes, admission);
             transferred = true;
             return snapshot;
         } catch (IOException error) {
@@ -114,21 +135,26 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
     public boolean verifyUnchanged() {
         requireOpen();
         try {
-            if (!directories.equals(directoryIdentities(root)) || !inventory.equals(inventory(root))) return false;
+            if (!directories.equals(directoryIdentities(root)) || !inventory.equals(inventory(root, admission))) return false;
             MessageDigest aggregate = digest();
             for (var entry : inventory.entrySet()) {
                 Path file = root.resolve(entry.getKey());
                 checkParents(root, file.getParent());
                 updateEntry(aggregate, entry.getKey(), entry.getValue().size, fileHash(file, entry.getValue()));
             }
-            return directories.equals(directoryIdentities(root)) && inventory.equals(inventory(root)) &&
-                    hex(aggregate.digest()).equals(report.get("fingerprint"));
+            return directories.equals(directoryIdentities(root)) && inventory.equals(inventory(root, admission)) &&
+                    hex(aggregate.digest()).equals(integrityFingerprint);
         } catch (IOException | RuntimeException unreadableOrChanged) {
             return false;
         }
     }
 
     // Only the independent same-package reader may consume these sensitive bytes.
+    boolean trackingAdmissionCaptured() {
+        requireOpen();
+        return admission;
+    }
+
     byte[] content(String relativeName) {
         requireOpen();
         return contents.get(relativeName);
@@ -148,7 +174,7 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
 
     private void requireOpen() { if (closed) throw failure("CLOSED"); }
 
-    private static Map<String, Stamp> inventory(Path root) throws IOException {
+    private static Map<String, Stamp> inventory(Path root, boolean admission) throws IOException {
         checkDirectory(root, "ROOT_INVALID");
         Map<String, Stamp> result = new TreeMap<>();
         collect(root, "files/SQLite", STORE, result);
@@ -159,9 +185,9 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
             try (var children = Files.newDirectoryStream(preferences)) {
                 for (Path file : children) {
                     String name = file.getFileName().toString();
-                    if (name.endsWith(".bak") && KEY_FILES.contains(name.substring(0, name.length() - 4)))
+                    if (name.endsWith(".bak") && preferenceIncluded(name.substring(0, name.length() - 4), admission))
                         throw failure("KEY_STORE_BACKUP");
-                    if (KEY_FILES.contains(name)) add(root, file, result);
+                    if (preferenceIncluded(name, admission)) add(root, file, result);
                 }
             }
         }
@@ -173,6 +199,10 @@ public final class VoiceStoreSnapshot implements AutoCloseable {
             }
         }
         return result;
+    }
+
+    private static boolean preferenceIncluded(String name, boolean admission) {
+        return KEY_FILES.contains(name) || (admission && name.equals(TRACKING_FILE));
     }
 
     private static Map<String, String> directoryIdentities(Path root) throws IOException {

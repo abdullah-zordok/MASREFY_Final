@@ -126,7 +126,71 @@ public final class VoiceStoreSnapshotTest {
             System.out.println("UNEXECUTED_PLATFORM_CASE: symbolic link creation unavailable");
         }
         unreadableAncestorIsNotAbsence();
+        admissionPreferences();
         System.out.println("PASS: " + checks + " synthetic snapshot checks; fixtures retained at " + fixture);
+    }
+
+    private static void admissionPreferences() throws Exception {
+        String name = "shared_prefs/masarifi_tracking_owner_v2.xml";
+        Path root = Files.createTempDirectory("voice-admission-synthetic-");
+        put(root, "shared_prefs/SecureStore.xml", "voice-key-fixture");
+        Map<String, Object> baseline;
+        try (VoiceStoreSnapshot ordinary = capture(root)) {
+            baseline = ordinary.summary();
+            check(!admissionCaptured(ordinary), "ordinary absence cannot certify tracking absence");
+        }
+        try (VoiceStoreSnapshot absent = admission(root)) {
+            check(admissionCaptured(absent), "opt-in absence bound to tracking inventory");
+            check(absent.content(name) == null && !absent.names().contains(name), "tracking absence retained");
+            check(absent.verifyUnchanged(), "tracking absence stable");
+            put(root, name, "tracking-owner-A");
+            check(!absent.verifyUnchanged(), "tracking creation after absence rejected");
+        }
+        byte[] retained;
+        try (VoiceStoreSnapshot extra = admission(root); VoiceStoreSnapshot ordinary = capture(root)) {
+            check(extra.names().contains(name), "tracking file exposed to private wrapper");
+            retained = extra.content(name);
+            check(new String(retained, java.nio.charset.StandardCharsets.UTF_8).equals("tracking-owner-A"), "tracking bytes privately retained");
+            check(extra.summary().equals(baseline), "tracking excluded from all public Voice facts");
+            check(ordinary.summary().equals(baseline) && !ordinary.names().contains(name), "ordinary capture unchanged");
+            check(extra.verifyUnchanged(), "tracking content stable");
+            var timestamp = Files.getLastModifiedTime(root.resolve(name));
+            put(root, name, "tracking-owner-B");
+            Files.setLastModifiedTime(root.resolve(name), timestamp);
+            check(!extra.verifyUnchanged(), "same size same timestamp tracking drift rejected");
+            check(ordinary.verifyUnchanged(), "ordinary integrity excludes tracking bytes");
+        }
+        for (byte value : retained) check(value == 0, "tracking bytes wiped on close");
+        try (VoiceStoreSnapshot extra = admission(root)) {
+            check(extra.summary().equals(baseline), "different tracking bytes preserve Voice fingerprint");
+            Files.delete(root.resolve(name));
+            check(!extra.verifyUnchanged(), "tracking deletion rejected");
+        }
+        try (VoiceStoreSnapshot absent = admission(root)) {
+            put(root, name + ".bak", "interrupted tracking write");
+            check(!absent.verifyUnchanged(), "tracking backup creation rejected");
+        }
+        expectFailure(() -> admission(root), "KEY_STORE_BACKUP");
+        try (VoiceStoreSnapshot ordinary = capture(root)) { check(ordinary.verifyUnchanged(), "ordinary capture ignores tracking backup"); }
+        Files.delete(root.resolve(name + ".bak"));
+        Path prefs = root.resolve(name);
+        try (var file = new java.io.RandomAccessFile(prefs.toFile(), "rw")) { file.setLength(64L * 1024 * 1024 + 1); }
+        expectFailure(() -> admission(root), "SIZE_LIMIT");
+        Files.delete(prefs);
+        try {
+            Files.createSymbolicLink(prefs, root.resolve("shared_prefs/SecureStore.xml"));
+            expectFailure(() -> admission(root), "SYMLINK");
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException unsupported) {
+            System.out.println("UNEXECUTED_PLATFORM_CASE: tracking symbolic link creation unavailable");
+        }
+    }
+
+    private static VoiceStoreSnapshot admission(Path root) throws Exception {
+        return VoiceStoreSnapshot.captureForAdmission(root);
+    }
+
+    private static boolean admissionCaptured(VoiceStoreSnapshot snapshot) throws Exception {
+        return snapshot.trackingAdmissionCaptured();
     }
 
     @SuppressWarnings("removal")

@@ -177,7 +177,7 @@ def main():
         receipt={"qualification":"OFFLINE_PROBE_REVIEW_ONLY","installed":False,"executed":False,"realTargetRuntimeAcceptance":False,"signed":args.sign,
                  "runtimeAndroidJarSha256":digest(args.runtime_android_jar),"platformDescriptorCheckerSha256":digest(ROOT/"tests/test-android-buffer-descriptors.py"),
                  "apk":str(apk),"apkSha256":digest(apk),"signature":signature,"targetPackage":"com.masarifi.mobile","process":"com.masarifi.mobile:voicequalify",
-                 "historicalTargetApkSha256":TARGET_SHA,"supportedTargetApkSha256":[TARGET_SHA,UPGRADE_SHA,PRESERVATION_SHA],"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
+                 "historicalTargetApkSha256":TARGET_SHA,"supportedTargetApkSha256":[TARGET_SHA,UPGRADE_SHA,PRESERVATION_SHA],"admissionTargetApkSha256":PRESERVATION_SHA,"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
                  "probeSourceHashes":{path.name:digest(path) for path in (HERE/"PrivateJournalDiagnostic.java",HERE/"AndroidManifest.xml",Path(__file__))},"nativeBuild":native}
         (args.output/"build-receipt.json").write_text(json.dumps(receipt,indent=2),encoding="utf-8")
     print(json.dumps({"result":"OFFLINE_SIGNED_PROBE_REVIEW_ONLY" if args.sign else "OFFLINE_UNSIGNED_PROBE_COMPILED","apkSha256":receipt["apkSha256"],"installed":False,"executed":False}))

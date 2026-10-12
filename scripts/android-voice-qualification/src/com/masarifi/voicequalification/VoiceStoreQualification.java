@@ -110,6 +110,7 @@ public final class VoiceStoreQualification {
                     progress.stage=Stage.ASYNC_ROWS;
                     each(reader,SnapshotReader.Query.LEGACY,2,row -> {
                         String key=text(row[0]),value=text(row[1]);
+                        if(admission!=null)admission.sourceRow(key,value);
                         if(key.toLowerCase(java.util.Locale.ROOT).contains("masarifi.voice")) {
                             counts.add("ASYNC",VoiceJournalClassifier.legacy(key,value));
                             if(admission!=null)admission.legacyPresent();
@@ -120,6 +121,8 @@ public final class VoiceStoreQualification {
             }
             progress.stage=Stage.SNAPSHOT_STABILITY_AFTER;
             if(!snapshot.verifyUnchanged())throw failure("STATE_CHANGED");
+            if(admission!=null && snapshot.trackingAdmissionCaptured())
+                admission.completeTracking(snapshot.content("shared_prefs/masarifi_tracking_owner_v2.xml"));
             progress.stage=Stage.RESULT;
             return new Result(counts.pending+counts.audio+counts.confirmation==0?"CLEAR":"BLOCKED",counts.owners,counts.legacy,
                     counts.async,counts.rows,counts.pending,counts.terminal,counts.audio,counts.confirmation,counts.frames,

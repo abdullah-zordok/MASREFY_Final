@@ -58,12 +58,15 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
             stage=PrivateReaderFailure.Stage.PLAIN_APPLICATION;
             if(context.getApplicationContext().getClass()!=Application.class)throw failure();
             stage=PrivateReaderFailure.Stage.IDENTITY_BEFORE;requireIdentity(context);
+            if(admissionNonce!=null || admissionDeadline!=null)
+                PrivateProbePolicy.requireAdmissionTarget(hash(Path.of(context.getApplicationInfo().sourceDir)));
             stage=PrivateReaderFailure.Stage.PROCESS_BEFORE;requireOnlyPrivateProcess(context);
             stage=PrivateReaderFailure.Stage.DATA_ROOT;Path root=dataRoot(context);
             stage=PrivateReaderFailure.Stage.INITIAL_STAMPS;Map<String,Stamp> before=stamps(root,List.of());
             stage=PrivateReaderFailure.Stage.NATIVE_LOAD;NativeSnapshotReader.loadLibrary();
             stage=PrivateReaderFailure.Stage.SNAPSHOT_CAPTURE;
-            try(var snapshot=VoiceStoreSnapshot.capture(root)) {
+            try(var snapshot=(admissionNonce!=null || admissionDeadline!=null)
+                    ?VoiceStoreSnapshot.captureForAdmission(root):VoiceStoreSnapshot.capture(root)) {
                 stage=PrivateReaderFailure.Stage.NATIVE_FILE_IDENTITY;
                 if(!Boolean.TRUE.equals(snapshot.summary().get("nativeFileIdentityAvailable")))throw failure();
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_STAMPS;

@@ -13,7 +13,7 @@ creates another user nor changes the application's startup behavior.
 ## Optional Android observation parser
 
 `parse_probe.py` implements the actual optional collector receipt parser. It
-strips only its eleven closed `admission*` fields and passes all remaining text
+strips only its thirteen closed version-2 `admission*` fields and passes all remaining text
 to the existing `../parse-private-probe-receipt.py` parser. Unknown fields,
 duplicate fields, missing fields, private identity/fingerprint failures and
 malformed execution envelopes produce only a sanitized `INDETERMINATE` result.
@@ -25,8 +25,22 @@ horizon, matching the collector. This is a diagnostic bound, not authorization
 for a ten-minute launch. Host/device clock alignment, nonce single-use and
 qualified producer provenance remain outside the parser. Counts are bounded
 to 1048576; local status is recomputed from owners, pruning, finance and Tracking
-counts, schema completeness and legacy cleanup. Even a consistent no-local-
+counts, schema completeness, legacy cleanup and both Tracking states. Even a consistent no-local-
 blocker observation remains `BLOCKED_EXTERNAL_ASSURANCES_REQUIRED`.
+
+`admissionTrackingSources` and `admissionNativeIntake` each accept only
+`INACTIVE`, `ACTIVE` or `UNKNOWN`. A complete stable opted-in snapshot must
+establish both inactive before local status can be `OBSERVED_NO_LOCAL_BLOCKER`.
+The exact AsyncStorage source key and one native preferences XML are read
+without SharedPreferences initialization or writes. The additional XML has
+private integrity coverage while the original Voice fingerprint is unchanged.
+Missing opt-in, malformed values or ambiguous state cannot prove inactivity.
+
+Version-2 native suspension semantics are bound to the exact preservation
+client APK in `PrivateProbePolicy.requireAdmissionTarget`. Historical allowed
+APKs retain ordinary Voice diagnostics but cannot request this admission
+extension. The old client ignored the native suspension preference, so the
+new interpretation must never be applied to its bytes.
 
 The implemented receipt has no owner/session binding, token or identifier
 fields. The four-producer schema below is only a future offline design and is
@@ -65,6 +79,14 @@ wrong types, missing fields, unknown values and hash mismatches. Results expose
 only closed constants, never receipt data or exception text.
 
 ## Proposed facts (not implemented producer claims)
+
+This historical four-producer design is not the current launch checklist.
+The qualified preservation client now returns before unconfirmed automatic
+Voice recovery and retains durable data on unavailable authentication restore.
+Do not reintroduce remote Voice binding or destructive-cold-sign-out assumptions
+for that client. Current source-bound requirements are recorded in
+`docs/evidence/2026-10-12-acceptance-current.md`; normal metadata/cache effects
+and actual automatic submission risks must be assessed separately.
 
 | Producer | Required facts |
 | --- | --- |
