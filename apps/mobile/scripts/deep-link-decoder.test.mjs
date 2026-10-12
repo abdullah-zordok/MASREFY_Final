@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath, URL } from 'node:url';
 import test from 'node:test';
 
@@ -54,10 +56,52 @@ function decoderProbe(guarded) {
   );
 }
 
-test('installed decoder remains vulnerable in an isolated bounded control', () => {
-  assert.equal(require('decode-uri-component/package.json').version, '0.2.2');
+test('installed CommonJS decoder handles malformed input within the bounded subprocess', () => {
   const control = decoderProbe(false);
-  assert.equal(control.error?.code, 'ETIMEDOUT', control.stderr);
+  assert.equal(control.error, undefined, control.stderr);
+  assert.equal(control.status, 0, control.stderr);
+});
+
+test('CommonJS decoder preserves legacy plus and partial UTF-8 semantics', () => {
+  const decode = require('decode-uri-component');
+  assert.equal(typeof decode, 'function');
+  for (const [input, expected] of [
+    ['a+b%2Bc', 'a b+c'], ['%D9%85%D8%B5%D8%B1%D9%88%D9%81', 'مصروف'],
+    ['%F0%9F%92%B0', '💰'], ['%C0%AF', '%C0%AF'], ['%E0%A4%A', '%E0%A4%A'],
+    ['%41%C0%42', 'A%C0B'], ['%FE%FF', '\uFFFD\uFFFD'], ['%C2', '\uFFFD'],
+    ['100%25', '100%'], ['%2525', '%25'], ['%G1', '%G1']
+  ]) assert.equal(decode(input), expected, input);
+  for (const input of [undefined, null, 1, {}, []]) assert.throws(() => decode(input), TypeError);
+});
+
+test('installed decoder and frozen archive match the reviewed backport', () => {
+  const archive = readFileSync(new URL('../vendor/decode-uri-component-0.2.2-masarifi.1.tgz', import.meta.url));
+  const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
+  const dependency = lock.packages['node_modules/decode-uri-component'];
+  assert.equal(dependency.integrity, 'sha512-' + createHash('sha512').update(archive).digest('base64'));
+  assert.equal(require('decode-uri-component/package.json').version, '0.2.2-masarifi.1');
+  assert.deepEqual(readFileSync(require.resolve('decode-uri-component')),
+    readFileSync(new URL('../vendor/decode-uri-component/index.js', import.meta.url)));
+});
+
+test('actual React Navigation parser preserves parameters and bounds malformed queries', () => {
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { getStateFromPath } from './node_modules/@react-navigation/core/lib/module/getStateFromPath.js';
+    const config = { screens: { Reports: 'reports', Callback: 'sso-callback' } };
+    const malformed = '%C0'.repeat(2000);
+    for (const label of [malformed, '%41%C0%42', '%D9%85%D8%B5%D8%B1%D9%88%D9%81', 'a+b%2Bc']) {
+      const state = getStateFromPath('/reports?label=' + label, config);
+      assert.equal(state.routes[0].name, 'Reports');
+      assert.equal(state.routes[0].params.label,
+        label === malformed ? malformed : label === '%41%C0%42' ? 'A%C0B' : label.startsWith('%D9') ? 'مصروف' : 'a b+c');
+    }
+    const callback = getStateFromPath('/sso-callback?code=fixture%2Bonly&state=fixture%2525', config);
+    assert.equal(callback.routes[0].params.code, 'fixture+only');
+    assert.equal(callback.routes[0].params.state, 'fixture%25');
+  `], { cwd: mobileRoot, encoding: 'utf8', timeout: 3000 });
+  assert.equal(result.error, undefined, result.stderr);
+  assert.equal(result.status, 0, result.stderr);
 });
 
 test('native guard bounds malformed extraction and preserves safe percent/Arabic inputs', () => {

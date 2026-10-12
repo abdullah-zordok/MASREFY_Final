@@ -1,6 +1,6 @@
 import { createLiveVoiceApiService as createService } from './voice-api-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loadVoiceOperation, saveVoiceOperation } from '@/storage/voice-pending-session';
+import { loadPendingVoiceSession, loadVoiceOperation, savePendingVoiceSession, saveVoiceOperation } from '@/storage/voice-pending-session';
 
 jest.mock('expo-crypto', () => ({
   randomUUID: () => '00000000-0000-4000-8000-000000000001'
@@ -575,6 +575,30 @@ it('recovers only the current owner pending session and clears it after confirm'
   });
 });
 
+it.each([false, true])('migrates Async legacy sessions only for manual recovery (automatic=%s)', async (automatic) => {
+  const pending = { sessionId: id(1), sessionVersion: 1, recordedAt: 1234,
+    timezoneOffsetMinutes: 0, createdAt: 1 };
+  await savePendingVoiceSession('owner-a', pending);
+  if (automatic) process.env.EXPO_PUBLIC_VOICE_AUTOMATIC_POSTING = 'true';
+  const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    .mockResolvedValue(json(recovery()));
+  const token = jest.fn(async () => 'owner');
+  const service = createLiveVoiceApiService({ baseUrl: 'https://api.staging.masarifiratibi.com', token, request });
+  const result = await service.recoverPending?.();
+  if (automatic) {
+    expect(result).toBeNull();
+    expect(await loadPendingVoiceSession('owner-a')).toEqual(pending);
+    expect(await loadVoiceOperation('owner-a')).toBeNull();
+    expect(request).not.toHaveBeenCalled();
+    expect(token).not.toHaveBeenCalled();
+  } else {
+    expect(result).toMatchObject({ transcript: { analysisReference: { sessionId: id(1) } } });
+    expect(await loadPendingVoiceSession('owner-a')).toBeNull();
+    expect(await loadVoiceOperation('owner-a')).toMatchObject({ sessionId: id(1) });
+    expect(request).toHaveBeenCalledTimes(1);
+  }
+});
+
 it('preserves an unconfirmed legacy proposal without reopening review during automatic capture', async () => {
   const baseUrl = 'https://api.staging.masarifiratibi.com';
   const first = createLiveVoiceApiService({ baseUrl, token: async () => 'owner',
@@ -587,9 +611,7 @@ it('preserves an unconfirmed legacy proposal without reopening review during aut
   const automatic = createLiveVoiceApiService({ baseUrl, token: async () => 'owner', request });
   await expect(automatic.recoverPending?.()).resolves.toBeNull();
   expect(await loadVoiceOperation('owner-a')).toEqual(previous);
-  expect(request).toHaveBeenCalledTimes(1);
-  expect(request.mock.calls[0][0]).toContain('/recovery');
-  expect(request.mock.calls[0][1]?.method ?? 'GET').toBe('GET');
+  expect(request).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -599,7 +621,8 @@ it.each([
   ['processing', false], ['processing', true],
   ['expired', false], ['expired', true],
   ['failed', false], ['failed', true],
-  ['cancelled', false], ['cancelled', true]
+  ['cancelled', false], ['cancelled', true],
+  ['confirmed', false], ['confirmed', true]
 ] as const)(
   'preserves legacy %s evidence without replay or polling in automatic capture (retryAudio=%s)',
   async (phase, retryAudio) => {
@@ -614,8 +637,10 @@ it.each([
     const evidence = await loadVoiceOperation('owner-a');
     process.env.EXPO_PUBLIC_VOICE_AUTOMATIC_POSTING = 'true';
     const recovered = { ...recovery(null), phase,
+      transactionId: phase === 'confirmed' ? id(5) : null,
       session: { ...recovery().session,
-        status: phase === 'queued' || phase === 'processing' ? 'processing'
+        status: phase === 'confirmed' ? 'confirmed'
+          : phase === 'queued' || phase === 'processing' ? 'processing'
           : phase === 'expired' ? 'expired'
           : phase === 'failed' || phase === 'cancelled' ? 'failed' : 'uploaded',
         failureCode: phase === 'cancelled' ? 'VOICE_CANCELLED' : null } };
@@ -630,13 +655,39 @@ it.each([
       request, sleep: async () => {}, now: () => 1 });
     await expect(automatic.recoverPending?.(retryAudio)).resolves.toBeNull();
     expect(await loadVoiceOperation('owner-a')).toEqual(evidence);
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).not.toHaveBeenCalled();
     expect(await automatic.queueBatch!({ uri: 'file:///fresh.m4a', contentType: 'audio/m4a',
       durationMs: 3000, recordedAt: Date.parse(at) }, 'ar', -180)).toEqual(expect.any(String));
     expect(await loadVoiceOperation('owner-a')).toEqual(evidence);
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).not.toHaveBeenCalled();
   }
 );
+
+it.each(['saved', 'cancel_requested'] as const)('retains explicit legacy %s recovery during automatic capture', async (phase) => {
+  const baseUrl = 'https://api.staging.masarifiratibi.com';
+  const legacy = createLiveVoiceApiService({ baseUrl, token: async () => 'owner',
+    request: successfulRequest(), sleep: async () => {}, now: () => 1 });
+  await legacy.transcribe('file:///voice.wav', 'clear_en', 1234, 'en');
+  const previous = (await loadVoiceOperation('owner-a'))!;
+  await saveVoiceOperation('owner-a', { ...previous, revision: previous.revision + 1,
+    phase, transactionId: phase === 'saved' ? id(5) : null });
+  const evidence = await loadVoiceOperation('owner-a');
+  process.env.EXPO_PUBLIC_VOICE_AUTOMATIC_POSTING = 'true';
+  const request = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    .mockResolvedValue(json({ status: 'cancelled' }));
+  const automatic = createLiveVoiceApiService({ baseUrl, token: async () => 'owner', request });
+  if (phase === 'saved') {
+    await expect(automatic.recoverPending?.()).resolves.toMatchObject({ saved: { transactionIds: [id(5)] } });
+    expect(await loadVoiceOperation('owner-a')).toEqual(evidence);
+    expect(request).not.toHaveBeenCalled();
+  } else {
+    await expect(automatic.recoverPending?.()).resolves.toBeNull();
+    expect(await loadVoiceOperation('owner-a')).toBeNull();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0]).toBe(baseUrl + '/api/v1/voice/sessions/' + previous.sessionId + '/cancel');
+    expect(request.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+  }
+});
 
 it.each([false, true])('preserves unsubmitted legacy audio during automatic capture (retryAudio=%s)', async (retryAudio) => {
   const baseUrl = 'https://api.staging.masarifiratibi.com';

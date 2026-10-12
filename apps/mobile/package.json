@@ -26,7 +26,7 @@
     "eas-build-pre-install": "node scripts/check-client-runtime.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "tsc --noEmit",
-    "test:dependency-security": "node --test scripts/dependency-security.test.cjs"
+    "test:dependency-security": "node --test scripts/dependency-security.test.cjs scripts/deep-link-decoder.test.mjs"
   },
   "dependencies": {
     "@clerk/expo": "4.6.5",
@@ -36,6 +36,7 @@
     "@react-native-community/datetimepicker": "8.6.0",
     "@tanstack/react-query": "^5.51.0",
     "babel-preset-expo": "~55.0.8",
+    "decode-uri-component": "file:vendor/decode-uri-component-0.2.2-masarifi.1.tgz",
     "expo": "~55.0.0",
     "expo-asset": "~55.0.19",
     "expo-audio": "~55.0.18",
@@ -97,6 +98,7 @@
     "fast-uri": "3.1.8",
     "shell-quote": "1.11.0",
     "source-map-js": "1.2.2",
+    "decode-uri-component": "$decode-uri-component",
     "uuid@^8.0.0": "11.1.1",
     "uuid@^7.0.0": "11.1.1"
   }

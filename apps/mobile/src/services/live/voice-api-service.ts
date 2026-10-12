@@ -770,7 +770,11 @@ export function createLiveVoiceApiService(
     },
     async recoverPending(retryAudio = false) {
       const binding = await bind();
-      let operation = await pending(binding);
+      // Legacy Async sessions have no frozen confirmation to resume.
+      // Automatic startup must leave their original storage untouched.
+      let operation = automaticCapture
+        ? await loadVoiceOperation(binding.ownerId)
+        : await pending(binding);
       if (!operation || ['cancelled', 'terminal'].includes(operation.phase))
         return null;
       if (operation.phase === 'saved' && operation.transactionId)
@@ -779,9 +783,12 @@ export function createLiveVoiceApiService(
         await discard(binding, operation);
         return null;
       }
+      if (automaticCapture && !hasPendingVoiceConfirmation(operation)) {
+        // Recovery GET can expire or reconcile the legacy server session.
+        // Preserve unconfirmed evidence before any remote recovery or audio replay.
+        return null;
+      }
       if (!operation.sessionId) {
-        if (automaticCapture && !hasPendingVoiceConfirmation(operation))
-          return null;
         if (retryAudio) operation = await uploadAndProcess(binding, operation);
         else {
           await discard(binding, operation);
@@ -789,23 +796,6 @@ export function createLiveVoiceApiService(
         }
       }
       const result = await recovery(binding, operation.sessionId!);
-      if (
-        automaticCapture &&
-        !hasPendingVoiceConfirmation(operation) &&
-        [
-          'awaiting_audio',
-          'uploaded',
-          'queued',
-          'processing',
-          'expired',
-          'failed',
-          'cancelled'
-        ].includes(result.phase)
-      ) {
-        // Legacy unconfirmed audio must not be replayed, discarded or allowed
-        // to block new batch capture while its old worker is unavailable.
-        return null;
-      }
       if (
         result.phase === 'cancelled' ||
         result.phase === 'expired' ||

@@ -1,0 +1,24 @@
+# Current acceptance index — 12 October 2026
+
+This additive index supersedes status statements in earlier reports; their original evidence remains preserved. Completion below is limited to the named scope, not full client acceptance.
+
+| Gate | Current evidence and boundary |
+| --- | --- |
+| Posting-OFF Staging promotion | Completed once under scope `35963978771134468e8eb6d4f3814597ab21ea40b7668eba6e621e7515c0ea31`. API source `093b5d0c42f3d68eb2de619aff94b44fbf088a02`; image `sha256:8ee5100f2f9de7b5930867eb7cf901c94344452ba8a3ed62954223bbc8fb2bab`. Fresh read-only verification on 12 October confirms healthy candidate, restart count zero, posting OFF, retained original API and unchanged financial/history baseline. |
+| Redmi installation preservation | Completed once at 07:06 UTC under scope `1d73c0b2b4240ed921f60a4d5273fcb4c9b479deb263bcade05a9b5943227288`. Client `be33158e282efa4d8ae6b5f1ad9541e1a90ac9a3a42d0d830bbbf7d601346c9f` and diagnostic `8ce88d27714d3fc03c35261d41077e27da70553eb23580b45ddde3678502cf89` installed. Original DEFAULT/stopped package state and UID restored; captured journal fingerprint and summary preserved. No app launch. |
+| Legacy Voice | Still pending: eight completed batch rows and one processing singleton retaining audio ownership. Fingerprint `b1298fa6ddcd588ad44301292865fb4436868226442dd3f7f2a7ee965ce3bf4c`. No replay, cancellation, financial confirmation or deletion authorized. This is journal evidence, not a bytewise proof of all app/audio/auth data. |
+| Admission Collector implementation | Recovery commit `b234bc10ad836aee3b9ed4984dc28017c152a289`. Offline tests and independent code review passed. Exact-source CI runs [private journals](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/38225993283), [bootstrap](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/38225993311), and [posting boundary](https://github.com/masarifiratibi-spec/masarifi.ratibi_app/actions/runs/38225993258) passed. Disposable Android 15 covers 57 scenarios and 38 admission observations per encrypted run. This is not physical Redmi qualification. |
+| Admission Collector on Redmi | Approved scope `fa500a03ac902b3169b0dda05b91100dbb08bb6e84f85f96b0f7ccd9a4f10ef6` executed once at 09:11:48–09:12:04 UTC. Diagnostic `99c10013eaa6dbeb3f949fb333676dd53327a001eab0277f7d7944ecfd12605d` installed; one observation passed, exact client/diagnostic package states restored, client APK and Voice fingerprint unchanged. Prunable batches, pending finance mutations and stored Tracking rows all zero; current schema and no detected legacy cleanup. No product launch. |
+| Existing-user first launch | Blocked. Local collector observations cannot prove remote Voice state, authentication continuity, inbound finance changes, automatic Tracking inactivity or preservation throughout a launch. All admission outcomes remain blocked; there is no override flag. |
+| Full delivery | Open: real application/provider acceptance, security residuals, final client artifact acceptance and separately approved financial activation. No Production changes authorized. |
+
+Retained local evidence:
+
+- `E:/Masarifi-staging-acceptance-2026-10-12/promotion-off/RESULT.md`
+- `E:/Masarifi-staging-acceptance-2026-10-12/redmi-upgrade-after-ssh/result.json`
+- `E:/Masarifi-staging-acceptance-2026-10-12/redmi-launch-preparation/collector-staging-readonly-result.json`
+- `E:/Masarifi-staging-acceptance-2026-10-12/redmi-launch-preparation/collector-qualified-receipts/`
+- `E:/Masarifi-staging-acceptance-2026-10-12/redmi-launch-preparation/collector-signed-probe/build-receipt.json`
+- `E:/Masarifi-staging-acceptance-2026-10-12/admission-collector-preparation/result.json`
+
+Past device/deployment approvals are consumed. The next diagnostic device operation requires a new exact approved scope. No bounded launch approval should be requested until its admission requirements are actually established.
