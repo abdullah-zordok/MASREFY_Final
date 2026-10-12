@@ -176,9 +176,18 @@ async function restoreTrackingBackground(ownerId: string): Promise<void> {
 
 registerRuntimeIdentityReset((context) => {
   invalidateTrackingConsent();
-  if (context?.restoringOwnerId)
+  if (context && 'restoringOwnerId' in context)
     return restoreTrackingBackground(context.restoringOwnerId);
   restorationBlocked = true;
+  if (context?.kind === 'restore-unavailable') {
+    nativeGeneration++;
+    return serializeNative(async () => {
+      if (Platform.OS !== 'android') return;
+      if (!trackingNativeRuntime?.suspendTrackingOwner)
+        throw new Error('tracking_restore_unavailable');
+      await trackingNativeRuntime.suspendTrackingOwner();
+    });
+  }
   return disableTrackingBackground();
 });
 registerRuntimeUserDataReset(() => {

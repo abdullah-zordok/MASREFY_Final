@@ -10,6 +10,10 @@ on:
         description: Existing Staging client Clerk publishable key (public configuration)
         required: true
         type: string
+      build_android:
+        description: Rebuild native APK (disable only when native bytes are already qualified)
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -45,7 +49,7 @@ jobs:
           if-no-files-found: warn
 
   android:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.build_android
     needs: mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 60

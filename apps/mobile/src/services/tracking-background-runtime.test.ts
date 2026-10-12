@@ -10,6 +10,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { invalidateTrackingConsent } from './tracking-source-preferences';
 import { resetRuntimeIdentityData } from '@/storage/runtime-user-data-reset';
 import * as database from '@/storage/database';
+import {
+  restoreAppShellSession,
+  signOutAppShellSession
+} from '@/features/auth/session-controller';
+import type { AuthService } from '@/services/contracts/app-shell-service';
+import { createMockAuthService } from '@/services/mocks/auth-service';
 
 let mockNativeNotifications: string[] = [];
 
@@ -67,6 +73,180 @@ beforeEach(async () => {
   jest.clearAllMocks();
 });
 afterEach(() => jest.restoreAllMocks());
+
+it.each([
+  ['signed-out', false],
+  ['rejected', false],
+  ['timeout', false],
+  ['rejected', true],
+  ['timeout', true]
+] as const)(
+  'preserves data and denies access after current live restoration %s with prior authentication %s',
+  async (outcome, previouslyAuthenticated) => {
+    process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+    const retained = new Map([
+      ['masarifi.appShell.session', 'retained-session-bytes'],
+      ['masarifi.tracking.background-context.v2', 'retained-context-bytes']
+    ]);
+    mockNativeNotifications = ['retained-notification'];
+    jest.mocked(SecureStore.deleteItemAsync).mockImplementation(async (key) => {
+      retained.delete(key);
+    });
+    const close = jest
+      .spyOn(database, 'clearDatabaseOwner')
+      .mockResolvedValue(undefined);
+    await AsyncStorage.setItem(
+      'masarifi.tracking.smsImportQueue.v1',
+      'retained-legacy-SMS'
+    );
+    useAppShellStore.setState({
+      session: previouslyAuthenticated
+        ? useAppShellStore.getState().session
+        : null,
+      pendingDestination: '/reports'
+    });
+    if (outcome === 'timeout') jest.useFakeTimers();
+    const auth = {
+      restoreSession: async () => {
+        if (outcome === 'rejected') throw new Error('identity unavailable');
+        if (outcome === 'timeout') return new Promise(() => undefined);
+        return { status: 'signed_out' };
+      }
+    } as AuthService;
+    try {
+      const restoring = restoreAppShellSession(auth);
+      if (outcome === 'signed-out') await restoring;
+      else {
+        const rejected = expect(restoring).rejects.toThrow(
+          outcome === 'timeout'
+            ? 'bootstrap unavailable'
+            : 'identity unavailable'
+        );
+        if (outcome === 'timeout') await jest.advanceTimersByTimeAsync(30_000);
+        await rejected;
+      }
+      expect(useAppShellStore.getState().session?.status).toBe('signed_out');
+      expect(useAppShellStore.getState().pendingDestination).toBeNull();
+      expect(retained.get('masarifi.appShell.session')).toBe(
+        'retained-session-bytes'
+      );
+      expect(retained.get('masarifi.tracking.background-context.v2')).toBe(
+        'retained-context-bytes'
+      );
+      expect(
+        await AsyncStorage.getItem('masarifi.tracking.smsImportQueue.v1')
+      ).toBe('retained-legacy-SMS');
+      expect(mockNativeNotifications).toEqual(['retained-notification']);
+      expect(close.mock.calls[0]?.[0]).toBeUndefined();
+      expect(MasarifiSmsInbox?.suspendTrackingOwner).toHaveBeenCalled();
+      await configureTrackingBackground('owner-a', rules, 'automatic_clear');
+      expect(MasarifiSmsInbox?.configureTrackingOwner).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      delete process.env.EXPO_PUBLIC_CLIENT_MODE;
+    }
+  }
+);
+
+it.each(['rejected', 'timeout'] as const)(
+  'does not suspend a newer owner after a stale restoration %s',
+  async (outcome) => {
+    process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+    jest.useFakeTimers();
+    const newerSession = useAppShellStore.getState().session!;
+    useAppShellStore.setState({ session: null });
+    let reject!: (error: Error) => void;
+    let current = true;
+    const auth = {
+      restoreSession: () =>
+        new Promise((_resolve, rejectPromise) => {
+          reject = rejectPromise;
+        })
+    } as AuthService;
+    try {
+      const restoring = restoreAppShellSession(auth, () => current);
+      const rejected = expect(restoring).rejects.toThrow(
+        outcome === 'timeout' ? 'bootstrap unavailable' : 'stale identity'
+      );
+      current = false;
+      useAppShellStore.setState({ session: newerSession });
+      if (outcome === 'timeout') await jest.advanceTimersByTimeAsync(30_000);
+      else reject(new Error('stale identity'));
+      await rejected;
+      expect(useAppShellStore.getState().session).toEqual(newerSession);
+      expect(MasarifiSmsInbox?.suspendTrackingOwner).not.toHaveBeenCalled();
+      expect(MasarifiSmsInbox?.clearTrackingOwner).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      delete process.env.EXPO_PUBLIC_CLIENT_MODE;
+    }
+  }
+);
+
+it('keeps unavailable restoration denied when native suspension fails without destructive fallback', async () => {
+  process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+  mockNativeNotifications = ['retained'];
+  jest.spyOn(database, 'clearDatabaseOwner').mockResolvedValue(undefined);
+  jest
+    .mocked(MasarifiSmsInbox!.suspendTrackingOwner)
+    .mockRejectedValueOnce(new Error('native unavailable'));
+  useAppShellStore.setState({ session: null });
+  const auth = {
+    restoreSession: async () => ({ status: 'signed_out' })
+  } as AuthService;
+  try {
+    await expect(restoreAppShellSession(auth)).rejects.toThrow(
+      'native unavailable'
+    );
+    expect(useAppShellStore.getState().session?.status).toBe('signed_out');
+    expect(mockNativeNotifications).toEqual(['retained']);
+    expect(SecureStore.deleteItemAsync).not.toHaveBeenCalled();
+    expect(MasarifiSmsInbox?.suspendTrackingOwner).toHaveBeenCalledTimes(1);
+    await configureTrackingBackground('owner-a', rules, 'automatic_clear');
+    expect(MasarifiSmsInbox?.configureTrackingOwner).not.toHaveBeenCalled();
+  } finally {
+    delete process.env.EXPO_PUBLIC_CLIENT_MODE;
+  }
+});
+
+it('retains explicit provider logout cleanup after an unavailable restore', async () => {
+  process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+  mockNativeNotifications = ['retained'];
+  jest.spyOn(database, 'clearDatabaseOwner').mockResolvedValue(undefined);
+  await AsyncStorage.setItem(
+    'masarifi.tracking.smsImportQueue.v1',
+    'retained-legacy-SMS'
+  );
+  useAppShellStore.setState({ session: null });
+  const auth: AuthService = {
+    ...createMockAuthService(),
+    restoreSession: async () => ({
+      status: 'signed_out',
+      userId: null,
+      method: null,
+      issuedAt: null,
+      expiresAt: null,
+      restoration: 'idle'
+    }),
+    signOut: async () => undefined
+  };
+  try {
+    await restoreAppShellSession(auth);
+    await signOutAppShellSession(auth, 'local');
+    expect(mockNativeNotifications).toEqual([]);
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
+      'masarifi.appShell.session'
+    );
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
+      'masarifi.tracking.background-context.v2'
+    );
+    expect(
+      await AsyncStorage.getItem('masarifi.tracking.smsImportQueue.v1')
+    ).toBeNull();
+  } finally {
+    delete process.env.EXPO_PUBLIC_CLIENT_MODE;
+  }
+});
 
 it('preserves durable notification work when cold authentication restores the same owner', async () => {
   mockNativeNotifications = ['retained-notification'];

@@ -33,3 +33,13 @@ Regression tests reproduced the destructive cold path, orphaned ciphertext, susp
 The earlier concurrent full mobile run passed 2,995 of 2,996 tests; its sole failure loaded the pre-fix SMS/notification continuity implementation and subsequently passed in the focused rerun. Full lint now passes with zero errors and 111 existing warnings after a narrow CommonJS script rule correction. A clean exact-source CI run remains required before the new signed client is qualified.
 
 Product launch, provider acceptance, financial activation and final client delivery remain open. No new device operation or deployment is implied by these source fixes.
+
+## Unavailable authentication restoration
+
+A cold live restore with no usable identity previously performed explicit logout cleanup. It now revokes in-memory access, unbinds private storage, closes the owner database and suspends native intake while retaining durable session bytes, legacy SMS data and encrypted Tracking queues. Rejected and timed-out current restorations also revoke a previous authenticated view; stale attempts cannot suspend a newer valid session. Explicit logout still clears its prior data and authenticated owner-switch cleanup is unchanged. Retained credentials are never accepted as authorization.
+
+AppShell owner configuration now has a generation fence before and after its asynchronous migration, preventing a timed-out operation from rebinding a private owner after suspension. Actual delayed digest and SecureStore paths exposed the race before the fix. The final focused run passed 61 tests, typecheck, scoped lint and diff checks. Independent review closed both late binding and prior-owner access findings. Native source is unchanged from `52b9bdc0784688dce364724bf333d0aaf261fbb4`; fresh full mobile CI and a newly exported signed bundle remain required.
+
+Clean CI for `52b9bdc0` passed all 481 mobile suites and 2,997 tests, including the Voice and decoder changes, and the native test job passed before APK assembly. It predates the unavailable-restoration changes above and does not qualify them.
+
+An additional read-only Staging query at 10:03 UTC found three Tracking preference rows, two enabled, with missing preferences defaulting disabled. Voice posting was OFF and active epochs zero. This is an observed launch constraint, not a change to settings or a guarantee for any specific Redmi owner. Receipt: `E:/Masarifi-staging-acceptance-2026-10-12/redmi-launch-preparation/staging-tracking-readonly-result.json`.

@@ -27,6 +27,11 @@ export async function restoreAppShellSession(
   identityService: Pick<SettingsService, 'getProfileSetup'> = settingsService
 ): Promise<void> {
   let active = true;
+  let unavailableSuspension: Promise<void> | undefined;
+  const suspendUnavailable = () =>
+    (unavailableSuspension ??= useAppShellStore
+      .getState()
+      .suspendUnavailableRestoration());
   let timer: ReturnType<typeof setTimeout>;
   const deadline = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
@@ -39,10 +44,15 @@ export async function restoreAppShellSession(
       restoreCurrentSession(
         authService,
         () => active && isCurrent(),
-        identityService
+        identityService,
+        suspendUnavailable
       ),
       deadline
     ]);
+  } catch (error) {
+    if (resolveClientMode() === 'live' && isCurrent())
+      await suspendUnavailable();
+    throw error;
   } finally {
     active = false;
     clearTimeout(timer!);
@@ -52,7 +62,8 @@ export async function restoreAppShellSession(
 async function restoreCurrentSession(
   authService: AuthService,
   isCurrent: () => boolean,
-  identityService: Pick<SettingsService, 'getProfileSetup'>
+  identityService: Pick<SettingsService, 'getProfileSetup'>,
+  suspendUnavailable: () => Promise<void>
 ): Promise<void> {
   const session = await authService.restoreSession();
   if (!isCurrent()) return;
@@ -92,7 +103,10 @@ async function restoreCurrentSession(
       .setProfileSetup(snapshot.complete ? 'complete' : 'incomplete', snapshot);
     return;
   }
-  if (isCurrent()) await useAppShellStore.getState().signOut();
+  if (isCurrent()) {
+    if (resolveClientMode() === 'live') await suspendUnavailable();
+    else await useAppShellStore.getState().signOut();
+  }
 }
 
 export async function signOutAppShellSession(

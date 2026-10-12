@@ -47,19 +47,24 @@ const sensitiveUserDataKeys = [
   keys.pinCredential
 ] as const;
 let activeOwnerHash: string | null = null;
+let ownerGeneration = 0;
 
 export async function configureAppShellStorageOwner(
   userId: string
 ): Promise<void> {
+  const generation = ++ownerGeneration;
   const ownerHash = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     userId
   );
+  if (generation !== ownerGeneration) return;
   await migrateLegacyPrivacyLock(ownerHash);
+  if (generation !== ownerGeneration) return;
   activeOwnerHash = ownerHash;
 }
 
 export function clearAppShellStorageOwner(): void {
+  ownerGeneration++;
   activeOwnerHash = null;
 }
 

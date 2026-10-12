@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import * as Crypto from 'expo-crypto';
+import { useAppShellStore } from '@/state/app-shell';
+import { restoreAppShellSession } from '@/features/auth/session-controller';
+import type { AuthService } from '@/services/contracts/app-shell-service';
 
 import {
   clearAppShellStorageOwner,
@@ -93,6 +97,64 @@ afterEach(() => {
 });
 
 describe('createAppShellStorage', () => {
+  it.each(['digest', 'migration'] as const)(
+    'does not restore owner access when %s finishes after unavailable-session suspension',
+    async (stage) => {
+      let finish!: () => void;
+      let entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      if (stage === 'digest')
+        jest.mocked(Crypto.digestStringAsync).mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = () => resolve('b'.repeat(64));
+              entered();
+            })
+        );
+      else
+        secureGet.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = () => resolve(null);
+              entered();
+            })
+        );
+      await AsyncStorage.setItem(
+        'masarifi.appShell.pendingDestination',
+        '/welcome'
+      );
+      await AsyncStorage.setItem(
+        `masarifi.appShell.pendingDestination.${'b'.repeat(24)}`,
+        '/private'
+      );
+      const configuring = configureAppShellStorageOwner('owner-b');
+      await started;
+      process.env.EXPO_PUBLIC_CLIENT_MODE = 'live';
+      jest.useFakeTimers();
+      useAppShellStore.setState({ session: null });
+      try {
+        const auth = {
+          restoreSession: () => new Promise(() => undefined)
+        } as AuthService;
+        const restoring = restoreAppShellSession(auth);
+        const rejected = expect(restoring).rejects.toThrow(
+          'bootstrap unavailable'
+        );
+        await jest.advanceTimersByTimeAsync(30_000);
+        await rejected;
+      } finally {
+        jest.useRealTimers();
+        delete process.env.EXPO_PUBLIC_CLIENT_MODE;
+      }
+      finish();
+      await configuring;
+      expect(await createAppShellStorage().loadPendingDestination()).toBe(
+        '/welcome'
+      );
+    }
+  );
   it('clears every native app-shell user record', async () => {
     await clearAppShellUserData();
 

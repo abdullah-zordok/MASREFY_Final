@@ -57,6 +57,7 @@ interface AppShellState {
   ) => Promise<void>;
   expireSession: () => Promise<void>;
   signOut: () => Promise<void>;
+  suspendUnavailableRestoration: () => Promise<void>;
   setOnboarding: (progress: OnboardingProgress) => Promise<void>;
   advanceOnboarding: (
     steps: readonly OnboardingStep[],
@@ -256,6 +257,15 @@ export const useAppShellStore = create<AppShellState>((set, get) => ({
     const expired = { ...session, status: 'expired' as const };
     await storage.saveSession(expired);
     set({ session: expired });
+  },
+
+  suspendUnavailableRestoration: async () => {
+    set({ ...initialState, hydrated: true, session: signedOutSession });
+    clearAppShellStorageOwner();
+    await Promise.all([
+      clearDatabaseOwner(),
+      resetRuntimeIdentityData({ kind: 'restore-unavailable' })
+    ]);
   },
 
   signOut: async () => {
