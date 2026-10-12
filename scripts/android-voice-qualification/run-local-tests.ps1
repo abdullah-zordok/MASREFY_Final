@@ -21,6 +21,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Bounded snapshot verification failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Committed WAL reconstruction failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.ExistingDatabaseKeyTest
 if ($LASTEXITCODE -ne 0) { throw 'Existing-only key decryption failed.' }
+& java -cp $outputRoot com.masarifi.voicequalification.LocalAdmissionCollectorTest
+if ($LASTEXITCODE -ne 0) { throw 'Local admission collector failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.StrictJsonTest
 if ($LASTEXITCODE -ne 0) { throw 'Bounded strict JSON parsing failed.' }
 & java -cp $outputRoot com.masarifi.voicequalification.SecureStoreKeyIndexTest
@@ -45,6 +47,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Bounded strict fixture metadata read failed.' 
 if ($LASTEXITCODE -ne 0) { throw 'Closed reader stage tests failed.' }
 & python "$testRoot/test-private-probe-receipt.py"
 if ($LASTEXITCODE -ne 0) { throw 'Reader receipt parser tests failed.' }
+foreach ($script in @("$PSScriptRoot/admission/test_admission_gate.py", "$PSScriptRoot/admission/test_parse_probe.py", "$testRoot/admission-query-fixtures.py")) {
+    & python $script
+    if ($LASTEXITCODE -ne 0) { throw 'Admission qualification failed.' }
+    & python -O $script
+    if ($LASTEXITCODE -ne 0) { throw 'Optimized admission qualification failed.' }
+}
 & python "$testRoot/test-probe-build.py"
 if ($LASTEXITCODE -ne 0) { throw 'Offline real-target probe packaging gate failed.' }
 & python "$testRoot/test-bootstrap-observations.py"

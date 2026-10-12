@@ -72,7 +72,7 @@ done:
 }
 JNIEXPORT jint JNICALL Java_com_masarifi_voicequalification_NativeSnapshotReader_nVisit
         (JNIEnv *env,jobject sink,jlong handle,jint query) {
-    if(!handle || query<VQS_SCHEMA || query>VQS_MARKER)return VQS_INPUT;
+    if(!handle || query<VQS_SCHEMA || query>VQS_SYNC_STATE)return VQS_INPUT;
     jclass type=(*env)->GetObjectClass(env,sink);
     jmethodID accept=type?(*env)->GetMethodID(env,type,"accept","([I[J[[B)V"):NULL;
     if(!accept || (*env)->ExceptionCheck(env)){if((*env)->ExceptionCheck(env))(*env)->ExceptionClear(env);return VQS_VISITOR;}

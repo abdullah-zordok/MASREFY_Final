@@ -86,6 +86,10 @@ class Reader:
                 values = []
                 for number in range(pointer.contents.count):
                     cell = pointer.contents.cells[number]
+                    if cell.kind not in (1, 3, 5):
+                        # Match the production Java boundary: BLOB/REAL cannot
+                        # be silently interpreted as SQL NULL or valid text.
+                        return 1
                     values.append(cell.integer if cell.kind == 1 else
                                   c.string_at(cell.text, cell.length).decode("utf-8") if cell.kind == 3 else None)
                 collected.append(values)
@@ -165,6 +169,10 @@ def main():
         return True
     with ThreadPoolExecutor(max_workers=8) as threads:
         checked(all(threads.map(independent_reads, range(8))), "96 independent reads across eight threads")
+    admission_spec = importlib.util.spec_from_file_location("admission_queries", Path(__file__).with_name("admission-query-fixtures.py"))
+    admission = importlib.util.module_from_spec(admission_spec)
+    admission_spec.loader.exec_module(admission)
+    admission.qualify(production, root, checked)
     with production.open(plain) as reader:
         status, rows = reader.rows(2)
         checked(status == 0 and len(rows) == 2 and rows[0][2] == '{"phase":"processing"}', "actual SQLite rows from owned RAM")

@@ -45,6 +45,9 @@ public final class VoiceStoreQualification {
     }
 
     static Result qualify(VoiceStoreSnapshot snapshot,ExistingDatabaseKey.ExistingKeySource keys,SnapshotReader.Factory factory) {
+        return qualify(snapshot,keys,factory,null);
+    }
+    static Result qualify(VoiceStoreSnapshot snapshot,ExistingDatabaseKey.ExistingKeySource keys,SnapshotReader.Factory factory,LocalAdmissionCollector admission) {
         Progress progress=new Progress();
         try {
             if(snapshot==null || factory==null)throw failure("STORE_INPUT");
@@ -74,7 +77,7 @@ public final class VoiceStoreQualification {
                     var committed=progress.at(Stage.OWNER_WAL_RECONSTRUCT,()->CommittedWalSnapshot.reconstruct(snapshot.content(name),snapshot.content(name+"-wal")));
                     var reader=progress.at(Stage.OWNER_DATABASE_OPEN,()->factory.open(committed.bytes(),key.bytes()))) {
                     counts.frames+=committed.committedFrames();
-                    if(mobile(reader,hash,counts,progress))markedOwners.add(hash);
+                    if(mobile(reader,hash,counts,progress,admission))markedOwners.add(hash);
                     counts.owners++;progress.stage=Stage.OWNER_RESOURCES_CLOSE;
                 }
             }
@@ -91,7 +94,7 @@ public final class VoiceStoreQualification {
                 try(var committed=progress.at(Stage.LEGACY_WAL_RECONSTRUCT,()->CommittedWalSnapshot.reconstruct(snapshot.content(LEGACY),snapshot.content(LEGACY+"-wal")));
                     var reader=progress.at(Stage.LEGACY_DATABASE_OPEN,()->factory.open(committed.bytes(),null))) {
                     counts.frames+=committed.committedFrames();
-                    boolean marked=mobile(reader,null,counts,progress);
+                    boolean marked=mobile(reader,null,counts,progress,admission);
                     progress.stage=Stage.LEGACY_MARKER_ABSENCE;if(marked)throw failure("LEGACY_MARKER_UNEXPECTED");
                     counts.legacy++;progress.stage=Stage.LEGACY_RESOURCES_CLOSE;
                 }
@@ -107,8 +110,10 @@ public final class VoiceStoreQualification {
                     progress.stage=Stage.ASYNC_ROWS;
                     each(reader,SnapshotReader.Query.LEGACY,2,row -> {
                         String key=text(row[0]),value=text(row[1]);
-                        if(key.toLowerCase(java.util.Locale.ROOT).contains("masarifi.voice"))
+                        if(key.toLowerCase(java.util.Locale.ROOT).contains("masarifi.voice")) {
                             counts.add("ASYNC",VoiceJournalClassifier.legacy(key,value));
+                            if(admission!=null)admission.legacyPresent();
+                        }
                     });
                     counts.async++;progress.stage=Stage.ASYNC_RESOURCES_CLOSE;
                 }
@@ -143,7 +148,7 @@ public final class VoiceStoreQualification {
         for(int index=0;index<28;index++)
             if(journal[index]!=0)throw failure("ROLLBACK_UNCLASSIFIED");
     }
-    private static boolean mobile(SnapshotReader reader,String owner,Counts counts,Progress progress) {
+    private static boolean mobile(SnapshotReader reader,String owner,Counts counts,Progress progress,LocalAdmissionCollector admission) {
         progress.stage=Stage.MOBILE_USER_VERSION;
         if(userVersion(reader)!=0)throw failure("SCHEMA_MOBILE_VERSION");
         progress.stage=Stage.MOBILE_MIGRATIONS;
@@ -151,6 +156,21 @@ public final class VoiceStoreQualification {
         each(reader,SnapshotReader.Query.MIGRATIONS,1,row -> versions.add(integer(row[0])));
         progress.stage=Stage.MOBILE_SCHEMA;
         var coverage=VoiceDatabaseSchema.mobile(schema(reader),versions);
+        if(admission!=null) {
+            if(owner==null)admission.legacyPresent();
+            else {
+                admission.owner(owner,coverage.version(),false);
+                if(coverage.version()==15) {
+                    each(reader,SnapshotReader.Query.SYNC_MUTATIONS,3,row -> {
+                        text(row[0]);text(row[1]);admission.finance(text(row[2]));
+                    });
+                    each(reader,SnapshotReader.Query.SMS_IMPORT,2,row -> admission.tracking(text(row[0]),text(row[1])));
+                    each(reader,SnapshotReader.Query.SYNC_STATE,4,row -> {
+                        text(row[0]);text(row[1]);if(row[2]!=null)text(row[2]);integer(row[3]);
+                    });
+                }
+            }
+        }
         if(coverage.migrationMarker()) {
             progress.stage=Stage.MOBILE_MIGRATION_MARKER;
             int[] found={0};
@@ -162,10 +182,20 @@ public final class VoiceStoreQualification {
         }
         progress.stage=Stage.MOBILE_BATCH_ROWS;
         if(coverage.batch())each(reader,SnapshotReader.Query.BATCH,3,row ->
-                counts.add(owner==null?"LEGACY_BATCH":"OWNER_BATCH",VoiceJournalClassifier.batch(text(row[0]),integer(row[1]),text(row[2]))));
+                {
+                    var assessment=VoiceJournalClassifier.batch(text(row[0]),integer(row[1]),text(row[2]));
+                    counts.add(owner==null?"LEGACY_BATCH":"OWNER_BATCH",assessment);
+                    if(admission!=null && owner!=null) {
+                        var payload=(java.util.Map<?,?>)StrictJson.parse(text(row[2]));
+                        admission.batch(owner,assessment.terminal(),assessment.audioOwned(),StrictJson.integer(payload.get("recordedAt")));
+                    }
+                });
         progress.stage=Stage.MOBILE_SINGLETON_ROWS;
         if(coverage.singleton())each(reader,SnapshotReader.Query.SINGLETON,4,row ->
-                counts.add(owner==null?"LEGACY_SINGLETON":"OWNER_SINGLETON",VoiceJournalClassifier.singleton(text(row[0]),text(row[1]),integer(row[2]),text(row[3]))));
+                {
+                    var assessment=VoiceJournalClassifier.singleton(text(row[0]),text(row[1]),integer(row[2]),text(row[3]));
+                    counts.add(owner==null?"LEGACY_SINGLETON":"OWNER_SINGLETON",assessment);
+                });
         return coverage.migrationMarker();
     }
     private static List<VoiceDatabaseSchema.SchemaObject> schema(SnapshotReader reader) {

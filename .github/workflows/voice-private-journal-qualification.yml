@@ -49,6 +49,11 @@ jobs:
           "$JAVA_HOME_17_X64/bin/java" -Xmx96m -cp "$build_dir" com.masarifi.voicequalification.VoiceStoreSnapshotHeapTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.CommittedWalSnapshotTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.ExistingDatabaseKeyTest
+          "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.LocalAdmissionCollectorTest
+          python3 scripts/android-voice-qualification/admission/test_admission_gate.py
+          python3 -O scripts/android-voice-qualification/admission/test_admission_gate.py
+          python3 scripts/android-voice-qualification/admission/test_parse_probe.py
+          python3 -O scripts/android-voice-qualification/admission/test_parse_probe.py
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.StrictJsonTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.SecureStoreKeyIndexTest
           "$JAVA_HOME_17_X64/bin/java" -cp "$build_dir" com.masarifi.voicequalification.VoiceJournalClassifierTest

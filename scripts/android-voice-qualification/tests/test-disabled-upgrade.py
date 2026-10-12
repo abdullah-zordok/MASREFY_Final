@@ -19,7 +19,7 @@ class UpgradeGuards(unittest.TestCase):
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
         import copy
         phase={'verdict':'PASS_DISPOSABLE_ENCRYPTED_JOURNALS','fixtureFingerprint':'c'*64,'cases':'57',
-               'readerStageCases':'25','qualificationStageCases':'19','workSummaryCases':'38','packageState':'3','applicationEnabled':'false'}
+               'readerStageCases':'25','qualificationStageCases':'19','workSummaryCases':'38','admissionCases':'38','packageState':'3','applicationEnabled':'false'}
         runtime={'disabledReplacement':{'beforeApkSha256':'a'*64,'afterApkSha256':'b'*64},
                  'encryptedJournals':{'runs':[dict(phase)],'preReplacementRuns':[dict(phase)],'postReplacementRuns':[dict(phase)]}}
         artifact={'target':{'sha256':'a'*64},'replacement':{'sha256':'b'*64}}

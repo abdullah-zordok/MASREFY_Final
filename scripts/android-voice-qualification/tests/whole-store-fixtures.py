@@ -95,7 +95,9 @@ def main():
     def single_sql(payload):
         return "INSERT INTO voice_operation_journal(id,attempt_id,revision,payload) VALUES('singleton'," + quote(ID) + ",2," + quote(json.dumps(payload, ensure_ascii=False)) + ")"
 
-    root, want = case("empty-two-owners", owners=(A, B)); database(root); database(root, B)
+    # A recognized older schema is still valid Voice evidence, but cannot be
+    # called current for launch admission. Keep both stores genuinely empty.
+    root, want = case("empty-two-owners", owners=(A, B)); database(root); database(root, B, version=14)
     for phase in ("captured", "created", "uploaded", "processing", "cancel_requested", "completed", "cancelled", "failed"):
         terminal = phase in ("completed", "cancelled", "failed")
         root, want = case("batch-" + phase, "CLEAR" if terminal else "BLOCKED", pending=int(not terminal), terminal=int(terminal))
@@ -107,8 +109,17 @@ def main():
         database(root, statements=[single_sql(singleton(phase))])
     root, want = case("retained-confirmation-audio", "BLOCKED", terminal=1, audio=1, confirmation=1)
     database(root, statements=[single_sql(singleton("saved", "private-fixture-audio", {}))])
-    root, want = case("second-owner-committed-wal", "BLOCKED", pending=1, owners=(A, B)); database(root)
-    database(root, B, [batch_sql(batch("processing"))], wal=True); want["wal"] = True
+    def finance_sql(identifier, status):
+        return ("INSERT INTO sync_mutation_queue(operation_id,domain,resource_type,operation,payload,status,created_at,updated_at) "
+                "VALUES(" + quote(identifier) + ",'transactions','transaction','create','{}'," + quote(status) + ",0,0)")
+
+    root, want = case("second-owner-committed-wal", "BLOCKED", pending=1, owners=(A, B))
+    database(root, statements=[finance_sql("first-pending", "pending")])
+    database(root, B, [batch_sql(batch("processing")),
+                      *[finance_sql("second-" + status, status) for status in ("sending", "applied", "conflict", "rejected")],
+                      "INSERT INTO sms_import_queue VALUES('singleton','{\"version\":1,\"pending\":[]}')",
+                      "INSERT INTO sync_state VALUES('transactions','public-fixture-cursor',NULL,123)"], wal=True)
+    want["wal"] = True
     root, want = case("legacy-committed-wal", "BLOCKED", pending=1, claim=A)
     database(root, marked=True); database(root, statements=[batch_sql(batch("processing"))], wal=True, legacy=True); want["wal"] = True
     root, want = case("legacy-empty-bound", claim=A); database(root, marked=True); database(root, legacy=True)
@@ -212,8 +223,27 @@ def main():
         raise AssertionError('MISSING_WORK_SUMMARY_ORACLE: '+name)
 
     qualification_stages = {'unknown-schema': 'MOBILE_SCHEMA', 'invalid-history': 'MOBILE_SCHEMA', 'wrong-marker-owner': 'MOBILE_MIGRATION_MARKER', 'empty-marker': 'MOBILE_MIGRATION_MARKER', 'unknown-marker-row': 'MOBILE_MIGRATION_MARKER', 'unknown-phase': 'MOBILE_BATCH_ROWS', 'bad-row-payload': 'MOBILE_BATCH_ROWS', 'key-missing': 'OWNER_KEY_DECRYPT', 'key-wrong': 'OWNER_DATABASE_OPEN', 'rollback-journal': 'OWNER_ROLLBACK_CHECK', 'hmac-corrupt-unrelated-page': 'OWNER_DATABASE_OPEN', 'truncated-wal': 'OWNER_WAL_RECONSTRUCT', 'unbound-legacy': 'LEGACY_DATABASE_BINDING', 'uppercase-legacy-claim': 'LEGACY_CLAIM', 'async-only-missing-owner': 'OWNER_DATABASE_REQUIRED', 'legacy-key-malformed': 'ASYNC_ROWS'}
+    def admission_expected(name):
+        # Explicit scenario oracle, independent of production Java decisions.
+        prunable = name in {"batch-completed", "batch-cancelled", "batch-failed",
+                            "rollback-owner-truncate-clear", "rollback-owner-persist-clear"}
+        legacy = name in {"legacy-empty-bound", "legacy-committed-wal", "legacy-rk-pending",
+                          "rollback-async-truncate-pending", "rollback-async-persist-pending",
+                          "rollback-legacy-truncate-clear", "rollback-legacy-truncate-pending",
+                          "rollback-legacy-persist-clear", "rollback-legacy-persist-pending"}
+        older_schema = name == "empty-two-owners"
+        queued = name == "second-owner-committed-wal"
+        return dict(admissionVersion="1", admissionVerdict="BLOCKED_EXTERNAL_ASSURANCES_REQUIRED",
+                    admissionLocalStatus="BLOCKED" if prunable or legacy or older_schema or queued else "OBSERVED_NO_LOCAL_BLOCKER",
+                    admissionPrunableBatches="1" if prunable else "0",
+                    admissionFinancePending="2" if queued else "0", admissionTrackingRows="1" if queued else "0",
+                    admissionSchemaCurrent="false" if older_schema else "true",
+                    admissionLegacyCleanup="true" if legacy else "false")
+
     for root, want in cases:
-        if want["verdict"] != "INDETERMINATE": want["workSummary"] = work_summary(root.name)
+        if want["verdict"] != "INDETERMINATE":
+            want["workSummary"] = work_summary(root.name)
+            want["admission"] = admission_expected(root.name)
         if want["verdict"] == "INDETERMINATE" and "qualificationStage" not in want: want["qualificationStage"] = qualification_stages[root.name]
         (root / "fixture.json").write_text(json.dumps(want, indent=2), encoding="utf-8")
     if args.jni_library:

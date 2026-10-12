@@ -86,7 +86,7 @@ def validate_upgrade_provenance(runtime,artifact):
         gate(isinstance(runs,list) and len(runs)==1)
         run=runs[0]
         gate(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and
-             run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and
+             run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and run.get("admissionCases")=="38" and
              run.get("packageState")=="3" and run.get("applicationEnabled")=="false" and
              run.get("fixtureFingerprint")==baseline[0]["fixtureFingerprint"])
 
@@ -101,7 +101,7 @@ def validate_runtime(runtime):
     gate(encrypted.get("seed",{}).get("verdict")=="SEEDED_PUBLIC_SYNTHETIC_FIXTURES" and encrypted.get("seed",{}).get("missingExistingAliasesFailClosed")=="true")
     gate(encrypted.get("seed",{}).get("androidRollbackJournalCases")=="4")
     runs=encrypted.get("runs",[])
-    gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
+    gate(len(runs)==3 and all(run.get("verdict")=="PASS_DISPOSABLE_ENCRYPTED_JOURNALS" and run.get("cases")=="57" and run.get("readerStageCases")=="25" and run.get("qualificationStageCases")=="19" and run.get("workSummaryCases")=="38" and run.get("admissionCases")=="38" and re.fullmatch("[0-9a-f]{64}",run.get("fixtureFingerprint","")) for run in runs))
     gate(len(set(run["fixtureFingerprint"] for run in runs))==1)
     validate_upgrade(runtime.get("disabledReplacement"))
 

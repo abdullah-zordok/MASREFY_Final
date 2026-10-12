@@ -435,6 +435,9 @@ static const char *query_sql(enum VqsQuery query) {
         case VQS_LEGACY: return "SELECT key,value FROM catalystLocalStorage ORDER BY key";
         case VQS_USER_VERSION: return "PRAGMA user_version";
         case VQS_MARKER: return "SELECT key,value FROM _masarifi_migration_state ORDER BY key";
+        case VQS_SYNC_MUTATIONS: return "SELECT operation_id,domain,status FROM sync_mutation_queue ORDER BY operation_id";
+        case VQS_SMS_IMPORT: return "SELECT id,payload FROM sms_import_queue ORDER BY id";
+        case VQS_SYNC_STATE: return "SELECT domain,cursor,last_mutation_id,updated_at FROM sync_state ORDER BY domain";
         default: return NULL;
     }
 }

@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Existing-only real-target reader. No fixture seeder, app loader, writes or network code. */
 public final class PrivateJournalDiagnostic extends Instrumentation {
-    private String observedUid,approvedProbeHash;
+    private String observedUid,approvedProbeHash,admissionNonce,admissionDeadline;
     @Override public Application newApplication(ClassLoader loader,String name,Context context)
             throws InstantiationException,IllegalAccessException,ClassNotFoundException {
         PrivateProbeFailure.Stage stage=PrivateProbeFailure.Stage.UNEXPECTED;
@@ -42,7 +42,7 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
     }
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
-        if(arguments!=null){observedUid=arguments.getString("observedTargetUid");approvedProbeHash=arguments.getString("approvedProbeSha256");}
+        if(arguments!=null){observedUid=arguments.getString("observedTargetUid");approvedProbeHash=arguments.getString("approvedProbeSha256");admissionNonce=arguments.getString("admissionNonce");admissionDeadline=arguments.getString("admissionDeadline");}
         start();
     }
     @Override public void onStart() {
@@ -72,13 +72,19 @@ public final class PrivateJournalDiagnostic extends Instrumentation {
                 stage=PrivateReaderFailure.Stage.KEYSTORE_OPEN;
                 var keys=ExistingDatabaseKey.androidExistingOnly();
                 stage=PrivateReaderFailure.Stage.QUALIFICATION;
-                var result=VoiceStoreQualification.qualify(snapshot,keys,NativeSnapshotReader::open);
+                LocalAdmissionCollector admission=null;
+                if(admissionNonce!=null || admissionDeadline!=null) {
+                    if(admissionDeadline==null || !admissionDeadline.matches("[0-9]{1,16}"))throw failure();
+                    admission=new LocalAdmissionCollector(admissionNonce,System.currentTimeMillis(),Long.parseLong(admissionDeadline));
+                }
+                var result=VoiceStoreQualification.qualify(snapshot,keys,NativeSnapshotReader::open,admission);
                 stage=PrivateReaderFailure.Stage.SNAPSHOT_UNCHANGED;if(!snapshot.verifyUnchanged())throw failure();
                 stage=PrivateReaderFailure.Stage.FILE_STAMPS_UNCHANGED;if(!nativeBefore.equals(stamps(root,snapshot.names())))throw failure();
                 stage=PrivateReaderFailure.Stage.DIRECTORY_STAMPS_UNCHANGED;if(!before.equals(stamps(root,List.of())))throw failure();
                 stage=PrivateReaderFailure.Stage.IDENTITY_AFTER;requireIdentity(context);
                 stage=PrivateReaderFailure.Stage.PROCESS_AFTER;requireOnlyPrivateProcess(context);
                 stage=PrivateReaderFailure.Stage.RECEIPT_BUILD;
+                if(admission!=null)admission.receipt().forEach(receipt::putString);
                 receipt.putString("verdict",result.verdict());receipt.putString("workSummary",result.workSummary());receipt.putString("fingerprint",result.fingerprint());
                 receipt.putInt("owners",result.ownerDatabases());receipt.putInt("legacy",result.legacyDatabases());
                 receipt.putInt("async",result.asyncDatabases());receipt.putInt("rows",result.rows());
