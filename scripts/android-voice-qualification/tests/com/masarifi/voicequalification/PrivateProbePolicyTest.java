@@ -15,6 +15,11 @@ public final class PrivateProbePolicyTest {
         valid(identity(null,null,35,10123,10123,null,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
         valid(identity(null,null,35,10123,10123,null,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),"/data/data/com.masarifi.mobile"));
         valid(identity(null,null,35,10123,10123,"be33158e282efa4d8ae6b5f1ad9541e1a90ac9a3a42d0d830bbbf7d601346c9f",null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
+        String preservation="23a5653f5d5c1351189b1bc7f3de4a71c47a391b69bdb9c29edd49267b9aad83";
+        valid(identity(null,null,35,10123,10123,preservation,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
+        invalid(identity(null,null,35,10123,10123,preservation,"0".repeat(64),null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
+        invalid(identity(null,PrivateProbePolicy.TARGET,35,10123,10123,preservation,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
+        invalid(identity(null,null,35,10123,10124,preservation,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
         invalid(identity(null,null,35,10123,10123,PrivateProbePolicy.UPGRADE_APK,"0".repeat(64),null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
         invalid(identity(null,PrivateProbePolicy.TARGET,35,10123,10123,PrivateProbePolicy.UPGRADE_APK,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));
         invalid(identity(null,null,35,10123,10124,PrivateProbePolicy.UPGRADE_APK,null,null,null,null,false,0,providers(),List.of(PrivateProbePolicy.TARGET),null));

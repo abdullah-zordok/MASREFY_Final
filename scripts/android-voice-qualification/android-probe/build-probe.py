@@ -16,6 +16,7 @@ ROOT=HERE.parent
 CERT="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c"
 TARGET_SHA="0c0dd12035bd22eeb6f45b1597731462b967533cb394a23d3f9430a0d7a78685"
 UPGRADE_SHA="be33158e282efa4d8ae6b5f1ad9541e1a90ac9a3a42d0d830bbbf7d601346c9f"
+PRESERVATION_SHA="23a5653f5d5c1351189b1bc7f3de4a71c47a391b69bdb9c29edd49267b9aad83"
 ANDROID="{http://schemas.android.com/apk/res/android}"
 ANDROID35_JAR_SHA="4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b"
 
@@ -176,7 +177,7 @@ def main():
         receipt={"qualification":"OFFLINE_PROBE_REVIEW_ONLY","installed":False,"executed":False,"realTargetRuntimeAcceptance":False,"signed":args.sign,
                  "runtimeAndroidJarSha256":digest(args.runtime_android_jar),"platformDescriptorCheckerSha256":digest(ROOT/"tests/test-android-buffer-descriptors.py"),
                  "apk":str(apk),"apkSha256":digest(apk),"signature":signature,"targetPackage":"com.masarifi.mobile","process":"com.masarifi.mobile:voicequalify",
-                 "historicalTargetApkSha256":TARGET_SHA,"supportedTargetApkSha256":[TARGET_SHA,UPGRADE_SHA],"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
+                 "historicalTargetApkSha256":TARGET_SHA,"supportedTargetApkSha256":[TARGET_SHA,UPGRADE_SHA,PRESERVATION_SHA],"certificateSha256":CERT,"diagnosticSourceHashes":source_hashes(),
                  "probeSourceHashes":{path.name:digest(path) for path in (HERE/"PrivateJournalDiagnostic.java",HERE/"AndroidManifest.xml",Path(__file__))},"nativeBuild":native}
         (args.output/"build-receipt.json").write_text(json.dumps(receipt,indent=2),encoding="utf-8")
     print(json.dumps({"result":"OFFLINE_SIGNED_PROBE_REVIEW_ONLY" if args.sign else "OFFLINE_UNSIGNED_PROBE_COMPILED","apkSha256":receipt["apkSha256"],"installed":False,"executed":False}))
